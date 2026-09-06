@@ -507,6 +507,12 @@ void setup1()
   initPalette256();
   initScreenRAM();
 
+  // Initialize the controller before issuing drawing commands.
+  if (!gfx->begin())
+  {
+    Serial.println("gfx->begin() failed!");
+  }
+
   gfx->fillScreen(0x0000); //SOLID BLUE DESKTOP ???
 
   gxp = new GfxCompat(gfx);
