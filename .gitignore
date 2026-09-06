@@ -1,0 +1,4 @@
+nukedc-recovery-mostly-corrupted-some-valid/
+**/build/
+**/.build/
+**/.vscode/c_cpp_properties.json

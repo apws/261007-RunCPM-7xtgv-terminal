@@ -1,0 +1,10 @@
+profiles:
+  rp2350-touch-lcd-2:
+    fqbn: rp2040:rp2040:generic_rp2350:variantchip=RP2350A,flash=16777216_0,psramcs=GPIOnone,psram=0mb,psramfreq=freq109,freq=150,arch=arm,opt=Small,os=none,profile=Disabled,rtti=Disabled,stackprotect=Disabled,exceptions=Disabled,dbgport=Disabled,dbglvl=None,usbstack=picosdk,ipbtstack=ipv4only,uploadmethod=default
+    platforms:
+      - platform: rp2040:rp2040 (5.4.4)
+        platform_index_url: https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
+    libraries:
+      - GFX Library for Arduino (1.6.4)
+      - SdFat (2.3.0)
+default_profile: rp2350-touch-lcd-2

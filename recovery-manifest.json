@@ -1,0 +1,284 @@
+[
+  {
+    "path": "260126a 7xtgv - WordStarVT52SGR-basic mapping.txt",
+    "size": 6959,
+    "sha256": "543f05128253c4c70eab4da77c6076b7b9804e754a91ea8eb3a84d07a55f4d29",
+    "mtime_ns": 1769487262000000000
+  },
+  {
+    "path": "7xtgv-QL-font.h",
+    "size": 88510,
+    "sha256": "04de367653f6ece07e6bdf8f99d5ee77fd6767ed0d35b74495ffa0c6751d795a",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "7xtgv_demo-cheers.h",
+    "size": 16930,
+    "sha256": "171610b4637aac2865998721efcd0ca91ca869480408e6959abf658d9a3c5fdf",
+    "mtime_ns": 1769435724000000000
+  },
+  {
+    "path": "RunCPM_7xtgv.ino.cpp",
+    "size": 12027,
+    "sha256": "648439dcd75e2b2ef8c224852c0711a0b31f15205798b90a1341a8e59b5e0530",
+    "mtime_ns": 1769443130000000000
+  },
+  {
+    "path": "RunCPM_v6_9_Pico2_300Mhz_Internal_30112025.ino.cpp",
+    "size": 10238,
+    "sha256": "4c07a170dfcb2750051a445b41c6028eb5b55430aad49fcf8bcbdf3df45f1bf7",
+    "mtime_ns": 1769311624000000000
+  },
+  {
+    "path": "Termite/Termite.ini",
+    "size": 1473,
+    "sha256": "61cbd29aef1112bc4cc8964a75eaa19191c46e51aee2fb6f484830de5df96ca9",
+    "mtime_ns": 1688410736000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/build.options.json",
+    "size": 1115,
+    "sha256": "bcb2329ffcd2a1b6c4ca19875e36d1405bac25ccda37e37e992245aaacebf469",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/includes.cache",
+    "size": 573952,
+    "sha256": "cd5085a6d1b7efe2f2108b03cb4bc28ad6da0fc31773475c0c0259ebb4211bd8",
+    "mtime_ns": 1769443128000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/.vscode/arduino.json",
+    "size": 846,
+    "sha256": "bde5926ed36acc929ce82621f226ee19dc87942c12856171c057ed6ae6401f5c",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/.vscode/c_cpp_properties.json",
+    "size": 5001,
+    "sha256": "3776933c50284af73c2327146cc6f5bff3c2004fddf4d144c806824ce183d211",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/7xtgv-QL-font.h",
+    "size": 88510,
+    "sha256": "04de367653f6ece07e6bdf8f99d5ee77fd6767ed0d35b74495ffa0c6751d795a",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/7xtgv-gfxsetup.h",
+    "size": 16259,
+    "sha256": "dde5fdc37c2806986eccbd5d081119a206f7ea1d5a0695bc7ec63c684bab901f",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/7xtgv_demo-cheers.h",
+    "size": 17021,
+    "sha256": "2d956249dbc8f6fa133ca8ab7d4b5485224cad9bff0814f7ae4f2b5b309af486",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/RunCPM_7xtgv.ino.cpp",
+    "size": 12027,
+    "sha256": "648439dcd75e2b2ef8c224852c0711a0b31f15205798b90a1341a8e59b5e0530",
+    "mtime_ns": 1769443130000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/abstraction_arduino.h",
+    "size": 14666,
+    "sha256": "8ddf22d415e6941b4fb7ff5c374ee1f68b13dc96eff6d6cf4ccbac41d3ec16c2",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/ccp.h",
+    "size": 42032,
+    "sha256": "6b99751c83c71556d899c146b86b287fff02f06376ef541f9422e2eaac07f04a",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/console.h",
+    "size": 2979,
+    "sha256": "a9371cd85a90777de5703251c97a5ccdd82e262d60de5112830dc799682416b8",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/cpm.h",
+    "size": 46772,
+    "sha256": "9013cc3e9fb00e23afcf3a69ad71d0bc572240cb69e16a9d770711ce6ac4df77",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/cpu1.h",
+    "size": 125202,
+    "sha256": "080f451adb87b7f220dea70712baf3cf917531a237c462fa6ceec25b1f31552f",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/cpu2.h",
+    "size": 80050,
+    "sha256": "2d520a685058aeeb133be6c716bf3fed2741fbb2267a2b310ecba80ce80980c9",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/cpu3.h",
+    "size": 47599,
+    "sha256": "8beba42383ddba7f3c781c2e251fa8a6d8943dc32af340af9c128e0091cda921",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/cpu4.h",
+    "size": 69099,
+    "sha256": "1923d4e92a11f48e098e2b18bf9a20f4b845c67c6e0d64e90d90ed9ff957b5e0",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/cpu_mhz.h",
+    "size": 3923,
+    "sha256": "741cfee47a23566d63189f98031a8ae5151b83c9f2db155822a89ab4f07302ed",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/debug.h",
+    "size": 38899,
+    "sha256": "6292f2d07651f1693afcef0531206eaa5a4aa39c9f8ac198fc9d093d2ec6c9fd",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/disk.h",
+    "size": 19468,
+    "sha256": "89c4a1424dfe367cf164c62d4614f86dde657dede20278c7097645141878e4cd",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/globals.h",
+    "size": 12783,
+    "sha256": "0ebc62f983f5ec92fbc3dc2c49387aba868412df60a41e0fe98e8e08bb694055",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/hal/arduino__gc.h",
+    "size": 407,
+    "sha256": "9a9f842304a9ae861a4e63608db3f0fbbb2de160ca26f2badbfa8af17229ba08",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/hal/arduino_due_sd_tf.h",
+    "size": 401,
+    "sha256": "1b1f8d6594947d67afb40ca8b0c24ca38251eac4ebea6f6689285e262f4e404d",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/hal/arduino_due_wireless_sd.h",
+    "size": 395,
+    "sha256": "a085adf0151b6a968783df7bb78e6ad3e357a4bd60c1a38e5c59ea7e779f107e",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/hal/esp32_devkit.h",
+    "size": 484,
+    "sha256": "581edd277f0f3c3ea7b49ea055ef70314c74ea15175c12300aac5eecd8f4b9df",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/hal/esp32_lolin32_pro.h",
+    "size": 491,
+    "sha256": "0b17f589a73cc51069900827e1e23565dd8ea679d340d1adb2e5c511b6e1c10d",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/hal/esp32_ttgo_t1.h",
+    "size": 476,
+    "sha256": "7e338a7ad050f10edb96007bc75c0e69c08bbd8c0046ba35cccf4946bb5d2d65",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "build_rp2350-touch-lcd-2/sketch/hal/pico_maker_pico_sd_spi1.h",
+    "size": 1533,
+    "sha256": "6f8f26372883eef2f7f4c51a0547b22f540a7b67d4646824b20da5da62633528",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "cpm.h",
+    "size": 46772,
+    "sha256": "9013cc3e9fb00e23afcf3a69ad71d0bc572240cb69e16a9d770711ce6ac4df77",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "cpu3.h",
+    "size": 47599,
+    "sha256": "8beba42383ddba7f3c781c2e251fa8a6d8943dc32af340af9c128e0091cda921",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "disk.h",
+    "size": 19468,
+    "sha256": "89c4a1424dfe367cf164c62d4614f86dde657dede20278c7097645141878e4cd",
+    "mtime_ns": 1769443078000000000
+  },
+  {
+    "path": "gfxsetup.h",
+    "size": 14913,
+    "sha256": "e7bf48ea3d6eab850bb153919013330a5519ec332d41895b214dc76db6b308d4",
+    "mtime_ns": 1769082820000000000
+  },
+  {
+    "path": "mixworx-7xtgv-demo.ino",
+    "size": 17050,
+    "sha256": "ce1be83e8ba18b52eb8738ec2f83e11ee33fafd7da3e9758ed4059417122f664",
+    "mtime_ns": 1768952960000000000
+  },
+  {
+    "path": "mixworx-7xtgv-demo.ino.bin",
+    "size": 111560,
+    "sha256": "8ffc3d620c5f86acf0a1645bf06ce987ea3617a0cfb8b7be42222ab37a43c024",
+    "mtime_ns": 1769015482000000000
+  },
+  {
+    "path": "mixworx-7xtgv-demo.ino.cpp",
+    "size": 19008,
+    "sha256": "582bb2fb250537e7406833aa146e38fbd3211fbe219b024e622a78d033929703",
+    "mtime_ns": 1769015354000000000
+  },
+  {
+    "path": "mixworx-7xtgv-demo.ino.uf2",
+    "size": 223744,
+    "sha256": "2b200b457c7bd11de8ff242dd9009df51ef6a5422b607367e8f45cb00c3139bf",
+    "mtime_ns": 1769015484000000000
+  },
+  {
+    "path": "mixworx_7xtgv_demo-cheers.ino.bin",
+    "size": 125760,
+    "sha256": "488d14d26bef1db22768b28b37a154b54b1f92140d8d8e7a8cacb002da4f4fa0",
+    "mtime_ns": 1769083914000000000
+  },
+  {
+    "path": "mixworx_7xtgv_demo-cheers.ino.cpp",
+    "size": 17477,
+    "sha256": "9ad079cb8dc774439353a88136c922563a6d9134157daffde88eab587b024311",
+    "mtime_ns": 1769082874000000000
+  },
+  {
+    "path": "mixworx_7xtgv_demo-cheers.ino.cpp.d",
+    "size": 39615,
+    "sha256": "27cc65cb06dcca463d6edb81edb5b5801711fefa88f4c7ec7571dbd507773093",
+    "mtime_ns": 1769082876000000000
+  },
+  {
+    "path": "mixworx_7xtgv_demo-cheers.ino.cpp.o",
+    "size": 93592,
+    "sha256": "f822b5c2866ce9f266415c132a9348fa353c9ed7b20ca6eb2f0d95139415dab6",
+    "mtime_ns": 1769083912000000000
+  },
+  {
+    "path": "qx2r.ino",
+    "size": 11235,
+    "sha256": "dcf5b6c54c7ce3b8bd3a8725ac2f53820d9dd9e79b2c7adcac16be609be6071c",
+    "mtime_ns": 1769181638000000000
+  },
+  {
+    "path": "sketch.yaml",
+    "size": 1261,
+    "sha256": "d6daabff46b917a24ffd596d2cb32419540f934fdd4675725dcaceab82ec9e85",
+    "mtime_ns": 1769016772000000000
+  }
+]

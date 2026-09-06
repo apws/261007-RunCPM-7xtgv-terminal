@@ -1,0 +1,24 @@
+# 7xtgv recovery workspace
+
+This directory contains two reconstructed Arduino sketches and the original
+recovery evidence. The evidence directory is intentionally excluded from the
+working projects and should be treated as read-only:
+
+`nukedc-recovery-mostly-corrupted-some-valid/`
+
+## Reconstructed sketches
+
+- `7xtgv-demo/` is the standalone display/demo sketch. It is based on the
+  intact `mixworx-7xtgv-demo.ino` and the recovered display/font headers.
+- `RunCPM_7xtgv/` is the RunCPM + 7xtgv dual-core sketch. Its intact RunCPM
+  headers match the January 2026 upstream history. Missing support headers
+  were restored from that upstream baseline; the RP2350 display and SD pin
+  header was reconstructed from the Waveshare schematic.
+
+Both projects have a `sketch.yaml` profile for `rp2040:rp2040` 5.4.4 and the
+Waveshare RP2350 Touch LCD 2. The first project compile-checks successfully;
+RunCPM also compile-checks successfully with SdFat 2.3.0.
+
+The original generated binaries, object files, corrupted files, timestamps,
+and Windows paths remain in the evidence directory. `recovery-manifest.json`
+records their hashes and sizes before reconstruction.
