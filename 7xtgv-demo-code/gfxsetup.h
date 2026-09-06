@@ -236,9 +236,10 @@ Arduino_GFX *gfx;
   #define GFX_MY  320
   #define GFX_ROT   3
   #define GFX_IPS   1
-  #define GFX_DX02 34
+  // Native 240x320 ST7789 window: no 34-pixel offset is needed.
+  #define GFX_DX02 0
   #define GFX_DY02  0
-  #define GFX_DX13 34
+  #define GFX_DX13 0
   #define GFX_DY13  0
 
   #define GFX_BL   15

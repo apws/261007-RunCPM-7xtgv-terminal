@@ -1,14 +1,11 @@
+//7xtgv specs - Copyright 2026 Petr Antos, ALL RIGHTS RESERVED (will be opened at release)
 
 //Arduino_GFX with board/display specific setup
-#include "gfxsetup.h"
+#include "7xtgv-gfxsetup.h"
 
 // ===========================
 // CONFIG
 // ===========================
-
-//7xtgv SCREEN OFFSET in px
-#define GFX_OFS_X 0
-#define GFX_OFS_Y 0
 
 // QL font cell in pixels
 #define CELL_W 6
@@ -29,10 +26,6 @@
 // Effective pixel dimensions of one rendered cell
 #define CELL_WZ (CELL_W * SCR_ZOOM)
 #define CELL_HZ (CELL_H * SCR_ZOOM)
-
-// 1,47in IPS 320x172 in chars of QL font cell
-#define SCR_COLS 52
-#define SCR_ROWS 17
 
 // Logical text grid dimensions after zooming
 #define TXT_COLS (SCR_COLS / SCR_ZOOM)
@@ -67,7 +60,7 @@ static GfxCompat* gxp = nullptr;
 static constexpr uint16_t CELL_PIXELS = (uint16_t)CELL_WZ * (uint16_t)CELL_HZ;
 static uint16_t cellBuf[CELL_PIXELS];
 
-// Your palette LUT (256 entries) – for theming/gamma later.
+// Palette LUT (256 entries) for theming/gamma later.
 // For now we only populate the few indices we use.
 static uint16_t palette256[256];
 
@@ -123,6 +116,8 @@ static void initPalette256()
 
   // Deep black
   palette256[PAL_DEEPBLACK] = 0x0000;
+  //meant as default background but will be configurable, may be also BLUE, etc
+  //just separate solid color of DESKTOP ... otherwise, GRAM noise ...
 
   // Paper palette: BRIGHT WHITE + pastel R/G/B
   palette256[PAL_PAPER_WHITE]  = rgb565(255, 255, 255);
@@ -130,10 +125,12 @@ static void initPalette256()
   palette256[PAL_PAPER_PGREEN] = rgb565(200, 255, 200);
   palette256[PAL_PAPER_PBLUE]  = rgb565(245, 245, 255);
 
-  // Ink palette: 8 chromas × 2 luminances + extra grays (as you described)
-  // “GRAY / DARKGRAY”
+  // Ink palette: 8 chromas - 2 luminances + extra grays
+  // GRAY / DARKGRAY
   palette256[PAL_INK_GRAY]     = rgb565(200, 200, 200);
-  palette256[PAL_INK_DARKGRAY] = rgb565(  0,   0,   0);
+  palette256[PAL_INK_DARKGRAY] = rgb565(  0,   0,   0); //we forced here DEEP BLACK for BOLD KEYWORDS
+  //NOTE - traditional retro terminals defined BOLD as BRIGHT, this was applied to negative display with dark background
+  //     - on WHITE paper, the BOLD is defined as DAKER luminance of color, so in case of GRAY > VERY DARK GREY / BLACK
 
   // RED / DARKRED
   palette256[PAL_INK_RED]     = rgb565(255,   0,   0);
@@ -147,7 +144,7 @@ static void initPalette256()
   palette256[PAL_INK_BLUE]     = rgb565(  0,   0, 255);
   palette256[PAL_INK_DARKBLUE] = rgb565(  0,   0, 235);
 
-  // SILVER / DARKSILVER (treat silver as lighter gray)
+  // SILVER / DARKSILVER (treat silver as lighter gray - total 4 GRAY levels)
   palette256[PAL_INK_SILVER]     = rgb565(240, 240, 240);
   palette256[PAL_INK_DARKSILVER] = rgb565(220, 220, 220);
 
@@ -178,7 +175,6 @@ static inline uint8_t paperPalIndexFrom2(uint8_t p2)
 
 static inline uint8_t inkPalIndexFrom4(uint8_t i4)
 {
-
   switch (i4 & 0x0F) {
     default:
     case  0: return PAL_INK_GRAY;
@@ -202,16 +198,18 @@ static inline uint8_t inkPalIndexFrom4(uint8_t i4)
 }
 
 
-// ================+==========================
-// 7xtgv (QL mixworx "*/\afrs") 6x10 font data
-// ===========================================
+// ================+==============================
+// 7xtgv (QL mixworx mod "*/\afrs") 6x10 font data
+// ===============================================
 static uint8_t maskForCellW() { return (uint8_t)(0xFFu << (8 - CELL_W)); }
 #include "7xtgv-QL-font.h"
 
 
-// ===========================
-// Cell compositor
-// ===========================
+// ==============================================
+// Cell compositor - prototype, will be optimized
+// ==============================================
+//
+// IMPORTANT - stay in close to HW/CPLD/FPGA feasibility
 //
 // Composition order:
 //   1) fill cellBuf with deep black
@@ -220,8 +218,7 @@ static uint8_t maskForCellW() { return (uint8_t)(0xFFu << (8 - CELL_W)); }
 //
 // Inversion: if glyph bit=0 -> draw paper color; if glyph bit=1 -> leave as-is (black or later ink)
 //
-static void composeCell565(uint8_t glyphset2, uint8_t paperGlyph, uint8_t inkGlyph,
-                           uint8_t paper2, uint8_t ink4)
+static void composeCell565(uint8_t glyphset2, uint8_t paperGlyph, uint8_t inkGlyph, uint8_t paper2, uint8_t ink4)
 {
   const uint16_t deepBlack = palette256[PAL_DEEPBLACK];
   const uint16_t paper565  = palette256[paperPalIndexFrom2(paper2)];
@@ -273,6 +270,7 @@ static void composeCell565(uint8_t glyphset2, uint8_t paperGlyph, uint8_t inkGly
   }
 }
 
+//TODO MIXWORX - sure, we now render ENTIRE SCREEN always - prototype
 static void renderFullScreen(GfxCompat& g) {
   //g.beginWrite();
   for (int cy = 0; cy < TXT_ROWS; cy++) {
@@ -301,8 +299,7 @@ static void renderFullScreen(GfxCompat& g) {
 // ===========================
 // Demo setup content
 // ===========================
-static inline void setCell(int cx, int cy, uint8_t paperGlyph, uint8_t inkGlyph,
-                           uint8_t glyphset2, uint8_t paper2, uint8_t ink4)
+static inline void setCell(int cx, int cy, uint8_t paperGlyph, uint8_t inkGlyph, uint8_t glyphset2, uint8_t paper2, uint8_t ink4)
 {
   if ((unsigned)cx >= TXT_COLS || (unsigned)cy >= TXT_ROWS) return;
   int idx = cy * TXT_COLS + cx;
@@ -316,33 +313,20 @@ static void initScreenRAM()
   // Default: paper glyph = space, ink glyph = space, attributes some defaults
   for (int i = 0; i < TXT_ROWS * TXT_COLS; i++)
   {
-    paperRAM[i] = 0x20;  // paper glyph (inverted) - if your real font makes space empty, inversion will paint all paper.
-    charRAM[i]  = 0x20;  // ink glyph
+    paperRAM[i] = 0x20;  // paper glyph (inverted) - SPACE paints paper color //TBD specs in progress, still
+    charRAM[i]  = 0x20;  // ink glyph - SPACE paints nothing
     attrRAM[i]  = 0;     // ink GRAY, paper WHITE, gs 0   //(uint8_t)((0 << 6) | (0 << 4) | 1); // glyphset0, paper0, ink=DARKGRAY (index 1)
   }
-
-//   // Fill the rest with varying attributes to prove mapping
-//   int ch = 32;
-//   for (int y = 1; y < TXT_ROWS; y++)
-//   {
-//     for (int x = 0; x < TXT_COLS; x++)
-//     {
-//       uint8_t gs = 0; //(uint8_t)((x >> 4) & 3);
-//       uint8_t p2 = (uint8_t)(y & 3);
-//       uint8_t i4 = (uint8_t)(x & 0x0F);
-
-//       uint8_t paperGlyph = 0x20;                // space -> inversion paints paper across cell (good “paper fill”)
-//       uint8_t inkGlyph   = ch; ch++; if (ch==128) ch=32;
-
-//       setCell(x, y, paperGlyph, inkGlyph, gs, p2, i4);
-//     }
-//   }
 }
 
 
 // ===========================
 // Minimal "QL-ish" compat API
 // ===========================
+//
+// IMPORTANT - this will be here, needs polish, on par with QL SBASIC features
+//           - we CAN also support defined WINDOWS regions as QL, its usefull
+//
 // Methods requested:
 //   paper(n) : 0..3
 //   ink(n)   : 0..15
@@ -413,16 +397,29 @@ private:
 
 static QLCompat ql;
 
-// 7xtgv colors are devoted to "mixworx semantic syntax coloring"
-// - expected VT52 style control in terminal mode for CP/M, FUZIX ...
 
+// 7xtgv colors are devoted to "mixworx semantic syntax coloring"
+// - expected VT52 + ANSI SGR style control in terminal mode for CP/M, FUZIX ...
+// - retro terminal closest is probably VT340 in TEXT mode (sixel = question)
+// - full 7xtgv will have 4 modes (related to separate GLYPHSET and PALLETES)
+// - TEXT mode, mixworx semantic syntax coloring editors
+// - INST mode, mixworx instrumentation panels glyphs, devices UI, 7-seg, LEDs, meters, knobs, buttons
+// - SEMI mode, mixworx semigraphics having 6x10 cell converted to 2x5 pixels with paper/ink
+// - WIND mode, mixworx windows chrome glyphs, nice polished set for TUI
+//   - all these modes have separate COLORS AND PALLETES handling, it must stay HW-simple though
+//   - but generally, here according to 2bit MODE selection in ATTR, rest of ATTR 2+4bits interpretation changes
+
+//for now, simulated TEXT pastel papers/markers, devoted for syntax coloring/editors
 enum PaperColor {
     P_W = 0,   // White (bright)
-    P_R = 1,   // Red   (very light/pastel) - MARKER CURSOR
-    P_G = 2,   // Green (very light/pastel) - MARKER CURSOR
-    P_B = 3    // Blue  (very light/pastel) - MARKER CURSOR
+    P_R = 1,   // Red   (very light/pastel) - MARKER
+    P_G = 2,   // Green (very light/pastel) - CURSOR
+    P_B = 3    // Blue  (very light/pastel) - MARKER
 };
 
+//for now, simulated TEXT normal and bold inks, devoted for syntax coloring/editors
+//ordering herre doesnt match to ANSI SGR, intentionally, for now
+// bit0 defines normal/bold simulating color luminance
 enum InkColor {
     I_T  = 0,   // Text Grey - (visibly lighter)
     I_TB = 1,   // Text Bold - Dark Grey (actually DEEP BLACK)
@@ -450,19 +447,51 @@ enum InkColor {
 };
 
 
+// ===========================
+// Demo: random "7xtgv cheers"
+// ===========================
+static void demoRandomCheers()
+{
+  static const char msg[] = " 7xtgv ";
+  constexpr uint8_t msgLen = (uint8_t)(sizeof(msg) - 1);
+
+  // random position (skip first line)
+  uint8_t y = (TXT_ROWS > 1) ? (uint8_t)random(1, TXT_ROWS) : 0;
+  uint8_t xMax = (TXT_COLS > msgLen) ? (uint8_t)(TXT_COLS - msgLen) : 0;
+  uint8_t x = (xMax > 0) ? (uint8_t)random(0, (int)xMax + 1) : 0;
+
+  uint8_t p2 = (uint8_t)random(0, 4);
+  uint8_t i4 = (uint8_t)random(0, 16);
+  uint8_t gs = 0;
+
+  for (uint8_t i = 0; i < msgLen; i++) {
+    setCell((int)(x + i), (int)y, 0x20, (uint8_t)msg[i], gs, p2, i4);
+  }
+}
+
 
 // ===========================
 // Arduino setup/loop
 // ===========================
 static uint32_t frameNo = 0;
 
-void setup()
+
+// here, executed as DEMO using second core, toogether with USB-Serial RunCPM
+// plan is to link both cores by VirtualSerial bidir channel ...
+// PLUS this will handle ALSO mixworx extended ITU-T semantic keypad
+//  - must be modern to support vmex/aslix
+//  - must allow effective retro terminal features
+//  - may be redefinable, but some things MUST be bound to fixed KEY STICKERS
+//  - extended ITU-T is designed to be flexible, with MOST COMMON important keys (today)
+//  - for sure, UNDO/REDO, COPY/PASTE, SAVE/VERSION, inv-T shifted cursor keys, BS/DEL/INS PGUP/PGDN, HOME/END
+
+void setup1()
 {
   GFX_DEVICE_INIT();
 
 #ifdef GFX_BL
-  // pinMode(GFX_BL, OUTPUT);
-  // digitalWrite(GFX_BL, HIGH);
+  //pinMode(GFX_BL, OUTPUT);
+  //digitalWrite(GFX_BL, HIGH);
 
   pinMode(GFX_BL, OUTPUT);
   analogWrite(GFX_BL, 150); /* 0-255 */
@@ -470,6 +499,7 @@ void setup()
 
   Serial.begin(115200);
   delay(50);
+  randomSeed((uint32_t)micros());
   Serial.setDebugOutput(true);
   //while(!Serial);
   Serial.println("Arduino_GFX + compat - mixworx 7xtgv compositor example");
@@ -477,114 +507,18 @@ void setup()
   initPalette256();
   initScreenRAM();
 
-  //delay(2000);
-
-  // Init Display
-  if (!gfx->begin())
-  {
-    Serial.println("gfx->begin() failed!");
-  }
-
-  // gfx->fillScreen(0xFFFF); //WHITE
-  gfx->fillScreen(0x0000); //BLACK
+  gfx->fillScreen(0x0000); //SOLID BLUE DESKTOP ???
 
   gxp = new GfxCompat(gfx);
 
-
-  // ---- QL-ish compat API demo content ----
-
-  ql.font(0);
-  ql.paper(P_W);
-  ql.cls();
-
-  // initial Lyra demo
-  ql.ink(I_RB);
-  ql.at(1, 0);
-  ql.print("  mixworx 7xtgv");
-
-  ql.paper(I_B);
-  ql.ink(I_TB);
-  ql.at(1, 2);
-  ql.print("PAPER=B, INK=TB");
-
-  ql.paper(P_R);
-  ql.ink(I_BB);
-  ql.at(1, 4);
-  ql.print("No wrapping: printing stops at edge... ");
-
-  renderFullScreen(*gxp);
-
-  delay(3000);
-
-  // custom mixwor text of syntax coloring "C"
-  ql.paper(P_W);
-  ql.cls();
-
-  ql.at(1, 0);
-  ql.ink(I_RB); ql.print("  mixworx 7xtgv");
-
-  ql.at(1,1);
-  ql.ink(I_TB); ql.print("int ");
-  ql.ink(I_T); ql.print("main"); ql.ink(I_B); ql.print("()");
-
-  ql.at(1,2);
-  ql.ink(I_B); ql.print("{");
-
-  ql.at(3,3);
-  ql.ink(I_GB); ql.print("// TODO");
-
-  ql.at(3,4);
-  ql.ink(I_TB); ql.print("char ");
-  ql.ink(I_T);  ql.print("buf");
-  ql.ink(I_B);  ql.print("[");
-  ql.ink(I_RB);  ql.print("32");
-  ql.ink(I_B);  ql.print("];");
-
-  ql.at(3,5);
-  ql.ink(I_T);  ql.print("snprintf");
-  ql.ink(I_B);  ql.print("(");
-  ql.ink(I_T);  ql.print("buf");
-  ql.ink(I_B);  ql.print(", ");
-  ql.ink(I_TB); ql.print("sizeof");
-  ql.at(5,6);
-  ql.ink(I_B);  ql.print("(");
-  ql.ink(I_T);  ql.print("buf");
-  ql.ink(I_B);  ql.print("), ");
-  ql.ink(I_R);  ql.print("\"#%lu\"");
-  ql.ink(I_B);  ql.print(", ");
-  ql.ink(I_R);  ql.print("777");
-  ql.ink(I_B);  ql.print("); ");
-
-  ql.at(1,7);
-  ql.ink(I_B);
-  ql.print("}");
-
-
-  // mixworx printcln - auto syntax-coloring and indentation of "C-like" language (ASLIX in future)
-  // - design of ASLIX expects SIMPLE rules, there is NO COMPLEX PARSER, just line-by-line, asm-style ...
-  // - even ";" semicolons can be finally ommited, or will NOT be there ...
-  // - crucial is to have as simple as possible MAPPING for AI LLM to be able to TRANSPILE simple things on the fly ...
-
-  // this is only PRIMITIVE proposal of such code-printing command/semantics ...
-  // but as writing code for VMEX/ASLIX is MAIN purpose of "vmexterm", everything need to play in concert here...
-
-  // //todo
-  // ql.println(""); //new line, so y++ but continue at currX - so maintain current indentation level !!!
-
-  // //todo
-  // ql.printcln(); //new line, so y++ but continue at currX - so maintain current indentation level  !!!
-
-  // ql.printcln("€Tint €tmain€b()");  //explicit cloring by €x (x="tTrRgGbBsScCmMyY")
-
-  // ql.printcln("int main()");  //auto semantic "C-like" syntax coloring (set of keywords, punctuation, delimiters, numeric+string lietrals)
-  // ql.printcln("{");           //auto BLUE { + indent
-  //   ql.printcln("// todo");   //auto GREEN //...
-  // ql.printcln("}");           //auto unindent + BLUE }
-
 }
 
-void loop() {
+void loop1() {
   frameNo++;
+
+  // // Tiny animated proof in row 0
+  // int x = (frameNo / 2) % TXT_COLS;
+  // setCell(x, 0, 0x20, (uint8_t)('0' + (frameNo % 10)), (frameNo >> 6) & 3, (frameNo >> 4) & 3, frameNo & 0x0F);
 
   // Animated counter, top-right, with changing ink.
   char buf[32];
@@ -596,8 +530,11 @@ void loop() {
   ql.at((uint8_t)((TXT_COLS > 8) ? (TXT_COLS - 8) : 0), 0);
   ql.print(buf);
 
+  // Random colored text scatter (skip first line)
+  demoRandomCheers();
+
   renderFullScreen(*gxp);
 
   // Remove delay when benchmarking
-  //delay(50);
+  //delay(1000);
 }
