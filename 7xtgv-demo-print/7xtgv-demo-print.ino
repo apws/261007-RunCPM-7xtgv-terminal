@@ -500,6 +500,16 @@ void setup()
 void loop()
 {
   frameNo++;
+  // Animated counter on the reserved first line.
+  char buf[32];
+  snprintf(buf, sizeof(buf), "#%lu", (unsigned long)frameNo);
+  ql.paper(P_W);
+  ql.ink((uint8_t)((frameNo & 0x0F) | 0x01));
+  ql.at((uint8_t)((TXT_COLS > 8) ? (TXT_COLS - 8) : 0), 0);
+  ql.print("        ");
+  ql.at((uint8_t)((TXT_COLS > 8) ? (TXT_COLS - 8) : 0), 0);
+  ql.print(buf);
+
   demoRandomCheers();
   renderFullScreen(*gxp);
   delay(80);
