@@ -14,18 +14,18 @@ so the shared core utilities remain available from other user areas.
 | A4 | Assemblers, debugger, Z80 development libraries/manuals |
 | A5 | CP/M/CCP sources and related build scripts |
 | A6 | CPU benchmarks, Mandelbrot executables, ZEX tests |
-| A7 | Alternative MBASIC versions |
+| A7 | MBASIC and VT tests |
 | A8 | BASIC demos and games, earlier VT demos |
 | A9 | Lua launcher/source and examples (runtime support separate) |
-| A10 | Clean MBASIC + VTESTS workspace |
+| A10 | Alternative MBASIC versions |
 
 `layout.json` maps original A0 filenames to their intended user area. Files
 are copied from the actual board before reorganization, preserving CP/M's
 128-byte record padding and tokenized BASIC programs. Human-readable VTESTS
 source remains in `7xtgv-vt100-runcpm/tests/VTESTS.BAS`.
 
-Use `A0:`, `MBASIC`, `RUN "VTESTS"` for the shared menu. A10 contains a
-clean duplicate workspace with only `MBASIC.COM` and `VTESTS.BAS`; use `A10:`
+Use `A0:`, `MBASIC`, `RUN "VTESTS"` for the shared menu. A7 contains a
+clean duplicate workspace with only `MBASIC.COM` and `VTESTS.BAS`; use `A7:`
 then `MBASIC` and `RUN "VTESTS"` when testing that pair in isolation. 1 = ink,
 8 = Mixworx code.
 
@@ -36,7 +36,10 @@ configuration targets C128 and requires INSTALL for a different terminal.
 The Lua files alone do not establish that this firmware enables Lua BDOS calls.
 See `../cpm-languages/SOURCES.md` for package provenance.
 
-Board-side copies were verified for A1, A2, and A4–A7. A8 received its demo
-files, but CP/M returned `Bdos Err on A: R/O` while erasing the original A0
-copies, so cleanup stopped and those duplicates remain safely in place. A3's
-board copy is pending. The project mirror is complete independently.
+Board-side copies were verified for A1, A2, and A4–A7 under the previous
+labels. The project mirror now exchanges A7 and A10: A7 is the isolated MBASIC
+test area and A10 holds the alternate BASIC versions. The physical board still
+needs that label/content exchange. A8 received its demo files, but CP/M
+returned `Bdos Err on A: R/O` while erasing the original A0 copies, so cleanup
+stopped and those duplicates remain safely in place. A3's board copy is
+pending. The project mirror is complete independently.
