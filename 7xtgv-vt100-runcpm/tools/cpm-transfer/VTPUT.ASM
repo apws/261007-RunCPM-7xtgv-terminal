@@ -27,12 +27,19 @@ chunk:
  call hexword
  ld a,':'
  call putc
+ ld de,newline
+ call puts
+ call putname
+ ld a,' '
+ call putc
+ ld de,progress
+ call puts
  ld de,input
  ld c,10
  call 5
  ld a,(input+1)
  cp 1
- jr nz,decode
+ jr nz,dataline
  ld a,(input+2)
  cp '!'
  jp nz,error
@@ -49,9 +56,24 @@ chunk:
  ld de,done
  call puts
  jp 0
-decode:
+dataline:
  cp 64
+ jr z,decode
+ cp 68
  jp nz,error
+ ld a,(input+66)
+ cp ':'
+ jp nz,error
+ ld a,(input+67)
+ call pctdigit
+ ld (progress),a
+ ld a,(input+68)
+ call pctdigit
+ ld (progress+1),a
+ ld a,(input+69)
+ call pctdigit
+ ld (progress+2),a
+decode:
  pop de
  ld hl,input+2
  ld b,32
@@ -72,7 +94,8 @@ pair:
  ld (counter),hl
  ex de,hl
  pop bc
- djnz chunk
+ dec b
+ jp nz,chunk
  ld de,005ch
  ld c,21
  call 5
@@ -92,11 +115,18 @@ nibble:
  cp 16
  jp nc,error
  ret
+pctdigit:
+ cp '0'
+ jp c,error
+ cp ':'
+ jp nc,error
+ ret
 counter: dw 0
 heading: db 'PUT','$'
+progress: db '000%',13,10,'$'
 done: db 13,10,'SAVED',13,10,'$'
-input: db 65,0
- defs 66
+input: db 69,0
+ defs 70
  include 'common.inc'
  defs 128
 stacktop:

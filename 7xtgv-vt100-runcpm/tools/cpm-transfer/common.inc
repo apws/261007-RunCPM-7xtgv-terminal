@@ -47,6 +47,31 @@ hexword:
  call hexbyte
  ld a,l
  jp hexbyte
+putname:
+ push af
+ push bc
+ push hl
+ ld hl,005dh
+ ld b,8
+putbase:
+ ld a,(hl)
+ inc hl
+ cp ' '
+ call nz,putc
+ djnz putbase
+ ld a,'.'
+ call putc
+ ld b,3
+putext:
+ ld a,(hl)
+ inc hl
+ cp ' '
+ call nz,putc
+ djnz putext
+ pop hl
+ pop bc
+ pop af
+ ret
 clear:
  db 27,'(B',15,27,'[0m',27,'[2J',27,'[H','$'
 newline:

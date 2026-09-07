@@ -668,15 +668,15 @@
     "action": "mirror",
     "file": "VTGET.COM",
     "user": 0,
-    "size": 512,
-    "sha256": "e37cb4a3cef562ab42886789056c318a298fb77a93ef838acf4d73d95e021a7c"
+    "size": 640,
+    "sha256": "152d78646f893e4ea823ab927aa45b16bc088ebedc479e2d50e52e4e87a6bdce"
   },
   {
     "action": "mirror",
     "file": "VTPUT.COM",
     "user": 0,
-    "size": 512,
-    "sha256": "f03321d63a098453fce420a0c62614b41878c4690767d9a6c7037fe2f846e25b"
+    "size": 640,
+    "sha256": "2a5abd2687431b2accf10e3e457068f9093b1ce7ddd690e430d50fbc1e3b73dd"
   },
   {
     "action": "mirror",
@@ -894,6 +894,27 @@
   {
     "action": "moved_verified",
     "user": 7,
+    "files": [
+      "M5228080.COM",
+      "M5228085.COM",
+      "M522Z80.COM",
+      "MBAS529.COM",
+      "MBAS529P.COM",
+      "MBAS530.COM",
+      "MBAS530P.COM"
+    ]
+  },
+  {
+    "action": "physical_layout_verified",
+    "user": 7,
+    "files": [
+      "MBASIC.COM",
+      "VTESTS.BAS"
+    ]
+  },
+  {
+    "action": "physical_layout_verified",
+    "user": 10,
     "files": [
       "M5228080.COM",
       "M5228085.COM",

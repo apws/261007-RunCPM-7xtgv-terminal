@@ -54,18 +54,48 @@ byte:
  call puts
  ld hl,(record)
  call hexword
+ ld a,' '
+ call putc
+ call putname
+ ld a,' '
+ call putc
+ ld de,progress
+ call puts
  ld de,input
  ld c,10
  call 5
+ ld a,(input+1)
+ or a
+ jr z,acknowledged
+ cp 3
+ jp nz,error
+ ld a,(input+2)
+ call pctdigit
+ ld (progress),a
+ ld a,(input+3)
+ call pctdigit
+ ld (progress+1),a
+ ld a,(input+4)
+ call pctdigit
+ ld (progress+2),a
+acknowledged:
  ld hl,(record)
  inc hl
  ld (record),hl
- jr readrec
+ jp readrec
 record: dw 0
 heading: db 'REC','$'
 ready: db 'READY','$'
+progress: db '000%','$'
 done: db 13,10,'END','$'
-input: db 1,0,0,0
+pctdigit:
+ cp '0'
+ jp c,error
+ cp ':'
+ jp nc,error
+ ret
+input: db 4,0
+ defs 5
  include 'common.inc'
  defs 128
 stacktop:

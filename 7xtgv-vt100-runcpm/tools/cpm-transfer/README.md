@@ -7,6 +7,12 @@ changes are required. VTPUT replaces the named destination; the Python sender
 then reads the complete file back and compares every byte. CP/M record padding
 is retained. This is a testing utility, not an emulator feature.
 
+During uploads, the Python tool tracks one total across every selected file and
+the automatic read-back pass. The CP/M helpers show the current 8.3 filename and
+that percentage on the device TFT. Percentage text is sent as an optional suffix
+or acknowledgement, so the Python tool can bootstrap an older helper and the new
+helpers still accept the original protocol.
+
 Build with the z80asm assembler (AlbertVeli/z80asm upstream):
 
 ```

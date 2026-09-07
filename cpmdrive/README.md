@@ -36,10 +36,9 @@ configuration targets C128 and requires INSTALL for a different terminal.
 The Lua files alone do not establish that this firmware enables Lua BDOS calls.
 See `../cpm-languages/SOURCES.md` for package provenance.
 
-Board-side copies were verified for A1, A2, and A4–A7 under the previous
-labels. The project mirror now exchanges A7 and A10: A7 is the isolated MBASIC
-test area and A10 holds the alternate BASIC versions. The physical board still
-needs that label/content exchange. A8 received its demo files, but CP/M
-returned `Bdos Err on A: R/O` while erasing the original A0 copies, so cleanup
-stopped and those duplicates remain safely in place. A3's board copy is
-pending. The project mirror is complete independently.
+Board-side copies were verified for A1, A2, and A4–A6. The physical board and
+project mirror now agree on the exchanged areas: A7 contains only MBASIC and
+VTESTS, while A10 contains the seven alternate BASIC binaries. A8 received its
+demo files, but CP/M returned `Bdos Err on A: R/O` while erasing the original
+A0 copies, so cleanup stopped and those duplicates remain safely in place.
+A3's board copy is pending.
