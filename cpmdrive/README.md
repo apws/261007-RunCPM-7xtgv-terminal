@@ -22,7 +22,7 @@ so the shared core utilities remain available from other user areas.
 `layout.json` maps original A0 filenames to their intended user area. Files
 are copied from the actual board before reorganization, preserving CP/M's
 128-byte record padding and tokenized BASIC programs. Human-readable VTESTS
-source remains in `7xtgv-vt100-runcpm/tests/VTESTS.BAS`.
+source remains in `../src/7xtgv-vt100-runcpm/tests/VTESTS.BAS`.
 
 Use `A0:`, `MBASIC`, `RUN "VTESTS"` for the shared menu. A7 contains a
 clean duplicate workspace with only `MBASIC.COM` and `VTESTS.BAS`; use `A7:`
