@@ -81,8 +81,8 @@ class Link:
             if len(rows)!=4 or any(not re.fullmatch('[0-9A-F]{64}', r) for r in rows):raise RuntimeError(self.screen.text())
             data.extend(bytes.fromhex(''.join(rows)))
             percent=progress.advance(128,name,'verify') if progress else None
-            enhanced='%' in text
-            self.send((f'{percent:03d}' if enhanced and percent is not None else '')+'\r');record+=1
+            enhanced='PCT ' in text
+            self.send((f'{percent:03d}%' if enhanced and percent is not None else '')+'\r');record+=1
 
     def put(self, name, data, progress=None):
         assert re.fullmatch(r'[A-Z0-9_-]{1,8}\.[A-Z0-9]{1,3}', name)

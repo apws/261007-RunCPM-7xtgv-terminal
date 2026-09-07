@@ -59,7 +59,7 @@ byte:
  call putname
  ld a,' '
  call putc
- ld de,progress
+ ld de,pctprompt
  call puts
  ld de,input
  ld c,10
@@ -67,17 +67,17 @@ byte:
  ld a,(input+1)
  or a
  jr z,acknowledged
- cp 3
+ cp 4
  jp nz,error
  ld a,(input+2)
  call pctdigit
- ld (progress),a
  ld a,(input+3)
  call pctdigit
- ld (progress+1),a
  ld a,(input+4)
  call pctdigit
- ld (progress+2),a
+ ld a,(input+5)
+ cp '%'
+ jp nz,error
 acknowledged:
  ld hl,(record)
  inc hl
@@ -86,7 +86,7 @@ acknowledged:
 record: dw 0
 heading: db 'REC','$'
 ready: db 'READY','$'
-progress: db '000%','$'
+pctprompt: db 'PCT ','$'
 done: db 13,10,'END','$'
 pctdigit:
  cp '0'
@@ -94,8 +94,8 @@ pctdigit:
  cp ':'
  jp nc,error
  ret
-input: db 4,0
- defs 5
+input: db 5,0
+ defs 6
  include 'common.inc'
  defs 128
 stacktop:
