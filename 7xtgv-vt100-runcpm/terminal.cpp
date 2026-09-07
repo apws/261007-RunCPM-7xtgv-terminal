@@ -1,0 +1,677 @@
+#include "terminal.h"
+#include <algorithm>
+#include <stdio.h>
+#include <string.h>
+
+namespace vt {
+// Previous paper palette: white, pale red, pale green, pale blue.
+// {255,255,255},{255,240,240},{200,255,200},{245,245,255}
+const RGB Paper[4] = {{255, 255, 255}, {255, 240, 240}, {200, 255, 200}, {245, 245, 255}};
+// Original bright normal inks, paired with the former normal inks for bold.
+// Keep the dedicated black entry for the default console foreground.
+const RGB Ink[16] = {
+    {100, 100, 100},    // 0 normal gray
+    {0, 0, 0},       // 1 dark gray / black
+    {255, 0, 0},     // 2 normal red
+    {231, 37, 37},   // 3 dark red
+    {0, 242, 0},     // 4 normal green
+    {21, 200, 47},   // 5 dark green
+    {0, 0, 255},     // 6 normal blue
+    {37, 89, 221},   // 7 dark blue
+    {230, 230, 230}, // 8 normal silver
+    {215, 215, 215}, // 9 dark silver
+    {76, 242, 242},  // 10 normal cyan
+    {0, 184, 194},   // 11 dark cyan
+    {255, 80, 255},  // 12 normal magenta
+    {205, 47, 189},  // 13 dark magenta
+    {230, 230, 50},  // 14 normal yellow
+    {200, 194, 0},   // 15 dark yellow
+};
+static uint8_t ansiInk(int code) {
+    static const uint8_t map[8] = {0, 2, 4, 14, 6, 12, 10, 8};
+    return map[code & 7];
+}
+static uint8_t ansiDarkInk(int code) {
+    static const uint8_t map[8] = {1, 3, 5, 15, 7, 13, 11, 9};
+    return map[code & 7];
+}
+static uint8_t selectedInk(uint8_t ink, bool bold) {
+    // Even entries are the eight lighter inks; their odd companions are the
+    // darker bold inks. Gray/black retain their dedicated entries.
+    return bold && !(ink & 1) ? uint8_t(ink + 1) : ink;
+}
+Terminal::Terminal(Reply reply, void *context) : reply_(reply), context_(context) { reset(); }
+void Terminal::changed(int i) {
+    dirty[i] = true;
+    mirrorDirty[i / Cols] = true;
+}
+void Terminal::invalidate() {
+    std::fill(dirty, dirty + Cells, true);
+    std::fill(mirrorDirty, mirrorDirty + Rows, true);
+    mirrorCursorDirty = indicatorDirty = true;
+}
+void Terminal::reset() {
+    x = y = viewport = top = 0;
+    bottom = Rows - 1;
+    ansi = cursorVisible = autowrap = true;
+    applicationCursor = applicationKeypad = origin = wrapPending = bold = g0 = g1 = useG1 = false;
+    ink = 1;
+    paper = rendition = 0;
+    state = Ground;
+    bells = 0;
+    for (int i = 0; i < Cols; i++)
+        tabs[i] = (i % 8 == 0);
+    for (int i = 0; i < Cells; i++) {
+        paperRAM[i] = charRAM[i] = ' ';
+        attrRAM[i] = 1;
+        flags[i] = 0;
+    }
+    save();
+    invalidate();
+}
+void Terminal::setMode(bool a) {
+    ansi = a;
+    state = Ground;
+    wrapPending = false;
+    applicationCursor = false;
+}
+void Terminal::pan(int offset) {
+    offset = std::max(0, std::min(Cols - Visible, offset));
+    if (offset != viewport) {
+        viewport = offset;
+        std::fill(dirty, dirty + Cells, true);
+        indicatorDirty = true;
+    }
+}
+RGB Terminal::foreground(int i) const {
+    return (flags[i] & Reverse) ? Paper[(attrRAM[i] >> 4) & 3] : Ink[attrRAM[i] & 15];
+}
+RGB Terminal::background(int i) const {
+    return (flags[i] & Reverse) ? Ink[attrRAM[i] & 15] : Paper[(attrRAM[i] >> 4) & 3];
+}
+void Terminal::move(int col, int row) {
+    changed(y * Cols + x);
+    x = std::max(0, std::min(Cols - 1, col));
+    y = std::max(0, std::min(Rows - 1, row));
+    changed(y * Cols + x);
+    wrapPending = false;
+    mirrorCursorDirty = indicatorDirty = true;
+}
+void Terminal::blank(int i) {
+    paperRAM[i] = charRAM[i] = ' ';
+    attrRAM[i] = (paper << 4) | selectedInk(ink, bold);
+    flags[i] = rendition;
+    changed(i);
+}
+void Terminal::erase(int first, int last) {
+    for (int i = first; i <= last; i++)
+        blank(i);
+}
+void Terminal::scroll(int delta) {
+    int a = top * Cols, b = (bottom + 1) * Cols;
+    if (delta > 0) {
+        for (int i = a; i < b - Cols; i++) {
+            paperRAM[i] = paperRAM[i + Cols];
+            charRAM[i] = charRAM[i + Cols];
+            attrRAM[i] = attrRAM[i + Cols];
+            flags[i] = flags[i + Cols];
+        }
+        erase(b - Cols, b - 1);
+    } else {
+        for (int i = b - 1; i >= a + Cols; i--) {
+            paperRAM[i] = paperRAM[i - Cols];
+            charRAM[i] = charRAM[i - Cols];
+            attrRAM[i] = attrRAM[i - Cols];
+            flags[i] = flags[i - Cols];
+        }
+        erase(a, a + Cols - 1);
+    }
+    for (int i = a; i < b; i++)
+        changed(i);
+}
+void Terminal::index(bool reverse) {
+    if (reverse) {
+        if (y == top)
+            scroll(-1);
+        else
+            move(x, y - 1);
+    } else {
+        if (y == bottom)
+            scroll(1);
+        else
+            move(x, y + 1);
+    }
+    wrapPending = false;
+}
+void Terminal::put(uint8_t c) {
+    if (wrapPending && autowrap) {
+        move(0, y);
+        index();
+    }
+    int i = y * Cols + x;
+    paperRAM[i] = ' ';
+    charRAM[i] = (c < 128 ? c : '?');
+    attrRAM[i] = (paper << 4) | selectedInk(ink, bold);
+    flags[i] = rendition | ((useG1 ? g1 : g0) && c >= 0x5f && c <= 0x7e ? Graphics : 0);
+    changed(i);
+    if (x == Cols - 1)
+        wrapPending = autowrap;
+    else
+        move(x + 1, y);
+    mirrorCursorDirty = true;
+}
+void Terminal::save() {
+    savedX = x;
+    savedY = y;
+    savedInk = ink;
+    savedPaper = paper;
+    savedRendition = rendition;
+    savedBold = bold;
+    savedOrigin = origin;
+    savedWrap = wrapPending;
+    savedG0 = g0;
+    savedG1 = g1;
+    savedUseG1 = useG1;
+}
+void Terminal::restore() {
+    ink = savedInk;
+    paper = savedPaper;
+    rendition = savedRendition;
+    bold = savedBold;
+    origin = savedOrigin;
+    g0 = savedG0;
+    g1 = savedG1;
+    useG1 = savedUseG1;
+    move(savedX, savedY);
+    wrapPending = savedWrap;
+}
+void Terminal::send(const char *s) {
+    if (reply_)
+        reply_(context_, reinterpret_cast<const uint8_t *>(s), strlen(s));
+}
+int Terminal::param(int n, int fallback) const {
+    return n < count && params[n] > 0 ? params[n] : fallback;
+}
+void Terminal::sgr() {
+    for (int j = 0; j < count; j++) {
+        int p = params[j] < 0 ? 0 : params[j];
+        if (p == 0) {
+            ink = 1;
+            paper = 0;
+            rendition = 0;
+            bold = false;
+        } else if (p == 1)
+            bold = true;
+        else if (p == 22)
+            bold = false;
+        else if (p == 4)
+            rendition |= Underline;
+        else if (p == 24)
+            rendition &= ~Underline;
+        else if (p == 5)
+            rendition |= Blink;
+        else if (p == 25)
+            rendition &= ~Blink;
+        else if (p == 7)
+            rendition |= Reverse;
+        else if (p == 27)
+            rendition &= ~Reverse;
+        else if (p == 39)
+            ink = 1;
+        else if (p == 49)
+            paper = 0;
+        else if (p >= 30 && p <= 37)
+            ink = ansiInk(p - 30);
+        else if (p >= 90 && p <= 97)
+            ink = ansiDarkInk(p - 90);
+        else if (p >= 40 && p <= 47) {
+            // Preserve the familiar terminal white/red/green/blue paper
+            // choices instead of letting ANSI gray select pastel green by
+            // numerical RGB distance.
+            static const uint8_t paperMap[8] = {2, 1, 2, 2, 3, 1, 2, 0};
+            paper = paperMap[p - 40];
+        } else if (p >= 100 && p <= 107) {
+            static const uint8_t brightPaperMap[8] = {2, 1, 2, 2, 3, 1, 2, 0};
+            paper = brightPaperMap[p - 100];
+        }
+        // Consume unsupported extended colors as a unit, never as bold/reverse commands.
+        else if (p == 38 || p == 48) {
+            if (j + 1 < count && params[j + 1] == 5)
+                j = std::min(count - 1, j + 2);
+            else if (j + 1 < count && params[j + 1] == 2)
+                j = std::min(count - 1, j + 4);
+        }
+    }
+}
+void Terminal::dispatch(uint8_t f) {
+    if (invalid)
+        return;
+    int n = param(0), lo = origin ? top : 0, hi = origin ? bottom : Rows - 1;
+    if (prefix == '?') {
+        if (f != 'h' && f != 'l')
+            return;
+        bool on = f == 'h';
+        for (int j = 0; j < count; j++)
+            switch (params[j]) {
+            case 1:
+                applicationCursor = on;
+                break;
+            case 2:
+                setMode(on);
+                break;
+            case 6:
+                origin = on;
+                move(0, on ? top : 0);
+                break;
+            case 7:
+                autowrap = on;
+                wrapPending = false;
+                break;
+            case 25:
+                cursorVisible = on;
+                changed(y * Cols + x);
+                mirrorCursorDirty = true;
+                break;
+            }
+        return;
+    }
+    if (prefix)
+        return;
+    switch (f) {
+    case 'A':
+        move(x, std::max(lo, y - n));
+        break;
+    case 'B':
+        move(x, std::min(hi, y + n));
+        break;
+    case 'C':
+        move(x + n, y);
+        break;
+    case 'D':
+        move(x - n, y);
+        break;
+    case 'E':
+        move(0, std::min(hi, y + n));
+        break;
+    case 'F':
+        move(0, std::max(lo, y - n));
+        break;
+    case 'G':
+    case '`':
+        move(n - 1, y);
+        break;
+    case 'd':
+        move(x, std::min(hi, lo + n - 1));
+        break;
+    case 'H':
+    case 'f':
+        move(param(1) - 1, std::min(hi, lo + n - 1));
+        break;
+    case 'J':
+        if (params[0] <= 0)
+            erase(y * Cols + x, Cells - 1);
+        else if (params[0] == 1)
+            erase(0, y * Cols + x);
+        else if (params[0] == 2)
+            erase(0, Cells - 1);
+        wrapPending = false;
+        break;
+    case 'K':
+        if (params[0] <= 0)
+            erase(y * Cols + x, (y + 1) * Cols - 1);
+        else if (params[0] == 1)
+            erase(y * Cols, y * Cols + x);
+        else if (params[0] == 2)
+            erase(y * Cols, (y + 1) * Cols - 1);
+        wrapPending = false;
+        break;
+    case 'm':
+        sgr();
+        break;
+    case 'r': {
+        int a = param(0) - 1, b = param(1, Rows) - 1;
+        if (a >= 0 && b < Rows && a < b) {
+            top = a;
+            bottom = b;
+            move(0, origin ? top : 0);
+        }
+        break;
+    }
+    case 'g':
+        if (params[0] <= 0)
+            tabs[x] = false;
+        else if (params[0] == 3)
+            std::fill(tabs, tabs + Cols, false);
+        break;
+    case 's':
+        save();
+        break;
+    case 'u':
+        restore();
+        break;
+    case 'n':
+        if (params[0] == 5)
+            send("\033[0n");
+        else if (params[0] == 6) {
+            char b[32];
+            snprintf(b, sizeof(b), "\033[%d;%dR", y - (origin ? top : 0) + 1, x + 1);
+            send(b);
+        }
+        break;
+    case 'c':
+        if (params[0] <= 0)
+            send("\033[?1;0c");
+        break;
+    }
+}
+void Terminal::designate(uint8_t c) {
+    if (designateG1)
+        g1 = (c == '0');
+    else
+        g0 = (c == '0');
+}
+void Terminal::feed(uint8_t c) {
+    if (c == 24 || c == 26) {
+        state = Ground;
+        return;
+    }
+    if (c == 127)
+        return;
+    if (state == String || state == StringEscape) {
+        if (c == 7 || (state == StringEscape && c == '\\'))
+            state = Ground;
+        else
+            state = (c == 27 ? StringEscape : String);
+        return;
+    }
+    if (c == 27) {
+        state = Escape;
+        return;
+    }
+    // VT52 addressing includes bytes >= 0x20 only.
+    if (c < 32) {
+        switch (c) {
+        case 7:
+            bells++;
+            indicatorDirty = true;
+            break;
+        case 8:
+            move(x - 1, y);
+            break;
+        case 9: {
+            int next = x + 1;
+            while (next < Cols - 1 && !tabs[next])
+                next++;
+            move(next, y);
+            break;
+        }
+        case 10:
+        case 11:
+        case 12:
+            index();
+            break;
+        case 13:
+            move(0, y);
+            break;
+        case 14:
+            useG1 = true;
+            break;
+        case 15:
+            useG1 = false;
+            break;
+        }
+        return;
+    }
+    if (state == VTAddressRow) {
+        addressRow = int(c) - 32;
+        state = VTAddressCol;
+        return;
+    }
+    if (state == VTAddressCol) {
+        move(int(c) - 32, addressRow);
+        state = Ground;
+        return;
+    }
+    if (state == Charset) {
+        designate(c);
+        state = Ground;
+        return;
+    }
+    if (state == Hash) {
+        if (c == '8') {
+            for (int i = 0; i < Cells; i++) {
+                blank(i);
+                charRAM[i] = 'E';
+            }
+        }
+        state = Ground;
+        return;
+    }
+    if (state == Escape) {
+        state = Ground;
+        if (c == ']' || c == 'P' || c == '^' || c == '_') {
+            state = String;
+            return;
+        }
+        if (!ansi) {
+            switch (c) {
+            case 'A':
+                move(x, y - 1);
+                break;
+            case 'B':
+                move(x, y + 1);
+                break;
+            case 'C':
+                move(x + 1, y);
+                break;
+            case 'D':
+                move(x - 1, y);
+                break;
+            case 'H':
+                move(0, 0);
+                break;
+            case 'I':
+                index(true);
+                break;
+            case 'J':
+                erase(y * Cols + x, Cells - 1);
+                break;
+            case 'K':
+                erase(y * Cols + x, (y + 1) * Cols - 1);
+                break;
+            case 'Y':
+                state = VTAddressRow;
+                break;
+            case 'Z':
+                send("\033/Z");
+                break;
+            case 'F':
+                g0 = true;
+                useG1 = false;
+                break;
+            case 'G':
+                g0 = false;
+                useG1 = false;
+                break;
+            case '=':
+                applicationKeypad = true;
+                break;
+            case '>':
+                applicationKeypad = false;
+                break;
+            case '<':
+                setMode(true);
+                break;
+            }
+            return;
+        }
+        switch (c) {
+        case '[':
+            state = CSI;
+            count = 1;
+            params[0] = -1;
+            prefix = 0;
+            invalid = false;
+            break;
+        case '(':
+        case ')':
+            state = Charset;
+            designateG1 = (c == ')');
+            break;
+        case '#':
+            state = Hash;
+            break;
+        case '7':
+            save();
+            break;
+        case '8':
+            restore();
+            break;
+        case 'D':
+            index();
+            break;
+        case 'M':
+            index(true);
+            break;
+        case 'E':
+            move(0, y);
+            index();
+            break;
+        case 'H':
+            tabs[x] = true;
+            break;
+        case 'c':
+            reset();
+            break;
+        case 'Z':
+            send("\033[?1;0c");
+            break;
+        case '=':
+            applicationKeypad = true;
+            break;
+        case '>':
+            applicationKeypad = false;
+            break;
+        }
+        return;
+    }
+    if (state == CSI) {
+        if (c >= 0x40 && c <= 0x7e) {
+            dispatch(c);
+            state = Ground;
+            return;
+        }
+        if (c >= '0' && c <= '9') {
+            int &p = params[count - 1];
+            if (p < 0)
+                p = 0;
+            p = std::min(9999, p * 10 + c - '0');
+        } else if (c == ';') {
+            if (count < 16)
+                params[count++] = -1;
+            else
+                invalid = true;
+        } else if ((c == '?' || c == '>') && count == 1 && params[0] < 0 && !prefix)
+            prefix = c;
+        else
+            invalid = true;
+        return;
+    }
+    if (c != 127)
+        put(c);
+}
+void Keyboard::output(const char *s) {
+    send_(context_, reinterpret_cast<const uint8_t *>(s), strlen(s));
+}
+void Keyboard::flush() {
+    if (size_)
+        send_(context_, buffer_, size_);
+    size_ = 0;
+}
+void Keyboard::finish() {
+    buffer_[size_] = 0;
+    const char *s = reinterpret_cast<const char *>(buffer_);
+    if (!strcmp(s, "\033[1;3H") || !strcmp(s, "\033[1;3~") || !strcmp(s, "\033[7;3~") ||
+        !strcmp(s, "\033\033[H"))
+        t_.pan(0);
+    else if (!strcmp(s, "\033[1;3F") || !strcmp(s, "\033[4;3~") || !strcmp(s, "\033[8;3~") ||
+             !strcmp(s, "\033\033[F"))
+        t_.pan(Cols - Visible);
+    else if (!strcmp(s, "\033[1;3D") || !strcmp(s, "\033\033[D"))
+        t_.pan(t_.viewport - 4);
+    else if (!strcmp(s, "\033[1;3C") || !strcmp(s, "\033\033[C"))
+        t_.pan(t_.viewport + 4);
+    else if (!strcmp(s, "\033[>0v"))
+        t_.invalidate();
+    else if (!strcmp(s, "\033[>1v"))
+        t_.setMode(true);
+    else if (!strcmp(s, "\033[>2v"))
+        t_.setMode(false);
+    else if (size_ == 3 && (buffer_[1] == '[' || buffer_[1] == 'O') && buffer_[2] >= 'A' &&
+             buffer_[2] <= 'D') {
+        char out[4] = {27, '[', char(buffer_[2]), 0};
+        if (!t_.ansi) {
+            out[1] = out[2];
+            out[2] = 0;
+        } else if (t_.applicationCursor)
+            out[1] = 'O';
+        output(out);
+    } else if (size_ == 3 && buffer_[1] == 'O' && buffer_[2] >= 'p' && buffer_[2] <= 'y') {
+        if (t_.applicationKeypad) {
+            char out[5] = {27, t_.ansi ? 'O' : '?', char(buffer_[2]), 0};
+            output(out);
+        } else {
+            uint8_t c = '0' + buffer_[2] - 'p';
+            send_(context_, &c, 1);
+        }
+    } else if (size_ == 3 && buffer_[1] == 'O' &&
+               (buffer_[2] == 'M' || buffer_[2] == 'n' || buffer_[2] == 'm' || buffer_[2] == 'l')) {
+        if (t_.applicationKeypad) {
+            char out[4] = {27, t_.ansi ? 'O' : '?', char(buffer_[2]), 0};
+            output(out);
+        } else {
+            uint8_t c = buffer_[2] == 'M'   ? 13
+                        : buffer_[2] == 'n' ? '.'
+                        : buffer_[2] == 'm' ? '-'
+                                            : ',';
+            send_(context_, &c, 1);
+        }
+    } else {
+        flush();
+        return;
+    }
+    size_ = 0;
+}
+void Keyboard::feed(uint8_t c, uint32_t now) {
+    tick(now);
+    last_ = now;
+    if (!size_) {
+        if (c == 27) {
+            buffer_[size_++] = c;
+            return;
+        }
+        if (c == 127)
+            c = 8;
+        if (c == 10)
+            c = 13;
+        send_(context_, &c, 1);
+        return;
+    }
+    if (size_ == sizeof(buffer_) - 1)
+        flush();
+    buffer_[size_++] = c;
+    size_t start = (size_ > 1 && buffer_[1] == 27) ? 2 : 1;
+    if (size_ <= start)
+        return;
+    if (buffer_[start] != '[' && buffer_[start] != 'O') {
+        flush();
+        return;
+    }
+    if (size_ > start + 1 && c >= 0x40 && c <= 0x7e)
+        finish();
+}
+void Keyboard::tick(uint32_t now) {
+    if (size_ && uint32_t(now - last_) >= 50)
+        flush();
+}
+} // namespace vt

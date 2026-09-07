@@ -1,0 +1,116 @@
+; filepath: SPEED.Z80
+; SPEED.Z80 - Set CPU speed for RunCPM
+; Usage: SPEED <0-65535>
+
+BDOS    EQU 5
+PRINT   EQU 9
+SETSPD  EQU 254
+
+        ORG 100H
+
+        ; Check command line arguments
+        LD A, (80H)         ; Get length of command tail
+        OR A                ; Check if zero
+        JP Z, USAGE         ; If zero, print usage
+
+        LD B, A             ; B = Length
+        LD HL, 81H          ; HL = Command tail
+
+        ; Skip leading spaces
+SKIPSP: LD A, (HL)
+        CP ' '
+        JR NZ, PARSE_START
+        INC HL
+        DEC B
+        JR Z, USAGE         ; If only spaces, print usage
+        JR SKIPSP
+
+PARSE_START:
+        LD DE, 0            ; Initialize result
+
+PARSE_LOOP:
+        LD A, (HL)
+        
+        ; Check for terminators
+        CP ' '
+        JR Z, DONE
+        CP 0
+        JR Z, DONE
+        CP 13               ; CR
+        JR Z, DONE
+        
+        ; Check for digit
+        SUB '0'
+        CP 10
+        JR NC, ERROR        ; Not a digit and not a terminator -> Error
+
+        ; Multiply DE by 10 and add digit
+        ; We need to do DE = DE * 10 + A
+        ; Using HL for calculation
+        
+        PUSH HL             ; Save string pointer
+        
+        LD L, E
+        LD H, D             ; HL = DE
+        
+        ADD HL, HL          ; HL = DE * 2
+        JR C, OVF_POP       ; Overflow?
+        
+        PUSH HL             ; Save DE * 2
+        ADD HL, HL          ; HL = DE * 4
+        JR C, OVF_POP_2
+        ADD HL, HL          ; HL = DE * 8
+        JR C, OVF_POP_2
+        
+        POP DE              ; DE = Old DE * 2 (from stack)
+        ADD HL, DE          ; HL = DE * 8 + DE * 2 = DE * 10
+        JR C, OVF_POP       ; Overflow?
+        
+        LD E, A             ; E = Digit
+        LD D, 0
+        ADD HL, DE          ; HL = DE * 10 + Digit
+        JR C, OVF_POP       ; Overflow?
+        
+        LD D, H
+        LD E, L             ; Update DE with result
+        
+        POP HL              ; Restore string pointer
+        
+        INC HL
+        DEC B
+        JR NZ, PARSE_LOOP   ; Continue if more chars
+
+DONE:
+        ; DE contains the delay value
+        LD C, SETSPD
+        CALL BDOS
+        
+        LD DE, MSG_OK
+        LD C, PRINT
+        CALL BDOS
+        JP 0
+
+OVF_POP_2:
+        POP DE              ; Clean stack (inner push)
+OVF_POP:
+        POP HL              ; Clean stack (outer push)
+        JR ERROR
+
+USAGE:
+        LD DE, MSG_USE
+        LD C, PRINT
+        CALL BDOS
+        JP 0
+
+ERROR:
+        LD DE, MSG_ERR
+        LD C, PRINT
+        CALL BDOS
+        JP 0
+
+MSG_USE: DB 'Usage: SPEED <0-65535>$'
+MSG_ERR: DB 'Error: Invalid number (0-65535)$'
+MSG_OK: DB 'Speed set.$'
+
+        END
+

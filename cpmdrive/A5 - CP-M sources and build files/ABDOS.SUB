@@ -1,0 +1,5 @@
+; Build ABDOS.SYS
+Z80ASM ABDOS/H
+MLOAD ABDOS.SYS=ABDOS.HEX
+ERA ABDOS.HEX
+

@@ -1,0 +1,907 @@
+[
+  {
+    "action": "mirror",
+    "file": "1STREAD.ME",
+    "user": 0,
+    "size": 3840,
+    "sha256": "0610b6eccfdda521dabd7ae59a9572438758e30a7a68b1f8dd01628549f9fa7c"
+  },
+  {
+    "action": "mirror",
+    "file": "ABDOS.SUB",
+    "user": 5,
+    "size": 128,
+    "sha256": "7a06c86756ff99a1f95a7a2ed0cba7546d42dc785e7fd46b2009de02375a0e4c"
+  },
+  {
+    "action": "mirror",
+    "file": "ABDOS.SYS",
+    "user": 0,
+    "size": 256,
+    "sha256": "e918790fb160e044365cd01d366f5103028132a2f8827ad792f1bd4c53374eb1"
+  },
+  {
+    "action": "mirror",
+    "file": "ASM.COM",
+    "user": 4,
+    "size": 8192,
+    "sha256": "ef403388a04f18d735984fe497f9fa5dbb48f114b52dab323e33e82073133c2c"
+  },
+  {
+    "action": "mirror",
+    "file": "BBCBASIC.COM",
+    "user": 1,
+    "size": 18944,
+    "sha256": "833839801fe3edbb73b91613eb43ea6052822d2d09dafd08639d120ad3a6e1bd"
+  },
+  {
+    "action": "mirror",
+    "file": "BDOS.ASM",
+    "user": 5,
+    "size": 67328,
+    "sha256": "cae08d51677fb538b96867878a1180608508a52c72033189ad44dd401c5c97d0"
+  },
+  {
+    "action": "mirror",
+    "file": "BDOS.LUA",
+    "user": 9,
+    "size": 512,
+    "sha256": "55b145b8d4cc84e01938bb76cc0ce02c899ba128393c622b47e5469d447a31b2"
+  },
+  {
+    "action": "mirror",
+    "file": "BDOS.SUB",
+    "user": 5,
+    "size": 128,
+    "sha256": "c6aec71944dd6ac4ec5087f7a4b666cb9110a1bc89c3ea38b9aae8566eede9ac"
+  },
+  {
+    "action": "mirror",
+    "file": "BDOSEQU.LIB",
+    "user": 5,
+    "size": 2048,
+    "sha256": "f29d385ac7ba11b45ac44986c732fa31c080a9b9257b627aa282993261725d22"
+  },
+  {
+    "action": "mirror",
+    "file": "CAL.COM",
+    "user": 0,
+    "size": 14592,
+    "sha256": "e57f94754399425269013b8b1f9a3dd01c6b36ac7f7524c489fc113ef10816e9"
+  },
+  {
+    "action": "mirror",
+    "file": "CBLINK.BAS",
+    "user": 8,
+    "size": 128,
+    "sha256": "fee95b751e8f114a554467e85505d1b99825d8afb04d74bf2f8ac918b229095d"
+  },
+  {
+    "action": "mirror",
+    "file": "CBLINK.ESC",
+    "user": 8,
+    "size": 128,
+    "sha256": "10d654f3e2098d93d4a3f65c3a4ca1adb4b2289359e43b41d89da9d93cf9375e"
+  },
+  {
+    "action": "mirror",
+    "file": "CCP-ZCP3.BIN",
+    "user": 5,
+    "size": 2304,
+    "sha256": "ec5bb94a615a53b0ea47cb106ef68605cae312e0bcbfb1c500933d20a540899a"
+  },
+  {
+    "action": "mirror",
+    "file": "CCP.ASM",
+    "user": 5,
+    "size": 26368,
+    "sha256": "47ce0797f6074952520635aca0169dc3c80f42ae5010bad4b4fe20b2a83c1c91"
+  },
+  {
+    "action": "mirror",
+    "file": "CCP.SUB",
+    "user": 5,
+    "size": 128,
+    "sha256": "c4c4cde5955ebfa245e8eea583713f9e3f530864753328d6f1637cc0255e6643"
+  },
+  {
+    "action": "mirror",
+    "file": "CCPZ.SUB",
+    "user": 5,
+    "size": 128,
+    "sha256": "88d3946ec95c00fd095916545a562d70324126f96f4e126790463287d64d0000"
+  },
+  {
+    "action": "mirror",
+    "file": "CCPZ.Z80",
+    "user": 5,
+    "size": 50944,
+    "sha256": "b2c7dc07310b3193a2dd02394811de99c7ad5c576456dcd96007d31f8c438a48"
+  },
+  {
+    "action": "mirror",
+    "file": "CINF.BAS",
+    "user": 8,
+    "size": 384,
+    "sha256": "47ea291a8f76be31a979d53e535b2c93c1c2964d71669a8ac5c0f396e696626c"
+  },
+  {
+    "action": "mirror",
+    "file": "CINF.COM",
+    "user": 8,
+    "size": 12928,
+    "sha256": "8b0409c08f2a4f3cdee12a8fcd5f58a9e2490b97edc814f8f037d4d331cb602a"
+  },
+  {
+    "action": "mirror",
+    "file": "CLEAN.SUB",
+    "user": 5,
+    "size": 128,
+    "sha256": "a14cb80b7c9241b714963e5bb2d0c0817f0488cec454483fd60e52aec6d84165"
+  },
+  {
+    "action": "mirror",
+    "file": "CLS.COM",
+    "user": 0,
+    "size": 128,
+    "sha256": "332004691037b2ba47afa1e2ede985c2fa45f8ff16c35f75c9535af1b93f0208"
+  },
+  {
+    "action": "mirror",
+    "file": "CLS.Z80",
+    "user": 5,
+    "size": 128,
+    "sha256": "9f988d2facbe62ef161c529b81d22325b45dfc8e63507bd722c7d33aca7885ef"
+  },
+  {
+    "action": "mirror",
+    "file": "CONSOLE7.COM",
+    "user": 0,
+    "size": 128,
+    "sha256": "a09486683857c28eff650892a9bc88846b01b9050f464c18514bfeaf4d4e58c0"
+  },
+  {
+    "action": "mirror",
+    "file": "CONSOLE7.Z80",
+    "user": 5,
+    "size": 256,
+    "sha256": "2cafce3e84c044ba5abade1199821184af4029ce42b7f27e18122a3d894178dc"
+  },
+  {
+    "action": "mirror",
+    "file": "CONSOLE8.COM",
+    "user": 0,
+    "size": 128,
+    "sha256": "90c4de76504fe4497de91646da086bd2feadf4212b14a0a0176a7739923d35bb"
+  },
+  {
+    "action": "mirror",
+    "file": "CONSOLE8.Z80",
+    "user": 5,
+    "size": 256,
+    "sha256": "7e5754e442f8e619c924c3784a8612374c0d815fb62f40bcc2af8f56a1320803"
+  },
+  {
+    "action": "mirror",
+    "file": "CPMDHRY.COM",
+    "user": 6,
+    "size": 17024,
+    "sha256": "7f683605f7ce9fe888e5d0cfb39b6b30d72b322b6eab34568452f4441fb89e57"
+  },
+  {
+    "action": "mirror",
+    "file": "CPMMAND.COM",
+    "user": 6,
+    "size": 8832,
+    "sha256": "68139dbd8260607257042a9de3bfb8f5954f92c847ce756ada493ed36b3f5ac4"
+  },
+  {
+    "action": "mirror",
+    "file": "CPMMAND2.COM",
+    "user": 6,
+    "size": 8832,
+    "sha256": "fec1f6a0bb91a336c5681dbe94dcc266a691e207a8d644077495e60685ac20f6"
+  },
+  {
+    "action": "mirror",
+    "file": "DDT.COM",
+    "user": 0,
+    "size": 4864,
+    "sha256": "a14e823093f14f3f3aadeea21acabba6e2315b9f8dfa4bb4c208e2fb45281cd7"
+  },
+  {
+    "action": "mirror",
+    "file": "DISKDEF.LIB",
+    "user": 5,
+    "size": 6272,
+    "sha256": "46450108b144f17d37847e3a1b93c04cecdf89b29651e436a76ad1ec93f61e15"
+  },
+  {
+    "action": "mirror",
+    "file": "DISPLAY.LIB",
+    "user": 5,
+    "size": 4096,
+    "sha256": "22b6443d8c7c2b12a0f07bf23f2591ccdde15bfeaea0450626eaf921c7480939"
+  },
+  {
+    "action": "mirror",
+    "file": "DIST.Z80",
+    "user": 1,
+    "size": 4224,
+    "sha256": "a0bd35ebbf756e0500715c34629dd192f886e69fd1a1a1b60361b5ee201d3943"
+  },
+  {
+    "action": "mirror",
+    "file": "DUMP.ASM",
+    "user": 5,
+    "size": 4224,
+    "sha256": "0ed417f983049ddc351823ed33bed6477d523331254960db21778fe035bb8495"
+  },
+  {
+    "action": "mirror",
+    "file": "DUMP.COM",
+    "user": 0,
+    "size": 512,
+    "sha256": "9a99911c0fe0aaec22fdec61b1b2b03dd012ea12d20cc17f21c6f6d9c5399fe3"
+  },
+  {
+    "action": "mirror",
+    "file": "ED.COM",
+    "user": 0,
+    "size": 6656,
+    "sha256": "0397b96b6d48ba92a0b41cdf974bf8ad31e4d49783f1ff7eed9e701b6a8870db"
+  },
+  {
+    "action": "mirror",
+    "file": "EXIT.ASM",
+    "user": 5,
+    "size": 512,
+    "sha256": "c608dc08620c318b73a1092dac32765cda68ca13fd9f1b6faa8dc115f514c6f5"
+  },
+  {
+    "action": "mirror",
+    "file": "EXIT.COM",
+    "user": 0,
+    "size": 128,
+    "sha256": "ca1c1d5c7107a6e64b2e87edb0d0f3a4e7e77335ebf3e48fc1b8044eb5711034"
+  },
+  {
+    "action": "mirror",
+    "file": "EXIT.SUB",
+    "user": 5,
+    "size": 128,
+    "sha256": "e2ead54c6a885245b5726a0e30a1c1c6821ab07c1803447a198cceaeffe9e1d7"
+  },
+  {
+    "action": "mirror",
+    "file": "EXIT.Z80",
+    "user": 5,
+    "size": 512,
+    "sha256": "a8bfe065ded4877f6f5bd6ced132ae2eb526d293e666083b805a31c4b0655c7e"
+  },
+  {
+    "action": "mirror",
+    "file": "FORMAT.COM",
+    "user": 0,
+    "size": 512,
+    "sha256": "c05de39aed8020e35b3208f73f11768f51e36b1534b1561fa66f92b959cdd409"
+  },
+  {
+    "action": "mirror",
+    "file": "FORMAT.SUB",
+    "user": 5,
+    "size": 128,
+    "sha256": "27974b7bfde4d6a93775127d9b2f511a56b2e687f70f7115a2aad36d7ff416e2"
+  },
+  {
+    "action": "mirror",
+    "file": "FORMAT.Z80",
+    "user": 5,
+    "size": 1024,
+    "sha256": "150e80339041666a6386ac70adc4123beb6c1c26bdd37c0638a7fb19160c5691"
+  },
+  {
+    "action": "mirror",
+    "file": "FRACTAL.BAS",
+    "user": 8,
+    "size": 384,
+    "sha256": "0af4a5a2a8e85047ff4f9424a0c6024e753027a63bd09d9f9c632cc22f927303"
+  },
+  {
+    "action": "mirror",
+    "file": "FRAROUND.BAS",
+    "user": 8,
+    "size": 384,
+    "sha256": "1d8a1456defd212753d22f7ebde560a615191d54bf56cdb96d7bf5224012aae3"
+  },
+  {
+    "action": "mirror",
+    "file": "FRAROUND.COM",
+    "user": 8,
+    "size": 9728,
+    "sha256": "968b076dd8bd3e3873c6803a5395c0997ba75124a36a7920a479180da1a8f793"
+  },
+  {
+    "action": "mirror",
+    "file": "HELLO.LUA",
+    "user": 9,
+    "size": 128,
+    "sha256": "1061c2e6940b4819e21188b220b1edf628a75d6b3c615c0c44553a64d7d312df"
+  },
+  {
+    "action": "mirror",
+    "file": "INFO.COM",
+    "user": 0,
+    "size": 896,
+    "sha256": "bf4550834cafbeb4764795b09c016dfcfa7b243af46f3b9065cde36541781597"
+  },
+  {
+    "action": "mirror",
+    "file": "INFO.SUB",
+    "user": 5,
+    "size": 128,
+    "sha256": "9de8b4799721b177dfff693778c3e50d1bb6d67a1b9806a7088757dc8801a69a"
+  },
+  {
+    "action": "mirror",
+    "file": "INFO.TXT",
+    "user": 0,
+    "size": 128,
+    "sha256": "5e8729fa28f1075968a001e2f7c09524e1a2f93dd9355134006d514c8b61c395"
+  },
+  {
+    "action": "mirror",
+    "file": "INFO.Z80",
+    "user": 5,
+    "size": 2560,
+    "sha256": "ffdb9b5941142a9a9464402c7760b9bf69810538587bb87581406f270850af23"
+  },
+  {
+    "action": "mirror",
+    "file": "LOAD.COM",
+    "user": 0,
+    "size": 1792,
+    "sha256": "c885d061a5dcb3830ab1c29a13e34d3c0560cc3faf569bc55b195c0330a9cbd6"
+  },
+  {
+    "action": "mirror",
+    "file": "LU.COM",
+    "user": 0,
+    "size": 20224,
+    "sha256": "ba39c7d1cc826c41398690f5825625c185909edc12232fdad75b0e2adcd1ba4e"
+  },
+  {
+    "action": "mirror",
+    "file": "LUA.COM",
+    "user": 9,
+    "size": 128,
+    "sha256": "795be0f2609bb4e3239127099fec074339618578470bc144bf6ac75ab675e5c8"
+  },
+  {
+    "action": "mirror",
+    "file": "LUA.SUB",
+    "user": 9,
+    "size": 128,
+    "sha256": "fa5a1d9cabf4c0ca739e8ee0fb8891933165b029cfb5ec096cf6e40153bbdc73"
+  },
+  {
+    "action": "mirror",
+    "file": "LUA.Z80",
+    "user": 9,
+    "size": 512,
+    "sha256": "f2d6b868817ff055367d242cf746c960068b305a4668aa38146d5d0cd34df758"
+  },
+  {
+    "action": "mirror",
+    "file": "LUAINFO.LUA",
+    "user": 9,
+    "size": 1408,
+    "sha256": "aa6922fac86f8cd5a1cc03e0006b9306e274e569717b00aaf42b8fa6de272f1f"
+  },
+  {
+    "action": "mirror",
+    "file": "M5228080.COM",
+    "user": 7,
+    "size": 24704,
+    "sha256": "636b64fd08f5c9d9bdd7ac62ed0d79198f5bbf56e16af992f3321285d9392b54"
+  },
+  {
+    "action": "mirror",
+    "file": "M5228085.COM",
+    "user": 7,
+    "size": 24704,
+    "sha256": "32cef21778178d64f6ac2df7dd61ac55e83233ece928334c8bd417cd0aa61867"
+  },
+  {
+    "action": "mirror",
+    "file": "M522Z80.COM",
+    "user": 7,
+    "size": 23552,
+    "sha256": "05d71e235ad45feaaf80893b28c56296d56e29e77143f67a469d51583879de63"
+  },
+  {
+    "action": "mirror",
+    "file": "MAC.COM",
+    "user": 4,
+    "size": 16384,
+    "sha256": "1d88cbbbfb2e4565b4fd7e81a5de5382caa1fad08afba20bf2bb7cbb81ce4722"
+  },
+  {
+    "action": "mirror",
+    "file": "MAKEFCB.LIB",
+    "user": 5,
+    "size": 2688,
+    "sha256": "ce98c55af6e72aee827a1081218be25a00fbc3029e390306398b2466f28bd545"
+  },
+  {
+    "action": "mirror",
+    "file": "MBAS529.COM",
+    "user": 7,
+    "size": 24320,
+    "sha256": "244cbc57f82e9597ade4c151ebf95ae73ae7811f53631970e8816ae4d18a9a28"
+  },
+  {
+    "action": "mirror",
+    "file": "MBAS529P.COM",
+    "user": 7,
+    "size": 24320,
+    "sha256": "0814ea95d71a0839187295fde8e3991088c5b0315dca097f1fbbe572aa859987"
+  },
+  {
+    "action": "mirror",
+    "file": "MBAS530.COM",
+    "user": 7,
+    "size": 24320,
+    "sha256": "0d2416026f34490c1dde31f93af4d90f3e0249fe6736dd42462f12ec0116865f"
+  },
+  {
+    "action": "mirror",
+    "file": "MBAS530P.COM",
+    "user": 7,
+    "size": 24320,
+    "sha256": "e99ffd5221ff8e5b95b4f27da642953e9c7dfa5539c785587a5b65c00ac94667"
+  },
+  {
+    "action": "mirror",
+    "file": "MBASIC.COM",
+    "user": 0,
+    "size": 24320,
+    "sha256": "e99ffd5221ff8e5b95b4f27da642953e9c7dfa5539c785587a5b65c00ac94667"
+  },
+  {
+    "action": "mirror",
+    "file": "MLOAD.ASM",
+    "user": 4,
+    "size": 35200,
+    "sha256": "ba95872a9458903aadbd76161f21ec470064f791a8cf10257318d80b5034dd06"
+  },
+  {
+    "action": "mirror",
+    "file": "MLOAD.COM",
+    "user": 4,
+    "size": 2816,
+    "sha256": "716a05ca0b08edbf56c944e8482c602793f7c70f10a115bc6f35eee80ce154dd"
+  },
+  {
+    "action": "mirror",
+    "file": "MLOAD.DOC",
+    "user": 4,
+    "size": 3840,
+    "sha256": "7f6d21a0bcc970779283a83300c9f38e7a02b1fe7a4d8c280e5e6e4b4a681b62"
+  },
+  {
+    "action": "mirror",
+    "file": "MOVCPM.COM",
+    "user": 0,
+    "size": 9728,
+    "sha256": "e5d6f72490db0f1aa5ca4826fc6d0644604eae71ed8df4e611233d8c3e3ac401"
+  },
+  {
+    "action": "mirror",
+    "file": "OPCODES.DOC",
+    "user": 4,
+    "size": 29056,
+    "sha256": "6c6116c854ec0ee2720683bddf20a5665fda2c9e0d506e72da5197af843ec1df"
+  },
+  {
+    "action": "mirror",
+    "file": "OPCODES.TXT",
+    "user": 4,
+    "size": 29056,
+    "sha256": "6c6116c854ec0ee2720683bddf20a5665fda2c9e0d506e72da5197af843ec1df"
+  },
+  {
+    "action": "mirror",
+    "file": "PIP.COM",
+    "user": 0,
+    "size": 7424,
+    "sha256": "7f9e12a92e2bcfd814b5b680a2f7d5c2a2c50c9a5ef94a6891dcaa3527f08ec2"
+  },
+  {
+    "action": "mirror",
+    "file": "README.TXT",
+    "user": 1,
+    "size": 1664,
+    "sha256": "9728c4f2478d10c174ea360ba0313c783e120b9c7818d8393f388314ec9a2eee"
+  },
+  {
+    "action": "mirror",
+    "file": "RSTAT.COM",
+    "user": 0,
+    "size": 768,
+    "sha256": "1aecb58bb5e89535bb469bc1409ad9bf6d71fc23dc7c2a50df5c0e85e11668b6"
+  },
+  {
+    "action": "mirror",
+    "file": "RSTAT.SUB",
+    "user": 5,
+    "size": 128,
+    "sha256": "8616a2d3526ec23a07f40a134791c5f610793d6d2207fda7e7d6864d5afebb4c"
+  },
+  {
+    "action": "mirror",
+    "file": "RSTAT.Z80",
+    "user": 5,
+    "size": 2816,
+    "sha256": "afa85a79864b9a9b0631ab33c957a92a2c72615218dbd49ef46da8771390cf0a"
+  },
+  {
+    "action": "mirror",
+    "file": "SPEED.COM",
+    "user": 0,
+    "size": 256,
+    "sha256": "a6df4388391c8fb9ff71fc8efd192f3507b6155b65e64a3d4f3e0ef2bcdbeea1"
+  },
+  {
+    "action": "mirror",
+    "file": "SPEED.Z80",
+    "user": 5,
+    "size": 2816,
+    "sha256": "dc4e3cc4f32964bc24adb8bc54dbee24211d6e12e7abb4e12b71710d0e26d3ce"
+  },
+  {
+    "action": "mirror",
+    "file": "STARTREK.BAS",
+    "user": 8,
+    "size": 19072,
+    "sha256": "0d85cb2232bf6963164e3bb74d7f7c6f10b4d9bb5eb47615bc976b066ecf0829"
+  },
+  {
+    "action": "mirror",
+    "file": "STARTRK.BAS",
+    "user": 8,
+    "size": 15616,
+    "sha256": "36950513bc3e81bedf16136d4d6dfa011eadb18e52dd7d24758ca96139490ad8"
+  },
+  {
+    "action": "mirror",
+    "file": "STAT.COM",
+    "user": 0,
+    "size": 5248,
+    "sha256": "614d0b1d66466177e5b2bf585251d53d1e24eda34ada136b4ae178ab5944dc73"
+  },
+  {
+    "action": "mirror",
+    "file": "SUBMIT.COM",
+    "user": 0,
+    "size": 1280,
+    "sha256": "9fdaeba9daa44558d7c66812258e00ca3452cb668ab29b16d42b0ba57c50d890"
+  },
+  {
+    "action": "mirror",
+    "file": "SUBMITD.COM",
+    "user": 0,
+    "size": 1280,
+    "sha256": "4c3fec22ebca595b03c279eb21b19aa4b2dab139741ed29172ca6fa4c43e7066"
+  },
+  {
+    "action": "mirror",
+    "file": "SYSGEN.COM",
+    "user": 0,
+    "size": 1024,
+    "sha256": "dcce9c7813f4b17cee57dfe886edf9e8edb111f9a44094611e3cd3a644e3e59b"
+  },
+  {
+    "action": "mirror",
+    "file": "TE.COM",
+    "user": 0,
+    "size": 15232,
+    "sha256": "574eeb85223edb41506afa4ae9918a9d795e542a0f1bb8534e928b8a59b4374d"
+  },
+  {
+    "action": "mirror",
+    "file": "TPTERM.ZIP",
+    "user": 2,
+    "size": 44288,
+    "sha256": "ca2f7817f0610f09ef1928623d88c8f77bbbb338a952834b6e1f916d7b141ac4"
+  },
+  {
+    "action": "mirror",
+    "file": "UNARC.COM",
+    "user": 0,
+    "size": 4736,
+    "sha256": "0fcdd958bdaf16a0bf45f01421c30a98afc628711b6aac08683fd7008c3ba776"
+  },
+  {
+    "action": "mirror",
+    "file": "UNCR.COM",
+    "user": 0,
+    "size": 6400,
+    "sha256": "c834ad4a89b45200e8220ce84a5837dcc876ce4a6326267b342d8c0055fd810c"
+  },
+  {
+    "action": "mirror",
+    "file": "UNZIP.COM",
+    "user": 0,
+    "size": 3456,
+    "sha256": "0031049e5d2e73f0042121fdee621c183141efe4dc586d9583fb4aeca2250bcc"
+  },
+  {
+    "action": "mirror",
+    "file": "USQ.COM",
+    "user": 0,
+    "size": 1920,
+    "sha256": "dd9f96a426ae47d3fe7d3184e95dad6b910ba4c41dedd6e1b1b55235340114cf"
+  },
+  {
+    "action": "mirror",
+    "file": "VTDEMO.BAS",
+    "user": 8,
+    "size": 1152,
+    "sha256": "def32cc3cdf133476fc5c4890d4a038a77958e2c57749ba162ad276cd8d4e559"
+  },
+  {
+    "action": "mirror",
+    "file": "VTDEMO2.BAS",
+    "user": 8,
+    "size": 1152,
+    "sha256": "def32cc3cdf133476fc5c4890d4a038a77958e2c57749ba162ad276cd8d4e559"
+  },
+  {
+    "action": "mirror",
+    "file": "VTESTS.BAS",
+    "user": 0,
+    "size": 7552,
+    "sha256": "b9817403e8d8eb97992442fda91c5b504b4032a45e0c04a27bf19f8a785be99e"
+  },
+  {
+    "action": "mirror",
+    "file": "VTGET.COM",
+    "user": 0,
+    "size": 512,
+    "sha256": "e37cb4a3cef562ab42886789056c318a298fb77a93ef838acf4d73d95e021a7c"
+  },
+  {
+    "action": "mirror",
+    "file": "VTPUT.COM",
+    "user": 0,
+    "size": 512,
+    "sha256": "f03321d63a098453fce420a0c62614b41878c4690767d9a6c7037fe2f846e25b"
+  },
+  {
+    "action": "mirror",
+    "file": "WHATSNEW.TXT",
+    "user": 1,
+    "size": 2816,
+    "sha256": "d3057603944aa0359ef843a5d6efc9ab90e190daed3470cc222bac9a8b7adc1f"
+  },
+  {
+    "action": "mirror",
+    "file": "XMODEM.COM",
+    "user": 0,
+    "size": 4096,
+    "sha256": "36e3b811340b5c52803c9d60cf429524307dc4fa14d3b16930010cf85d5f2d31"
+  },
+  {
+    "action": "mirror",
+    "file": "XSUB.COM",
+    "user": 0,
+    "size": 768,
+    "sha256": "817a16b595ea6de8df0dd5e808f89a49e85dea546673283d759d01e960598bed"
+  },
+  {
+    "action": "mirror",
+    "file": "Z2HDR.LIB",
+    "user": 4,
+    "size": 15360,
+    "sha256": "b2f78efcdf452037f3b8011e2354a1f2aefc52d21dd0694811e275788377dd74"
+  },
+  {
+    "action": "mirror",
+    "file": "Z3BASE.LIB",
+    "user": 4,
+    "size": 9344,
+    "sha256": "b65d854974318531a037dee695c31653e998110fbb79513376d03295733597fd"
+  },
+  {
+    "action": "mirror",
+    "file": "Z3HDR.LIB",
+    "user": 4,
+    "size": 19456,
+    "sha256": "df576032b386f24eec9bf2abb048f0fb54ae06ec5b7642ba3eb5d8c0b2f97f86"
+  },
+  {
+    "action": "mirror",
+    "file": "Z80ASM.COM",
+    "user": 4,
+    "size": 25088,
+    "sha256": "7b82a5b7cba4596d24547b0a2efba9eddf7a931e6984d73b37b963a44a7f8c6a"
+  },
+  {
+    "action": "mirror",
+    "file": "Z80ASM.PDF",
+    "user": 4,
+    "size": 134912,
+    "sha256": "936d7dbabaf228ba34d501655edd0684c7b69a42895647900927c79f1560fdf1"
+  },
+  {
+    "action": "mirror",
+    "file": "Z80CCP.ASM",
+    "user": 5,
+    "size": 37120,
+    "sha256": "0c7e751df4e528a05b0c90c19eea2a40fb4e38b0e37f1c82bfc8899e5cd66104"
+  },
+  {
+    "action": "mirror",
+    "file": "Z80CCP.SUB",
+    "user": 5,
+    "size": 256,
+    "sha256": "23e370aa888ddcb555e74ca3aebf74a94694fc625b58731d400ddd561d0d4c7f"
+  },
+  {
+    "action": "mirror",
+    "file": "ZCPR2.ASM",
+    "user": 5,
+    "size": 56960,
+    "sha256": "58cc51293fa6c25d84f8c43f2fecf1c742d109e94b42e67555388dd0b1690daa"
+  },
+  {
+    "action": "mirror",
+    "file": "ZCPR2.SUB",
+    "user": 5,
+    "size": 128,
+    "sha256": "c1777d6575b799bf8912f40da7e33ce23b37825f245f4d71d1c380d275924140"
+  },
+  {
+    "action": "mirror",
+    "file": "ZCPR3.ASM",
+    "user": 5,
+    "size": 66816,
+    "sha256": "0e46678446382700c03892aae79b53a78d4efff83f2129a1b26ad3c00034a7e2"
+  },
+  {
+    "action": "mirror",
+    "file": "ZCPR3.SUB",
+    "user": 5,
+    "size": 128,
+    "sha256": "b4f5c5921265f9dea44c3bb58fd3be4fb5a088ece33f2a32b2b289fd82005912"
+  },
+  {
+    "action": "mirror",
+    "file": "ZEXALL.COM",
+    "user": 6,
+    "size": 8704,
+    "sha256": "e66c0e3368c9137ad8fe1e5aae7d0a5a3545e315bdff6cb7d6088216988371a9"
+  },
+  {
+    "action": "mirror",
+    "file": "ZEXDOC.COM",
+    "user": 6,
+    "size": 8704,
+    "sha256": "82ce729aad469f4ef4b368d82db4c4823ee474facf4cbc33dd097acda7352ba7"
+  },
+  {
+    "action": "mirror",
+    "file": "ZSID.COM",
+    "user": 4,
+    "size": 10240,
+    "sha256": "bab7a0bccd361f4d2e8828c03924490231e414ac79cd3dd40bf5cfc46b1ecf75"
+  },
+  {
+    "action": "mirror",
+    "file": "ZTRAN.COM",
+    "user": 4,
+    "size": 4096,
+    "sha256": "84da62295def24757188ad8abd8d01ed53077e80d458daf1ed39cc1e034857d8"
+  },
+  {
+    "action": "moved_verified",
+    "user": 1,
+    "files": [
+      "BBCBASIC.COM",
+      "DIST.Z80",
+      "README.TXT",
+      "WHATSNEW.TXT"
+    ]
+  },
+  {
+    "action": "moved_verified",
+    "user": 2,
+    "files": [
+      "TPTERM.ZIP"
+    ]
+  },
+  {
+    "action": "moved_verified",
+    "user": 4,
+    "files": [
+      "ASM.COM",
+      "MAC.COM",
+      "MLOAD.ASM",
+      "MLOAD.COM",
+      "MLOAD.DOC",
+      "OPCODES.DOC",
+      "OPCODES.TXT",
+      "Z2HDR.LIB",
+      "Z3BASE.LIB",
+      "Z3HDR.LIB",
+      "Z80ASM.COM",
+      "Z80ASM.PDF",
+      "ZSID.COM",
+      "ZTRAN.COM"
+    ]
+  },
+  {
+    "action": "moved_verified",
+    "user": 5,
+    "files": [
+      "ABDOS.SUB",
+      "BDOS.ASM",
+      "BDOS.SUB",
+      "BDOSEQU.LIB",
+      "CCP-ZCP3.BIN",
+      "CCP.ASM",
+      "CCP.SUB",
+      "CCPZ.SUB",
+      "CCPZ.Z80",
+      "CLEAN.SUB",
+      "CLS.Z80",
+      "CONSOLE7.Z80",
+      "CONSOLE8.Z80",
+      "DISKDEF.LIB",
+      "DISPLAY.LIB",
+      "DUMP.ASM",
+      "EXIT.ASM",
+      "EXIT.SUB",
+      "EXIT.Z80",
+      "FORMAT.SUB",
+      "FORMAT.Z80",
+      "INFO.SUB",
+      "INFO.Z80",
+      "MAKEFCB.LIB",
+      "RSTAT.SUB",
+      "RSTAT.Z80",
+      "SPEED.Z80",
+      "Z80CCP.ASM",
+      "Z80CCP.SUB",
+      "ZCPR2.ASM",
+      "ZCPR2.SUB",
+      "ZCPR3.ASM",
+      "ZCPR3.SUB"
+    ]
+  },
+  {
+    "action": "moved_verified",
+    "user": 6,
+    "files": [
+      "CPMDHRY.COM",
+      "CPMMAND.COM",
+      "CPMMAND2.COM",
+      "ZEXALL.COM",
+      "ZEXDOC.COM"
+    ]
+  },
+  {
+    "action": "moved_verified",
+    "user": 7,
+    "files": [
+      "M5228080.COM",
+      "M5228085.COM",
+      "M522Z80.COM",
+      "MBAS529.COM",
+      "MBAS529P.COM",
+      "MBAS530.COM",
+      "MBAS530P.COM"
+    ]
+  }
+]

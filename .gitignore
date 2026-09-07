@@ -2,3 +2,13 @@ nukedc-recovery-mostly-corrupted-some-valid/
 **/build/
 **/.build/
 **/.vscode/c_cpp_properties.json
+build-*/
+backups/
+cpm-languages/*.zip
+cpm-languages/*.ZIP
+cpm-languages/*.LBR
+cpm-languages/lang.html
+cpm-languages/bbc/
+cpm-languages/comal/
+cpm-languages/comal-unpacked/
+cpm-languages/turbo/

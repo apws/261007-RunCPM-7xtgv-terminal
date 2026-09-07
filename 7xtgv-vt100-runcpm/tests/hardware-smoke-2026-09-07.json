@@ -1,0 +1,52 @@
+[
+  {
+    "check": "boot without PC and attach",
+    "passed": true,
+    "screen": "CP/M 2.2 Emulator v6.9 by Marcelo Dantas\nArduino read/write support by Krzysztof Klis\nHAL tweaks by 7alken\nBuild 7xtgv-vt100-v1 / Sep  7 2026-00:13:26\n------------------------------------------------\nCPU is Model 1\n14517012 T-states in 695 ms\nEstimated Z80 clock speed: 20 MHz\nBIOS at 0xfe00 - BDOS at 0xfd00\nCCP CCP-INTERNAL v3.3 at 0xfd00\n------------------------------------------------\nBIOS/BDOS     method interrupt    handoff\nBanked Memory        01 bank\n\nInit MicroSD-Card ...19 Mhz\n-------------------------------------------------\nRunCPM Version 6.9 (CCP-INTERNAL v3.3)\n\nA0>\n\n\n\n\n"
+  },
+  {
+    "check": "DIR lists SD files",
+    "passed": true,
+    "screen": "A: CLS      Z80  |  CONSOLE7 COM  |  CONSOLE7 Z80  |  CONSOLE8 COM\nA: CONSOLE8 Z80  |  DDT      COM  |  DISKDEF  LIB  |  DISPLAY  LIB\nA: DUMP     ASM  |  DUMP     COM  |  ED       COM  |  EXIT     COM\nA: EXIT     SUB  |  EXIT     Z80  |  FORMAT   COM  |  FORMAT   SUB\nA: FORMAT   Z80  |  FRACTAL  BAS  |  FRAROUND BAS  |  FRAROUND COM\nA: INFO     COM  |  INFO     SUB  |  INFO     Z80  |  LOAD     COM\nA: LU       COM  |  M5228080 COM  |  M5228085 COM  |  M522Z80  COM\nA: MAC      COM  |  MAKEFCB  LIB  |  MBASIC   COM  |  MLOAD    ASM\nA: MLOAD    COM  |  MLOAD    DOC  |  MOVCPM   COM  |  OPCODES  DOC\nA: PIP      COM  |  RSTAT    COM  |  RSTAT    SUB  |  RSTAT    Z80\nA: SPEED    COM  |  SPEED    Z80  |  STAT     COM  |  SUBMIT   COM\nA: SUBMITD  COM  |  SYSGEN   COM  |  TE       COM  |  UNARC    COM\nA: UNCR     COM  |  USQ      COM  |  XMODEM   COM  |  XSUB     COM\nA: Z2HDR    LIB  |  Z3BASE   LIB  |  Z3HDR    LIB  |  Z80ASM   COM\nA: Z80ASM   PDF  |  Z80CCP   ASM  |  Z80CCP   SUB  |  ZCPR2    ASM\nA: ZCPR2    SUB  |  ZCPR3    ASM  |  ZCPR3    SUB  |  ZEXALL   COM\nA: ZEXDOC   COM  |  ZSID     COM  |  ZTRAN    COM  |  BDOS     LUA\nA: CBLINK   BAS  |  CBLINK   ESC  |  CINF     BAS  |  CINF     COM\nA: CPMDHRY  COM  |  CPMMAND  COM  |  CPMMAND2 COM  |  EXIT     ASM\nA: HELLO    LUA  |  INFO     TXT  |  LUA      COM  |  LUA      SUB\nA: LUA      Z80  |  LUAINFO  LUA  |  MBAS529  COM  |  MBAS529P COM\nA: MBAS530  COM  |  MBAS530P COM  |  OPCODES  TXT  |  STARTREK BAS\nA: STARTRK  BAS  |  UNZIP    COM\nA0>"
+  },
+  {
+    "check": "launch MBASIC",
+    "passed": true,
+    "screen": "A: MAC      COM  |  MAKEFCB  LIB  |  MBASIC   COM  |  MLOAD    ASM\nA: MLOAD    COM  |  MLOAD    DOC  |  MOVCPM   COM  |  OPCODES  DOC\nA: PIP      COM  |  RSTAT    COM  |  RSTAT    SUB  |  RSTAT    Z80\nA: SPEED    COM  |  SPEED    Z80  |  STAT     COM  |  SUBMIT   COM\nA: SUBMITD  COM  |  SYSGEN   COM  |  TE       COM  |  UNARC    COM\nA: UNCR     COM  |  USQ      COM  |  XMODEM   COM  |  XSUB     COM\nA: Z2HDR    LIB  |  Z3BASE   LIB  |  Z3HDR    LIB  |  Z80ASM   COM\nA: Z80ASM   PDF  |  Z80CCP   ASM  |  Z80CCP   SUB  |  ZCPR2    ASM\nA: ZCPR2    SUB  |  ZCPR3    ASM  |  ZCPR3    SUB  |  ZEXALL   COM\nA: ZEXDOC   COM  |  ZSID     COM  |  ZTRAN    COM  |  BDOS     LUA\nA: CBLINK   BAS  |  CBLINK   ESC  |  CINF     BAS  |  CINF     COM\nA: CPMDHRY  COM  |  CPMMAND  COM  |  CPMMAND2 COM  |  EXIT     ASM\nA: HELLO    LUA  |  INFO     TXT  |  LUA      COM  |  LUA      SUB\nA: LUA      Z80  |  LUAINFO  LUA  |  MBAS529  COM  |  MBAS529P COM\nA: MBAS530  COM  |  MBAS530P COM  |  OPCODES  TXT  |  STARTREK BAS\nA: STARTRK  BAS  |  UNZIP    COM\nA0>MBASIC\nBASIC-80 Rev. 5.30\n[CP/M Version]\nCopyright 1985-1986 (C) by Microsoft\nCreated: 19-Oct-85\n39224 Bytes free\nOK\n"
+  },
+  {
+    "check": "BASIC evaluates arithmetic",
+    "passed": true,
+    "screen": "A: SPEED    COM  |  SPEED    Z80  |  STAT     COM  |  SUBMIT   COM\nA: SUBMITD  COM  |  SYSGEN   COM  |  TE       COM  |  UNARC    COM\nA: UNCR     COM  |  USQ      COM  |  XMODEM   COM  |  XSUB     COM\nA: Z2HDR    LIB  |  Z3BASE   LIB  |  Z3HDR    LIB  |  Z80ASM   COM\nA: Z80ASM   PDF  |  Z80CCP   ASM  |  Z80CCP   SUB  |  ZCPR2    ASM\nA: ZCPR2    SUB  |  ZCPR3    ASM  |  ZCPR3    SUB  |  ZEXALL   COM\nA: ZEXDOC   COM  |  ZSID     COM  |  ZTRAN    COM  |  BDOS     LUA\nA: CBLINK   BAS  |  CBLINK   ESC  |  CINF     BAS  |  CINF     COM\nA: CPMDHRY  COM  |  CPMMAND  COM  |  CPMMAND2 COM  |  EXIT     ASM\nA: HELLO    LUA  |  INFO     TXT  |  LUA      COM  |  LUA      SUB\nA: LUA      Z80  |  LUAINFO  LUA  |  MBAS529  COM  |  MBAS529P COM\nA: MBAS530  COM  |  MBAS530P COM  |  OPCODES  TXT  |  STARTREK BAS\nA: STARTRK  BAS  |  UNZIP    COM\nA0>MBASIC\nBASIC-80 Rev. 5.30\n[CP/M Version]\nCopyright 1985-1986 (C) by Microsoft\nCreated: 19-Oct-85\n39224 Bytes free\nOK\nPRINT 2+2\n 4\nOK\n"
+  },
+  {
+    "check": "ANSI erase, positioning and text",
+    "passed": true,
+    "screen": "ANSI-OK\nOK\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
+  },
+  {
+    "check": "logical column 71",
+    "passed": true,
+    "screen": "ANSI-OK\nOK\nPRINT CHR$(27);\"[6;71H\";\"RIGHT-\";\"EDGE\"\n\n\n                                                                      RIGHT-EDGE\nOK\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
+  },
+  {
+    "check": "pan controls did not enter CP/M command input",
+    "passed": true,
+    "screen": "ANSI-OK\nOK\nPRINT CHR$(27);\"[6;71H\";\"RIGHT-\";\"EDGE\"\n\n\n                                                                      RIGHT-EDGE\nOK\nPRINT 3+4\n 7\nOK\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
+  },
+  {
+    "check": "VT52 positioning and ANSI return",
+    "passed": true,
+    "screen": "\n\n\n\n\n\n\n\n          VT52-OK\nOK\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
+  },
+  {
+    "check": "return to CP/M",
+    "passed": true,
+    "screen": "\n\n\n\n\n\n\n\n          VT52-OK\nOK\nSYSTEM\n\n\nRunCPM Version 6.9 (CCP-INTERNAL v3.3)\n\nA0>\n\n\n\n\n\n\n\n"
+  },
+  {
+    "check": "reconnect retains session",
+    "passed": true,
+    "screen": "\n\n\n\n\n\n\n\n          VT52-OK\nOK\nSYSTEM\n\n\nRunCPM Version 6.9 (CCP-INTERNAL v3.3)\n\nA0>\n\n\n\n\n\n\n\n"
+  }
+]

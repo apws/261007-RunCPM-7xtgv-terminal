@@ -75,9 +75,7 @@ void setup(void);
 void loop(void);
 void setup(void)
 {
-    //TODO MIXWORX
-    // - some boards doesnt have dedicated default LED
-    // - so LCD backlight can be used, but RunCPM blinks with it ruding serail RX !!!
+    // Keep display brightness independent of disk activity.
 
     #ifdef GFX_BL
       //pinMode(GFX_BL, OUTPUT);

@@ -8,6 +8,5 @@
 #define SD_SCK 26
 #define SD_MOSI 27
 #define SD_MISO 24
-// Recovered code notes that LCD backlight was used as the activity LED.
-#define LED 15
-#define LEDinv 0
+// GPIO15 is the TFT backlight, not a dedicated activity LED.
+// Leave LED undefined so disk activity cannot override display brightness.
