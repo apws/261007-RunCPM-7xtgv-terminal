@@ -14,19 +14,19 @@ reverse, and DEC graphic selection. It does not run the cheers animation.
 From this directory:
 
 ```sh
-/home/falken/.local/bin/arduino-cli compile --profile rp2350-touch-lcd-2 --output-dir ../build-vt100-runcpm .
+/home/falken/.local/bin/arduino-cli compile --profile rp2350-touch-lcd-2 --output-dir ../../build/build-vt100-runcpm .
 ```
 
 The profile pins Arduino-Pico 5.4.4, Arduino_GFX 1.6.4, SdFat 2.3.0, RP2350A,
 150 MHz, and 16 MB flash. Display geometry is landscape 320×240 at rotation 3;
 font cells are 6×10, with an eight-pixel indicator strip on the right.
 
-Copy `../build-vt100-runcpm/7xtgv-vt100-runcpm.ino.uf2` to the RP2350 BOOTSEL
+Copy `../../build/build-vt100-runcpm/7xtgv-vt100-runcpm.ino.uf2` to the RP2350 BOOTSEL
 volume. The device restarts automatically. Keep the existing CP/M SD card
 inserted. No SD files are changed by firmware installation.
 
 The prior firmware remains at
-`../build-runcpm-backlight/7xtgv_RunCPM.ino.uf2` for rollback.
+`../../build/build-runcpm-backlight/7xtgv_RunCPM.ino.uf2` for rollback.
 
 ## PC keyboard and mirror
 

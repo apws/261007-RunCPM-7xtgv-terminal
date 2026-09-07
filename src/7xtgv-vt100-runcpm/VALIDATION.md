@@ -6,7 +6,7 @@
 - Program storage: **158,184 bytes**.
 - Static RAM: **129,756 bytes** (24%); linker reports 394,532 bytes remaining.
   This is the build report, not a measurement of peak runtime stack/heap usage.
-- UF2: `../build-vt100-runcpm/7xtgv-vt100-runcpm.ino.uf2`.
+- UF2: `../../build/build-vt100-runcpm/7xtgv-vt100-runcpm.ino.uf2`.
 - SHA-256: `aa932f6086c78e8c51338b241bf1e3fba579aad730bec92dfb914845b199ea46`.
 - Flashed successfully through the identified RP2350 BOOTSEL volume.
 - Prior demo/backlight firmware remains available for rollback.
