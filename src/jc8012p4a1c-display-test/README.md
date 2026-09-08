@@ -26,8 +26,37 @@ arduino-cli compile --profile jc8012p4a1c \
   --output-dir ../../build/jc8012p4a1c-display-test .
 ```
 
+## Connect and flash
+
+Use the board's dedicated USB-TTL Type-C socket, marked as connector 10 in the
+vendor interface drawing. It is the lowest of the three Type-C sockets beside
+the CH340C chip. Linux identifies it as a QinHeng CH340 (`1a86:7523`), normally
+as `/dev/ttyUSB0`. The other two Type-C sockets connect directly to ESP32-P4
+full-speed and high-speed USB peripherals.
+
+The CH340C drives `BOOTMODE` and `CHIP_PU` through DTR and RTS, so a normal
+upload resets the board into its ROM loader automatically:
+
+```sh
+arduino-cli upload -p /dev/ttyUSB0 \
+  -b 'esp32:esp32:esp32p4:CDCOnBoot=default,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,PSRAM=enabled' \
+  --input-dir ../../build/jc8012p4a1c-display-test
+```
+
+If automatic entry fails, hold **BOOT**, press and release **RESET**, then
+release **BOOT** and repeat the upload. The vendor manual also recommends a
+power reset before another upload when necessary.
+
+All three Type-C VBUS pins join the same `USB5V_IN` rail. That rail supplies an
+IP5306 power-bank/charger IC and the board. The module specification gives
+about 700 mA operating current; the IP5306 can charge a depleted LiPo at up to
+about 2.1 A and adapts downward if its 5 V input sags. For first bring-up, use
+an externally powered hub or adequate 5 V supply and leave the internal LiPo
+disconnected. Avoid attaching independent powered USB sources to multiple
+Type-C sockets simultaneously.
+
 The default screen tests direct RGB565 framebuffer output. The serial console
-at 115200 baud accepts:
+on the same CH340 port runs at 115200 baud and accepts:
 
 - `D`: direct framebuffer color bars, gradient, and gray ramp
 - `V`, `H`: MIPI controller vertical or horizontal color bars

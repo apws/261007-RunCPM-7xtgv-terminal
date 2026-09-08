@@ -1,4 +1,4 @@
 profiles:
   jc8012p4a1c:
-    fqbn: esp32:esp32:esp32p4:CDCOnBoot=cdc,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,PSRAM=enabled
+    fqbn: esp32:esp32:esp32p4:CDCOnBoot=default,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,PSRAM=enabled
 default_profile: jc8012p4a1c
