@@ -1,0 +1,22 @@
+# 7xtgv active target context
+
+Use this as the compact starting point for hardware work. Detailed history
+stays in the individual project READMEs and module resource folders.
+
+| Target | MCU/display | Demo profile | Upload note |
+| --- | --- | --- | --- |
+| 2 inch | RP2350 + 320x240 ST7789 | `rp2350-touch-lcd-2` | Enter BOOTSEL manually before UF2 upload. |
+| 5 inch | ESP32-S3 + 800x480 ST7262 RGB | `jc8048w550` | RGB parallel; board resources are under `docs/tft-ips-modules`. |
+| 10 inch | ESP32-P4 + 1280x800 MIPI DSI | `jc8012p4a1c` | CH340 data socket; Arduino_GFX P4 DSI patch required. |
+
+The demos use Arduino_GFX and the shared [7xtgv palette](../src/7xtgv-palette.h).
+RunCPM currently targets the RP2350 board; the ESP32-P4 RunCPM port is future
+work. Build outputs belong under `build/`; source and target setup stay under
+`src/`.
+
+See [platform-mcu-comparison.md](platform-mcu-comparison.md) for the CPU
+architecture differences and RunCPM portability notes.
+
+For a focused turn, name the target and action explicitly, for example:
+“RP2350, flash demo-print, inspect pale-blue paper.” Start with the target
+context note, then inspect only its sketch profile and `gfxsetup.h`.
