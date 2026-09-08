@@ -38,7 +38,11 @@ Arduino_GFX *gfx;
 #if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_IDF_TARGET_ESP32P4)
 #define JC8012P4A1C_NEW_PANEL
 #elif defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_IDF_TARGET_ESP32S3)
+#if defined(ARDUINO_USB_CDC_ON_BOOT) && ARDUINO_USB_CDC_ON_BOOT
+#define JC8048W535_AXS15231
+#else
 #define JC8048W550_ST7262
+#endif
 #else
 #define WAVESHARE_RP2350_LCD_2
 #endif
@@ -268,6 +272,27 @@ Arduino_GFX *gfx;
         27,
         jc8012p4a1c_newpanel_init,
         sizeof(jc8012p4a1c_newpanel_init) / sizeof(lcd_init_cmd_t));
+  }
+
+#endif
+
+#if defined(JC8048W535_AXS15231)
+
+  #define GFX_DEVICE JC8048W535_AXS15231
+  #define SCR_COLS 80
+  #define SCR_ROWS 32
+  #define GFX_OFS_X 0
+  #define GFX_OFS_Y 0
+  #define GFX_BL 1
+
+  void GFX_DEVICE_INIT()
+  {
+    Arduino_ESP32QSPI *qspi = new Arduino_ESP32QSPI(45, 47, 21, 48, 40, 39);
+    // Keep the controller native; rotate the canvas so it retains a 320x480
+    // framebuffer for flushing while exposing 480x320 drawing coordinates.
+    Arduino_AXS15231B *panel = new Arduino_AXS15231B(
+        qspi, GFX_NOT_DEFINED, 0, false, 320, 480);
+    gfx = new Arduino_Canvas(320, 480, panel, 0, 0, 1);
   }
 
 #endif
