@@ -4,29 +4,8 @@
 #include <string.h>
 
 namespace vt {
-// Previous paper palette: white, pale red, pale green, pale blue.
-// {255,255,255},{255,240,240},{200,255,200},{245,245,255}
-const RGB Paper[4] = {{255, 255, 255}, {255, 240, 240}, {200, 255, 200}, {245, 245, 255}};
-// Original bright normal inks, paired with the former normal inks for bold.
-// Keep the dedicated black entry for the default console foreground.
-const RGB Ink[16] = {
-    {100, 100, 100},    // 0 normal gray
-    {0, 0, 0},       // 1 dark gray / black
-    {255, 0, 0},     // 2 normal red
-    {231, 37, 37},   // 3 dark red
-    {0, 242, 0},     // 4 normal green
-    {21, 200, 47},   // 5 dark green
-    {0, 0, 255},     // 6 normal blue
-    {37, 89, 221},   // 7 dark blue
-    {230, 230, 230}, // 8 normal silver
-    {215, 215, 215}, // 9 dark silver
-    {76, 242, 242},  // 10 normal cyan
-    {0, 184, 194},   // 11 dark cyan
-    {255, 80, 255},  // 12 normal magenta
-    {205, 47, 189},  // 13 dark magenta
-    {230, 230, 50},  // 14 normal yellow
-    {200, 194, 0},   // 15 dark yellow
-};
+const RGB (&Ink)[16] = mixworx::Ink;
+const RGB (&Paper)[4] = mixworx::Paper;
 static uint8_t ansiInk(int code) {
     static const uint8_t map[8] = {0, 2, 4, 14, 6, 12, 10, 8};
     return map[code & 7];

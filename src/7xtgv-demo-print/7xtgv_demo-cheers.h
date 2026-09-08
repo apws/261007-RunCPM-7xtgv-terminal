@@ -127,38 +127,38 @@ static void initPalette256()
 
   // Ink palette: 8 chromas - 2 luminances + extra grays
   // GRAY / DARKGRAY
-  palette256[PAL_INK_GRAY]     = rgb565(200, 200, 200);
+  palette256[PAL_INK_GRAY]     = rgb565(100, 100, 100);
   palette256[PAL_INK_DARKGRAY] = rgb565(  0,   0,   0); //we forced here DEEP BLACK for BOLD KEYWORDS
   //NOTE - traditional retro terminals defined BOLD as BRIGHT, this was applied to negative display with dark background
   //     - on WHITE paper, the BOLD is defined as DAKER luminance of color, so in case of GRAY > VERY DARK GREY / BLACK
 
   // RED / DARKRED
   palette256[PAL_INK_RED]     = rgb565(255,   0,   0);
-  palette256[PAL_INK_DARKRED] = rgb565(240,   0,   0);
+  palette256[PAL_INK_DARKRED] = rgb565(231,  37,  37);
 
   // GREEN / DARKGREEN
-  palette256[PAL_INK_GREEN]     = rgb565(  0, 255,   0);
-  palette256[PAL_INK_DARKGREEN] = rgb565(  0, 230,   0);
+  palette256[PAL_INK_GREEN]     = rgb565(  0, 242,   0);
+  palette256[PAL_INK_DARKGREEN] = rgb565( 21, 200,  47);
 
   // BLUE / DARKBLUE
   palette256[PAL_INK_BLUE]     = rgb565(  0,   0, 255);
-  palette256[PAL_INK_DARKBLUE] = rgb565(  0,   0, 235);
+  palette256[PAL_INK_DARKBLUE] = rgb565( 37,  89, 221);
 
   // SILVER / DARKSILVER (treat silver as lighter gray - total 4 GRAY levels)
-  palette256[PAL_INK_SILVER]     = rgb565(240, 240, 240);
-  palette256[PAL_INK_DARKSILVER] = rgb565(220, 220, 220);
+  palette256[PAL_INK_SILVER]     = rgb565(230, 230, 230);
+  palette256[PAL_INK_DARKSILVER] = rgb565(215, 215, 215);
 
   // CYAN / DARKCYAN
-  palette256[PAL_INK_CYAN]     = rgb565( 80, 255, 255);
-  palette256[PAL_INK_DARKCYAN] = rgb565( 78, 247, 247);
+  palette256[PAL_INK_CYAN]     = rgb565( 76, 242, 242);
+  palette256[PAL_INK_DARKCYAN] = rgb565(  0, 184, 194);
 
   // MAGENTA / DARKMAGENTA
   palette256[PAL_INK_MAGENTA]     = rgb565(255,  80, 255);
-  palette256[PAL_INK_DARKMAGENTA] = rgb565(247,  78, 247);
+  palette256[PAL_INK_DARKMAGENTA] = rgb565(205,  47, 189);
 
   // YELLOW / DARKYELLOW
-  palette256[PAL_INK_YELLOW]     = rgb565(255, 255,  80);
-  palette256[PAL_INK_DARKYELLOW] = rgb565(247, 247,  78);
+  palette256[PAL_INK_YELLOW]     = rgb565(230, 230,  50);
+  palette256[PAL_INK_DARKYELLOW] = rgb565(200, 194,   0);
 
 }
 

@@ -1,13 +1,13 @@
 #pragma once
 #include <stddef.h>
 #include <stdint.h>
+#include "../7xtgv-palette.h"
 
 namespace vt {
 constexpr int Cols = 80, Rows = 24, Visible = 52, Cells = Cols * Rows;
-struct RGB {
-    uint8_t r, g, b;
-};
-extern const RGB Ink[16], Paper[4];
+using RGB = mixworx::RGB;
+extern const RGB (&Ink)[16];
+extern const RGB (&Paper)[4];
 enum Flag : uint8_t { Underline = 1, Reverse = 2, Graphics = 4, Blink = 8 };
 class Terminal {
   public:
