@@ -131,9 +131,9 @@ static void initPalette256()
 
   // Paper palette: BRIGHT WHITE + pastel R/G/B
   palette256[PAL_PAPER_WHITE]  = rgb565(255, 255, 255);
-  palette256[PAL_PAPER_PRED]   = rgb565(255, 240, 240);
-  palette256[PAL_PAPER_PGREEN] = rgb565(200, 255, 200);
-  palette256[PAL_PAPER_PBLUE]  = rgb565(245, 245, 255);
+  palette256[PAL_PAPER_PRED]   = rgb565(255, 230, 230);
+  palette256[PAL_PAPER_PGREEN] = rgb565(205, 255, 205);
+  palette256[PAL_PAPER_PBLUE]  = rgb565(230, 230, 255);
 
   // Ink palette: 8 chromas × 2 luminances + extra grays (as you described)
   // “GRAY / DARKGRAY”
@@ -544,4 +544,3 @@ void loop() {
   // Remove delay when benchmarking
   //delay(1000);
 }
-
