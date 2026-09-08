@@ -508,7 +508,7 @@ void setup1()
   initScreenRAM();
 
   // Initialize the controller before issuing fill/draw commands.
-  if (!gfx->begin())
+  if (!GFX_BEGIN_OK())
   {
     Serial.println("gfx->begin() failed!");
   }

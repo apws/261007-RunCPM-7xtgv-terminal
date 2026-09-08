@@ -507,7 +507,7 @@ void setup()
   initScreenRAM();
 
   // Init Display
-  if (!gfx->begin())
+  if (!GFX_BEGIN_OK())
   {
     Serial.println("gfx->begin() failed!");
   }

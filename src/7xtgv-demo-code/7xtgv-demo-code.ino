@@ -486,7 +486,7 @@ void setup()
   //delay(2000);
 
   // Init Display
-  if (!gfx->begin())
+  if (!GFX_BEGIN_OK())
   {
     Serial.println("gfx->begin() failed!");
   }

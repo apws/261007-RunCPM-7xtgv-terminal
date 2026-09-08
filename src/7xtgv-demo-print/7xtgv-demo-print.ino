@@ -490,7 +490,7 @@ void setup()
   Serial.println("7xtgv random print demo");
   initPalette256();
   initScreenRAM();
-  if (!gfx->begin()) Serial.println("gfx->begin() failed!");
+  if (!GFX_BEGIN_OK()) Serial.println("gfx->begin() failed!");
   gfx->fillScreen(0x0000);
   gxp = new GfxCompat(gfx);
   ql.font(0);

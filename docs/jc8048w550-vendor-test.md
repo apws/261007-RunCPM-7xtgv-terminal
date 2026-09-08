@@ -1,0 +1,14 @@
+# JC8048W550 vendor baseline — 2026-09-08
+
+- Entire supplied ZIP extracted untouched to `/tmp/jc8048-original`; all vendor demos and libraries copied under `build/jc8048-vendor-original/1-Demo`.
+- Selected `3_3-1_TFT_HelloWorld/HelloWorld` (2022-11-18): already configured for 800×480 ST7262 RGB, GPIO2 backlight, 16 MHz pixel clock. Sketch and bundled Arduino_GFX 1.2.9 are unchanged.
+- Clock also matches this panel. Newer PDQ graphics test (2022-12-06) defaults to a different 1.9-inch ST7789 board. Newest music examples (2023) require LVGL; excluded per project preference.
+- Vendor Getting started PDF page 6 explicitly shows **OPI PSRAM**, QIO 80 MHz flash, 8 MB flash configuration, huge-app partition, USB CDC disabled. Our previous S3 profile selected QSPI PSRAM instead: a confirmed mismatch, but black-screen causality still needs hardware confirmation.
+- Hardware flash identification: ESP32-S3, MAC ac:27:6e:a4:a5:08, **16 MB physical flash**. Test uses vendor's 8 MB configuration (within physical capacity).
+- Original library compiled successfully using ESP32 Arduino core **2.0.6**, with FQBN `esp32:esp32:esp32s3:CDCOnBoot=default,FlashSize=8M,PartitionScheme=huge_app,PSRAM=opi`.
+- Python flashing dependencies isolated in `build/jc8048-vendor-python` (esptool 4.2.1). Prepend its `bin` to PATH for Arduino CLI build/upload with the old core.
+- Compile: use `--library` pointing specifically to vendor `Libraries/Arduino_GFX-master`; output `build/jc8048-vendor-hello-original`. Firmware 290497 bytes; globals 19672 bytes.
+- Upload to `/dev/ttyUSB0` succeeded; all written hashes verified; RTS reset issued. Petr confirmed initial red Hello World AND subsequent random coloured prints: original demo works. Expected: red Hello World, then randomly coloured/scaled text every two seconds.
+- Arduino CLI core install replaces the previously active version: 3.1.0 was restored successfully after the baseline test. No demo source changes or Git commit made by this baseline test.
+
+Earlier speculative `disp_active_low` edits are not a demonstrated fix: `disp_gpio_num=-1` means no display-enable GPIO. An unused SPI initialization header also remains from earlier attempts. Review/remove these experiments before integrating the 5-inch target. Native 480-pixel height needs 48 ten-pixel text rows, not the current 80.

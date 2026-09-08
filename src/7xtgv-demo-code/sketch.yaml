@@ -1,4 +1,8 @@
 profiles:
+  jc8048w550:
+    fqbn: esp32:esp32:esp32s3:CDCOnBoot=default,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,PSRAM=opi
+    libraries:
+      - GFX Library for Arduino (1.6.4)
   jc8012p4a1c:
     fqbn: esp32:esp32:esp32p4:CDCOnBoot=default,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,PSRAM=enabled
     libraries:
