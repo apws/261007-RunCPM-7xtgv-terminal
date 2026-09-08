@@ -10,7 +10,7 @@ struct RGB {
 };
 
 static constexpr RGB Paper[4] = {
-  {255, 255, 255}, {255, 230, 230}, {205, 255, 205}, {230, 230, 255},
+  {255, 255, 255}, {255, 230, 235}, {205, 255, 205}, {240, 240, 255},
 };
 
 // Even entries are normal inks; odd entries are their darker/bold companions.

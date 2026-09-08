@@ -1,7 +1,7 @@
 
 //Arduino_GFX with board/display specific setup
 #include "gfxsetup.h"
-#include "../7xtgv-palette.h"
+#include "7xtgv-palette.h"
 
 // ===========================
 // CONFIG
