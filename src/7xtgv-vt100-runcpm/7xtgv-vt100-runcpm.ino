@@ -1,8 +1,11 @@
 #include <Arduino.h>
+#include "runcpm-config.h"
 // RunCPM - mixworx mods
-#define BUILD  "7xtgv-vt100-v1"
+#define BUILD  "7xtgv-runcpm-v2"
 
+#if !defined(RUNCPM_HEADLESS)
 #include "terminal_runtime.h"
+#endif
 
 //TODO MIXWORX
 // - make FLAT HAL (arduino) instead of foldered "hardware" - to place there SINGLE include per board containing ALL HAL declarations
@@ -14,17 +17,25 @@
 
 //#include "hardware/pico/pico_sd_spi.h"                 // Raspberry Pi Pico - normal (LED = GPIO25)
 //#include "hardware/pico/pico_w_sd_spi.h"               // Raspberry Pi Pico W(iFi)   (LED = GPIO64)
+#if defined(RUNCPM_HEADLESS)
+#include "hal/jc8048w535_sdmmc.h"
+#else
 #include "hal/pico_rp2350_touch_lcd_2_sd_spi.h"        // WAVESHARE-rp2350-touch-lcd-2
+#endif
 //#include "hal/pico_rp2350_lcd_1_47_sd_spi.h"           // WAVESHARE-rp2350-lcd-1-47
 
 
 
+#if defined(RUNCPM_HEADLESS)
+RunCPMStorage SD;
+#else
 #include <SPI.h>
 #include <SdFat.h>              // Greinman SdFat from Library Manager
 // #include <ESP8266SdFat.h>
 
 SdFat32 SD; // 32-bit file sizes, matching RunCPM's File32 usage
 typedef File32 File;
+#endif
 
 #include "globals.h"
 
@@ -46,7 +57,7 @@ typedef File32 File;
 // PUN: device configuration
 // =========================================================================================
 #ifdef USE_PUN
-  File32 pun_dev;
+  File pun_dev;
   int pun_open = FALSE;
 #endif
 
@@ -54,7 +65,7 @@ typedef File32 File;
 // LST: device configuration
 // =========================================================================================
 #ifdef USE_LST
-  File32 lst_dev;
+  File lst_dev;
   int lst_open = FALSE;
 #endif
 
@@ -70,12 +81,10 @@ typedef File32 File;
 #endif
 
 
-bool core1_separate_stack = true;
-
-void setup() { terminalSetup(); }
-void loop() { terminalLoop(); }
-void setup1() {
+static void runCPM() {
+#if !defined(RUNCPM_HEADLESS)
     terminalWaitReady();
+#endif
     #ifdef DEBUGLOG
       _sys_deletefile((uint8 *)LogName);
     #endif
@@ -127,19 +136,7 @@ void setup1() {
 // SPIINIT !! ONLY !! for ESP32-Boards = #define board_esp32
 // =========================================================================================
 
-    #if defined board_esp32
-        _puts("Initializing  SPI    [ ");
-        SPI.begin(SPIINIT);
-        _puts("\e[1mDone\e[0m ]\r\n");
-    #endif
-
-
-//TODO HAL/BOARD defined section here
-// =========================================================================================
-// Setup SD card writing settings
-// Info at: https://github.com/greiman/SdFat/issues/285#issuecomment-823562829
-// =========================================================================================
-
+#if !defined(RUNCPM_HEADLESS)
     #define SDMHZ 19                    // setting Mhz  - SPI-Bus = SPI_FULL_SPEED = 50Mhz
     #define SDMHZ_TXT "19"              // for outputing SDMHZ-Text
     // normal is 12Mhz because of
@@ -152,7 +149,7 @@ void setup1() {
 
 // =========================================================================================
 
-    _puts("Init MicroSD-Card ...");
+    _puts("Init SD SPI bus ......");
 
 //TODO HAL/BOARD defined section here
     SPIBUS.setSCK(SD_SCK);
@@ -164,9 +161,23 @@ void setup1() {
     // !!! CRITICAL to handle SEPAATE SDFAT init reporting here !!!
 
     //FIXME - this is now SINGLE confusing path, fail of SPI and CARD-presence mismatch !!!
-    if (SD.begin(SD_CONFIG))
+    const bool storageReady = SD.begin(SD_CONFIG);
+#else
+    _puts("Init SD_MMC pins .....");
+    const bool pinsReady = SD.setPins();
+    _puts(pinsReady ? "OK\r\n" : "FAILED\r\n");
+    _puts("Mount MicroSD card ...");
+    const bool storageReady = pinsReady && SD.begin();
+#endif
+
+    if (storageReady)
     {
+#if defined(RUNCPM_HEADLESS)
+        _puts("OK (1-bit, CLK=12 CMD=11 D0=13)\r\n");
+        SD.printRoot(Serial);
+#else
         _puts(SDMHZ_TXT); _puts(" Mhz\r\n");
+#endif
         _puts("-------------------------------------------------");
 
 
@@ -244,5 +255,20 @@ void setup1() {
     }
 }
 
-
+#if defined(RUNCPM_HEADLESS)
+void setup() {
+    Serial.begin(SERIALSPD);
+    while (!Serial)
+        delay(10);
+    static_assert(sizeof(uint8) == 1 && sizeof(uint16) == 2 && sizeof(uint32) == 4,
+                  "RunCPM requires 8/16/32-bit integer types");
+    runCPM();
+}
+void loop() { delay(10); }
+#else
+bool core1_separate_stack = true;
+void setup() { terminalSetup(); }
+void loop() { terminalLoop(); }
+void setup1() { runCPM(); }
 void loop1() { delay(1); }
+#endif

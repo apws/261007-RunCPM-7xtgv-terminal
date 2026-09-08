@@ -512,6 +512,21 @@ uint32 _HardwareIn(const uint32 Port) {
 /* Console abstraction functions */
 /*===============================================================================*/
 
+#if defined(RUNCPM_HEADLESS)
+int _kbhit(void) { return Serial.available(); }
+uint8 _getch(void) {
+    while (!Serial.available())
+        delay(1);
+    return uint8(Serial.read());
+}
+uint8 _getche(void) {
+    uint8 ch = _getch();
+    Serial.write(ch);
+    return ch;
+}
+void _putch(uint8 ch) { Serial.write(ch); }
+void _clrscr(void) { Serial.print("\033[H\033[J"); }
+#else
 int _kbhit(void) { return virtualAvailable(); }
 uint8 _getch(void) { return virtualRead(); }
 uint8 _getche(void) {
@@ -524,4 +539,5 @@ void _clrscr(void) {
     const char *clear = "\033[H\033[J";
     while (*clear) virtualWrite(*clear++);
 }
+#endif
 #endif

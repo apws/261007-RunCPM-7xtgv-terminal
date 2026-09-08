@@ -1,7 +1,7 @@
 #pragma once
 #include <stddef.h>
 #include <stdint.h>
-#include "../7xtgv-palette.h"
+#include "7xtgv-palette.h"
 
 namespace vt {
 constexpr int Cols = 80, Rows = 24, Visible = 52, Cells = Cols * Rows;

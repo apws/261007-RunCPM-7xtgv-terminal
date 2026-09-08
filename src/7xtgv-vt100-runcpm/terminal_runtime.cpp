@@ -1,3 +1,5 @@
+#include "runcpm-config.h"
+#if !defined(RUNCPM_HEADLESS)
 #include "terminal_runtime.h"
 #include "7xtgv-QL-font.h"
 #include "7xtgv-gfxsetup.h"
@@ -367,3 +369,4 @@ void terminalLoop() {
     renderBatch();
     mirrorPump();
 }
+#endif
