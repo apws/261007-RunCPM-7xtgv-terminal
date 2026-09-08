@@ -44,5 +44,7 @@ while crossing command transitions. Individually paced interactive commands
 worked. This direct headless console is only the portability proof; later dual-
 core integration returns to the existing bounded virtual-serial queues.
 
-The root-directory listing remains enabled in the headless profile as an early
-storage diagnostic. It is not part of the later TFT terminal output.
+The root-directory listing was enabled in the headless milestone as an early
+storage diagnostic. It is not part of the later TFT terminal output. The
+headless result remains available at commit `50572b3`; the active S3 profile is
+subsequently used for the dual-task terminal integration.

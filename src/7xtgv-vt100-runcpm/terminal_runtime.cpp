@@ -16,6 +16,7 @@ static ByteQueue<16384> output;
 // Replies cannot block rendering if a program emits queries but never reads input.
 static ByteQueue<1024> replies;
 static std::atomic<bool> ready{false};
+static std::atomic<bool> pauseRequested{false}, pauseAcknowledged{false};
 static uint32_t replyOverruns = 0;
 static void terminalReply(void *, const uint8_t *data, size_t n) {
     if (replies.free() < n) {
@@ -34,6 +35,10 @@ static vt::Terminal terminal(terminalReply);
 static vt::Keyboard keyboard(terminal, keyboardSend, nullptr);
 static bool displayOK = false, cursorPhase = true, connected = false;
 static uint32_t blinkAt = 0, bellUntil = 0, oldBells = 0;
+#if defined(GFX_BUFFERED_CANVAS)
+static uint32_t displayFlushAt = 0;
+static bool displayFlushPending = false;
+#endif
 static uint16_t pixels[6 * 10];
 static int scanCell = 0, mirrorScan = 0;
 static char mirrorBuffer[8192];
@@ -132,6 +137,7 @@ static void drawCell(int i) {
     }
     gfx->draw16bitRGBBitmap(column * 6 + GFX_OFS_X, row * 10 + GFX_OFS_Y, pixels, 6, 10);
 }
+#if !defined(GFX_BUFFERED_CANVAS)
 static void drawIndicator() {
     gfx->fillRect(312, 0, 8, 240, 0);
     // Track shows the visible fraction of the 80-column page.
@@ -146,11 +152,17 @@ static void drawIndicator() {
     if (replyOverruns)
         gfx->fillRect(312, 106, 8, 4, 0xf800);
 }
+#endif
 static void renderBatch() {
     if (!displayOK)
         return;
     int drawn = 0;
-    for (int checked = 0; checked < vt::Visible * vt::Rows && drawn < 12; checked++) {
+#if defined(GFX_BUFFERED_CANVAS)
+    constexpr int DrawBudget = vt::Visible * vt::Rows;
+#else
+    constexpr int DrawBudget = 12;
+#endif
+    for (int checked = 0; checked < vt::Visible * vt::Rows && drawn < DrawBudget; checked++) {
         int view = scanCell++ % (vt::Visible * vt::Rows);
         int i = (view / vt::Visible) * vt::Cols + view % vt::Visible + terminal.viewport;
         if (terminal.dirty[i]) {
@@ -162,9 +174,20 @@ static void renderBatch() {
     // Keep the scan index bounded even after months of continuous operation.
     scanCell %= vt::Visible * vt::Rows;
     if (terminal.indicatorDirty) {
+#if !defined(GFX_BUFFERED_CANVAS)
         drawIndicator();
+#endif
         terminal.indicatorDirty = false;
     }
+#if defined(GFX_BUFFERED_CANVAS)
+    displayFlushPending |= drawn != 0;
+    uint32_t now = millis();
+    if (displayFlushPending && int32_t(now - displayFlushAt) >= 0) {
+        gfx->flush();
+        displayFlushPending = false;
+        displayFlushAt = now + 33;
+    }
+#endif
 }
 static const char *graphicText(uint8_t ch) {
     switch (ch) {
@@ -299,11 +322,16 @@ void terminalSetup() {
     Serial.begin(115200);
     // No USB diagnostics: this port carries only the interpreted screen mirror.
     GFX_DEVICE_INIT();
-    displayOK = gfx->begin();
+    displayOK = GFX_BEGIN_OK();
     pinMode(GFX_BL, OUTPUT);
     analogWrite(GFX_BL, 150);
-    if (displayOK)
+    if (displayOK) {
         gfx->fillScreen(0);
+#if defined(GFX_BUFFERED_CANVAS)
+        gfx->flush();
+        displayFlushAt = millis() + 33;
+#endif
+    }
     terminal.reset();
     if (!displayOK) {
         const char *s = "TFT initialization failed; PC mirror remains available.\r\n";
@@ -314,6 +342,11 @@ void terminalSetup() {
 }
 void terminalWaitReady() {
     while (!ready.load(std::memory_order_acquire))
+        delay(1);
+}
+void terminalPause(bool paused) {
+    pauseRequested.store(paused, std::memory_order_release);
+    while (pauseAcknowledged.load(std::memory_order_acquire) != paused)
         delay(1);
 }
 int virtualAvailable() { return input.available(); }
@@ -328,6 +361,12 @@ void virtualWrite(uint8_t c) {
         delay(1);
 }
 void terminalLoop() {
+    if (pauseRequested.load(std::memory_order_acquire)) {
+        pauseAcknowledged.store(true, std::memory_order_release);
+        delay(1);
+        return;
+    }
+    pauseAcknowledged.store(false, std::memory_order_release);
     uint8_t c;
     while (input.free() && replies.pop(c))
         input.push(c);

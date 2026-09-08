@@ -13,6 +13,12 @@
 Arduino_DataBus *bus;
 Arduino_GFX *gfx;
 
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR < 3
+#define GFX_BEGIN_OK() (gfx->begin(), true)
+#else
+#define GFX_BEGIN_OK() gfx->begin()
+#endif
+
 
 /*******************************************************************************
  * Start of Arduino_GFX setting
@@ -24,7 +30,33 @@ Arduino_GFX *gfx;
 //#define WAVESHARE_ESP32_C6_LCD_1_47
 //#define WAVESHARE_RP2350_LCD_1_47
 //#define WAVESHARE_RP2350_AMOLED_1_64
+#if defined(RUNCPM_TARGET_JC8048W535)
+#define JC8048W535_AXS15231
+#else
 #define WAVESHARE_RP2350_LCD_2
+#endif
+
+#if defined(JC8048W535_AXS15231)
+
+  #define GFX_DEVICE JC8048W535_AXS15231
+  #define SCR_COLS 80
+  #define SCR_ROWS 32
+  #define GFX_OFS_X 0
+  #define GFX_OFS_Y 0
+  #define GFX_BL 1
+  #define GFX_BUFFERED_CANVAS 1
+
+  void GFX_DEVICE_INIT()
+  {
+    Arduino_ESP32QSPI *qspi = new Arduino_ESP32QSPI(45, 47, 21, 48, 40, 39);
+    // Direct controller rotation is broken on this module. Keep its native
+    // 320x480 layout and expose the tested 480x320 view through a canvas.
+    Arduino_AXS15231B *panel = new Arduino_AXS15231B(
+        qspi, GFX_NOT_DEFINED, 0, false, 320, 480);
+    gfx = new Arduino_Canvas(320, 480, panel, 0, 0, 1);
+  }
+
+#endif
 
 #if defined(WAVESHARE_ESP32_C6_LCD_1_9)
 

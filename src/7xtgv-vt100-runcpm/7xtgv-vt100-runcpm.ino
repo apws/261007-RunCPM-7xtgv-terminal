@@ -17,7 +17,7 @@
 
 //#include "hardware/pico/pico_sd_spi.h"                 // Raspberry Pi Pico - normal (LED = GPIO25)
 //#include "hardware/pico/pico_w_sd_spi.h"               // Raspberry Pi Pico W(iFi)   (LED = GPIO64)
-#if defined(RUNCPM_HEADLESS)
+#if defined(RUNCPM_TARGET_JC8048W535)
 #include "hal/jc8048w535_sdmmc.h"
 #else
 #include "hal/pico_rp2350_touch_lcd_2_sd_spi.h"        // WAVESHARE-rp2350-touch-lcd-2
@@ -26,7 +26,7 @@
 
 
 
-#if defined(RUNCPM_HEADLESS)
+#if defined(RUNCPM_TARGET_JC8048W535)
 RunCPMStorage SD;
 #else
 #include <SPI.h>
@@ -104,7 +104,7 @@ static void runCPM() {
 
     _puts("------------------------------------------------\r\n");
     _puts("CPU is "); _puts(CPU_IS); _puts("\r\n");
-    Z80estimateClock();
+    _puts("Run VTMHZ.COM for active/quiet Z80 speed\r\n");
     _puts("BIOS at 0x"); _puthex16(BIOSjmppage);  _puts(" - ");
     _puts("BDOS at 0x"); _puthex16(BDOSjmppage);  _puts("\r\n");
     _puts("CCP " CCPname " at 0x"); _puthex16(CCPaddr); _puts("\r\n");
@@ -136,7 +136,7 @@ static void runCPM() {
 // SPIINIT !! ONLY !! for ESP32-Boards = #define board_esp32
 // =========================================================================================
 
-#if !defined(RUNCPM_HEADLESS)
+#if !defined(RUNCPM_TARGET_JC8048W535)
     #define SDMHZ 19                    // setting Mhz  - SPI-Bus = SPI_FULL_SPEED = 50Mhz
     #define SDMHZ_TXT "19"              // for outputing SDMHZ-Text
     // normal is 12Mhz because of
@@ -172,9 +172,11 @@ static void runCPM() {
 
     if (storageReady)
     {
-#if defined(RUNCPM_HEADLESS)
+#if defined(RUNCPM_TARGET_JC8048W535)
         _puts("OK (1-bit, CLK=12 CMD=11 D0=13)\r\n");
+#if defined(RUNCPM_HEADLESS)
         SD.printRoot(Serial);
+#endif
 #else
         _puts(SDMHZ_TXT); _puts(" Mhz\r\n");
 #endif
@@ -265,6 +267,50 @@ void setup() {
     runCPM();
 }
 void loop() { delay(10); }
+#elif defined(RUNCPM_TARGET_JC8048W535)
+static TaskHandle_t runCPMTaskHandle = nullptr;
+static TaskHandle_t runCPMIdleWindowTaskHandle = nullptr;
+
+static void runCPMTask(void *) {
+    runCPM();
+    vTaskDelete(nullptr);
+}
+
+static void runCPMIdleWindowTask(void *) {
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(250));
+        // A one-tick suspension guarantees time for core 0's watched idle
+        // task without adding work to the Z80 instruction dispatch path.
+        vTaskSuspend(runCPMTaskHandle);
+        vTaskDelay(1);
+        vTaskResume(runCPMTaskHandle);
+    }
+}
+
+void setup() {
+    static_assert(sizeof(uint8) == 1 && sizeof(uint16) == 2 && sizeof(uint32) == 4,
+                  "RunCPM requires 8/16/32-bit integer types");
+    terminalSetup();
+    // ESP-IDF measures task stack depth in bytes. RunCPM owns this task and
+    // SD_MMC; Arduino's loopTask retains terminal/display/USB ownership.
+    constexpr uint32_t RunCPMStackBytes = 16 * 1024;
+    BaseType_t created = xTaskCreatePinnedToCore(runCPMTask, "RunCPM", RunCPMStackBytes, nullptr,
+                                                1, &runCPMTaskHandle, 0);
+    if (created != pdPASS) {
+        const char *message = "RunCPM task creation failed.\r\n";
+        while (*message)
+            virtualWrite(*message++);
+        return;
+    }
+    created = xTaskCreatePinnedToCore(runCPMIdleWindowTask, "RunCPMIdle", 2048, nullptr, 2,
+                                     &runCPMIdleWindowTaskHandle, 0);
+    if (created != pdPASS) {
+        const char *message = "RunCPM idle-window task creation failed.\r\n";
+        while (*message)
+            virtualWrite(*message++);
+    }
+}
+void loop() { terminalLoop(); }
 #else
 bool core1_separate_stack = true;
 void setup() { terminalSetup(); }

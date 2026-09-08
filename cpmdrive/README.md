@@ -7,7 +7,7 @@ so the shared core utilities remain available from other user areas.
 
 | User | Contents |
 |---|---|
-| A0 | CP/M core commands, shared MBASIC/VTESTS, console transfer helpers |
+| A0 | CP/M core commands, shared MBASIC/VTESTS, console transfer and VTMHZ helpers |
 | A1 | BBC BASIC and its terminal patch source/notes |
 | A2 | Turbo Pascal 3.01a and TINST terminal installer |
 | A3 | COMAL-80 2.10 demo and its terminal installer (pending board copy) |
@@ -28,6 +28,12 @@ Use `A0:`, `MBASIC`, `RUN "VTESTS"` for the shared menu. A7 contains a
 clean duplicate workspace with only `MBASIC.COM` and `VTESTS.BAS`; use `A7:`
 then `MBASIC` and `RUN "VTESTS"` when testing that pair in isolation. 1 = ink,
 8 = Mixworx code.
+
+`VTMHZ.COM` is installed in A0 so the internal CCP can find it from every user
+area. A duplicate in A6 keeps it with the CPU benchmark collection. It reports
+one measurement with the terminal active and one with TFT/USB rendering paused;
+its source and protocol notes are in
+`../src/7xtgv-vt100-runcpm/tools/vtmhz/`.
 
 BBC BASIC's supplied v5.00 test package needs platform-specific cursor/timer
 patching for full terminal integration. Turbo TINST offers an ANSI preset.

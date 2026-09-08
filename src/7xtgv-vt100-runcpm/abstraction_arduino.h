@@ -499,14 +499,70 @@ uint8 _sys_makedisk(uint8 drive) {
 
 /* Hardware abstraction functions */
 /*===============================================================================*/
+// Private RunCPM guest/host diagnostic port used by VTMHZ.COM.  BIOS and BDOS
+// use interrupt handoff in this build, so ordinary guest I/O reaches here.
+static const uint8 VTMHZ_PORT = 0x7b;
+static const uint64 VTMHZ_TSTATES = 13015509ULL;
+static uint32 vtmhzStartedAt = 0;
+static bool vtmhzRunning = false;
+static bool vtmhzQuiet = false;
+
+void _putch(uint8 ch);
+
+static void _HardwarePrint(const char *text) {
+    while (*text)
+        _putch((uint8)*text++);
+}
+
+static void _VTMHZBegin(bool quiet) {
+    vtmhzQuiet = quiet;
+    _HardwarePrint(quiet ? "VTMHZ quiet : " : "VTMHZ active: ");
+#if !defined(RUNCPM_HEADLESS)
+    if (quiet)
+        terminalPause(true);
+#endif
+    vtmhzStartedAt = (uint32)micros();
+    vtmhzRunning = true;
+}
+
+static void _VTMHZEnd() {
+    if (!vtmhzRunning)
+        return;
+
+    const uint32 elapsedUs = (uint32)micros() - vtmhzStartedAt;
+    const uint64 mhzHundredths =
+        (VTMHZ_TSTATES * 100ULL + (elapsedUs / 2)) / (elapsedUs ? elapsedUs : 1);
+    const bool wasQuiet = vtmhzQuiet;
+    vtmhzRunning = false;
+    vtmhzQuiet = false;
+
+#if !defined(RUNCPM_HEADLESS)
+    if (wasQuiet)
+        terminalPause(false);
+#endif
+
+    char buffer[96];
+    snprintf(buffer, sizeof(buffer), "%llu T-states in %lu us = %llu.%02llu MHz\r\n",
+             VTMHZ_TSTATES, (unsigned long)elapsedUs,
+             mhzHundredths / 100ULL, mhzHundredths % 100ULL);
+    _HardwarePrint(buffer);
+}
+
 void _HardwareInit(void) {
 }
 
 void _HardwareOut(const uint32 Port, const uint32 Value) {
+    if ((Port & 0xff) != VTMHZ_PORT)
+        return;
+    switch (Value & 0xff) {
+        case 1: _VTMHZBegin(false); break;
+        case 2: _VTMHZBegin(true); break;
+        case 3: _VTMHZEnd(); break;
+    }
 }
 
 uint32 _HardwareIn(const uint32 Port) {
-    return 0;
+    return (Port & 0xff) == VTMHZ_PORT ? 'V' : 0;
 }
 
 /* Console abstraction functions */

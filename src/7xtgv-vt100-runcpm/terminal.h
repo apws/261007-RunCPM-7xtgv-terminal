@@ -1,10 +1,12 @@
 #pragma once
 #include <stddef.h>
 #include <stdint.h>
+#include "runcpm-config.h"
 #include "7xtgv-palette.h"
 
 namespace vt {
-constexpr int Cols = 80, Rows = 24, Visible = 52, Cells = Cols * Rows;
+constexpr int Cols = 80, Rows = RUNCPM_TERM_ROWS, Visible = RUNCPM_TERM_VISIBLE_COLS,
+              Cells = Cols * Rows;
 using RGB = mixworx::RGB;
 extern const RGB (&Ink)[16];
 extern const RGB (&Paper)[4];

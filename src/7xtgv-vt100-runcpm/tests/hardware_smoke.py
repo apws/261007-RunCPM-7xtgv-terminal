@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Opt-in RP2350 smoke test. Uses transient MBASIC lines; writes no SD files."""
+"""Opt-in hardware smoke test. Uses transient MBASIC lines; writes no SD files."""
 import argparse
 import codecs
 import fcntl
@@ -7,6 +7,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import select
 import termios
 import time
@@ -17,8 +18,9 @@ spec.loader.exec_module(bridge)
 
 
 class Mirror:
-    def __init__(self):
-        self.rows = [[' '] * 80 for _ in range(24)]
+    def __init__(self, row_count=24):
+        self.row_count = row_count
+        self.rows = [[' '] * 80 for _ in range(row_count)]
         self.x = self.y = 0
         self.escape = None
         self.decoder = codecs.getincrementaldecoder('utf-8')('replace')
@@ -33,10 +35,10 @@ class Mirror:
                     body = self.escape[1:-1]
                     if c == 'H':
                         p = [int(x or '1') for x in body.split(';')]
-                        self.y = max(0, min(23, p[0] - 1))
+                        self.y = max(0, min(self.row_count - 1, p[0] - 1))
                         self.x = max(0, min(79, (p[1] if len(p) > 1 else 1) - 1))
                     elif c == 'J' and body == '2':
-                        self.rows = [[' '] * 80 for _ in range(24)]
+                        self.rows = [[' '] * 80 for _ in range(self.row_count)]
                     self.escape = None
                 elif len(self.escape) > 128:
                     self.escape = None
@@ -46,7 +48,7 @@ class Mirror:
             elif c == '\r':
                 self.x = 0
             elif c == '\n':
-                self.y = min(23, self.y + 1)
+                self.y = min(self.row_count - 1, self.y + 1)
             elif c >= ' ':
                 self.rows[self.y][self.x] = c
                 self.x = min(79, self.x + 1)
@@ -59,10 +61,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', default='/dev/ttyACM0')
     parser.add_argument('--log', default='/tmp/7xtgv-hardware-smoke.json')
+    parser.add_argument('--rows', type=int, default=24)
     args = parser.parse_args()
     reports = []
     fd = None
-    screen = Mirror()
+    screen = Mirror(args.rows)
 
     def pump(seconds):
         until = time.monotonic() + seconds
@@ -108,6 +111,14 @@ def main():
         send(b'DIR\r')
         expect('DIR lists SD files', 'MBASIC')
         pump(1)
+        send(b'VTMHZ\r')
+        expect('VTMHZ active measurement', 'VTMHZ active:', 10)
+        expect('VTMHZ quiet measurement', 'VTMHZ quiet :', 10)
+        speeds = re.findall(r'VTMHZ (active|quiet)\s*:.*?=\s*(\d+\.\d{2}) MHz', screen.text())
+        if {name for name, _ in speeds} != {'active', 'quiet'}:
+            raise AssertionError(f'incomplete VTMHZ results: {speeds!r}\n{screen.text()}')
+        reports.append({'check': 'VTMHZ results', 'passed': True,
+                        'MHz': {name: value for name, value in speeds}})
         send(b'MBASIC\r')
         expect('launch MBASIC', 'BASIC-80', 10)
         send(b'PRINT 2+2\r')
@@ -129,10 +140,10 @@ def main():
         expect('return to CP/M', 'A0>')
         disconnect();fd = None
         time.sleep(0.3)
-        screen = Mirror();fd = connect();send(b'\x1b[>0v')
+        screen = Mirror(args.rows);fd = connect();send(b'\x1b[>0v')
         expect('reconnect retains session', 'A0>')
         assert 'BASIC-80' not in screen.text()
-        print('PASS: CP/M DIR, MBASIC arithmetic, ANSI/VT52 positioning, pan keys, and reconnect')
+        print('PASS: CP/M DIR, VTMHZ, MBASIC, ANSI/VT52, pan keys, and reconnect')
     finally:
         Path(args.log).write_text(json.dumps(reports, indent=2)+'\n')
         if fd is not None:
