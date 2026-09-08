@@ -52,7 +52,7 @@ class GfxCompat
 public:
   explicit GfxCompat(Arduino_GFX* g) : _g(g) {}
   void beginWrite() { _g->startWrite(); }
-  void endWrite()   { _g->endWrite(); }
+  void endWrite()   { _g->endWrite(); _g->flush(); }
   void blit565(int16_t x, int16_t y, int16_t w, int16_t h, const uint16_t* pixels)
   {
     _g->draw16bitRGBBitmap(x + GFX_OFS_X, y + GFX_OFS_Y, (uint16_t*)pixels, w, h);
@@ -279,7 +279,7 @@ static void composeCell565(uint8_t glyphset2, uint8_t paperGlyph, uint8_t inkGly
 }
 
 static void renderFullScreen(GfxCompat& g) {
-  //g.beginWrite();
+  g.beginWrite();
   for (int cy = 0; cy < TXT_ROWS; cy++) {
     for (int cx = 0; cx < TXT_COLS; cx++) {
       const int idx = cy * TXT_COLS + cx;
@@ -299,7 +299,7 @@ static void renderFullScreen(GfxCompat& g) {
       g.blit565(px, py, CELL_WZ, CELL_HZ, cellBuf);
     }
   }
-  //g.endWrite();
+  g.endWrite();
 }
 
 

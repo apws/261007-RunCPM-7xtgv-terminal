@@ -9,6 +9,10 @@
 
 #include <Arduino_GFX_Library.h>
 
+#if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_IDF_TARGET_ESP32P4)
+#include "../7xtgv-jc8012p4a1c-newpanel.h"
+#endif
+
 Arduino_DataBus *bus;
 Arduino_GFX *gfx;
 
@@ -23,7 +27,11 @@ Arduino_GFX *gfx;
 //#define WAVESHARE_ESP32_C6_LCD_1_47
 //#define WAVESHARE_RP2350_LCD_1_47
 //#define WAVESHARE_RP2350_AMOLED_1_64
+#if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_IDF_TARGET_ESP32P4)
+#define JC8012P4A1C_NEW_PANEL
+#else
 #define WAVESHARE_RP2350_LCD_2
+#endif
 
 #if defined(WAVESHARE_ESP32_C6_LCD_1_9)
 
@@ -216,6 +224,40 @@ Arduino_GFX *gfx;
 
         gfx = new Arduino_ST7789(bus, GFX_RST, GFX_ROT, GFX_IPS, GFX_MX, GFX_MY, GFX_DX02, GFX_DY02, GFX_DX13, GFX_DY13);
 
+  }
+
+#endif
+
+#if defined(JC8012P4A1C_NEW_PANEL)
+
+  #define GFX_DEVICE JC8012P4A1C_NEW_PANEL
+
+  // Native portrait panel is rotated into 1280x800 landscape.
+  // At 2x zoom this gives a 106x40 grid of 12x20 pixel QL cells.
+  #define SCR_COLS 213
+  #define SCR_ROWS 80
+
+  #define GFX_OFS_X 0
+  #define GFX_OFS_Y 0
+  #define GFX_BL 23
+
+  Arduino_ESP32DSIPanel *dsiPanel;
+
+  void GFX_DEVICE_INIT()
+  {
+    dsiPanel = new Arduino_ESP32DSIPanel(
+        20, 20, 40,  // horizontal sync, back porch, front porch
+        4, 10, 30,   // vertical sync, back porch, front porch
+        80000000,    // DPI pixel clock
+        1500);       // per-lane MIPI DSI bit rate in Mbps
+
+    gfx = new Arduino_DSI_Display(
+        800, 1280, dsiPanel,
+        1,      // rotate native portrait framebuffer to landscape
+        false,  // flush once after a complete 7xtgv frame
+        27,
+        jc8012p4a1c_newpanel_init,
+        sizeof(jc8012p4a1c_newpanel_init) / sizeof(lcd_init_cmd_t));
   }
 
 #endif

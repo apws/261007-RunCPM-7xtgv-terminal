@@ -1,4 +1,8 @@
 profiles:
+  jc8012p4a1c:
+    fqbn: esp32:esp32:esp32p4:CDCOnBoot=default,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,PSRAM=enabled
+    libraries:
+      - GFX Library for Arduino (1.6.4)
   rp2350-touch-lcd-2:
     fqbn: rp2040:rp2040:generic_rp2350:variantchip=RP2350A,flash=16777216_0,psramcs=GPIOnone,psram=0mb,psramfreq=freq109,freq=150,arch=arm,opt=Small,os=none,profile=Disabled,rtti=Disabled,stackprotect=Disabled,exceptions=Disabled,dbgport=Disabled,dbglvl=None,usbstack=picosdk,ipbtstack=ipv4only,uploadmethod=default
     platforms:
