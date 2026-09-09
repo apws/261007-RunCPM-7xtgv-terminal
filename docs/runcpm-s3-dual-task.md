@@ -96,27 +96,33 @@ heartbeat could provide more specific liveness monitoring.
 
 ## Current validation
 
-- S3 integrated build: pass, 564,740 bytes flash and 141,440 bytes static RAM
+- S3 integrated build: pass, 565,016 bytes flash and 141,440 bytes static RAM
 - RP2350 regression build: pass
 - host terminal, keyboard, bounds/fuzz, queue and Python tests: pass
 - S3 display, CP/M boot, USB input and sustained compute test: pass on hardware
-- callable `VTMHZ.COM`: pass on hardware; 10.79 MHz active, 17.02 MHz quiet
+- `VTMHZ.COM` before IRAM: 10.79 MHz active, 17.02 MHz quiet
+- `VTMHZ.COM` with `Z80run()` in IRAM: 17.21 MHz active and 17.21 MHz quiet
 
 The 6 September headless milestone reported about 19 MHz. The quiet integrated
 result recovers most of that rate without resetting CP/M. The remaining gap can
 include the FreeRTOS idle window, system interrupts and shared external-memory
 traffic.
 
-The linked `Z80run()` dispatcher occupies `0x6FAA` bytes (28,586 bytes) and is
-currently in flash-mapped `.text`. Both LX7 cores access the S3's common
-external-memory cache subsystem through separate core buses. This build selects
-a 16 KiB, 8-way, 32-byte-line instruction cache and a 32 KiB, 8-way,
-32-byte-line data cache. Therefore task affinity prevents migration but cannot
-prevent terminal code from displacing interpreter instructions or framebuffer
-traffic from competing for the flash/PSRAM path. A later controlled experiment
-may place only `Z80run()` in internal IRAM and compare `VTMHZ`; its 28 KiB size
-looks feasible, but memory placement and the RP2350 regression must be checked
-before keeping that change.
+Both LX7 cores access the S3's common external-memory cache subsystem through
+separate core buses. This build selects a 16 KiB, 8-way, 32-byte-line
+instruction cache and a 32 KiB, 8-way, 32-byte-line data cache. Task affinity
+therefore cannot prevent terminal code from displacing interpreter instructions
+or framebuffer traffic from competing for the flash/PSRAM path.
+
+The S3 profile now marks only `Z80run()` with `IRAM_ATTR`. Its linked IRAM body
+is `0x701A` bytes (28,698 bytes), and total IRAM use rises from `0x11C9F`
+(72,863 bytes) to `0x18D7F` (101,759 bytes). Static DRAM remains 141,440 bytes.
+Three before/after runs were stable: active execution improved from 10.79 to
+17.21 MHz, while quiet execution improved from 17.02 to 17.21 MHz. The equal
+active and quiet results show that removing the dispatcher from the shared
+flash instruction cache eliminated essentially all terminal-related slowdown
+in this benchmark. The attribute is S3-specific; the RP2350 build remains
+unchanged and compiles successfully.
 
 Build with:
 

@@ -1046,7 +1046,13 @@ static inline void Z80reset(void) {
 #include "debug.h"
 #endif
 
-static inline void Z80run(uint32 cpu_delay) {
+// On the dual-core S3, execute the hot dispatcher from internal instruction
+// RAM so terminal code on core 1 cannot evict it from the shared flash cache.
+static inline
+#if defined(RUNCPM_TARGET_JC8048W535)
+IRAM_ATTR
+#endif
+void Z80run(uint32 cpu_delay) {
 	uint32 temp = 0;
 	uint32 acu;
 	uint32 sum;
