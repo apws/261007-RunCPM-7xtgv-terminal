@@ -126,6 +126,10 @@ flash instruction cache eliminated essentially all terminal-related slowdown
 in this benchmark. The attribute is S3-specific; the RP2350 build remains
 unchanged and compiles successfully.
 
+The native BIOS/BDOS dispatchers remain in cached flash. Their measured size,
+call-frequency implications and the shared policy for a future VMEX port are
+recorded in [Interpreter porting and internal-SRAM policy](interpreter-porting-memory.md).
+
 Build with:
 
 ```sh

@@ -20,6 +20,10 @@ terminal behavior shared. Retain Arduino and one project with target profiles.
 No emulator optimization, JIT, new terminal protocol or complete implementation
 of future VT/7xtgv extensions is required by this port.
 
+For later measured placement of the interpreter and native services, including
+the architectural correspondence with VMEX, see
+[Interpreter porting and internal-SRAM policy](interpreter-porting-memory.md).
+
 ## Target facts and checks
 
 | Target | Application CPU | Planned display at 6×10 |
