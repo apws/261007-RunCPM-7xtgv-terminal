@@ -116,7 +116,9 @@ or framebuffer traffic from competing for the flash/PSRAM path.
 
 The S3 profile now marks only `Z80run()` with `IRAM_ATTR`. Its linked IRAM body
 is `0x701A` bytes (28,698 bytes), and total IRAM use rises from `0x11C9F`
-(72,863 bytes) to `0x18D7F` (101,759 bytes). Static DRAM remains 141,440 bytes.
+(72,863 bytes) to `0x18D7F` (101,759 bytes). Static internal data SRAM remains
+141,440 bytes. The linker calls this region `.dram0`; in project prose, “DRAM”
+is reserved for actual dynamic-memory technology such as PSRAM.
 Three before/after runs were stable: active execution improved from 10.79 to
 17.21 MHz, while quiet execution improved from 17.02 to 17.21 MHz. The equal
 active and quiet results show that removing the dispatcher from the shared
