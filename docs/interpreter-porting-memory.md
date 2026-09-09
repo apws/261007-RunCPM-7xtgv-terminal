@@ -54,11 +54,147 @@ Arduino filesystem/SD driver implementation. Pulling that whole transitive
 path into internal instruction SRAM would therefore cost considerably more
 than moving just `_Bios()` and `_Bdos()`, and would still leave device waits.
 
+## Underlying filesystem and SDMMC path
+
+The current ESP32-S3 read path is approximately:
+
+```text
+guest BDOS call
+  -> native _Bdos / _ReadSeq / _sys_readseq
+  -> Arduino fs::File and VFSFileImpl
+  -> ESP-IDF VFS FAT adapter
+  -> FatFs f_read
+  -> FatFs SDMMC disk bridge
+  -> ESP-IDF sdmmc command and host transaction
+  -> SDMMC DMA/peripheral and card
+```
+
+The equivalent write path uses the corresponding write functions. Every named
+library layer in this path currently links at `0x420...`, the ESP32-S3 cached
+flash window. Representative linked text-body sizes are:
+
+| Layer | Read/open examples | Write examples |
+| --- | --- | --- |
+| Arduino FS | `File::read` 32 B, `File::seek` 32 B | `File::write` 32 B |
+| VFS file object | `VFSFileImpl::read` 41 B, `seek` 37 B | `write` 43 B |
+| VFS FAT adapter | `vfs_fat_open` 267 B, `read` 72 B, `lseek` 102 B | `write` 173 B |
+| FatFs | `f_open` 527 B, `f_read` 379 B, `f_lseek` 361 B | `f_write` 439 B |
+| FatFs SD bridge | `ff_disk_read` 29 B, `ff_sdmmc_read` 80 B | corresponding functions 29 B and 80 B |
+| SDMMC command layer | `sdmmc_read_sectors` 146 B, DMA helper 297 B | 151 B and 421 B |
+| SDMMC host | `sdmmc_host_do_transaction` 847 B | shared by both paths |
+
+Sizes exclude literal pools and all transitive callees. They show that the
+software path is fragmented across many small layers; marking a RunCPM wrapper
+does not relocate any separately compiled callee. The lowest-level bulk data
+transfer is performed by the SDMMC peripheral and DMA, rather than a software
+loop moving every card bit. Moving the command setup and wait code into internal
+instruction SRAM can remove flash misses, but cannot remove card latency.
+
+There is a more significant architectural cost above the driver. Each current
+128-byte `_sys_readseq()` and `_sys_readrand()` operation opens the host file,
+seeks, reads and closes it. Each write calls `_sys_extendfile()`, which performs
+an append open/optional extension/close, then performs another open/seek/write/
+close. This preserves the present simple RunCPM abstraction, but may cost much
+more than the 128-byte transfer. Measure persistent-file or grouped-record
+handling before investing internal SRAM in deep SDMMC code; any such change
+must preserve CP/M FCB, extent, concurrent-open and error semantics.
+
+The selected SDK enables a FatFs per-file cache and prefers external RAM for
+FatFs allocations. Consequently some filesystem working data may be in external
+PSRAM and reached through the data cache. This is another item to measure during
+a storage benchmark; it is not evidence by itself that relocation will help.
+
+### Where CP/M file bytes live now
+
+RunCPM does not preload a CP/M drive or its files into PSRAM. A sequential read
+currently takes this data path:
+
+```text
+SD card -> SDMMC/FatFs buffers -> 128-byte _sys_readseq stack buffer
+        -> selected DMA address inside the 64 KiB Z80 RAM[] array
+```
+
+The temporary 128-byte `dmabuf` is on the RunCPM task stack, which is allocated
+from internal memory in this configuration. `RAM[]` is also internal data SRAM
+at linked address `0x3FCA34F9`. When a COM file is loaded, its instructions end
+up in this internal guest memory and all later opcode fetches come from there.
+FatFs may allocate working buffers in external PSRAM, but this does not amount
+to a PSRAM copy of the drive or of every open file.
+
+### Optional selected-file virtual drive or cache
+
+A future fast drive containing only selected utilities, VM modules or test
+files is practical, but it is a storage feature rather than an instruction
+placement attribute. Useful designs, from simplest to more capable, are:
+
+1. A read-only embedded-file table in flash. This removes the SD-card dependency
+   and filesystem traversal, while a launched COM file still copies into
+   internal `RAM[]`. Reads of the embedded image itself use cached flash.
+2. A selected-file image or RAM drive in external PSRAM. It consumes plentiful
+   capacity, avoids card latency after population and benefits from the hardware
+   data cache. It can be populated from embedded flash or from SD at startup.
+3. A small record/block cache in internal data SRAM in front of SD or PSRAM.
+   This is appropriate only for demonstrated hot records; a few KiB is more
+   defensible than duplicating an entire drive in scarce internal SRAM.
+4. A bounded cache of open host-file handles. It attacks the current open/seek/
+   close cost without copying whole files, but requires careful CP/M FCB,
+   rename/delete, close, extent and error handling.
+
+Read-only selected files make the first two designs simple. A writable virtual
+drive needs a persistence policy: volatile, explicit save, write-through or
+write-back with flush and failure handling. For VMEX, the same pattern can hold
+stable runtime modules in flash, a larger working set in PSRAM, and only active
+bytecode/procedure pages in internal data SRAM.
+
+## How code can be relocated
+
+- Functions compiled from project source, including headers merged into the
+  Arduino-generated sketch C++ file, can be marked `IRAM_ATTR` easily. Their
+  literal pools move with them, as verified for `Z80run()`.
+- A wrapper in internal instruction SRAM may call a function in cached flash,
+  but the callee stays in flash. `IRAM_ATTR` is not transitive, and separately
+  compiled virtual Arduino FS calls cannot be inlined into the wrapper.
+- Arduino library sources such as `FS.cpp` can be forked into a project-owned
+  library and annotated, but every important callee would still need separate
+  treatment. Editing the installed Arduino package would be fragile because an
+  update can overwrite it.
+- ESP-IDF FatFs and SDMMC arrive in this Arduino core as precompiled archives.
+  Their source functions cannot be annotated from the generated sketch C++.
+  Selected function sections can technically be captured by a custom linker
+  script, or the Arduino/ESP-IDF libraries can be rebuilt with component linker
+  fragments. Both approaches are possible but materially more complex and less
+  portable than marking project code.
+- Relocating an entire archive/object is easier to describe to the linker but
+  wastes internal SRAM on initialization, error and uncommon paths. Function
+  section placement is preferable if a profile justifies library relocation.
+
+For performance-only placement, an internal function is allowed to call flash
+code. Code intended to run while the flash cache is disabled has a stronger
+rule: every reachable instruction and referenced constant must remain in
+internal memory or ROM. RunCPM does not need the filesystem path to operate
+during cache-disabled intervals, so that stronger and much larger closure is
+not a current requirement.
+
+The practical order is therefore: measure and try `_Bdos()`/`_Bios()` plus
+small project-owned console or memory helpers; measure the 128-byte record
+workflow; improve excessive host-file operations if justified; only then
+consider custom placement or rebuilding of FatFs/SDMMC functions. This same
+rule applies to VMEX: native CPU-bound primitives are stronger internal-SRAM
+candidates than host I/O stacks whose time is dominated by peripherals.
+
 ## How hot the native CP/M paths are
 
 RunCPM does not execute a guest CP/M 2.2 BDOS. `INT_HANDOFF` transfers an
 emulated RST 08h/10h synchronously to native `_Bios()`/`_Bdos()`. External COM
 programs execute as Z80 code between those calls.
+
+The complete current 64 KiB Z80 address space is the `RAM[]` array in internal
+data SRAM. It contains loaded COM instructions, application data and the tiny
+BIOS/BDOS jump/RST/RET handoff stubs. The LX7 does not execute those guest bytes
+through its instruction cache: `Z80run()` fetches them as data. Thus all current
+interpreted Z80 code already has deterministic internal-SRAM access; there is
+no lower-level guest CP/M BIOS/BDOS body waiting in flash or PSRAM to be cached.
+Larger future banked guest configurations would require a new placement choice.
 
 - BDOS function 2 enters `_Bdos()` for every character emitted by many CP/M
   programs. Function 9 enters it once and performs the complete `$`-terminated
@@ -103,11 +239,14 @@ Before porting VMEX, identify and measure these groups independently:
 
 Place the continuous interpreter loop and its inlined fast paths in internal
 instruction SRAM. Keep the active VM stack, registers, dispatch metadata and
-other repeatedly touched state in internal data SRAM. Large object heaps,
-source images, framebuffers and cold tables can use external PSRAM, with layouts
-that favor cache-line locality. Promote native primitives individually when
-profiles show that they consume CPU time; do not place the entire runtime or
-all host drivers internally merely because they are part of the VM.
+other repeatedly touched state in internal data SRAM. Keep the active VMEX
+bytecode/source working set there too when its size permits. For a larger image,
+start with the hardware-cached PSRAM mapping and measure whether a small
+software-managed hot-page or hot-procedure cache is justified. Large object
+heaps, source images, framebuffers and cold tables can use external PSRAM, with
+layouts that favor cache-line locality. Promote native primitives individually
+when profiles show that they consume CPU time; do not place the entire runtime
+or all host drivers internally merely because they are part of the VM.
 
 FreeRTOS task affinity does not reserve all hardware activity on a core, but it
 does keep each application task from migrating. Internal placement makes the
