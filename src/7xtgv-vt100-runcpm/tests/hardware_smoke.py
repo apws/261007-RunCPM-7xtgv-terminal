@@ -111,13 +111,13 @@ def main():
         send(b'DIR\r')
         expect('DIR lists SD files', 'MBASIC')
         pump(1)
-        send(b'VTMHZ\r')
-        expect('VTMHZ active measurement', 'VTMHZ active:', 10)
-        expect('VTMHZ quiet measurement', 'VTMHZ quiet :', 10)
-        speeds = re.findall(r'VTMHZ (active|quiet)\s*:.*?=\s*(\d+\.\d{2}) MHz', screen.text())
+        send(b'VTCPU\r')
+        expect('VTCPU active measurement', 'VTCPU active:', 10)
+        expect('VTCPU quiet measurement', 'VTCPU quiet :', 10)
+        speeds = re.findall(r'VTCPU (active|quiet)\s*:.*?=\s*(\d+\.\d{2}) MHz', screen.text())
         if {name for name, _ in speeds} != {'active', 'quiet'}:
-            raise AssertionError(f'incomplete VTMHZ results: {speeds!r}\n{screen.text()}')
-        reports.append({'check': 'VTMHZ results', 'passed': True,
+            raise AssertionError(f'incomplete VTCPU results: {speeds!r}\n{screen.text()}')
+        reports.append({'check': 'VTCPU results', 'passed': True,
                         'MHz': {name: value for name, value in speeds}})
         send(b'MBASIC\r')
         expect('launch MBASIC', 'BASIC-80', 10)
@@ -143,7 +143,7 @@ def main():
         screen = Mirror(args.rows);fd = connect();send(b'\x1b[>0v')
         expect('reconnect retains session', 'A0>')
         assert 'BASIC-80' not in screen.text()
-        print('PASS: CP/M DIR, VTMHZ, MBASIC, ANSI/VT52, pan keys, and reconnect')
+        print('PASS: CP/M DIR, VTCPU, MBASIC, ANSI/VT52, pan keys, and reconnect')
     finally:
         Path(args.log).write_text(json.dumps(reports, indent=2)+'\n')
         if fd is not None:

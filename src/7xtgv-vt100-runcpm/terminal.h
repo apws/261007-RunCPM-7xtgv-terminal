@@ -75,7 +75,19 @@ class Terminal {
 class Keyboard {
   public:
     using Send = void (*)(void *, const uint8_t *, size_t);
-    Keyboard(Terminal &t, Send send, void *context) : t_(t), send_(send), context_(context) {}
+    enum Action : uint8_t {
+        HistoryPrevious,
+        HistoryNext,
+        HistoryBankPrevious,
+        HistoryBankNext,
+        HistoryBank0,
+        HistoryBank9 = HistoryBank0 + 9,
+        ProfileKey0,
+        ProfileKey29 = ProfileKey0 + 29
+    };
+    using Act = void (*)(void *, Action);
+    Keyboard(Terminal &t, Send send, void *context, Act act = nullptr)
+        : t_(t), send_(send), context_(context), act_(act) {}
     void feed(uint8_t c, uint32_t now);
     void tick(uint32_t now);
 
@@ -83,6 +95,7 @@ class Keyboard {
     Terminal &t_;
     Send send_;
     void *context_;
+    Act act_;
     uint8_t buffer_[64];
     size_t size_ = 0;
     uint32_t last_ = 0;

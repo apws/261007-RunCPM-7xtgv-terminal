@@ -12,7 +12,10 @@
 - Preserve Z80 behavior when changing RunCPM. Measure before keeping emulator
   optimizations, and record relevant results in `docs/`.
 - For hardware work, check serial-port ownership first, avoid unnecessary
-  reboots, and release the port after testing.
+  reboots, and release the port after testing. ESP32 flashing recreates
+  `/dev/ttyACM0`; restore the temporary user ACL afterward with approved sudo.
+  Use the shared tmux terminal for concurrent viewing—never open two serial
+  readers.
 - Before starting a nonessential web search or broad external research, tell the
   user briefly what is needed and ask whether to search here or let them handle
   it in ChatGPT/Lyra and bring the result back. Proceed immediately when the

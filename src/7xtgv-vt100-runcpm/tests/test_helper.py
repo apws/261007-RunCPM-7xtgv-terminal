@@ -11,6 +11,12 @@ class HelperTests(unittest.TestCase):
         k = bridge.Keys()
         self.assertEqual(k.feed(b'DIR\r\x03\x1b[A'), b'DIR\r\x03\x1b[A')
 
+    def test_czech_alt_number_row_selects_banks(self):
+        k = bridge.Keys()
+        self.assertEqual(k.feed(b'\x1b+'), b'\x1b[>21v')
+        self.assertEqual(k.feed(b'\x1b' + 'ě'.encode()), b'\x1b[>22v')
+        self.assertEqual(k.feed(b'\x1b' + 'é'.encode()), b'\x1b[>20v')
+
     def test_fragmented_prefix(self):
         k = bridge.Keys()
         self.assertEqual(k.feed(b'\x1d'), b'')

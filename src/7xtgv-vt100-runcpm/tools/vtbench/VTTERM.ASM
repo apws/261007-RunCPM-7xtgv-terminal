@@ -1,0 +1,24 @@
+; VTTERM.COM - native terminal text/parser benchmark request.
+; The measured fixture is generated inside the terminal task; it does not
+; travel over USB serial.  This program uses only 8080-compatible opcodes.
+        org     0100h
+
+        ld      de,start_message
+        ld      c,9
+        call    5
+        ld      a,1
+        out     (79h),a
+wait:   in      a,(79h)
+        cp      'D'
+        jp      nz,wait
+        ld      a,2
+        out     (79h),a
+        ld      de,done_message
+        ld      c,9
+        call    5
+        ret
+
+start_message:
+        db      'VTTERM: native text parser test',13,10,'$'
+done_message:
+        db      'VTTERM: PASS',13,10,'$'

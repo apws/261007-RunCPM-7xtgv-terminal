@@ -4,10 +4,13 @@
 #include "7xtgv-QL-font.h"
 #include "7xtgv-gfxsetup.h"
 #include "byte_queue.h"
+#include "history_profiles.h"
+#include "line_history.h"
 #include "terminal.h"
 #include <Arduino.h>
 #include <algorithm>
 #include <atomic>
+#include <new>
 #include <stdio.h>
 #include <string.h>
 
@@ -15,9 +18,17 @@ static ByteQueue<4096> input;
 static ByteQueue<16384> output;
 // Replies cannot block rendering if a program emits queries but never reads input.
 static ByteQueue<1024> replies;
+static vt::LineHistory *history = nullptr;
+static vt::HistoryProfiles profiles;
 static std::atomic<bool> ready{false};
 static std::atomic<bool> pauseRequested{false}, pauseAcknowledged{false};
+static std::atomic<bool> textBenchmarkRequested{false}, textBenchmarkFinished{false};
+static std::atomic<uint32_t> textBenchmarkElapsed{0}, textBenchmarkByteCount{0}, textBenchmarkCharCount{0};
 static uint32_t replyOverruns = 0;
+static bool historyNoticeActive = false;
+static uint8_t historyNoticeBank = 0, historyNoticeRow = 0;
+static uint32_t historyNoticeUntil = 0;
+static void showHistoryBank(uint8_t bank);
 static void terminalReply(void *, const uint8_t *data, size_t n) {
     if (replies.free() < n) {
         replyOverruns++;
@@ -26,13 +37,79 @@ static void terminalReply(void *, const uint8_t *data, size_t n) {
     for (size_t i = 0; i < n; i++)
         replies.push(data[i]);
 }
-static void keyboardSend(void *, const uint8_t *data, size_t n) {
-    // The event loop reserves 128 input slots before calling the decoder.
-    for (size_t i = 0; i < n; i++)
-        input.push(data[i]);
-}
 static vt::Terminal terminal(terminalReply);
-static vt::Keyboard keyboard(terminal, keyboardSend, nullptr);
+static void keyboardSend(void *, const uint8_t *data, size_t n) {
+    if (historyNoticeActive)
+        return;
+    // The event loop reserves enough slots for a recalled line replacement.
+    for (size_t i = 0; i < n; i++) {
+        if (history)
+            history->input(data[i]);
+        input.push(data[i]);
+    }
+}
+static void historyRecall(bool previous) {
+    vt::LineHistory::Recall recalled;
+    if (!history || !history->recall(previous, recalled))
+        return;
+    for (uint8_t i = 0; i < recalled.erase; ++i)
+        input.push(8);
+    for (uint8_t i = 0; i < recalled.length; ++i)
+        input.push(uint8_t(recalled.text[i]));
+}
+static void profileKey(vt::AppKey key) {
+    if (!history)
+        return;
+    const vt::KeyBinding &binding = profiles.get(history->activeBank()).keys[key];
+    if (binding.kind == vt::BindingHistoryPrevious)
+        historyRecall(true);
+    else if (binding.kind == vt::BindingHistoryNext)
+        historyRecall(false);
+    else if (binding.kind == vt::BindingSend)
+        for (uint8_t i = 0; i < binding.length; ++i)
+            input.push(binding.bytes[i]);
+}
+static void keyboardAction(void *, vt::Keyboard::Action action) {
+    // Recall waits until the transient label is gone, but bank changes remain
+    // live so Alt+PgUp/PgDn can browse banks and redraw #n immediately.
+    if (historyNoticeActive &&
+        (action == vt::Keyboard::HistoryPrevious || action == vt::Keyboard::HistoryNext))
+        return;
+    if (action == vt::Keyboard::HistoryBankPrevious) {
+        if (history) {
+            uint8_t erase = history->discardCurrent();
+            while (erase--) input.push(8);
+            history->cycle(-1);
+            showHistoryBank(history->activeBank());
+        }
+        return;
+    }
+    if (action == vt::Keyboard::HistoryBankNext) {
+        if (history) {
+            uint8_t erase = history->discardCurrent();
+            while (erase--) input.push(8);
+            history->cycle(1);
+            showHistoryBank(history->activeBank());
+        }
+        return;
+    }
+    if (action >= vt::Keyboard::HistoryBank0 && action <= vt::Keyboard::HistoryBank9) {
+        if (history) {
+            uint8_t erase = history->discardCurrent();
+            while (erase--) input.push(8);
+            history->select(uint8_t(action - vt::Keyboard::HistoryBank0));
+            showHistoryBank(history->activeBank());
+        }
+        return;
+    }
+    if (action >= vt::Keyboard::ProfileKey0 && action <= vt::Keyboard::ProfileKey29) {
+        if (!historyNoticeActive)
+            profileKey(vt::AppKey(action - vt::Keyboard::ProfileKey0));
+        return;
+    }
+    historyRecall(action == vt::Keyboard::HistoryPrevious);
+}
+static vt::Keyboard keyboard(terminal, keyboardSend, nullptr, keyboardAction);
 static bool displayOK = false, cursorPhase = true, connected = false;
 static uint32_t blinkAt = 0, bellUntil = 0, oldBells = 0;
 #if defined(GFX_BUFFERED_CANVAS)
@@ -136,6 +213,44 @@ static void drawCell(int i) {
         }
     }
     gfx->draw16bitRGBBitmap(column * 6 + GFX_OFS_X, row * 10 + GFX_OFS_Y, pixels, 6, 10);
+}
+static void writeHistoryNotice(bool label) {
+    char sequence[24];
+    snprintf(sequence, sizeof(sequence), "\033[%u;1H\033[2K", unsigned(historyNoticeRow + 1));
+    for (const char *p = sequence; *p; ++p)
+        terminal.feed(uint8_t(*p));
+    if (label) {
+        terminal.feed('#');
+        terminal.feed(uint8_t('0' + historyNoticeBank));
+        terminal.feed(' ');
+        const char *name = profiles.get(historyNoticeBank).name;
+        while (*name)
+            terminal.feed(uint8_t(*name++));
+    }
+}
+static void showHistoryBank(uint8_t bank) {
+    historyNoticeBank = bank;
+    historyNoticeRow = uint8_t(terminal.y);
+    historyNoticeUntil = millis() + 1000;
+    historyNoticeActive = true;
+    writeHistoryNotice(true);
+}
+static void historyNoticePoll() {
+    if (!historyNoticeActive)
+        return;
+    if (int32_t(millis() - historyNoticeUntil) >= 0) {
+        historyNoticeActive = false;
+        writeHistoryNotice(false);
+        const vt::HistoryProfile &profile = profiles.get(historyNoticeBank);
+        for (uint8_t i = 0; i < profile.selectLength; ++i)
+            input.push(profile.selectBytes[i]);
+        return;
+    }
+    int first = historyNoticeRow * vt::Cols;
+    bool intact = terminal.charRAM[first] == '#' &&
+                  terminal.charRAM[first + 1] == uint8_t('0' + historyNoticeBank);
+    if (!intact)
+        writeHistoryNotice(true);
 }
 #if !defined(GFX_BUFFERED_CANVAS)
 static void drawIndicator() {
@@ -319,6 +434,7 @@ static void mirrorPump() {
     }
 }
 void terminalSetup() {
+    history = new (std::nothrow) vt::LineHistory;
     Serial.begin(115200);
     // No USB diagnostics: this port carries only the interpreted screen mirror.
     GFX_DEVICE_INIT();
@@ -340,6 +456,12 @@ void terminalSetup() {
     }
     ready.store(true, std::memory_order_release);
 }
+void terminalConfigBegin() { profiles.beginLoad(); }
+void terminalConfigFeed(uint8_t byte) { profiles.feed(byte); }
+unsigned terminalConfigEnd() {
+    profiles.finishLoad();
+    return profiles.errors();
+}
 void terminalWaitReady() {
     while (!ready.load(std::memory_order_acquire))
         delay(1);
@@ -348,6 +470,70 @@ void terminalPause(bool paused) {
     pauseRequested.store(paused, std::memory_order_release);
     while (pauseAcknowledged.load(std::memory_order_acquire) != paused)
         delay(1);
+}
+void terminalTextBenchmarkRequest() {
+    textBenchmarkFinished.store(false, std::memory_order_release);
+    textBenchmarkRequested.store(true, std::memory_order_release);
+}
+bool terminalTextBenchmarkDone() {
+    return textBenchmarkFinished.load(std::memory_order_acquire);
+}
+uint32_t terminalTextBenchmarkElapsedUs() {
+    return textBenchmarkElapsed.load(std::memory_order_acquire);
+}
+uint32_t terminalTextBenchmarkBytes() {
+    return textBenchmarkByteCount.load(std::memory_order_acquire);
+}
+uint32_t terminalTextBenchmarkChars() {
+    return textBenchmarkCharCount.load(std::memory_order_acquire);
+}
+static void terminalTextBenchmarkPoll() {
+    static bool active = false;
+    static uint32_t started = 0, bytes = 0, chars = 0, seed = 0;
+    if (!active && textBenchmarkRequested.exchange(false, std::memory_order_acq_rel)) {
+        terminal.reset();
+        started = micros();
+        bytes = chars = 0;
+        seed = 0x7A17C0DE;
+        active = true;
+    }
+    if (!active)
+        return;
+    static const char *colors[] = {"31", "32", "33", "34", "35", "36", "91", "94"};
+    static const char *fixtures[] = {
+        "7xtgv RED", "7xtgv GREEN", "7xtgv YELLOW", "7xtgv BLUE",
+        "7xtgv MAGENTA", "7xtgv CYAN", "7xtgv BRIGHT RED", "7xtgv BRIGHT BLUE"
+    };
+    const uint32_t rows = 29, items = 96;
+    // One frame per terminal loop lets the normal renderer show the redraws.
+    terminal.feed(0x1b); terminal.feed('['); terminal.feed('2'); terminal.feed('J');
+    for (uint32_t i = 0; i < items; ++i) {
+        seed = seed * 1664525UL + 1013904223UL;
+        const char *fixture = fixtures[(seed >> 24) & 7];
+        uint32_t row = 1 + ((seed >> 16) % rows);
+        uint32_t col = 1 + ((seed >> 8) % (80 - strlen(fixture)));
+        const char *color = colors[(seed >> 28) & 7];
+        auto emit = [&](uint8_t c) { terminal.feed(c); ++bytes; };
+        emit(0x1b); emit('['); emit(color[0]); emit(color[1]); emit('m');
+        emit(0x1b); emit('[');
+        if (row >= 10) emit('0' + row / 10);
+        emit('0' + row % 10); emit(';');
+        if (col >= 10) emit('0' + col / 10);
+        emit('0' + col % 10); emit('H');
+        for (const char *p = fixture; *p; ++p) { emit(uint8_t(*p)); ++chars; }
+        emit(0x1b); emit('['); emit('0'); emit('m');
+    }
+    uint32_t elapsed = uint32_t(micros() - started);
+    if (elapsed >= 3000000UL) {
+        // Put the CP/M result on a clean line below the visual benchmark.
+        terminal.feed(0x1b); terminal.feed('['); terminal.feed('3'); terminal.feed('1');
+        terminal.feed(';'); terminal.feed('1'); terminal.feed('H');
+        textBenchmarkByteCount.store(bytes, std::memory_order_relaxed);
+        textBenchmarkCharCount.store(chars, std::memory_order_relaxed);
+        textBenchmarkElapsed.store(elapsed, std::memory_order_release);
+        textBenchmarkFinished.store(true, std::memory_order_release);
+        active = false;
+    }
 }
 int virtualAvailable() { return input.available(); }
 uint8_t virtualRead() {
@@ -361,6 +547,7 @@ void virtualWrite(uint8_t c) {
         delay(1);
 }
 void terminalLoop() {
+    terminalTextBenchmarkPoll();
     if (pauseRequested.load(std::memory_order_acquire)) {
         pauseAcknowledged.store(true, std::memory_order_release);
         delay(1);
@@ -371,7 +558,7 @@ void terminalLoop() {
     while (input.free() && replies.pop(c))
         input.push(c);
     // Reserve room for a timed-out 63-byte sequence plus the next completed key.
-    if (input.free() >= 128 && replies.available() == 0) {
+    if (input.free() >= 320 && replies.available() == 0) {
         keyboard.tick(millis());
         for (int n = 0; n < 64 && input.free() >= 128 && Serial.available(); n++)
             keyboard.feed(Serial.read(), millis());
@@ -379,6 +566,7 @@ void terminalLoop() {
     // Always consume CP/M output, even when its input queue is full.
     for (int n = 0; n < 512 && output.pop(c); n++)
         terminal.feed(c);
+    historyNoticePoll();
     uint32_t now = millis();
     if (uint32_t(now - blinkAt) >= 500) {
         blinkAt = now;

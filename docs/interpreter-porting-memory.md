@@ -31,19 +31,44 @@ measurement rather than subsystem names alone.
 
 ## Current RunCPM sizes on ESP32-S3
 
-These figures come from the linked IRAM build
-`build/build-vt100-runcpm-s3-iram/7xtgv-vt100-runcpm.ino.elf` made on
+These figures come from the current linked IRAM build
+`build/build-vt100-runcpm-s3-dual/7xtgv-vt100-runcpm.ino.elf` made on
 2026-09-09. They are linked Xtensa code sizes, not source sizes.
 
 | Native function | Text body | Literal pool | Effective placement size |
 | --- | ---: | ---: | ---: |
-| `Z80run()` | 28,698 B | about 198 B including alignment | 28,896 B |
+| `Z80run()` | 28,802 B | about 200 B | about 29,002 B |
 | `_Bios()` | 547 B | 36 B | 583 B |
-| `_Bdos()` | 2,182 B | 40 B | 2,222 B |
-| BIOS + BDOS dispatchers | 2,729 B | 76 B | 2,805 B |
+| `_Bdos()` | 2,186 B | 40 B | 2,226 B |
+| BIOS + BDOS dispatchers | 2,733 B | 76 B | 2,809 B |
 
 The BIOS and BDOS dispatchers together are only about 9.7% of the internal-SRAM
 cost already accepted for `Z80run()`. They currently remain in cached flash.
+
+The current Arduino-ESP32 build uses its default `-Os`; the RP2350 profile is
+explicitly `-O3`. Compile-only S3 comparison builds produced:
+
+| Sketch optimization | Program bytes | Total IRAM text | `Z80run()` body | Linker internal-heap window |
+| --- | ---: | ---: | ---: | ---: |
+| `-Os` (current firmware) | 566,000 | 101,867 B | 28,802 B | 113,784 B |
+| `-O2` candidate | 596,316 | 104,931 B | 31,868 B | 110,664 B |
+| `-O3` hardware-tested | 625,852 | 105,139 B | 32,076 B | 110,408 B |
+
+The heap-window figures are the linked space from `_heap_start` to the end of
+the static internal-memory region, before runtime allocations. They are not a
+runtime free-heap measurement. Because executable IRAM and data RAM alias the
+same physical SRAM banks, the larger optimized interpreter reduces this window
+by about 3.1--3.4 KiB. Both candidates fit comfortably. Their performance must
+be measured on hardware; the larger global `-O3` code can also increase cached
+flash pressure in native services and terminal code.
+
+The standardized A0 hardware series measured global `-O3` at 19.30/19.34 MHz
+and 7.32/12.45 KiB/s storage, global `-O2` at 19.38 MHz and 7.46/12.61 KiB/s,
+and targeted `Z80run()`-only O2 at 19.01/19.05 MHz and 7.53/12.64 KiB/s. The
+original A0 `-Os` control was 17.30/17.31 MHz and 7.52/12.65 KiB/s. Thus global
+O2 is the fastest compute build, while targeted O2 preserves the compact native
+image and essentially the control storage rate. A separate `_Bios()`/`_Bdos()`
+IRAM trial produced no meaningful gain and was discarded.
 
 The dispatchers are not the complete native CP/M service implementation.
 RunCPM-owned disk/FCB helpers occupy about 2,893 bytes of text, platform
@@ -182,6 +207,43 @@ consider custom placement or rebuilding of FatFs/SDMMC functions. This same
 rule applies to VMEX: native CPU-bound primitives are stronger internal-SRAM
 candidates than host I/O stacks whose time is dominated by peripherals.
 
+## Placement inventory and next experiments
+
+The current link map gives a clear order for further work:
+
+1. Benchmark the compile-only `-O2` and `-O3` candidates with `VTCPU` on the
+   same board and card. This changes optimization before consuming IRAM for
+   more subsystems. Also record runtime free and largest internal-memory blocks
+   at boot, because the linker window does not include later allocations.
+2. Try `_Bdos()` alone in IRAM. Its current `-Os` body and literal pool cost
+   about 2.2 KiB. Measure a tight cheap-BDOS-call test and console throughput;
+   `VTCPU` deliberately contains no timed BDOS calls and cannot show this gain.
+3. Add `_Bios()` only if a BIOS-heavy workload justifies its roughly 0.6 KiB.
+   Normal RunCPM programs use native BDOS much more often.
+4. If character output is CPU-bound, profile `_putcon()` -> `_putch()` ->
+   `virtualWrite()` -> `ByteQueue::push()`. Moving only the dispatcher does not
+   move those separately compiled callees. The current active/quiet `VTCPU`
+   equality already shows that terminal flash-cache competition no longer
+   slows a compute-only guest after `Z80run()` moved to IRAM.
+5. Instrument `_sys_readseq()` and `_sys_writeseq()` into open, seek, transfer,
+   flush and close time. At 14.5 KiB/s read and 8.9 KiB/s write, each 128-byte
+   record currently costs about 8.6 ms and 14.0 ms. Those delays are far larger
+   than a likely flash instruction-cache miss.
+6. Test a bounded persistent host-file handle or sequential-record cache after
+   the timing split. The present read opens, seeks and closes for every record;
+   the present write can open/extend/close and then open/seek/write/close. This
+   is a stronger candidate than relocating the precompiled SDMMC stack.
+7. Consider direct reads into `_RamSysAddr(dmaAddr)` to avoid the temporary
+   128-byte buffer and copy. Preserve CP/M's `0x1a` fill semantics for a short
+   final record.
+
+The ESP-IDF and FreeRTOS routines already placed in IRAM are there for flash-off
+and interrupt safety and should remain untouched. A project `IRAM_ATTR` is not
+transitive: moving `_Bdos()` leaves its filesystem, queue and display callees in
+cached flash. Every additional IRAM byte also removes roughly one byte from the
+internal data/heap pool, so each placement experiment must record map size,
+runtime heap, speed and functional tests together.
+
 ## How hot the native CP/M paths are
 
 RunCPM does not execute a guest CP/M 2.2 BDOS. `INT_HANDOFF` transfers an
@@ -210,7 +272,7 @@ Larger future banked guest configurations would require a new placement choice.
   and while loading a program. It is not on the compute path of a running COM
   application and is a low-priority internal-SRAM candidate.
 
-`VTMHZ` measures an uninterrupted guest instruction loop, so it proves the
+`VTCPU` measures an uninterrupted guest instruction loop, so it proves the
 benefit of placing `Z80run()` in internal instruction SRAM but says nothing
 about BIOS/BDOS placement. A BIOS/BDOS experiment needs separate workloads:
 

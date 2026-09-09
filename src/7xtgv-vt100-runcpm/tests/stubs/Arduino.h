@@ -7,6 +7,7 @@
 #include <string>
 inline uint32_t fakeTime = 0;
 inline uint32_t millis() { return fakeTime; }
+inline uint32_t micros() { return fakeTime * 1000U; }
 inline void delay(int n) { fakeTime += n; }
 constexpr int OUTPUT = 1, HIGH = 1, LOW = 0;
 inline int backlight = -1;

@@ -1,4 +1,4 @@
-; VTMHZ.COM - measure RunCPM's effective Z80 interpreter speed.
+; VTCPU.COM - measure RunCPM's effective Z80 interpreter speed.
 ; Requires the 7xtgv RunCPM host service on private I/O port 7Bh.
 ;
 ; The first pass runs with the terminal active.  The second asks the host to
@@ -50,4 +50,4 @@ inner:
         ret
 
 message:
-        db      'VTMHZ needs newer 7xtgv RunCPM firmware.',13,10,'$'
+        db      'VTCPU needs newer 7xtgv RunCPM firmware.',13,10,'$'

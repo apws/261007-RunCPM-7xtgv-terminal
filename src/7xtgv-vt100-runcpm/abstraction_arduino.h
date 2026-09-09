@@ -499,13 +499,21 @@ uint8 _sys_makedisk(uint8 drive) {
 
 /* Hardware abstraction functions */
 /*===============================================================================*/
-// Private RunCPM guest/host diagnostic port used by VTMHZ.COM.  BIOS and BDOS
-// use interrupt handoff in this build, so ordinary guest I/O reaches here.
-static const uint8 VTMHZ_PORT = 0x7b;
-static const uint64 VTMHZ_TSTATES = 13015509ULL;
-static uint32 vtmhzStartedAt = 0;
-static bool vtmhzRunning = false;
-static bool vtmhzQuiet = false;
+// Private RunCPM guest/host benchmark ports. BIOS and BDOS use interrupt
+// handoff in this build, so ordinary guest I/O reaches here.
+static const uint8 VTDRV_PORT = 0x7a;
+static const uint8 VTCPU_PORT = 0x7b;
+static const uint8 VTTERM_PORT = 0x79;
+static const uint64 VTCPU_TSTATES = 13015509ULL;
+static const uint32 VTCPU8X_LOOPS = 500000UL;
+static const uint32 VTDRV_BYTES = 32768UL;
+static uint32 vtBenchmarkStartedAt = 0;
+static bool vtBenchmarkRunning = false;
+static bool vtcpuQuiet = false;
+static bool vtcpu8x = false;
+static uint8 vtdrvOperation = 0;
+static bool vtdrv8x = false;
+static bool vttermReported = false;
 
 void _putch(uint8 ch);
 
@@ -514,27 +522,31 @@ static void _HardwarePrint(const char *text) {
         _putch((uint8)*text++);
 }
 
-static void _VTMHZBegin(bool quiet) {
-    vtmhzQuiet = quiet;
-    _HardwarePrint(quiet ? "VTMHZ quiet : " : "VTMHZ active: ");
+static void _VTCPUBegin(bool quiet, bool use8x) {
+    vtcpuQuiet = quiet;
+    vtcpu8x = use8x;
+    if (use8x)
+        _HardwarePrint(quiet ? "VTCPU8X quiet : " : "VTCPU8X active: ");
+    else
+        _HardwarePrint(quiet ? "VTCPU quiet : " : "VTCPU active: ");
 #if !defined(RUNCPM_HEADLESS)
     if (quiet)
         terminalPause(true);
 #endif
-    vtmhzStartedAt = (uint32)micros();
-    vtmhzRunning = true;
+    vtBenchmarkStartedAt = (uint32)micros();
+    vtBenchmarkRunning = true;
 }
 
-static void _VTMHZEnd() {
-    if (!vtmhzRunning)
+static void _VTCPUEnd() {
+    if (!vtBenchmarkRunning)
         return;
 
-    const uint32 elapsedUs = (uint32)micros() - vtmhzStartedAt;
-    const uint64 mhzHundredths =
-        (VTMHZ_TSTATES * 100ULL + (elapsedUs / 2)) / (elapsedUs ? elapsedUs : 1);
-    const bool wasQuiet = vtmhzQuiet;
-    vtmhzRunning = false;
-    vtmhzQuiet = false;
+    const uint32 elapsedUs = (uint32)micros() - vtBenchmarkStartedAt;
+    const bool wasQuiet = vtcpuQuiet;
+    const bool was8x = vtcpu8x;
+    vtBenchmarkRunning = false;
+    vtcpuQuiet = false;
+    vtcpu8x = false;
 
 #if !defined(RUNCPM_HEADLESS)
     if (wasQuiet)
@@ -542,9 +554,51 @@ static void _VTMHZEnd() {
 #endif
 
     char buffer[96];
-    snprintf(buffer, sizeof(buffer), "%llu T-states in %lu us = %llu.%02llu MHz\r\n",
-             VTMHZ_TSTATES, (unsigned long)elapsedUs,
-             mhzHundredths / 100ULL, mhzHundredths % 100ULL);
+    if (was8x) {
+        const uint64 mloopsHundredths =
+            (VTCPU8X_LOOPS * 100ULL + (elapsedUs / 2)) /
+            (elapsedUs ? elapsedUs : 1);
+        snprintf(buffer, sizeof(buffer),
+                 "%lu loops in %lu us = %llu.%02llu Mloops/s\r\n",
+                 (unsigned long)VTCPU8X_LOOPS, (unsigned long)elapsedUs,
+                 mloopsHundredths / 100ULL, mloopsHundredths % 100ULL);
+    } else {
+        const uint64 mhzHundredths =
+            (VTCPU_TSTATES * 100ULL + (elapsedUs / 2)) /
+            (elapsedUs ? elapsedUs : 1);
+        snprintf(buffer, sizeof(buffer),
+                 "%llu T-states in %lu us = %llu.%02llu MHz\r\n",
+                 VTCPU_TSTATES, (unsigned long)elapsedUs,
+                 mhzHundredths / 100ULL, mhzHundredths % 100ULL);
+    }
+    _HardwarePrint(buffer);
+}
+
+static void _VTDRVBegin(uint8 operation, bool use8x) {
+    vtdrvOperation = operation;
+    vtdrv8x = use8x;
+    vtBenchmarkStartedAt = (uint32)micros();
+    vtBenchmarkRunning = true;
+}
+
+static void _VTDRVEnd(uint8 operation) {
+    if (!vtBenchmarkRunning || vtdrvOperation != operation)
+        return;
+
+    const uint32 elapsedUs = (uint32)micros() - vtBenchmarkStartedAt;
+    const uint64 kibHundredths =
+        (VTDRV_BYTES * 100000000ULL + (uint64(elapsedUs) * 512ULL)) /
+        (uint64(elapsedUs ? elapsedUs : 1) * 1024ULL);
+    vtBenchmarkRunning = false;
+    vtdrvOperation = 0;
+
+    char buffer[96];
+    snprintf(buffer, sizeof(buffer), "%s %s: %lu bytes in %lu us = %llu.%02llu KiB/s\r\n",
+             vtdrv8x ? "VTDRV8X" : "VTDRV", operation == 1 ? "write" : "read ",
+             (unsigned long)VTDRV_BYTES,
+             (unsigned long)elapsedUs, kibHundredths / 100ULL,
+             kibHundredths % 100ULL);
+    vtdrv8x = false;
     _HardwarePrint(buffer);
 }
 
@@ -552,17 +606,73 @@ void _HardwareInit(void) {
 }
 
 void _HardwareOut(const uint32 Port, const uint32 Value) {
-    if ((Port & 0xff) != VTMHZ_PORT)
-        return;
-    switch (Value & 0xff) {
-        case 1: _VTMHZBegin(false); break;
-        case 2: _VTMHZBegin(true); break;
-        case 3: _VTMHZEnd(); break;
+    const uint8 port = Port & 0xff;
+    const uint8 value = Value & 0xff;
+    if (port == VTCPU_PORT) {
+        switch (value) {
+            case 1: _VTCPUBegin(false, false); break;
+            case 2: _VTCPUBegin(true, false); break;
+            case 3: _VTCPUEnd(); break;
+            case 4: _VTCPUBegin(false, true); break;
+            case 5: _VTCPUBegin(true, true); break;
+            case 6: _VTCPUEnd(); break;
+        }
+    } else if (port == VTDRV_PORT) {
+        switch (value) {
+            case 1: _VTDRVBegin(1, false); break;
+            case 2: _VTDRVEnd(1); break;
+            case 3: _VTDRVBegin(2, false); break;
+            case 4: _VTDRVEnd(2); break;
+            case 5: _VTDRVBegin(1, true); break;
+            case 6: _VTDRVEnd(1); break;
+            case 7: _VTDRVBegin(2, true); break;
+            case 8: _VTDRVEnd(2); break;
+            case 0xff:
+                vtBenchmarkRunning = false;
+                vtdrvOperation = 0;
+                vtdrv8x = false;
+                break;
+        }
+    } else if (port == VTTERM_PORT && value == 1) {
+#if !defined(RUNCPM_HEADLESS)
+        vttermReported = false;
+        terminalTextBenchmarkRequest();
+#endif
+    } else if (port == VTTERM_PORT && value == 2) {
+#if !defined(RUNCPM_HEADLESS)
+        if (terminalTextBenchmarkDone() && !vttermReported) {
+            char buffer[96];
+            uint32_t elapsed = terminalTextBenchmarkElapsedUs();
+            uint32_t bytes = terminalTextBenchmarkBytes();
+            uint32_t chars = terminalTextBenchmarkChars();
+            uint32_t rate = elapsed ? uint32_t((uint64_t(bytes) * 1000000ULL) / elapsed) : 0;
+            uint32_t charRate = elapsed ? uint32_t((uint64_t(chars) * 1000000ULL) / elapsed) : 0;
+            snprintf(buffer, sizeof(buffer), "VTTERM native: %lu chars in %lu us = %lu chars/s (%lu B/s)\r\n",
+                     (unsigned long)chars, (unsigned long)elapsed, (unsigned long)charRate,
+                     (unsigned long)rate);
+            _HardwarePrint(buffer);
+            vttermReported = true;
+        }
+#endif
     }
 }
 
 uint32 _HardwareIn(const uint32 Port) {
-    return (Port & 0xff) == VTMHZ_PORT ? 'V' : 0;
+    const uint8 port = Port & 0xff;
+    if (port == VTCPU_PORT)
+        return 'V';
+    if (port == VTDRV_PORT)
+        return 'D';
+    if (port == VTTERM_PORT) {
+#if !defined(RUNCPM_HEADLESS)
+        if (!terminalTextBenchmarkDone())
+            return 0;
+        return 'D';
+#else
+        return 0;
+#endif
+    }
+    return 0;
 }
 
 /* Console abstraction functions */

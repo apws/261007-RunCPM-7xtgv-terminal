@@ -1048,9 +1048,12 @@ static inline void Z80reset(void) {
 
 // On the dual-core S3, execute the hot dispatcher from internal instruction
 // RAM so terminal code on core 1 cannot evict it from the shared flash cache.
+// Optimize this one continuous hot path for speed while the surrounding
+// native BDOS, storage and terminal code retains Arduino-ESP32's compact -Os.
 static inline
 #if defined(RUNCPM_TARGET_JC8048W535)
 IRAM_ATTR
+__attribute__((optimize("O2")))
 #endif
 void Z80run(uint32 cpu_delay) {
 	uint32 temp = 0;

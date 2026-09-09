@@ -13,7 +13,7 @@ its application task is blocked. FreeRTOS cannot migrate either pinned
 application task to the other core.
 
 The startup no longer runs a destructive Z80 estimate before CP/M. Instead,
-`VTMHZ.COM` is a normal CP/M command which runs the same fixed instruction loop
+`VTCPU.COM` is a normal CP/M command which runs the same fixed instruction loop
 in the live interpreter. Its active pass measures the normal two-task system.
 Its quiet pass asks the terminal task to acknowledge a pause, measures the Z80
 loop, then waits for the terminal task to acknowledge its resume. CP/M output
@@ -56,7 +56,7 @@ controller landscape output remains a later display-driver optimization.
 The ESP32-S3 has 512 KiB of on-chip SRAM, but it is divided among executable
 IRAM, data RAM, ESP-IDF/system use and heap; the Arduino linker reports a
 320 KiB ceiling specifically for static sketch data. This build occupies
-141,432 bytes of that region. The selected SDK also configures a 16 KiB
+141,448 bytes of that region. The selected SDK also configures a 16 KiB
 instruction cache and a 32 KiB data cache. External flash and PSRAM accesses
 pass through these caches, so PSRAM is larger but not equivalent to direct
 on-chip SRAM.
@@ -96,12 +96,12 @@ heartbeat could provide more specific liveness monitoring.
 
 ## Current validation
 
-- S3 integrated build: pass, 565,016 bytes flash and 141,440 bytes static RAM
+- S3 integrated build: pass, 566,000 bytes flash and 141,448 bytes static RAM
 - RP2350 regression build: pass
 - host terminal, keyboard, bounds/fuzz, queue and Python tests: pass
 - S3 display, CP/M boot, USB input and sustained compute test: pass on hardware
-- `VTMHZ.COM` before IRAM: 10.79 MHz active, 17.02 MHz quiet
-- `VTMHZ.COM` with `Z80run()` in IRAM: 17.21 MHz active and 17.21 MHz quiet
+- `VTCPU.COM` before IRAM: 10.79 MHz active, 17.02 MHz quiet
+- `VTCPU.COM` with `Z80run()` in IRAM: 17.21 MHz active and 17.21 MHz quiet
 
 The 6 September headless milestone reported about 19 MHz. The quiet integrated
 result recovers most of that rate without resetting CP/M. The remaining gap can
@@ -115,9 +115,9 @@ therefore cannot prevent terminal code from displacing interpreter instructions
 or framebuffer traffic from competing for the flash/PSRAM path.
 
 The S3 profile now marks only `Z80run()` with `IRAM_ATTR`. Its linked IRAM body
-is `0x701A` bytes (28,698 bytes), and total IRAM use rises from `0x11C9F`
-(72,863 bytes) to `0x18D7F` (101,759 bytes). Static internal data SRAM remains
-141,440 bytes. The linker calls this region `.dram0`; in project prose, “DRAM”
+is `0x7082` bytes (28,802 bytes), and current total IRAM use is `0x18DEB`
+(101,867 bytes). Static internal data SRAM is 141,448 bytes. The linker calls
+this region `.dram0`; in project prose, “DRAM”
 is reserved for actual dynamic-memory technology such as PSRAM.
 Three before/after runs were stable: active execution improved from 10.79 to
 17.21 MHz, while quiet execution improved from 17.02 to 17.21 MHz. The equal
@@ -130,9 +130,42 @@ The native BIOS/BDOS dispatchers remain in cached flash. Their measured size,
 call-frequency implications and the shared policy for a future VMEX port are
 recorded in [Interpreter porting and internal-SRAM policy](interpreter-porting-memory.md).
 
+### Global `-O3` trial
+
+A compile-only `-O3` variant was flashed and tested on 2026-09-09. It passed
+CP/M boot, SD mounting, `VTCPU`, `VTCPU8X`, `VTDRV8X` verification and the full
+automatic `VTESTS.BAS` sequence. Compared with the current global `-Os` build:
+
+| Test | `-Os` | global `-O3` |
+| --- | ---: | ---: |
+| `VTCPU` active | 17.30 MHz | 19.30 MHz |
+| `VTCPU` quiet | 17.31 MHz | 19.34 MHz |
+| `VTCPU8X` active/quiet | 0.65 / 0.66 Mloops/s | 0.76 / 0.76 Mloops/s |
+| `VTDRV8X` write (A0) | 7.52 KiB/s (`-Os` control) | 7.32 KiB/s |
+| `VTDRV8X` read (A0) | 12.65 KiB/s (`-Os` control) | 12.45 KiB/s |
+
+Global `-O3` therefore improves interpreted compute by about 11.6%. The
+earlier larger storage difference came from comparing A6 with A0; standardized
+A0 measurements show only a small change. Global `-O2` reached 19.38 MHz and
+7.46/12.61 KiB/s, while the targeted `Z80run()`-only O2 build reached
+19.01 MHz and 7.53/12.64 KiB/s. A separate experiment moved `_Bios()` and
+`_Bdos()` into IRAM; it reached 19.03/19.02 MHz and 7.55/12.74 KiB/s, so the
+extra roughly 3 KiB of IRAM was removed again.
+
+All drive comparisons above were rerun from A0. A6 remains useful for testing
+its own directory layout, but its results must not be mixed into the A0 control
+series.
+
 Build with:
 
 ```sh
 arduino-cli compile --profile jc8048w535 \
   --output-dir ../../build/build-vt100-runcpm-s3-dual .
 ```
+
+Uploading recreates `/dev/ttyACM0` and removes its temporary per-user ACL. The
+working order is: close the serial session, upload, run
+`sudo setfacl -m u:"$USER":rw /dev/ttyACM0`, then start the shared terminal.
+Never run the transfer/test helper and a separate picocom/terminal reader at
+the same time; two readers split the byte stream instead of both receiving a
+copy.

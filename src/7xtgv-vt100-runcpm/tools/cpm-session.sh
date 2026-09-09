@@ -1,0 +1,79 @@
+#!/bin/sh
+set -eu
+
+tools_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+session=7xtgv-cpm
+
+if [ -r "$tools_dir/terminal.conf" ]; then
+    . "$tools_dir/terminal.conf"
+fi
+
+# File-manager and nested GUI launches sometimes inherit TERM=dumb.
+case "${TERM-}" in
+    ""|dumb) TERM=xterm-256color; export TERM ;;
+esac
+
+case "${1-}" in
+    --stop)
+        exec tmux kill-session -t "$session"
+        ;;
+    --monitor)
+        exec tmux attach-session -r -t "$session"
+        ;;
+esac
+
+if [ "$#" -eq 0 ]; then
+    set -- --port /dev/ttyACM0
+fi
+
+if [ "${1-}" = "--port" ] && [ -n "${2-}" ]; then
+    attempts=0
+    while [ ! -e "$2" ] && [ "$attempts" -lt 50 ]; do
+        sleep 0.1
+        attempts=$((attempts + 1))
+    done
+fi
+
+# Recreated USB nodes may lose the user's ACL after a reboot or reflash.
+# Ask once here so kit.sh/kon.sh work without a separate setup command.
+if [ "${1-}" = "--port" ] && [ -n "${2-}" ] && [ -e "$2" ] \
+    && { [ ! -r "$2" ] || [ ! -w "$2" ]; }; then
+    if command -v sudo >/dev/null 2>&1; then
+        sudo setfacl -m "u:${USER}:rw" "$2" || true
+    fi
+fi
+
+# A freshly rebooted Linux session may recreate the USB node as root:uucp.
+# Keep the terminal visible with the remedy instead of closing immediately.
+case "${1-}" in
+    --port)
+        port=${2-}
+        if [ -n "$port" ] && [ -e "$port" ] && { [ ! -r "$port" ] || [ ! -w "$port" ]; }; then
+            echo "Cannot access $port (serial permissions)."
+            echo "Run once: sudo setfacl -m u:$USER:rw $port"
+            echo "Or add $USER to the device group (usually uucp/dialout), then log in again."
+            printf 'Press Enter to close... '
+            read dummy
+            exit 1
+        fi
+        ;;
+esac
+
+if ! tmux has-session -t "$session" 2>/dev/null; then
+    # terminal.py validates its initial geometry. GUI launchers may open a
+    # narrow window, so give the detached shared session a stable baseline.
+    tmux new-session -d -x 80 -y 24 -s "$session" -- \
+        python3 "$tools_dir/terminal.py" "$@"
+    sleep 0.2
+    if ! tmux has-session -t "$session" 2>/dev/null; then
+        echo "7xtgv terminal failed to start."
+        echo "Run $tools_dir/terminal.py --port /dev/ttyACM0 to see the error."
+        printf 'Press Enter to close... '
+        read dummy
+        exit 1
+    fi
+    # HOME is mapped to Ctrl+B for RunCPM, so tmux must not consume it.
+    tmux set-option -t "$session" prefix None
+fi
+
+exec tmux attach-session -t "$session"

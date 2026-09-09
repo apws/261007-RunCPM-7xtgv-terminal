@@ -7,7 +7,7 @@ so the shared core utilities remain available from other user areas.
 
 | User | Contents |
 |---|---|
-| A0 | CP/M core commands, shared MBASIC/VTESTS, console transfer and VTMHZ helpers |
+| A0 | CP/M core commands, terminal profiles, shared MBASIC/VTESTS, transfer and VT benchmarks |
 | A1 | BBC BASIC and its terminal patch source/notes |
 | A2 | Turbo Pascal 3.01a and TINST terminal installer |
 | A3 | COMAL-80 2.10 demo and its terminal installer (pending board copy) |
@@ -24,16 +24,22 @@ are copied from the actual board before reorganization, preserving CP/M's
 128-byte record padding and tokenized BASIC programs. Human-readable VTESTS
 source remains in `../src/7xtgv-vt100-runcpm/tests/VTESTS.BAS`.
 
+`A0:7XTGVTRM.INI` configures the ten named terminal application profiles. The
+firmware reads it once during boot; see
+`../docs/terminal-application-profiles.md` for its format.
+
 Use `A0:`, `MBASIC`, `RUN "VTESTS"` for the shared menu. A7 contains a
 clean duplicate workspace with only `MBASIC.COM` and `VTESTS.BAS`; use `A7:`
 then `MBASIC` and `RUN "VTESTS"` when testing that pair in isolation. 1 = ink,
 8 = Mixworx code.
 
-`VTMHZ.COM` is installed in A0 so the internal CCP can find it from every user
-area. A duplicate in A6 keeps it with the CPU benchmark collection. It reports
-one measurement with the terminal active and one with TFT/USB rendering paused;
-its source and protocol notes are in
-`../src/7xtgv-vt100-runcpm/tools/vtmhz/`.
+The `VTCPU`, `VTCPU8X`, `VTDRV` and `VTDRV8X` commands are installed in A0 so
+the internal CCP can find them from every user area. Duplicates in A6 keep them
+with the benchmark collection. CPU tests report active and terminal-paused
+passes. Drive tests measure 32 KiB sequential write/read throughput, verify the
+data and remove their temporary files. The `8X` versions use only the common
+8080/8085 instruction subset. Sources and protocol notes are in
+`../src/7xtgv-vt100-runcpm/tools/vtbench/`.
 
 BBC BASIC's supplied v5.00 test package needs platform-specific cursor/timer
 patching for full terminal integration. Turbo TINST offers an ANSI preset.

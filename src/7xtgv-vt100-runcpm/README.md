@@ -30,25 +30,30 @@ The prior firmware remains at
 
 ## PC keyboard and mirror
 
-Enlarge kitty or Konsole to at least 80×24, close any other serial connection,
-and run:
+Enlarge Kitty or Konsole to at least 80×24. The recommended launchers create or
+attach to one shared `tmux` session, so one wrapper owns the serial port while
+several desktop views can show the same CP/M terminal:
 
 ```sh
-python3 tools/terminal.py
+tools/kit.sh
+tools/kon.sh
 ```
 
-The helper finds the unique `usb-Generic_RP2350*-if00` device under
-`/dev/serial/by-id/`. To choose explicitly:
+Only the first launcher starts `terminal.py`; later launchers attach to its
+`7xtgv-cpm` tmux pane. A read-only monitor and an explicit stop are available:
+
+```sh
+tools/cpm-session.sh --monitor
+tools/cpm-session.sh --stop
+```
+
+Codex can inspect the same pane with `tmux capture-pane -pt 7xtgv-cpm` and send
+input with `tmux send-keys -t 7xtgv-cpm`, without opening the serial device a
+second time. The session disables tmux's usual Ctrl+B prefix because HOME sends
+Ctrl+B to RunCPM. Direct single-client use remains available:
 
 ```sh
 python3 tools/terminal.py --port /dev/ttyACM0
-```
-
-Or launch from the project directory in a new window:
-
-```sh
-kitty python3 tools/terminal.py
-konsole -e python3 tools/terminal.py
 ```
 
 There are no Python package dependencies. The helper uses Linux termios at
@@ -62,20 +67,29 @@ If access is denied, grant temporary access to the current device:
 sudo setfacl -m u:"$USER":rw /dev/ttyACM0
 ```
 
-That grant lasts only until USB re-enumeration. It is not automatically applied
-by the helper. The helper takes exclusive access; close it before picocom.
+That grant lasts only until USB re-enumeration, including every ESP32 flash.
+Apply it after flashing and before starting the shared session. The helper takes
+exclusive access; do not run picocom or a second direct helper alongside it.
 
 | Key | Action |
 | --- | --- |
-| Alt+Home | TFT columns 1–52 |
-| Alt+End | TFT columns 29–80 |
-| Alt+Left / Alt+Right | Pan four columns, bounded at either edge |
+| Plain/Ctrl/Alt arrows and six-key block | Active application-profile binding |
+| Alt+0 ... Alt+9 | Select named history/key profile #0 ... #9; show `#n name` for 1 s |
+| Alt+PageUp / Alt+PageDown | Select previous/next history list |
+| Shift+Alt+PageUp / Shift+Alt+PageDown | Application Alt+Page binding |
 | Ctrl+] then a / e | Same edge jumps; works without Alt mappings |
 | Ctrl+] then h / l | Same left/right pan |
 | Ctrl+] then 1 / 2 | Select ANSI / VT52 locally |
 | Ctrl+] then r | Refresh PC mirror and TFT |
+| Ctrl+] then p / n | Previous/next history line |
+| Ctrl+] then [ / ] | Previous/next history list |
 | Ctrl+] then q | Exit PC helper; leave CP/M running |
 | Ctrl+] twice | Send literal Ctrl+] to CP/M |
+
+Each bank holds 100 lines and ignores empty, one-character and immediately
+duplicated entries. Arrow and six-key-block behavior is translated
+by the selected application profile. The firmware reads `A0:7XTGVTRM.INI` once
+at boot; see `../../docs/terminal-application-profiles.md`.
 
 Panning is manual, even when the cursor moves off-screen. The strip shows the
 visible fraction of the page. White marks at its top/bottom mean the cursor is
@@ -89,13 +103,23 @@ The firmware boots in ANSI mode without waiting for USB. Reconnect to get a
 fresh mirror of the current screen. CP/M resumes neither a new session nor a new
 boot merely because the helper reconnects.
 
-### Explicit Alt-key mappings
+### Application key mappings
 
-The helper's Ctrl+] shortcuts always work, so desktop shortcuts need not be
-changed. For native Alt keys, kitty can load this project's optional config:
+The helper's Ctrl+] shortcuts always work. The project Kitty and Konsole
+profiles contain the translated CP/M/WordStar-style keyboard mappings plus the
+profile-selection controls. Launch them with `tools/kit.sh` and
+`tools/kon.sh` as shown above.
+
+The launchers resolve their own directory and pass arguments to the first
+`terminal.py` instance. Arguments supplied by later attaching clients are
+ignored because the serial owner is already running. With no arguments they
+use `/dev/ttyACM0`, making both scripts directly launchable from a file manager.
+
+`tools/kitty-cpm.conf` retains a separately named copy of the same mappings.
+Plain PageUp/PageDown are application-profile keys.
 
 ```sh
-kitty --config tools/kitty.conf python3 tools/terminal.py
+kitty --config tools/kitty-cpm.conf picocom /dev/ttyACM0
 ```
 
 For Konsole, use **Edit Current Profile → Keyboard → Edit** in a separate
@@ -104,10 +128,8 @@ ESC). Remove conflicting mappings in that profile if necessary.
 
 | Key | Konsole output | Bytes |
 | --- | --- | --- |
-| Alt+Home | `\E[1;3H` | `1b 5b 31 3b 33 48` |
-| Alt+End | `\E[1;3F` | `1b 5b 31 3b 33 46` |
-| Alt+Left | `\E[1;3D` | `1b 5b 31 3b 33 44` |
-| Alt+Right | `\E[1;3C` | `1b 5b 31 3b 33 43` |
+| Ctrl+] then `a` / `e` | private helper action | Viewport left/right edge |
+| Ctrl+] then `h` / `l` | private helper action | Pan viewport left/right |
 
 ## Supported terminal subset
 
@@ -208,9 +230,9 @@ use a private diagnostic framing separate from CP/M and the normal screen mirror
 ## Tests
 
 ```sh
-g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g -pthread terminal.cpp tests/test_terminal.cpp -o /tmp/7xtgv-terminal-tests
+g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g -pthread terminal.cpp history_profiles.cpp tests/test_terminal.cpp -o /tmp/7xtgv-terminal-tests
 /tmp/7xtgv-terminal-tests
-g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g -pthread -Itests/stubs terminal.cpp tests/test_runtime.cpp -o /tmp/7xtgv-runtime-tests
+g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g -pthread -Itests/stubs terminal.cpp history_profiles.cpp tests/test_runtime.cpp -o /tmp/7xtgv-runtime-tests
 /tmp/7xtgv-runtime-tests
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```

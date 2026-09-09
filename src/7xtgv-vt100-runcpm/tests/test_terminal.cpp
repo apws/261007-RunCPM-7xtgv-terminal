@@ -1,4 +1,6 @@
 #include "../byte_queue.h"
+#include "../history_profiles.h"
+#include "../line_history.h"
 #include "../terminal.h"
 #include <assert.h>
 #include <iostream>
@@ -16,6 +18,8 @@ static void keys(vt::Keyboard &k, const std::string &s, uint32_t now = 0) {
     for (uint8_t c : s)
         k.feed(c, now++);
 }
+static int lastAction = -1;
+static void action(void *, vt::Keyboard::Action value) { lastAction = value; }
 int main() {
     std::string replies;
     vt::Terminal t(collect, &replies);
@@ -142,6 +146,73 @@ int main() {
     input.clear();
     keys(k, "\033\033[H", 300);
     assert(t.viewport == 0 && input.empty());
+    vt::Keyboard historyKeys(t, collect, &input, action);
+    keys(historyKeys, "\033[>10v");
+    assert(lastAction == vt::Keyboard::HistoryPrevious && input.empty());
+    keys(historyKeys, "\033[>13v");
+    assert(lastAction == vt::Keyboard::HistoryBankNext && input.empty());
+    keys(historyKeys, "\033[>22v");
+    assert(lastAction == vt::Keyboard::HistoryBank0 + 2 && input.empty());
+    keys(historyKeys, "\033[>30v");
+    assert(lastAction == vt::Keyboard::ProfileKey0 + vt::AppLeft && input.empty());
+    keys(historyKeys, "\033[>35v");
+    assert(lastAction == vt::Keyboard::ProfileKey0 + vt::AppInsert && input.empty());
+    keys(historyKeys, "\033[>39v");
+    assert(lastAction == vt::Keyboard::ProfileKey0 + vt::AppAltDown && input.empty());
+    keys(historyKeys, "\033[>59v");
+    assert(lastAction == vt::Keyboard::ProfileKey0 + vt::AppAltPageDown && input.empty());
+
+    vt::HistoryProfiles profiles;
+    const std::string profileIni =
+        "[bank2]\r\nname=EDITOR\r\nup=send:\\x05\r\n"
+        "alt_up=history_previous\r\non_select=A4:\\r\n\x1a ignored padding";
+    profiles.beginLoad();
+    for (uint8_t c : profileIni) profiles.feed(c);
+    profiles.finishLoad();
+    assert(profiles.errors() == 0);
+    assert(std::string(profiles.get(2).name) == "EDITOR");
+    assert(profiles.get(2).keys[vt::AppUp].kind == vt::BindingSend);
+    assert(profiles.get(2).keys[vt::AppUp].length == 1);
+    assert(profiles.get(2).keys[vt::AppUp].bytes[0] == 5);
+    assert(profiles.get(2).keys[vt::AppAltUp].kind == vt::BindingHistoryPrevious);
+    assert(profiles.get(2).selectLength == 4 && profiles.get(2).selectBytes[3] == 13);
+
+    vt::LineHistory history;
+    vt::LineHistory::Recall recalled;
+    assert(history.activeBank() == 0 && !history.recall(true, recalled));
+    history.select(1);
+    for (uint8_t c : std::string("dir\rstat\r")) history.input(c);
+    assert(history.recall(true, recalled));
+    assert(recalled.erase == 0 && std::string(recalled.text, recalled.length) == "stat");
+    assert(history.recall(true, recalled));
+    assert(recalled.erase == 4 && std::string(recalled.text, recalled.length) == "dir");
+    assert(history.recall(false, recalled));
+    assert(recalled.erase == 3 && std::string(recalled.text, recalled.length) == "stat");
+    assert(history.recall(false, recalled));
+    assert(recalled.erase == 4 && recalled.length == 0);
+    history.select(2);
+    history.input('Q');
+    history.input('\r');
+    for (uint8_t c : std::string("print 42\r")) history.input(c);
+    assert(history.recall(true, recalled));
+    assert(std::string(recalled.text, recalled.length) == "print 42");
+    assert(!history.recall(true, recalled));
+    history.select(1);
+    assert(history.recall(true, recalled));
+    assert(std::string(recalled.text, recalled.length) == "stat");
+    vt::LineHistory wrapped;
+    for (int i = 0; i <= 100; ++i) {
+        std::string line = "L" + std::to_string(i);
+        for (uint8_t c : line) wrapped.input(c);
+        wrapped.input('\r');
+    }
+    assert(wrapped.recall(true, recalled));
+    assert(std::string(recalled.text, recalled.length) == "L100");
+    for (int i = 99; i >= 1; --i) {
+        assert(wrapped.recall(true, recalled));
+        assert(std::string(recalled.text, recalled.length) == "L" + std::to_string(i));
+    }
+    assert(!wrapped.recall(true, recalled));
     // Random hostile streams must never escape fixed buffers or screen bounds.
     std::mt19937 rng(42);
     for (int i = 0; i < 200000; i++) {

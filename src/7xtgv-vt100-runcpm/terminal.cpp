@@ -586,6 +586,20 @@ void Keyboard::finish() {
         t_.setMode(true);
     else if (!strcmp(s, "\033[>2v"))
         t_.setMode(false);
+    else if (!strcmp(s, "\033[>10v")) {
+        if (act_) act_(context_, HistoryPrevious);
+    } else if (!strcmp(s, "\033[>11v")) {
+        if (act_) act_(context_, HistoryNext);
+    } else if (!strcmp(s, "\033[>12v")) {
+        if (act_) act_(context_, HistoryBankPrevious);
+    } else if (!strcmp(s, "\033[>13v")) {
+        if (act_) act_(context_, HistoryBankNext);
+    } else if (size_ == 6 && !memcmp(s, "\033[>2", 4) && s[4] >= '0' && s[4] <= '9' && s[5] == 'v') {
+        if (act_) act_(context_, Action(HistoryBank0 + s[4] - '0'));
+    } else if (size_ == 6 && !memcmp(s, "\033[>", 3) && s[3] >= '3' && s[3] <= '5' &&
+               s[4] >= '0' && s[4] <= '9' && s[5] == 'v') {
+        if (act_) act_(context_, Action(ProfileKey0 + (s[3] - '3') * 10 + s[4] - '0'));
+    }
     else if (size_ == 3 && (buffer_[1] == '[' || buffer_[1] == 'O') && buffer_[2] >= 'A' &&
              buffer_[2] <= 'D') {
         char out[4] = {27, '[', char(buffer_[2]), 0};

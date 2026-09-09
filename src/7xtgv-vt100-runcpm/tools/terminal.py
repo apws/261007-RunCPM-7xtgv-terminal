@@ -10,6 +10,7 @@ import signal
 import struct
 import sys
 import termios
+import time
 import tty
 
 PREFIX = 0x1D  # Ctrl+]
@@ -18,12 +19,39 @@ COMMANDS = {
     ord('a'): b'\x1b[1;3H', ord('e'): b'\x1b[1;3F',
     ord('h'): b'\x1b[1;3D', ord('l'): b'\x1b[1;3C',
     ord('r'): b'\x1b[>0v', PREFIX: bytes([PREFIX]),
+    ord('p'): b'\x1b[>10v', ord('n'): b'\x1b[>11v',
+    ord('['): b'\x1b[>12v', ord(']'): b'\x1b[>13v',
 }
 
 class Keys:
     def __init__(self):
         self.prefix = False
         self.quit = False
+        keys = os.environ.get('XTGV_BANK_KEYS', '+ěščřžýáíé')
+        numbers = os.environ.get('XTGV_BANK_NUMBERS', '1234567890')
+        self.bank_keys = dict(zip(keys, numbers))
+        self.alt = bytearray()
+        self.alt_at = 0.0
+
+    def _feed_alt(self, c):
+        self.alt.append(c)
+        try:
+            char = bytes(self.alt[1:]).decode('utf-8')
+        except UnicodeDecodeError as exc:
+            if exc.reason == 'unexpected end of data':
+                return b''
+            char = ''
+        number = self.bank_keys.get(char) if len(char) == 1 else None
+        result = b'\x1b[>2' + number.encode('ascii') + b'v' if number else bytes(self.alt)
+        self.alt.clear()
+        return result
+
+    def tick(self):
+        if self.alt and time.monotonic() - self.alt_at >= 0.05:
+            result = bytes(self.alt)
+            self.alt.clear()
+            return result
+        return b''
 
     def feed(self, data):
         result = bytearray()
@@ -34,8 +62,13 @@ class Keys:
                     self.quit = True
                     break
                 result.extend(COMMANDS.get(c, bytes([PREFIX, c])))
+            elif self.alt:
+                result.extend(self._feed_alt(c))
             elif c == PREFIX:
                 self.prefix = True
+            elif c == 27:
+                self.alt.append(c)
+                self.alt_at = time.monotonic()
             else:
                 result.append(c)
         return result
@@ -98,6 +131,7 @@ def run(port, mode):
                 readers.append(fd)
             writers = ([fd] if outgoing else []) + ([1] if incoming else [])
             readable, writable, _ = select.select(readers, writers, [], 0.1)
+            outgoing.extend(keys.tick())
             if 0 in readable:
                 data = os.read(0, 256)
                 if not data:
@@ -137,7 +171,8 @@ def run(port, mode):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, epilog=(
         'Ctrl+] then q: exit; 1: ANSI; 2: VT52; a/e: left/right edge; '
-        'h/l: pan left/right; r: redraw; Ctrl+] again: send literal Ctrl+]. '
+        'h/l: pan; r: redraw; p/n: history; [/]: history bank; '
+        'Ctrl+] again: literal Ctrl+]. '
         'Alt+Home/End and Alt+Left/Right also pan.'))
     parser.add_argument('--port', help='Serial device; defaults to the unique RP2350 by-id path')
     parser.add_argument('--mode', choices=('ansi', 'vt52'), help='Select mode on connection; otherwise preserve it')

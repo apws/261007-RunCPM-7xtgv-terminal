@@ -104,7 +104,7 @@ static void runCPM() {
 
     _puts("------------------------------------------------\r\n");
     _puts("CPU is "); _puts(CPU_IS); _puts("\r\n");
-    _puts("Run VTMHZ.COM for active/quiet Z80 speed\r\n");
+    _puts("Run VTCPU.COM for active/quiet Z80 speed\r\n");
     _puts("BIOS at 0x"); _puthex16(BIOSjmppage);  _puts(" - ");
     _puts("BDOS at 0x"); _puthex16(BDOSjmppage);  _puts("\r\n");
     _puts("CCP " CCPname " at 0x"); _puthex16(CCPaddr); _puts("\r\n");
@@ -179,6 +179,20 @@ static void runCPM() {
 #endif
 #else
         _puts(SDMHZ_TXT); _puts(" Mhz\r\n");
+#endif
+#if !defined(RUNCPM_HEADLESS)
+        _puts("Terminal profile .....");
+        File profileFile = SD.open("A/0/7XTGVTRM.INI", FILE_READ);
+        if (profileFile) {
+            terminalConfigBegin();
+            while (profileFile.available())
+                terminalConfigFeed(uint8_t(profileFile.read()));
+            profileFile.close();
+            unsigned profileErrors = terminalConfigEnd();
+            _puts(profileErrors ? "LOADED WITH ERRORS\r\n" : "OK\r\n");
+        } else {
+            _puts("COMPILED DEFAULTS\r\n");
+        }
 #endif
         _puts("-------------------------------------------------");
 
