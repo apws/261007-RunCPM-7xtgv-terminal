@@ -74,7 +74,7 @@ Each bank also owns a configurable application name and plain/Ctrl/Alt mappings
 for the arrows and six-key block. Host and future local keyboards send logical
 private key events; the firmware translates them using the selected bank. The
 boot-time `A/0/7XTGVTRM.INI` file defines the profiles; compiled defaults remain
-available. See `terminal-application-profiles.md`.
+available. See `260910-01 terminal-application-profiles.md`.
 
 ### Input and recall path
 

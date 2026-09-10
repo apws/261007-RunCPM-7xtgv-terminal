@@ -14,7 +14,7 @@ RunCPM currently targets the RP2350 board; the ESP32-P4 RunCPM port is future
 work. Build outputs belong under `build/`; source and target setup stay under
 `src/`.
 
-See [platform-mcu-comparison.md](platform-mcu-comparison.md) for the CPU
+See [platform-mcu-comparison.md](260909-12 platform-mcu-comparison.md) for the CPU
 architecture differences and RunCPM portability notes.
 
 For a focused turn, name the target and action explicitly, for example:

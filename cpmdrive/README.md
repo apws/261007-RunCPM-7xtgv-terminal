@@ -26,7 +26,7 @@ source remains in `../src/7xtgv-vt100-runcpm/tests/VTESTS.BAS`.
 
 `A0:7XTGVTRM.INI` configures the ten named terminal application profiles. The
 firmware reads it once during boot; see
-`../docs/terminal-application-profiles.md` for its format.
+`../docs/260910-01 terminal-application-profiles.md` for its format.
 
 Use `A0:`, `MBASIC`, `RUN "VTESTS"` for the shared menu. A7 contains a
 clean duplicate workspace with only `MBASIC.COM` and `VTESTS.BAS`; use `A7:`

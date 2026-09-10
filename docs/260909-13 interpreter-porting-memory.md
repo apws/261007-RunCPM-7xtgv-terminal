@@ -314,4 +314,4 @@ FreeRTOS task affinity does not reserve all hardware activity on a core, but it
 does keep each application task from migrating. Internal placement makes the
 critical interpreter path independent of flash instruction-cache displacement
 by the terminal task. The current S3 task, cache and memory details are recorded
-in [ESP32-S3 RunCPM and terminal integration](runcpm-s3-dual-task.md).
+in [ESP32-S3 RunCPM and terminal integration](260909-13 runcpm-s3-dual-task.md).

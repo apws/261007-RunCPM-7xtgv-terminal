@@ -1,7 +1,7 @@
 # RunCPM dual-core Arduino port plan
 
 Saved 2026-09-08 from the planning discussion. Read the
-[user addendum](runcpm-port-addendum.md) first: it narrows the refactoring scope
+[user addendum](260908-18 runcpm-port-addendum.md) first: it narrows the refactoring scope
 and defines the resource-conscious working approach.
 
 ## Goal and architecture
@@ -22,7 +22,7 @@ of future VT/7xtgv extensions is required by this port.
 
 For later measured placement of the interpreter and native services, including
 the architectural correspondence with VMEX, see
-[Interpreter porting and internal-SRAM policy](interpreter-porting-memory.md).
+[Interpreter porting and internal-SRAM policy](260909-13 interpreter-porting-memory.md).
 
 ## Target facts and checks
 

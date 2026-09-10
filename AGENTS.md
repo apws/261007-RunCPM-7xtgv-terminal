@@ -3,7 +3,7 @@
 - Keep replies compact; use bullets for status and test results.
 - Prioritize low resource use over speed; use small checkpoints and ask Petr
   for useful visual/hardware checks or optional web investigation. For RunCPM
-  ports, read `docs/runcpm-port-addendum.md`; "flat HAL" means target headers,
+  ports, read `docs/260908-18 runcpm-port-addendum.md`; "flat HAL" means target headers,
   not a broad refactor.
 - Preserve the project layout: source under `src/`, generated output under
   `build/`, documentation under `docs/`, and the CP/M mirror under `cpmdrive/`.
@@ -22,3 +22,7 @@
   user explicitly requests browsing or current external information.
 - Keep this file short. Put detailed history, inventories and experiments in
   linked documentation under `docs/`.
+- Name project working notes under `docs/` with their filesystem-time prefix
+  `YYMMDD-HH ` so extension sorting also preserves their timeline.  Keep
+  stable readmes, recovered material, and vendor resources in their existing
+  names.

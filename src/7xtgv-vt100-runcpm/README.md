@@ -89,7 +89,7 @@ exclusive access; do not run picocom or a second direct helper alongside it.
 Each bank holds 100 lines and ignores empty, one-character and immediately
 duplicated entries. Arrow and six-key-block behavior is translated
 by the selected application profile. The firmware reads `A0:7XTGVTRM.INI` once
-at boot; see `../../docs/terminal-application-profiles.md`.
+at boot; see `../../docs/260910-01 terminal-application-profiles.md`.
 
 Panning is manual, even when the cursor moves off-screen. The strip shows the
 visible fraction of the page. White marks at its top/bottom mean the cursor is

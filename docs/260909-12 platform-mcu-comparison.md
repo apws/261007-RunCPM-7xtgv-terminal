@@ -90,4 +90,4 @@ build without deliberate timing work, although the current RunCPM mode is
 already a maximum-speed interpreter rather than a cycle-accurate emulator.
 
 The 10-inch-specific port checklist is tracked in
-[`jc8012p4a1c-runcpm-port-notes.md`](jc8012p4a1c-runcpm-port-notes.md).
+[`260908-09 jc8012p4a1c-runcpm-port-notes.md`](260908-09 jc8012p4a1c-runcpm-port-notes.md).

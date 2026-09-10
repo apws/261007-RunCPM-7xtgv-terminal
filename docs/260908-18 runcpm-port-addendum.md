@@ -1,7 +1,7 @@
 # Petr's addendum: scope and economical collaboration
 
 Recorded 2026-09-08. This addendum takes precedence over broader interpretations
-of the [port plan](runcpm-multiplatform-plan.md).
+of the [port plan](260909-07 runcpm-multiplatform-plan.md).
 
 ## User priorities
 

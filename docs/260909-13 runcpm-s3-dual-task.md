@@ -128,7 +128,7 @@ unchanged and compiles successfully.
 
 The native BIOS/BDOS dispatchers remain in cached flash. Their measured size,
 call-frequency implications and the shared policy for a future VMEX port are
-recorded in [Interpreter porting and internal-SRAM policy](interpreter-porting-memory.md).
+recorded in [Interpreter porting and internal-SRAM policy](260909-13 interpreter-porting-memory.md).
 
 ### Global `-O3` trial
 
