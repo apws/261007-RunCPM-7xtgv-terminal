@@ -42,7 +42,10 @@ class Keys:
                 return b''
             char = ''
         number = self.bank_keys.get(char) if len(char) == 1 else None
-        result = b'\x1b[>2' + number.encode('ascii') + b'v' if number else bytes(self.alt)
+        if char == ' ':
+            result = b'\x1b[>14v'
+        else:
+            result = b'\x1b[>2' + number.encode('ascii') + b'v' if number else bytes(self.alt)
         self.alt.clear()
         return result
 

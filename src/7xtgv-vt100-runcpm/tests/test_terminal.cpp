@@ -151,6 +151,8 @@ int main() {
     assert(lastAction == vt::Keyboard::HistoryPrevious && input.empty());
     keys(historyKeys, "\033[>13v");
     assert(lastAction == vt::Keyboard::HistoryBankNext && input.empty());
+    keys(historyKeys, "\033[>14v");
+    assert(lastAction == vt::Keyboard::HistoryBankShow && input.empty());
     keys(historyKeys, "\033[>22v");
     assert(lastAction == vt::Keyboard::HistoryBank0 + 2 && input.empty());
     keys(historyKeys, "\033[>30v");

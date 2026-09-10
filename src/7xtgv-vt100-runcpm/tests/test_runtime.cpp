@@ -36,6 +36,18 @@ static void screenshot(const char *path) {
 int main() {
     terminalSetup();
     assert(ready && backlight == 150 && displayOK);
+    terminal.reset();
+    for (uint8_t c : std::string("EDIT IN PROGRESS"))
+        terminal.feed(c);
+    const int savedX = terminal.x;
+    keyboardAction(nullptr, vt::Keyboard::HistoryBankShow);
+    assert(history->activeBank() == 0);
+    assert(std::string(reinterpret_cast<char *>(terminal.charRAM), 5) == "#0 CP");
+    fakeTime += 1000;
+    historyNoticePoll();
+    assert(!historyNoticeActive && terminal.x == savedX);
+    assert(std::string(reinterpret_cast<char *>(terminal.charRAM), 16) == "EDIT IN PROGRESS");
+    terminal.reset();
     emit("CP/M without USB\r\nA0>");
     for (int i = 0; i < 150; i++)
         terminalLoop();

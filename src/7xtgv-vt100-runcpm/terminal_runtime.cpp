@@ -26,9 +26,12 @@ static std::atomic<bool> textBenchmarkRequested{false}, textBenchmarkFinished{fa
 static std::atomic<uint32_t> textBenchmarkElapsed{0}, textBenchmarkByteCount{0}, textBenchmarkCharCount{0};
 static uint32_t replyOverruns = 0;
 static bool historyNoticeActive = false;
+static bool historyNoticePeek = false;
 static uint8_t historyNoticeBank = 0, historyNoticeRow = 0;
 static uint32_t historyNoticeUntil = 0;
-static void showHistoryBank(uint8_t bank);
+static uint8_t historyNoticePaper[vt::Cols], historyNoticeChars[vt::Cols];
+static uint8_t historyNoticeAttrs[vt::Cols], historyNoticeFlags[vt::Cols];
+static void showHistoryBank(uint8_t bank, bool peek = false);
 static void terminalReply(void *, const uint8_t *data, size_t n) {
     if (replies.free() < n) {
         replyOverruns++;
@@ -91,6 +94,11 @@ static void keyboardAction(void *, vt::Keyboard::Action action) {
             history->cycle(1);
             showHistoryBank(history->activeBank());
         }
+        return;
+    }
+    if (action == vt::Keyboard::HistoryBankShow) {
+        if (history)
+            showHistoryBank(history->activeBank(), true);
         return;
     }
     if (action >= vt::Keyboard::HistoryBank0 && action <= vt::Keyboard::HistoryBank9) {
@@ -215,6 +223,23 @@ static void drawCell(int i) {
     gfx->draw16bitRGBBitmap(column * 6 + GFX_OFS_X, row * 10 + GFX_OFS_Y, pixels, 6, 10);
 }
 static void writeHistoryNotice(bool label) {
+    if (historyNoticePeek) {
+        int first = historyNoticeRow * vt::Cols;
+        for (int col = 0; col < vt::Cols; ++col) {
+            terminal.paperRAM[first + col] = ' ';
+            terminal.charRAM[first + col] = ' ';
+            terminal.attrRAM[first + col] = 1;
+            terminal.flags[first + col] = 0;
+            terminal.dirty[first + col] = true;
+        }
+        char text[vt::HistoryProfile::MaxName + 8];
+        snprintf(text, sizeof(text), "#%u %s", unsigned(historyNoticeBank),
+                 profiles.get(historyNoticeBank).name);
+        for (int col = 0; text[col] && col < vt::Cols; ++col)
+            terminal.charRAM[first + col] = uint8_t(text[col]);
+        terminal.mirrorDirty[historyNoticeRow] = true;
+        return;
+    }
     char sequence[24];
     snprintf(sequence, sizeof(sequence), "\033[%u;1H\033[2K", unsigned(historyNoticeRow + 1));
     for (const char *p = sequence; *p; ++p)
@@ -228,9 +253,33 @@ static void writeHistoryNotice(bool label) {
             terminal.feed(uint8_t(*name++));
     }
 }
-static void showHistoryBank(uint8_t bank) {
+static void restoreHistoryPeek() {
+    if (!historyNoticePeek)
+        return;
+    int first = historyNoticeRow * vt::Cols;
+    memcpy(terminal.paperRAM + first, historyNoticePaper, vt::Cols);
+    memcpy(terminal.charRAM + first, historyNoticeChars, vt::Cols);
+    memcpy(terminal.attrRAM + first, historyNoticeAttrs, vt::Cols);
+    memcpy(terminal.flags + first, historyNoticeFlags, vt::Cols);
+    std::fill(terminal.dirty + first, terminal.dirty + first + vt::Cols, true);
+    terminal.mirrorDirty[historyNoticeRow] = true;
+    terminal.mirrorCursorDirty = true;
+    historyNoticePeek = false;
+}
+static void showHistoryBank(uint8_t bank, bool peek) {
+    // Repeated Alt+Space refreshes the same overlay from its original row.
+    // A profile change first restores a pending non-destructive peek.
+    restoreHistoryPeek();
     historyNoticeBank = bank;
     historyNoticeRow = uint8_t(terminal.y);
+    historyNoticePeek = peek;
+    if (peek) {
+        int first = historyNoticeRow * vt::Cols;
+        memcpy(historyNoticePaper, terminal.paperRAM + first, vt::Cols);
+        memcpy(historyNoticeChars, terminal.charRAM + first, vt::Cols);
+        memcpy(historyNoticeAttrs, terminal.attrRAM + first, vt::Cols);
+        memcpy(historyNoticeFlags, terminal.flags + first, vt::Cols);
+    }
     historyNoticeUntil = millis() + 1000;
     historyNoticeActive = true;
     writeHistoryNotice(true);
@@ -240,6 +289,10 @@ static void historyNoticePoll() {
         return;
     if (int32_t(millis() - historyNoticeUntil) >= 0) {
         historyNoticeActive = false;
+        if (historyNoticePeek) {
+            restoreHistoryPeek();
+            return;
+        }
         writeHistoryNotice(false);
         const vt::HistoryProfile &profile = profiles.get(historyNoticeBank);
         for (uint8_t i = 0; i < profile.selectLength; ++i)
@@ -562,6 +615,11 @@ void terminalLoop() {
         keyboard.tick(millis());
         for (int n = 0; n < 64 && input.free() >= 128 && Serial.available(); n++)
             keyboard.feed(Serial.read(), millis());
+    }
+    // Do not overwrite new CP/M output when restoring a temporary bank overlay.
+    if (historyNoticePeek && output.available()) {
+        historyNoticeActive = false;
+        restoreHistoryPeek();
     }
     // Always consume CP/M output, even when its input queue is full.
     for (int n = 0; n < 512 && output.pop(c); n++)

@@ -32,6 +32,10 @@ python3 tools/cpm-transfer/transfer.py --user A put /path/to/FILE.COM
 Thus `--user A` means folder `AA - ...`; the tool translates it to RunCPM's
 decimal `A10:` command on the wire.
 
+The transfer helper selects reserved terminal bank `#9 GENERAL` before issuing
+commands, keeping interactive application histories in `#0` through `#8`
+untouched.
+
 The helpers use the default command FCB and BDOS file/console calls. Receiver
 input is uppercase hex, exactly 64 digits per requested chunk. `!` at a record
 boundary ends an upload. The reader tags both the beginning and end of each

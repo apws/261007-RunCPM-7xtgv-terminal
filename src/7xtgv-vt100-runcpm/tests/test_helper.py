@@ -17,6 +17,10 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(k.feed(b'\x1b' + 'ě'.encode()), b'\x1b[>22v')
         self.assertEqual(k.feed(b'\x1b' + 'é'.encode()), b'\x1b[>20v')
 
+    def test_alt_space_shows_active_bank(self):
+        k = bridge.Keys()
+        self.assertEqual(k.feed(b'\x1b '), b'\x1b[>14v')
+
     def test_fragmented_prefix(self):
         k = bridge.Keys()
         self.assertEqual(k.feed(b'\x1d'), b'')

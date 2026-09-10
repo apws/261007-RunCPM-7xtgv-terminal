@@ -594,6 +594,8 @@ void Keyboard::finish() {
         if (act_) act_(context_, HistoryBankPrevious);
     } else if (!strcmp(s, "\033[>13v")) {
         if (act_) act_(context_, HistoryBankNext);
+    } else if (!strcmp(s, "\033[>14v")) {
+        if (act_) act_(context_, HistoryBankShow);
     } else if (size_ == 6 && !memcmp(s, "\033[>2", 4) && s[4] >= '0' && s[4] <= '9' && s[5] == 'v') {
         if (act_) act_(context_, Action(HistoryBank0 + s[4] - '0'));
     } else if (size_ == 6 && !memcmp(s, "\033[>", 3) && s[3] >= '3' && s[3] <= '5' &&

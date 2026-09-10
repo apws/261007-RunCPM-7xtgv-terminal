@@ -31,6 +31,9 @@ class Link:
         self.screen = smoke.Mirror()
         self.send('\x1b[>0v')
         self.pump(.2)
+        # Automated transfers use the reserved #9 history/profile bank.
+        self.send('\x1b[>29v')
+        self.pump(1.1)
 
     def close(self):
         fcntl.ioctl(self.fd, termios.TIOCNXCL)

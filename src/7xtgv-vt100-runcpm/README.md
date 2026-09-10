@@ -75,6 +75,7 @@ exclusive access; do not run picocom or a second direct helper alongside it.
 | --- | --- |
 | Plain/Ctrl/Alt arrows and six-key block | Active application-profile binding |
 | Alt+0 ... Alt+9 | Select named history/key profile #0 ... #9; show `#n name` for 1 s |
+| Alt+Space | Show the active `#n name` for 1 s without changing the bank or current line |
 | Alt+PageUp / Alt+PageDown | Select previous/next history list |
 | Shift+Alt+PageUp / Shift+Alt+PageDown | Application Alt+Page binding |
 | Ctrl+] then a / e | Same edge jumps; works without Alt mappings |
@@ -90,6 +91,8 @@ Each bank holds 100 lines and ignores empty, one-character and immediately
 duplicated entries. Arrow and six-key-block behavior is translated
 by the selected application profile. The firmware reads `A0:7XTGVTRM.INI` once
 at boot; see `../../docs/260910-01 terminal-application-profiles.md`.
+Bank `#9 GENERAL` is reserved for Codex and other automated terminal actions,
+so those commands do not consume the user's active application history.
 
 Panning is manual, even when the cursor moves off-screen. The strip shows the
 visible fraction of the page. White marks at its top/bottom mean the cursor is

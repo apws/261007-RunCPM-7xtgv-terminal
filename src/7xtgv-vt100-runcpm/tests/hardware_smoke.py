@@ -108,6 +108,8 @@ def main():
         fd = connect()
         send(b'\x1b[>0v')
         expect('boot without PC and attach', 'A0>', 10)
+        send(b'\x1b[>29v')
+        pump(1.1)
         send(b'DIR\r')
         expect('DIR lists SD files', 'MBASIC')
         pump(1)

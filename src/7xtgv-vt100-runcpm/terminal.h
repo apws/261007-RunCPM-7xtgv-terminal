@@ -80,6 +80,7 @@ class Keyboard {
         HistoryNext,
         HistoryBankPrevious,
         HistoryBankNext,
+        HistoryBankShow,
         HistoryBank0,
         HistoryBank9 = HistoryBank0 + 9,
         ProfileKey0,

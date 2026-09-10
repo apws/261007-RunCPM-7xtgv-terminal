@@ -54,3 +54,8 @@ normal LF or CRLF files and CP/M `Ctrl+Z` end-of-file padding.
 `Alt+PgUp/PgDn` remains reserved for fast profile selection. Configured
 `alt_page_up/down` bindings use `Shift+Alt+PgUp/PgDn`. Viewport movement remains
 available through the Python helper's `Ctrl+] a/e/h/l` commands.
+
+`Alt+Space` temporarily overlays the active `#n name`, then restores the exact
+screen row. It does not change banks, discard input, add history, or execute
+`on_select`. Bank `#9 GENERAL` is reserved for automated terminal commands;
+interactive application histories belong in banks `#0` through `#8`.

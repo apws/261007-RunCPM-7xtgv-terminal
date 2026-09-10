@@ -16,6 +16,9 @@
   `/dev/ttyACM0`; restore the temporary user ACL afterward with approved sudo.
   Use the shared tmux terminal for concurrent viewing—never open two serial
   readers.
+- Before sending automated commands through the shared CP/M terminal, select
+  terminal profile/history bank `#9`. Keep the user's active application
+  history in banks `#0` through `#8` untouched.
 - Before starting a nonessential web search or broad external research, tell the
   user briefly what is needed and ask whether to search here or let them handle
   it in ChatGPT/Lyra and bring the result back. Proceed immediately when the

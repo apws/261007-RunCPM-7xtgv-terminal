@@ -44,6 +44,7 @@ They remain available through their direct `Ctrl` combinations.
 | `F5` | `^Q F` | Application-oriented; at the prompt it can insert `F` |
 | `Up`, `Down` | 7xtgv private controls | Recall previous/next line in the selected 7xtgv history list |
 | `Alt+0` ... `Alt+9` | 7xtgv private controls | Select named history/key profile `#0` ... `#9` |
+| `Alt+Space` | 7xtgv private control | Temporarily show the active bank without changing it or the current line |
 | `Alt+PgUp`, `Alt+PgDown` | 7xtgv private controls | Select previous/next history list |
 | Plain/Ctrl/Alt arrows and six-key block | Selected application profile | Configurable in `A0:7XTGVTRM.INI` |
 | `Shift+Alt+PgUp`, `Shift+Alt+PgDown` | Selected application profile | Alt-modified application page keys |
