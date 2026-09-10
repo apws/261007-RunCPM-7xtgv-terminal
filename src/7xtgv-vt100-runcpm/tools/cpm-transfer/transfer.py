@@ -24,7 +24,7 @@ def user_area(value):
     return int(value, 16)
 
 class Link:
-    def __init__(self, port='/dev/ttyACM0'):
+    def __init__(self, port='/dev/ttyACM0', raw=True):
         self.fd = os.open(port, os.O_RDWR|os.O_NOCTTY|os.O_NONBLOCK)
         fcntl.ioctl(self.fd, termios.TIOCEXCL)
         smoke.bridge.configure_serial(self.fd)
@@ -34,8 +34,15 @@ class Link:
         # Automated transfers use the reserved #9 history/profile bank.
         self.send('\x1b[>29v')
         self.pump(1.1)
+        self.raw = raw
+        if raw:
+            self.send('\x1b[>16v')
+            self.pump(.1)
 
     def close(self):
+        if self.raw:
+            self.send('\x1b[>17v')
+            self.pump(.1)
         fcntl.ioctl(self.fd, termios.TIOCNXCL)
         os.close(self.fd)
 
@@ -131,6 +138,8 @@ if __name__=='__main__':
     p.add_argument('--port',default='/dev/ttyACM0')
     p.add_argument('--user',type=user_area,default=0,metavar='0-F',
                    help='CP/M mirror user area in hexadecimal (default: 0)')
+    p.add_argument('--no-raw',action='store_true',
+                   help='keep normal #9 mapped input for comparison testing')
     p.add_argument('action',choices=['get','put'])
     p.add_argument('files',nargs='+')
     p.add_argument('--directory',type=Path,default=Path('.'))
@@ -140,7 +149,7 @@ if __name__=='__main__':
     if args.action=='put':
         total=sum(((path.stat().st_size+127)//128)*128*2 for path in paths)
         progress=Progress(total)
-    link=Link(args.port)
+    link=Link(args.port,raw=not args.no_raw)
     try:
         link.user(args.user)
         for f,path in zip(args.files,paths):

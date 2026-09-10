@@ -17,8 +17,9 @@
   Use the shared tmux terminal for concurrent viewing—never open two serial
   readers.
 - Before sending automated commands through the shared CP/M terminal, select
-  terminal profile/history bank `#9`. Keep the user's active application
-  history in banks `#0` through `#8` untouched.
+  terminal profile/history bank `#9`; use explicit `## RAW` on/off controls for
+  transfers or exact-byte tests. Keep the user's active application history in
+  banks `#0` through `#8` untouched.
 - Before starting a nonessential web search or broad external research, tell the
   user briefly what is needed and ask whether to search here or let them handle
   it in ChatGPT/Lyra and bring the result back. Proceed immediately when the

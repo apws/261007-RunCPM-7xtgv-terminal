@@ -21,6 +21,11 @@ class HelperTests(unittest.TestCase):
         k = bridge.Keys()
         self.assertEqual(k.feed(b'\x1b '), b'\x1b[>14v')
 
+    def test_raw_toggle_shortcuts(self):
+        k = bridge.Keys()
+        self.assertEqual(k.feed(b'\x1b#'), b'\x1b[>15v')
+        self.assertEqual(k.feed(b'\x1d#'), b'\x1b[>15v')
+
     def test_fragmented_prefix(self):
         k = bridge.Keys()
         self.assertEqual(k.feed(b'\x1d'), b'')

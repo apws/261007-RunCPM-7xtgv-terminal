@@ -59,3 +59,10 @@ available through the Python helper's `Ctrl+] a/e/h/l` commands.
 screen row. It does not change banks, discard input, add history, or execute
 `on_select`. Bank `#9 GENERAL` is reserved for automated terminal commands;
 interactive application histories belong in banks `#0` through `#8`.
+
+`Alt+#` or `Ctrl+]` followed by `#` toggles the temporary `## RAW` input
+bypass. RAW preserves the underlying bank and the normal CP/M output/display
+path, while ordinary input bypasses history and profile translation. Selecting
+any numbered bank leaves RAW. `Alt+Space` reports `[## RAW / #n]` while active.
+Host tools use explicit private RAW-on/off controls, avoiding keyboard-layout
+ambiguity.

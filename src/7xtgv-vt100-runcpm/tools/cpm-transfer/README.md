@@ -35,6 +35,9 @@ decimal `A10:` command on the wire.
 The transfer helper selects reserved terminal bank `#9 GENERAL` before issuing
 commands, keeping interactive application histories in `#0` through `#8`
 untouched.
+It then enters `## RAW` explicitly and leaves it when finished, bypassing key
+mapping and history capture for transfer data. Use `--no-raw` to retain normal
+`#9` processing for a direct speed/behavior comparison.
 
 The helpers use the default command FCB and BDOS file/console calls. Receiver
 input is uppercase hex, exactly 64 digits per requested chunk. `!` at a record

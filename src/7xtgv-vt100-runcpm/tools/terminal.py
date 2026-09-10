@@ -19,6 +19,7 @@ COMMANDS = {
     ord('a'): b'\x1b[1;3H', ord('e'): b'\x1b[1;3F',
     ord('h'): b'\x1b[1;3D', ord('l'): b'\x1b[1;3C',
     ord('r'): b'\x1b[>0v', PREFIX: bytes([PREFIX]),
+    ord('#'): b'\x1b[>15v',
     ord('p'): b'\x1b[>10v', ord('n'): b'\x1b[>11v',
     ord('['): b'\x1b[>12v', ord(']'): b'\x1b[>13v',
 }
@@ -42,7 +43,9 @@ class Keys:
                 return b''
             char = ''
         number = self.bank_keys.get(char) if len(char) == 1 else None
-        if char == ' ':
+        if char == '#':
+            result = b'\x1b[>15v'
+        elif char == ' ':
             result = b'\x1b[>14v'
         else:
             result = b'\x1b[>2' + number.encode('ascii') + b'v' if number else bytes(self.alt)
@@ -175,7 +178,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, epilog=(
         'Ctrl+] then q: exit; 1: ANSI; 2: VT52; a/e: left/right edge; '
         'h/l: pan; r: redraw; p/n: history; [/]: history bank; '
-        'Ctrl+] again: literal Ctrl+]. '
+        '#: toggle RAW; Ctrl+] again: literal Ctrl+]. '
         'Alt+Home/End and Alt+Left/Right also pan.'))
     parser.add_argument('--port', help='Serial device; defaults to the unique RP2350 by-id path')
     parser.add_argument('--mode', choices=('ansi', 'vt52'), help='Select mode on connection; otherwise preserve it')

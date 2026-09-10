@@ -38,6 +38,7 @@ key Insert    -Shift+Alt-Ctrl : "\E[>57v"
 
 # 7xtgv local history: exactly one explicitly selected bank.
 key Space     -Shift+Alt-Ctrl : "\E[>14v"
+key 3         +Shift+Alt-Ctrl : "\E[>15v"
 key Up        -Shift+Alt-Ctrl : "\E[>38v"
 key Down      -Shift+Alt-Ctrl : "\E[>39v"
 key PgUp      -Shift+Alt-Ctrl : "\E[>12v"

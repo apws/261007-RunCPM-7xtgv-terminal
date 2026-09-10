@@ -25,13 +25,16 @@ static std::atomic<bool> pauseRequested{false}, pauseAcknowledged{false};
 static std::atomic<bool> textBenchmarkRequested{false}, textBenchmarkFinished{false};
 static std::atomic<uint32_t> textBenchmarkElapsed{0}, textBenchmarkByteCount{0}, textBenchmarkCharCount{0};
 static uint32_t replyOverruns = 0;
+static bool rawInputMode = false;
 static bool historyNoticeActive = false;
 static bool historyNoticePeek = false;
+static bool historyNoticeRaw = false;
 static uint8_t historyNoticeBank = 0, historyNoticeRow = 0;
 static uint32_t historyNoticeUntil = 0;
 static uint8_t historyNoticePaper[vt::Cols], historyNoticeChars[vt::Cols];
 static uint8_t historyNoticeAttrs[vt::Cols], historyNoticeFlags[vt::Cols];
 static void showHistoryBank(uint8_t bank, bool peek = false);
+static void setRawInputMode(bool enabled);
 static void terminalReply(void *, const uint8_t *data, size_t n) {
     if (replies.free() < n) {
         replyOverruns++;
@@ -101,8 +104,16 @@ static void keyboardAction(void *, vt::Keyboard::Action action) {
             showHistoryBank(history->activeBank(), true);
         return;
     }
+    if (action == vt::Keyboard::RawToggle || action == vt::Keyboard::RawOn ||
+        action == vt::Keyboard::RawOff) {
+        bool enabled = action == vt::Keyboard::RawOn ||
+                       (action == vt::Keyboard::RawToggle && !rawInputMode);
+        setRawInputMode(enabled);
+        return;
+    }
     if (action >= vt::Keyboard::HistoryBank0 && action <= vt::Keyboard::HistoryBank9) {
         if (history) {
+            rawInputMode = false;
             uint8_t erase = history->discardCurrent();
             while (erase--) input.push(8);
             history->select(uint8_t(action - vt::Keyboard::HistoryBank0));
@@ -118,6 +129,59 @@ static void keyboardAction(void *, vt::Keyboard::Action action) {
     historyRecall(action == vt::Keyboard::HistoryPrevious);
 }
 static vt::Keyboard keyboard(terminal, keyboardSend, nullptr, keyboardAction);
+static uint8_t rawControl[6];
+static uint8_t rawControlLength = 0;
+static uint32_t rawControlAt = 0;
+
+static void rawFlush() {
+    for (uint8_t i = 0; i < rawControlLength; ++i)
+        input.push(rawControl[i]);
+    rawControlLength = 0;
+}
+static bool rawControlPrefix() {
+    if (rawControlLength >= 1 && rawControl[0] != 0x1b) return false;
+    if (rawControlLength >= 2 && rawControl[1] != '[') return false;
+    if (rawControlLength >= 3 && rawControl[2] != '>') return false;
+    if (rawControlLength >= 4 && rawControl[3] != '1' && rawControl[3] != '2') return false;
+    if (rawControlLength >= 5) {
+        if (rawControl[3] == '1' && (rawControl[4] < '4' || rawControl[4] > '7')) return false;
+        if (rawControl[3] == '2' && (rawControl[4] < '0' || rawControl[4] > '9')) return false;
+    }
+    return rawControlLength < 6 || rawControl[5] == 'v';
+}
+static void rawFeed(uint8_t c, uint32_t now) {
+    if (!rawControlLength && c != 0x1b) {
+        input.push(c);
+        return;
+    }
+    rawControl[rawControlLength++] = c;
+    rawControlAt = now;
+    if (!rawControlPrefix()) {
+        rawFlush();
+        return;
+    }
+    if (rawControlLength != sizeof(rawControl))
+        return;
+    uint8_t group = rawControl[3], command = rawControl[4];
+    rawControlLength = 0;
+    if (group == '2') {
+        rawInputMode = false;
+        if (history) {
+            history->select(uint8_t(command - '0'));
+            showHistoryBank(history->activeBank());
+        }
+    } else if (command == '4') {
+        if (history) showHistoryBank(history->activeBank(), true);
+    } else if (command == '5' || command == '7') {
+        setRawInputMode(false);
+    } else if (command == '6') {
+        setRawInputMode(true);
+    }
+}
+static void rawTick(uint32_t now) {
+    if (rawControlLength && uint32_t(now - rawControlAt) >= 50)
+        rawFlush();
+}
 static bool displayOK = false, cursorPhase = true, connected = false;
 static uint32_t blinkAt = 0, bellUntil = 0, oldBells = 0;
 #if defined(GFX_BUFFERED_CANVAS)
@@ -232,9 +296,12 @@ static void writeHistoryNotice(bool label) {
             terminal.flags[first + col] = 0;
             terminal.dirty[first + col] = true;
         }
-        char text[vt::HistoryProfile::MaxName + 8];
-        snprintf(text, sizeof(text), "#%u %s", unsigned(historyNoticeBank),
-                 profiles.get(historyNoticeBank).name);
+        char text[vt::HistoryProfile::MaxName + 16];
+        if (historyNoticeRaw)
+            snprintf(text, sizeof(text), "[## RAW / #%u]", unsigned(historyNoticeBank));
+        else
+            snprintf(text, sizeof(text), "[#%u %s]", unsigned(historyNoticeBank),
+                     profiles.get(historyNoticeBank).name);
         for (int col = 0; text[col] && col < vt::Cols; ++col)
             terminal.charRAM[first + col] = uint8_t(text[col]);
         terminal.mirrorDirty[historyNoticeRow] = true;
@@ -245,12 +312,13 @@ static void writeHistoryNotice(bool label) {
     for (const char *p = sequence; *p; ++p)
         terminal.feed(uint8_t(*p));
     if (label) {
+        terminal.feed('[');
         terminal.feed('#');
         terminal.feed(uint8_t('0' + historyNoticeBank));
         terminal.feed(' ');
         const char *name = profiles.get(historyNoticeBank).name;
-        while (*name)
-            terminal.feed(uint8_t(*name++));
+        while (*name) terminal.feed(uint8_t(*name++));
+        terminal.feed(']');
     }
 }
 static void restoreHistoryPeek() {
@@ -273,6 +341,7 @@ static void showHistoryBank(uint8_t bank, bool peek) {
     historyNoticeBank = bank;
     historyNoticeRow = uint8_t(terminal.y);
     historyNoticePeek = peek;
+    historyNoticeRaw = rawInputMode;
     if (peek) {
         int first = historyNoticeRow * vt::Cols;
         memcpy(historyNoticePaper, terminal.paperRAM + first, vt::Cols);
@@ -283,6 +352,12 @@ static void showHistoryBank(uint8_t bank, bool peek) {
     historyNoticeUntil = millis() + 1000;
     historyNoticeActive = true;
     writeHistoryNotice(true);
+}
+static void setRawInputMode(bool enabled) {
+    rawControlLength = 0;
+    rawInputMode = enabled;
+    if (history)
+        showHistoryBank(history->activeBank(), true);
 }
 static void historyNoticePoll() {
     if (!historyNoticeActive)
@@ -300,8 +375,9 @@ static void historyNoticePoll() {
         return;
     }
     int first = historyNoticeRow * vt::Cols;
-    bool intact = terminal.charRAM[first] == '#' &&
-                  terminal.charRAM[first + 1] == uint8_t('0' + historyNoticeBank);
+    bool intact = terminal.charRAM[first] == '[' && terminal.charRAM[first + 1] == '#' &&
+                  terminal.charRAM[first + 2] ==
+                      uint8_t(historyNoticeRaw ? '#' : '0' + historyNoticeBank);
     if (!intact)
         writeHistoryNotice(true);
 }
@@ -612,9 +688,18 @@ void terminalLoop() {
         input.push(c);
     // Reserve room for a timed-out 63-byte sequence plus the next completed key.
     if (input.free() >= 320 && replies.available() == 0) {
-        keyboard.tick(millis());
-        for (int n = 0; n < 64 && input.free() >= 128 && Serial.available(); n++)
-            keyboard.feed(Serial.read(), millis());
+        uint32_t keyNow = millis();
+        if (rawInputMode)
+            rawTick(keyNow);
+        else
+            keyboard.tick(keyNow);
+        for (int n = 0; n < 64 && input.free() >= 128 && Serial.available(); n++) {
+            uint8_t keyByte = Serial.read();
+            if (rawInputMode)
+                rawFeed(keyByte, millis());
+            else
+                keyboard.feed(keyByte, millis());
+        }
     }
     // Do not overwrite new CP/M output when restoring a temporary bank overlay.
     if (historyNoticePeek && output.available()) {

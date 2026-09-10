@@ -76,6 +76,7 @@ exclusive access; do not run picocom or a second direct helper alongside it.
 | Plain/Ctrl/Alt arrows and six-key block | Active application-profile binding |
 | Alt+0 ... Alt+9 | Select named history/key profile #0 ... #9; show `#n name` for 1 s |
 | Alt+Space | Show the active `#n name` for 1 s without changing the bank or current line |
+| Alt+# or Ctrl+] then # | Toggle temporary `## RAW` input bypass |
 | Alt+PageUp / Alt+PageDown | Select previous/next history list |
 | Shift+Alt+PageUp / Shift+Alt+PageDown | Application Alt+Page binding |
 | Ctrl+] then a / e | Same edge jumps; works without Alt mappings |
@@ -93,6 +94,14 @@ by the selected application profile. The firmware reads `A0:7XTGVTRM.INI` once
 at boot; see `../../docs/260910-01 terminal-application-profiles.md`.
 Bank `#9 GENERAL` is reserved for Codex and other automated terminal actions,
 so those commands do not consume the user's active application history.
+
+`## RAW` keeps the selected bank underneath it but sends ordinary input bytes
+straight to the CP/M console. It bypasses history capture, recall, application
+key bindings, and future application adapters. Toggle it again to restore the
+underlying bank; selecting `#0` through `#9` exits RAW and selects that bank.
+`Alt+Space` reports `[#n name]` normally or `[## RAW / #n]` in RAW mode.
+Private host controls are `CSI > 15 v` (toggle), `CSI > 16 v` (on), and
+`CSI > 17 v` (off). Those sequences remain reserved even in RAW mode.
 
 Panning is manual, even when the cursor moves off-screen. The strip shows the
 visible fraction of the page. White marks at its top/bottom mean the cursor is

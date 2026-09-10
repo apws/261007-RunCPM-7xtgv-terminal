@@ -596,6 +596,12 @@ void Keyboard::finish() {
         if (act_) act_(context_, HistoryBankNext);
     } else if (!strcmp(s, "\033[>14v")) {
         if (act_) act_(context_, HistoryBankShow);
+    } else if (!strcmp(s, "\033[>15v")) {
+        if (act_) act_(context_, RawToggle);
+    } else if (!strcmp(s, "\033[>16v")) {
+        if (act_) act_(context_, RawOn);
+    } else if (!strcmp(s, "\033[>17v")) {
+        if (act_) act_(context_, RawOff);
     } else if (size_ == 6 && !memcmp(s, "\033[>2", 4) && s[4] >= '0' && s[4] <= '9' && s[5] == 'v') {
         if (act_) act_(context_, Action(HistoryBank0 + s[4] - '0'));
     } else if (size_ == 6 && !memcmp(s, "\033[>", 3) && s[3] >= '3' && s[3] <= '5' &&
