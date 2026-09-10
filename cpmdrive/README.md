@@ -2,8 +2,10 @@
 
 These descriptive folders mirror RunCPM drive A user areas: `A0 - CP-M core`
 corresponds to the `A0>` prompt (SD directory `A/0`). Type `A1:` to switch
-to user 1 and `A0:` to return. The internal CCP searches A0 for commands,
-so the shared core utilities remain available from other user areas.
+to user 1 and `A0:` to return. The folder suffix uses hexadecimal notation for
+the CP/M user number: `AA` is user 10 decimal, `AC` user 12 and `AD` user 13.
+The internal CCP searches A0 for commands, so the shared core utilities remain
+available from other user areas.
 
 | User | Contents |
 |---|---|
@@ -17,12 +19,18 @@ so the shared core utilities remain available from other user areas.
 | A7 | MBASIC and VT tests |
 | A8 | BASIC demos and games, earlier VT demos |
 | A9 | Lua launcher/source and examples (runtime support separate) |
-| A10 | Alternative MBASIC versions |
+| AA | Alternative MBASIC versions (CP/M user 10 decimal) |
+| AC | GEEK2350 CODE80 archive; inspect individual CP/M programs before copying |
+| AD | GEEK2350 DISK80 binary disk-image archive; never synchronize to the device |
 
 `layout.json` maps original A0 filenames to their intended user area. Files
 are copied from the actual board before reorganization, preserving CP/M's
 128-byte record padding and tokenized BASIC programs. Human-readable VTESTS
 source remains in `../src/7xtgv-vt100-runcpm/tests/VTESTS.BAS`.
+
+Folder and `layout.json` area labels use hexadecimal `0` through `F`.  The
+numeric `user` values retained in `progress.json` are RunCPM's decimal user
+indices, so its `10` record corresponds to folder `AA`.
 
 `A0:7XTGVTRM.INI` configures the ten named terminal application profiles. The
 firmware reads it once during boot; see
@@ -50,7 +58,7 @@ See `../cpm-languages/SOURCES.md` for package provenance.
 
 Board-side copies were verified for A1, A2, and A4–A6. The physical board and
 project mirror now agree on the exchanged areas: A7 contains only MBASIC and
-VTESTS, while A10 contains the seven alternate BASIC binaries. A8 received its
+VTESTS, while AA contains the seven alternate BASIC binaries. A8 received its
 demo files, but CP/M returned `Bdos Err on A: R/O` while erasing the original
 A0 copies, so cleanup stopped and those duplicates remain safely in place.
 A3's board copy is pending.

@@ -1,0 +1,3 @@
+# CP/M mirror-area files retain exact 128-byte records, control bytes and CR/LF.
+# Do not normalize or text-diff them; keep the root metadata readable as text.
+cpmdrive/A[0-9A-F]*/* binary

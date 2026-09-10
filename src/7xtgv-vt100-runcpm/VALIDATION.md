@@ -114,7 +114,7 @@ old unsigned size subtraction could wrap when extending a file; the new code
 zero-fills only the positive difference in bounded 128-byte writes. A focused
 fake-file regression test and the complete Python helper suite pass.
 
-The project mirror is `../../cpmdrive/` with descriptive `A0 - ...` through
-`A9 - ...` folders. Board-side copies were verified for A1, A2, and A4–A7;
+The project mirror is `../../cpmdrive/` with descriptive hexadecimal `A0 - ...`
+through `AF - ...` folders. Board-side copies were verified for A1, A2, and A4–A7;
 A8 copies succeeded but the subsequent A0 erase returned CP/M `Bdos Err on A:
 R/O`, so cleanup stopped and originals were preserved.

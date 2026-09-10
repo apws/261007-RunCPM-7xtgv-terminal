@@ -25,8 +25,12 @@ user areas. From the project directory, with the serial console idle at CP/M:
 
 ```
 python3 tools/cpm-transfer/transfer.py --user 1 get BBCBASIC.COM --directory /tmp/bbc-copy
-python3 tools/cpm-transfer/transfer.py --user 1 put /path/to/FILE.COM
+python3 tools/cpm-transfer/transfer.py --user A put /path/to/FILE.COM
 ```
+
+`--user` uses the same hexadecimal suffix as `cpmdrive`: `0` through `F`.
+Thus `--user A` means folder `AA - ...`; the tool translates it to RunCPM's
+decimal `A10:` command on the wire.
 
 The helpers use the default command FCB and BDOS file/console calls. Receiver
 input is uppercase hex, exactly 64 digits per requested chunk. `!` at a record

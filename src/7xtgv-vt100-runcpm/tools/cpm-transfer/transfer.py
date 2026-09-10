@@ -16,6 +16,13 @@ spec = importlib.util.spec_from_file_location('smoke', root/'tests/hardware_smok
 smoke = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(smoke)
 
+def user_area(value):
+    """Parse a CP/M mirror area written as one hexadecimal digit (0 through F)."""
+    value = value.strip().upper()
+    if not re.fullmatch(r'[0-9A-F]', value):
+        raise argparse.ArgumentTypeError('CP/M user area must be one hexadecimal digit: 0 through F')
+    return int(value, 16)
+
 class Link:
     def __init__(self, port='/dev/ttyACM0'):
         self.fd = os.open(port, os.O_RDWR|os.O_NOCTTY|os.O_NONBLOCK)
@@ -119,7 +126,8 @@ class Progress:
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--port',default='/dev/ttyACM0')
-    p.add_argument('--user',type=int,default=0)
+    p.add_argument('--user',type=user_area,default=0,metavar='0-F',
+                   help='CP/M mirror user area in hexadecimal (default: 0)')
     p.add_argument('action',choices=['get','put'])
     p.add_argument('files',nargs='+')
     p.add_argument('--directory',type=Path,default=Path('.'))
