@@ -213,6 +213,7 @@ check_byte:
         inc     hl
         inc     a
         djnz    check_byte
+        xor     a                   ; successful full record: return Z
         ret
 
 remove_file:

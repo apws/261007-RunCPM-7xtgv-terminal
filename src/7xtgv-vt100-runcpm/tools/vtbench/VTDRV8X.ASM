@@ -210,6 +210,7 @@ check_byte:
         inc     a
         dec     b
         jp      nz,check_byte
+        xor     a                   ; successful full record: return Z
         ret
 
 remove_file:
