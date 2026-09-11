@@ -47,6 +47,14 @@ static MbasicStartKind mbasicEditStartKind = MbasicStartNone;
 static uint8_t mbasicEditStartCursor = 0, mbasicEditStartSuffix[2] = {};
 static uint8_t mbasicEditStartSuffixLength = 0;
 static uint8_t selectedBank = 0;
+// The SD file is deliberately ordinary text: one section per history bank,
+// and each retained line starts with >.  Keep I/O board-specific and let the
+// runtime only own parsing, serialisation, and a low-write-rate dirty flag.
+static uint32_t historyObservedGeneration = 0;
+static uint32_t historyChangedAt = 0;
+static bool historySavePending = false;
+static uint8_t historyLoadBank = 0, historyLoadLength = 0;
+static char historyLoadText[vt::LineHistory::MaxLine] = {};
 static bool historyNoticeActive = false;
 static bool historyNoticePeek = false;
 static bool historyNoticeRaw = false;
@@ -1134,6 +1142,87 @@ static void mirrorPump() {
         mirrorSent += Serial.write(reinterpret_cast<const uint8_t *>(mirrorBuffer + mirrorSent), n);
     }
 }
+static void finishHistoryLoadLine() {
+    if (!historyLoadLength)
+        return;
+    if (historyLoadLength == 3 && historyLoadText[0] == '[' &&
+        historyLoadText[1] >= '0' && historyLoadText[1] <= '9' && historyLoadText[2] == ']')
+        historyLoadBank = uint8_t(historyLoadText[1] - '0');
+    else if (historyLoadText[0] == '>' && historyLoadLength > 1)
+        history->appendEntry(historyLoadBank, historyLoadText + 1, historyLoadLength - 1);
+    historyLoadLength = 0;
+}
+void terminalHistoryLoadBegin() {
+    historyLoadBank = historyLoadLength = 0;
+    historySavePending = false;
+}
+void terminalHistoryLoadFeed(uint8_t byte) {
+    if (!history)
+        return;
+    if (byte == '\r')
+        return;
+    if (byte == '\n') {
+        finishHistoryLoadLine();
+        return;
+    }
+    if (historyLoadLength < vt::LineHistory::MaxLine)
+        historyLoadText[historyLoadLength++] = char(byte);
+}
+void terminalHistoryLoadEnd() {
+    if (!history)
+        return;
+    finishHistoryLoadLine();
+    historyObservedGeneration = history->generation();
+    historySavePending = false;
+}
+static bool writeHistoryText(TerminalHistoryWriteByte writeByte, void *context,
+                             const char *text) {
+    while (*text)
+        if (!writeByte(context, uint8_t(*text++)))
+            return false;
+    return true;
+}
+bool terminalHistoryWrite(TerminalHistoryWriteByte writeByte, void *context) {
+    if (!history || !writeHistoryText(writeByte, context, "# 7xtgv terminal history v1\n"))
+        return false;
+    char text[vt::LineHistory::MaxLine];
+    for (uint8_t bank = 0; bank < vt::LineHistory::Banks; ++bank) {
+        char header[8];
+        snprintf(header, sizeof(header), "[%u]\n", unsigned(bank));
+        if (!writeHistoryText(writeByte, context, header))
+            return false;
+        for (uint8_t ordinal = 0; ordinal < history->bankCount(bank); ++ordinal) {
+            uint8_t length = 0;
+            if (!history->copyEntry(bank, ordinal, text, length) ||
+                !writeByte(context, '>'))
+                return false;
+            for (uint8_t i = 0; i < length; ++i)
+                if (!writeByte(context, uint8_t(text[i])))
+                    return false;
+            if (!writeByte(context, '\n'))
+                return false;
+        }
+    }
+    return true;
+}
+bool terminalHistorySaveDue() {
+    if (!history)
+        return false;
+    const uint32_t generation = history->generation();
+    if (generation != historyObservedGeneration) {
+        historyObservedGeneration = generation;
+        historyChangedAt = millis();
+        historySavePending = true;
+    }
+    return historySavePending && uint32_t(millis() - historyChangedAt) >= 2000;
+}
+void terminalHistorySaveComplete(bool saved) {
+    if (saved)
+        historySavePending = false;
+    else
+        historyChangedAt = millis(); // retry later without a busy SD loop
+}
+
 void terminalSetup() {
     history = new (std::nothrow) vt::LineHistory;
     Serial.begin(115200);

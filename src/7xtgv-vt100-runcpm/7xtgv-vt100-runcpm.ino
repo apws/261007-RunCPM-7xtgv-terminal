@@ -39,6 +39,31 @@ typedef File32 File;
 
 #include "globals.h"
 
+#if !defined(RUNCPM_HEADLESS)
+// Human-editable terminal history, separate from CP/M files but kept beside
+// 7XTGVTRM.INI.  A completed .NEW file is renamed into place, so an interrupted
+// write retains either the old buffer or a recoverable new one.
+static constexpr const char *TerminalHistoryPath = "A/0/7XTGVTRM.BUF";
+static constexpr const char *TerminalHistoryNewPath = "A/0/7XTGVTRM.NEW";
+static bool writeTerminalHistoryByte(void *context, uint8_t byte) {
+    return static_cast<File *>(context)->write(byte) == 1;
+}
+void terminalHistoryStoragePoll() {
+    if (!terminalHistorySaveDue())
+        return;
+    SD.remove(TerminalHistoryNewPath);
+    File file = SD.open(TerminalHistoryNewPath, O_CREAT | O_WRITE);
+    bool saved = bool(file) && terminalHistoryWrite(writeTerminalHistoryByte, &file);
+    if (file)
+        file.close();
+    if (saved) {
+        SD.remove(TerminalHistoryPath);
+        saved = SD.rename(TerminalHistoryNewPath, TerminalHistoryPath);
+    }
+    terminalHistorySaveComplete(saved);
+}
+#endif
+
 // =========================================================================================
 // Delays for LED blinking
 // =========================================================================================
@@ -194,6 +219,22 @@ static void runCPM() {
             _puts("COMPILED DEFAULTS\r\n");
         }
 #endif
+#if !defined(RUNCPM_HEADLESS)
+        _puts("Terminal history .....");
+        File historyFile = SD.open(TerminalHistoryPath, FILE_READ);
+        if (!historyFile)
+            historyFile = SD.open(TerminalHistoryNewPath, FILE_READ);
+        if (historyFile) {
+            terminalHistoryLoadBegin();
+            while (historyFile.available())
+                terminalHistoryLoadFeed(uint8_t(historyFile.read()));
+            historyFile.close();
+            terminalHistoryLoadEnd();
+            _puts("OK\r\n");
+        } else {
+            _puts("EMPTY\r\n");
+        }
+#endif
         _puts("-------------------------------------------------");
 
 
@@ -324,11 +365,11 @@ void setup() {
             virtualWrite(*message++);
     }
 }
-void loop() { terminalLoop(); }
+void loop() { terminalLoop(); terminalHistoryStoragePoll(); }
 #else
 bool core1_separate_stack = true;
 void setup() { terminalSetup(); }
-void loop() { terminalLoop(); }
+void loop() { terminalLoop(); terminalHistoryStoragePoll(); }
 void setup1() { runCPM(); }
 void loop1() { delay(1); }
 #endif

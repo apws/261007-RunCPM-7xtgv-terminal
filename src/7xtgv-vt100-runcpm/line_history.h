@@ -18,6 +18,33 @@ class LineHistory {
     };
 
     uint8_t activeBank() const { return active_; }
+    uint8_t bankCount(uint8_t bank) const { return bank < Banks ? banks_[bank].count : 0; }
+    // ordinal zero is the oldest retained line.  These methods are used by
+    // the editable SD-card persistence file, not by terminal input.
+    bool copyEntry(uint8_t bank, uint8_t ordinal, char *target, uint8_t &length) const {
+        if (bank >= Banks || ordinal >= banks_[bank].count)
+            return false;
+        const Bank &source = banks_[bank];
+        uint8_t index = uint8_t((source.next + Depth - source.count + ordinal) % Depth);
+        length = source.entries[index].length;
+        memcpy(target, source.entries[index].text, length);
+        return true;
+    }
+    bool appendEntry(uint8_t bank, const char *text, uint8_t length) {
+        if (bank >= Banks || length <= 1)
+            return false;
+        if (length > MaxLine)
+            length = MaxLine;
+        Bank &target = banks_[bank];
+        Entry &entry = target.entries[target.next];
+        entry.length = length;
+        memcpy(entry.text, text, length);
+        target.next = uint8_t((target.next + 1) % Depth);
+        if (target.count < Depth)
+            ++target.count;
+        return true;
+    }
+    uint32_t generation() const { return generation_; }
     uint8_t currentLength() const { return length_; }
     uint8_t currentCursor() const { return cursor_; }
     void copyCurrent(char *target, uint8_t &length, uint8_t &cursor) const {
@@ -140,6 +167,7 @@ class LineHistory {
     uint8_t active_ = 0, length_ = 0, cursor_ = 0, offset_ = 0;
     bool recalling_ = false, insert_ = true;
     char current_[MaxLine];
+    uint32_t generation_ = 0;
 
     void resetLine() {
         length_ = cursor_ = offset_ = 0;
@@ -159,6 +187,7 @@ class LineHistory {
         bank.next = uint8_t((bank.next + 1) % Depth);
         if (bank.count < Depth)
             ++bank.count;
+        ++generation_;
     }
 };
 

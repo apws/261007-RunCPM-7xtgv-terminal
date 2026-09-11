@@ -281,3 +281,11 @@ keywords, normal red for strings/numbers, normal blue for punctuation/operators,
 normal green for comments, and normal magenta for identifiers. All 18 source
 rows fit within 52 columns. Green/cyan normal inks were reduced about 5%;
 dark inks except black were raised about 5% for the latest visual tuning.
+
+### Persistent terminal history
+
+The terminal keeps its ten 100-line history banks in `A/0/7XTGVTRM.BUF`, beside
+`7XTGVTRM.INI`.  It loads once at boot and, after two seconds without a new
+stored line, atomically rewrites the plain-text buffer through `7XTGVTRM.NEW`.
+Each bank is `[0]` through `[9]`; each retained command begins with `>`, making
+the file safe to edit on a host while the device is off.
