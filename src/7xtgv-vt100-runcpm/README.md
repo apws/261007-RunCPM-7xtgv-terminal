@@ -86,6 +86,8 @@ exclusive access; do not run picocom or a second direct helper alongside it.
 | Ctrl+] then p / n | Previous/next history line |
 | Ctrl+] then [ / ] | Previous/next history list |
 | Ctrl+] then q | Exit PC helper; leave CP/M running |
+| Ctrl+] then x / c | Active profile's unified Exit / Clear command |
+| Alt+Esc / Alt+Backspace | Same unified Exit / Clear commands in Kitty/Konsole |
 | Ctrl+] twice | Send literal Ctrl+] to CP/M |
 
 Each bank holds 100 lines and ignores empty, one-character and immediately

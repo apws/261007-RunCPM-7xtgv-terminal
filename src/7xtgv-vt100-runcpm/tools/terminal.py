@@ -20,6 +20,7 @@ COMMANDS = {
     ord('h'): b'\x1b[1;3D', ord('l'): b'\x1b[1;3C',
     ord('r'): b'\x1b[>0v', PREFIX: bytes([PREFIX]),
     ord('#'): b'\x1b[>15v',
+    ord('x'): b'\x1b[>60v', ord('c'): b'\x1b[>61v',
     ord('p'): b'\x1b[>10v', ord('n'): b'\x1b[>11v',
     ord('['): b'\x1b[>12v', ord(']'): b'\x1b[>13v',
 }
@@ -178,7 +179,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, epilog=(
         'Ctrl+] then q: exit; 1: ANSI; 2: VT52; a/e: left/right edge; '
         'h/l: pan; r: redraw; p/n: history; [/]: history bank; '
-        '#: toggle RAW; Ctrl+] again: literal Ctrl+]. '
+        '#: toggle RAW; x: profile exit; c: profile clear; Ctrl+] again: literal Ctrl+]. '
         'Alt+Home/End and Alt+Left/Right also pan.'))
     parser.add_argument('--port', help='Serial device; defaults to the unique RP2350 by-id path')
     parser.add_argument('--mode', choices=('ansi', 'vt52'), help='Select mode on connection; otherwise preserve it')

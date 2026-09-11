@@ -12,3 +12,8 @@ cpm-languages/bbc/
 cpm-languages/comal/
 cpm-languages/comal-unpacked/
 cpm-languages/turbo/
+# Local/raw hardware backups and regenerated/vendor build material.
+cpmcard/
+docs/tft-ips-modules/
+*.o
+*.swp

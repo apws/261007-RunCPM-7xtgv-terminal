@@ -36,6 +36,138 @@ static void screenshot(const char *path) {
 int main() {
     terminalSetup();
     assert(ready && backlight == 150 && displayOK);
+    for (int i = 0; i < 200; ++i) terminalLoop();
+    const uint16_t paleGreen = rgb565({205, 255, 205});
+    const uint16_t cursorGreen = rgb565({0, 255, 80});
+    assert(gfx->framebuffer[5 * 320 + 5 * 6 + 3] == paleGreen);
+    assert(gfx->framebuffer[5 * 320 + 3] == cursorGreen);
+    selectedBank = 5;
+    history->select(5);
+    resetLineSession();
+    terminal.reset();
+    emit("A1>BBCBASIC");
+    while (output.available()) terminalLoop();
+    assert(history->activeBank() == 0); // CP/M prompt silently owns #0
+    keyboardAction(nullptr, vt::Keyboard::HistoryBankShow);
+    assert(std::string(reinterpret_cast<char *>(terminal.charRAM), 7) == "[#5 BBC");
+    fakeTime += 1000;
+    historyNoticePoll();
+    emit("\r\nBBC BASIC (Z80)\r\n>");
+    while (output.available()) terminalLoop();
+    assert(history->activeBank() == 5 && lineSessionActive);
+    terminal.reset();
+    emit(">PRINT 12345");
+    while (output.available()) terminalLoop();
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>("\r"), 1);
+    uint8_t testByte;
+    while (input.pop(testByte)) {}
+    emit("\r\n 12345\r\n>");
+    while (output.available()) terminalLoop();
+    const std::string secondLine = "PRINT 67890\r";
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(secondLine.data()), secondLine.size());
+    while (input.pop(testByte)) {}
+    emit("\r\n 67890\r\n>");
+    while (output.available()) terminalLoop();
+    profileKey(vt::AppUp);
+    const std::string bbcClear = "\x06\x18";
+    std::string bbcActual;
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == bbcClear && recallStagedValid);
+    profileKey(vt::AppUp);
+    bbcActual.clear();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual.empty() && recallPendingValid); // coalesced until BBC echoes
+    fakeTime += 50;
+    recallPoll();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == "PRINT 67890");
+    terminal.reset();
+    emit(">PRINT 67890");
+    while (output.available()) terminalLoop();
+    bbcActual.clear();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == bbcClear && recallStagedValid);
+    fakeTime += 50;
+    recallPoll();
+    bbcActual.clear();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == "PRINT 12345");
+    // An application-generated EDIT line becomes the current history line.
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>("\r"), 1);
+    while (input.pop(testByte)) {}
+    terminal.reset();
+    emit("   10 PRINT 42");
+    while (output.available()) terminalLoop();
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>("\r"), 1);
+    while (input.pop(testByte)) {}
+    profileKey(vt::AppUp);
+    bbcActual.clear();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == bbcClear && recallStagedValid);
+    fakeTime += 50;
+    recallPoll();
+    bbcActual.clear();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == "10 PRINT 42");
+    // MBASIC's EDIT command is deliberately adapted only while it is modal.
+    history->select(1);
+    selectedBank = 1;
+    resetLineSession();
+    terminal.reset();
+    const std::string edit = "edit 10\r";
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(edit.data()), edit.size());
+    bbcActual.clear();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == "edit 10\r" && mbasicEditMode && mbasicEditStartPending);
+    fakeTime += 100;
+    mbasicEditPoll();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == "edit 10\rL" && !mbasicEditStartPending);
+    emit("10 print 42");
+    while (output.available()) terminalLoop();
+    profileKey(vt::AppLeft);
+    bbcActual.clear();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == "\b");
+    profileKey(vt::AppDelete);
+    bbcActual.clear();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == "1D");
+    keyboardAction(nullptr, vt::Keyboard::ProfileBackspace);
+    bbcActual.clear();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == "\b1D");
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>("\r"), 1);
+    while (input.pop(testByte)) {}
+    assert(!mbasicEditMode);
+    history->discardCurrent();
+    terminal.reset();
+    lineModelAuthoritative = true;
+    const std::string recalled = "abc";
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(recalled.data()), recalled.size());
+    while (input.pop(testByte)) {}
+    profileKey(vt::AppLeft);
+    bbcActual.clear();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == "\x01" && mbasicEditMode && mbasicEditStartPending);
+    fakeTime += 100;
+    mbasicEditPoll();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == "\x01  " && !mbasicEditStartPending);
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>("\r"), 1);
+    while (input.pop(testByte)) {}
+    history->discardCurrent();
+    terminal.reset();
+    lineModelAuthoritative = true;
+    const std::string partial = "abc";
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(partial.data()), partial.size());
+    while (input.pop(testByte)) {}
+    profileCommand(true);
+    bbcActual.clear();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == "\b\b\b\rsystem\r");
+    history->select(0);
+    selectedBank = 0;
     terminal.reset();
     for (uint8_t c : std::string("EDIT IN PROGRESS"))
         terminal.feed(c);

@@ -77,9 +77,41 @@ static bool parseBinding(const char *value, KeyBinding &result) {
     if (!strcmp(value, "none")) return true;
     if (!strcmp(value, "history_previous")) { result.kind = BindingHistoryPrevious; return true; }
     if (!strcmp(value, "history_next")) { result.kind = BindingHistoryNext; return true; }
-    if (strncmp(value, "send:", 5)) return false;
-    if (!decode(value + 5, result.bytes, KeyBinding::MaxBytes, result.length)) return false;
-    result.kind = result.length ? BindingSend : BindingNone;
+    const bool cancel = !strncmp(value, "send_cancel:", 12);
+    if (!cancel && strncmp(value, "send:", 5)) return false;
+    if (!decode(value + (cancel ? 12 : 5), result.bytes, KeyBinding::MaxBytes, result.length)) return false;
+    result.kind = result.length ? (cancel ? BindingSendCancel : BindingSend) : BindingNone;
+    return true;
+}
+
+static bool parseBool(const char *value, bool &result) {
+    if (!strcmp(value, "true") || !strcmp(value, "yes") || !strcmp(value, "1")) result = true;
+    else if (!strcmp(value, "false") || !strcmp(value, "no") || !strcmp(value, "0")) result = false;
+    else return false;
+    return true;
+}
+
+static bool parseRGB(const char *value, uint8_t result[3]) {
+    unsigned r, g, b; char tail;
+    if (sscanf(value, "%u,%u,%u%c", &r, &g, &b, &tail) != 3 || r > 255 || g > 255 || b > 255)
+        return false;
+    result[0] = uint8_t(r); result[1] = uint8_t(g); result[2] = uint8_t(b);
+    return true;
+}
+
+static bool parseGlobalKey(const char *value, GlobalKey &result) {
+    if (!strcmp(value, "none")) result = GlobalKeyNone;
+    else if (!strcmp(value, "lalt+ralt+escape")) result = GlobalKeyDualAltEscape;
+    else if (!strcmp(value, "lalt+ralt+delete")) result = GlobalKeyDualAltDelete;
+    else return false;
+    return true;
+}
+
+static bool parseInputAdapter(const char *value, InputAdapter &result) {
+    if (!strcmp(value, "none")) result = InputAdapterNone;
+    else if (!strcmp(value, "mbasic_native")) result = InputAdapterMbasicNative;
+    else if (!strcmp(value, "local_compose")) result = InputAdapterLocalCompose;
+    else return false;
     return true;
 }
 } // namespace
@@ -88,6 +120,9 @@ HistoryProfiles::HistoryProfiles() { defaults(sets_[0]); defaults(sets_[1]); }
 
 const HistoryProfile &HistoryProfiles::get(uint8_t bank) const {
     return sets_[active_.load(std::memory_order_acquire)].banks[bank < Banks ? bank : 0];
+}
+const GlobalProfile &HistoryProfiles::global() const {
+    return sets_[active_.load(std::memory_order_acquire)].global;
 }
 
 void HistoryProfiles::defaults(Set &set) {
@@ -117,6 +152,46 @@ void HistoryProfiles::defaults(Set &set) {
     setKey(2, AppCtrlRight, "send:\x06");
     setKey(2, AppCtrlHome, "send:\x11" "R");
     setKey(2, AppCtrlEnd, "send:\x11" "C");
+    // Exact table embedded in the BBC BASIC 5.00 package's DIST.Z80.
+    setKey(5, AppLeft, "send:\x0a");
+    setKey(5, AppRight, "send:\x0c");
+    setKey(5, AppHome, "send:\x06");
+    setKey(5, AppEnd, "send:\x0e");
+    setKey(5, AppDelete, "send:\x12");
+    setKey(5, AppInsert, "send:\x11");
+    setKey(5, AppUp, "history_previous");
+    setKey(5, AppDown, "history_next");
+    setKey(5, AppAltUp, "send:\x07");
+    setKey(5, AppAltDown, "send:\x0f");
+    decode("\\x06\\x18", set.banks[5].historyClearBytes, KeyBinding::MaxBytes,
+           set.banks[5].historyClearLength);
+    set.banks[5].historyRetypeDelayMs = 50;
+    // Screen-derived input handles BASIC lines produced by EDIT as well as
+    // characters typed through this terminal.
+    set.banks[1].screenLine = true;
+    set.banks[1].inputAdapter = InputAdapterMbasicNative;
+    set.banks[1].commandNewLine = true;
+    set.banks[5].screenLine = true;
+    set.banks[5].trimLeft = true;
+    decode(">", set.banks[5].linePrefixBytes, HistoryProfile::MaxPrefixBytes,
+           set.banks[5].linePrefixLength);
+    decode(">", set.banks[5].activatePrefixBytes, HistoryProfile::MaxPrefixBytes,
+           set.banks[5].activatePrefixLength);
+    decode("system\\r", set.banks[1].exitBytes, HistoryProfile::MaxCommandBytes,
+           set.banks[1].exitLength);
+    decode("print chr$(27);\"[2J\";chr$(27);\"[H\"\\r", set.banks[1].clearBytes, HistoryProfile::MaxCommandBytes,
+           set.banks[1].clearLength);
+    decode("BYE\\r", set.banks[4].exitBytes, HistoryProfile::MaxCommandBytes,
+           set.banks[4].exitLength);
+    decode("PAGE\\r", set.banks[4].clearBytes, HistoryProfile::MaxCommandBytes,
+           set.banks[4].clearLength);
+    decode("QUIT\\r", set.banks[5].exitBytes, HistoryProfile::MaxCommandBytes,
+           set.banks[5].exitLength);
+    decode("PRINT CHR$(27);\"[2J\";CHR$(27);\"[H\"\\r", set.banks[5].clearBytes,
+           HistoryProfile::MaxCommandBytes, set.banks[5].clearLength);
+    for (uint8_t bank : {uint8_t(0), uint8_t(9)})
+        decode("CLS\\r", set.banks[bank].clearBytes, HistoryProfile::MaxCommandBytes,
+               set.banks[bank].clearLength);
     // Modifier-bearing ANSI sequences for configurable VT applications.
     for (uint8_t bank : {uint8_t(3), uint8_t(4), uint8_t(5), uint8_t(8)}) {
         setKey(bank, AppPageUp, "send:\x1b[5~"); setKey(bank, AppPageDown, "send:\x1b[6~");
@@ -164,6 +239,7 @@ void HistoryProfiles::parseLine() {
     line_[length_] = 0; length_ = 0;
     char *text = trim(line_);
     if (!*text || *text == '#' || *text == ';') return;
+    if (!strcmp(text, "[global]")) { section_ = -2; return; }
     int bank = -1; char tail = 0;
     if (sscanf(text, "[bank%d]%c", &bank, &tail) == 1) {
         if (bank >= 0 && bank < Banks) section_ = bank;
@@ -171,9 +247,18 @@ void HistoryProfiles::parseLine() {
         return;
     }
     char *equals = strchr(text, '=');
-    if (section_ < 0 || !equals) { ++errors_; return; }
+    if (!equals) { ++errors_; return; }
     *equals = 0;
     char *keyName = trim(text), *value = trim(equals + 1);
+    if (section_ == -2) {
+        if (!strcmp(keyName, "exit_key")) {
+            if (!parseGlobalKey(value, sets_[loading_].global.exitKey)) ++errors_;
+        } else if (!strcmp(keyName, "clear_key")) {
+            if (!parseGlobalKey(value, sets_[loading_].global.clearKey)) ++errors_;
+        } else ++errors_;
+        return;
+    }
+    if (section_ < 0) { ++errors_; return; }
     HistoryProfile &profile = sets_[loading_].banks[section_];
     if (!strcmp(keyName, "name")) {
         strncpy(profile.name, value, HistoryProfile::MaxName);
@@ -182,6 +267,65 @@ void HistoryProfiles::parseLine() {
     }
     if (!strcmp(keyName, "on_select")) {
         if (!decode(value, profile.selectBytes, HistoryProfile::MaxSelectBytes, profile.selectLength)) ++errors_;
+        return;
+    }
+    if (!strcmp(keyName, "history_clear")) {
+        if (!decode(value, profile.historyClearBytes, KeyBinding::MaxBytes,
+                    profile.historyClearLength)) ++errors_;
+        return;
+    }
+    if (!strcmp(keyName, "history_retype_delay_ms")) {
+        char tail = 0;
+        unsigned delay = 0;
+        if (sscanf(value, "%u%c", &delay, &tail) != 1 || delay > 1000)
+            ++errors_;
+        else
+            profile.historyRetypeDelayMs = uint16_t(delay);
+        return;
+    }
+    if (!strcmp(keyName, "line_prefix")) {
+        if (!decode(value, profile.linePrefixBytes, HistoryProfile::MaxPrefixBytes,
+                    profile.linePrefixLength)) ++errors_;
+        return;
+    }
+    if (!strcmp(keyName, "activate_prefix")) {
+        if (!decode(value, profile.activatePrefixBytes, HistoryProfile::MaxPrefixBytes,
+                    profile.activatePrefixLength)) ++errors_;
+        return;
+    }
+    if (!strcmp(keyName, "exit_command") || !strcmp(keyName, "clear_command")) {
+        uint8_t *bytes = !strcmp(keyName, "exit_command") ? profile.exitBytes : profile.clearBytes;
+        uint8_t &length = !strcmp(keyName, "exit_command") ? profile.exitLength : profile.clearLength;
+        if (!decode(value, bytes, HistoryProfile::MaxCommandBytes, length)) ++errors_;
+        return;
+    }
+    if (!strcmp(keyName, "screen_line")) {
+        if (!parseBool(value, profile.screenLine)) ++errors_;
+        return;
+    }
+    if (!strcmp(keyName, "input_adapter")) {
+        if (!parseInputAdapter(value, profile.inputAdapter)) ++errors_;
+        return;
+    }
+    if (!strcmp(keyName, "command_new_line")) {
+        if (!parseBool(value, profile.commandNewLine)) ++errors_;
+        return;
+    }
+    if (!strcmp(keyName, "trim_left")) {
+        if (!parseBool(value, profile.trimLeft)) ++errors_;
+        return;
+    }
+    if (!strcmp(keyName, "escape_cancels")) {
+        if (!parseBool(value, profile.escapeCancels)) ++errors_;
+        return;
+    }
+    if (!strcmp(keyName, "active_line")) {
+        if (!parseBool(value, profile.activeLine)) ++errors_;
+        return;
+    }
+    if (!strcmp(keyName, "active_line_rgb") || !strcmp(keyName, "cursor_rgb")) {
+        if (!parseRGB(value, !strcmp(keyName, "active_line_rgb") ? profile.activeLineRGB
+                                                                  : profile.cursorRGB)) ++errors_;
         return;
     }
     for (uint8_t key = 0; key < AppKeyCount; ++key) {

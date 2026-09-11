@@ -602,6 +602,10 @@ void Keyboard::finish() {
         if (act_) act_(context_, RawOn);
     } else if (!strcmp(s, "\033[>17v")) {
         if (act_) act_(context_, RawOff);
+    } else if (!strcmp(s, "\033[>60v")) {
+        if (act_) act_(context_, ProfileExit);
+    } else if (!strcmp(s, "\033[>61v")) {
+        if (act_) act_(context_, ProfileClear);
     } else if (size_ == 6 && !memcmp(s, "\033[>2", 4) && s[4] >= '0' && s[4] <= '9' && s[5] == 'v') {
         if (act_) act_(context_, Action(HistoryBank0 + s[4] - '0'));
     } else if (size_ == 6 && !memcmp(s, "\033[>", 3) && s[3] >= '3' && s[3] <= '5' &&
@@ -655,6 +659,10 @@ void Keyboard::feed(uint8_t c, uint32_t now) {
             c = 8;
         if (c == 10)
             c = 13;
+        if (c == 8 && act_) {
+            act_(context_, ProfileBackspace);
+            return;
+        }
         send_(context_, &c, 1);
         return;
     }

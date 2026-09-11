@@ -59,6 +59,7 @@ case "${1-}" in
         ;;
 esac
 
+created=0
 if ! tmux has-session -t "$session" 2>/dev/null; then
     # terminal.py validates its initial geometry. GUI launchers may open a
     # narrow window, so give the detached shared session a stable baseline.
@@ -74,6 +75,13 @@ if ! tmux has-session -t "$session" 2>/dev/null; then
     fi
     # HOME is mapped to Ctrl+B for RunCPM, so tmux must not consume it.
     tmux set-option -t "$session" prefix None
+    created=1
 fi
 
-exec tmux attach-session -t "$session"
+# The normal Kitty/Konsole window owns the session it created.  Do not leave
+# terminal.py holding the serial port after that window is closed.  A separate
+# --monitor attachment intentionally does not take this path.
+if [ "$created" -eq 1 ]; then
+    trap 'tmux kill-session -t "$session" 2>/dev/null || true' EXIT HUP INT TERM
+fi
+tmux attach-session -t "$session"

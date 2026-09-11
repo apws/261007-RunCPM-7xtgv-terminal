@@ -26,6 +26,27 @@ static std::atomic<bool> textBenchmarkRequested{false}, textBenchmarkFinished{fa
 static std::atomic<uint32_t> textBenchmarkElapsed{0}, textBenchmarkByteCount{0}, textBenchmarkCharCount{0};
 static uint32_t replyOverruns = 0;
 static bool rawInputMode = false;
+static bool lineSessionActive = true;
+static bool lineModelAuthoritative = false;
+static bool localComposeActive = false;
+static bool localComposeRedrawPending = false;
+static uint32_t localComposeRedrawAt = 0;
+static uint8_t localComposeSuppressBackspaces = 0;
+static char localComposeOriginal[vt::LineHistory::MaxLine] = {};
+static uint8_t localComposeOriginalLength = 0, localComposeOriginalCursor = 0;
+enum MbasicEditBridge : uint8_t { BridgeNone, BridgeIssueX, BridgeCapture };
+static MbasicEditBridge mbasicEditBridge = BridgeNone;
+static uint32_t mbasicEditBridgeAt = 0;
+// BASIC-80's EDIT command has its own small modal editor.  This state is
+// intentionally enabled only by the MBASIC profile, never guessed globally.
+static bool mbasicEditMode = false;
+static bool mbasicEditStartPending = false;
+static uint32_t mbasicEditStartAt = 0;
+enum MbasicStartKind : uint8_t { MbasicStartNone, MbasicStartList, MbasicStartCurrent };
+static MbasicStartKind mbasicEditStartKind = MbasicStartNone;
+static uint8_t mbasicEditStartCursor = 0, mbasicEditStartSuffix[2] = {};
+static uint8_t mbasicEditStartSuffixLength = 0;
+static uint8_t selectedBank = 0;
 static bool historyNoticeActive = false;
 static bool historyNoticePeek = false;
 static bool historyNoticeRaw = false;
@@ -35,6 +56,9 @@ static uint8_t historyNoticePaper[vt::Cols], historyNoticeChars[vt::Cols];
 static uint8_t historyNoticeAttrs[vt::Cols], historyNoticeFlags[vt::Cols];
 static void showHistoryBank(uint8_t bank, bool peek = false);
 static void setRawInputMode(bool enabled);
+static void redrawLocalCompose();
+static void finishLocalCompose(bool submit);
+static void mbasicEditBridgePoll();
 static void terminalReply(void *, const uint8_t *data, size_t n) {
     if (replies.free() < n) {
         replyOverruns++;
@@ -44,36 +68,522 @@ static void terminalReply(void *, const uint8_t *data, size_t n) {
         replies.push(data[i]);
 }
 static vt::Terminal terminal(terminalReply);
+static vt::LineHistory::Recall recallSent{}, recallPending{};
+static bool recallInFlight = false, recallPendingValid = false;
+static uint32_t recallSentAt = 0;
+static vt::LineHistory::Recall recallStaged{};
+static bool recallStagedValid = false;
+static uint32_t recallStagedAt = 0;
+static uint8_t profileCommandStaged[vt::HistoryProfile::MaxCommandBytes] = {};
+static uint8_t profileCommandStagedLength = 0;
+static uint32_t profileCommandStagedAt = 0;
+static void resetRecallTransport() {
+    recallInFlight = recallPendingValid = recallStagedValid = false;
+}
+static void resetLineSession() {
+    lineModelAuthoritative = false;
+    mbasicEditMode = false;
+    mbasicEditStartPending = false;
+    mbasicEditStartKind = MbasicStartNone;
+    localComposeActive = false;
+    resetRecallTransport();
+    if (!history) {
+        lineSessionActive = false;
+        return;
+    }
+    lineSessionActive = profiles.get(history->activeBank()).activatePrefixLength == 0;
+}
+static void observeLineSession() {
+    if (!history || lineSessionActive)
+        return;
+    const vt::HistoryProfile &profile = profiles.get(history->activeBank());
+    if (!profile.activatePrefixLength || terminal.x < profile.activatePrefixLength)
+        return;
+    const int first = terminal.y * vt::Cols;
+    if (!memcmp(terminal.charRAM + first, profile.activatePrefixBytes,
+                profile.activatePrefixLength)) {
+        history->discardCurrent();
+        lineSessionActive = true;
+        lineModelAuthoritative = false;
+    }
+}
+static bool cpmPromptOnCursorRow() {
+    const int first = terminal.y * vt::Cols;
+    const uint8_t drive = terminal.charRAM[first];
+    if (drive < 'A' || drive > 'P')
+        return false;
+    int col = 1, digits = 0;
+    while (digits < 2 && col < terminal.x) {
+        const uint8_t c = terminal.charRAM[first + col];
+        if (!((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F')))
+            break;
+        ++col; ++digits;
+    }
+    return digits >= 1 && col < terminal.x && terminal.charRAM[first + col] == '>';
+}
+static void selectEffectiveBank(uint8_t bank) {
+    if (!history || history->activeBank() == bank)
+        return;
+    history->discardCurrent();
+    history->select(bank);
+    resetLineSession();
+}
+static void updateEffectiveBank() {
+    if (!history || historyNoticeActive)
+        return;
+    selectEffectiveBank(cpmPromptOnCursorRow() ? 0 : selectedBank);
+    observeLineSession();
+}
+static uint8_t readCursorRow(char *text, uint8_t &cursor) {
+    if (!history)
+        return 0;
+    const vt::HistoryProfile &profile = profiles.get(history->activeBank());
+    const int first = terminal.y * vt::Cols;
+    int start = 0;
+    if (profile.linePrefixLength) {
+        const int lastPromptColumn = std::min(8, terminal.x);
+        for (int col = 0; col + profile.linePrefixLength <= lastPromptColumn; ++col) {
+            if (!memcmp(terminal.charRAM + first + col, profile.linePrefixBytes,
+                        profile.linePrefixLength)) {
+                start = col + profile.linePrefixLength;
+                break;
+            }
+        }
+    }
+    if (profile.trimLeft)
+        while (start < vt::Cols && terminal.charRAM[first + start] == ' ')
+            ++start;
+    int end = vt::Cols;
+    while (end > start && terminal.charRAM[first + end - 1] == ' ')
+        --end;
+    uint8_t length = uint8_t(std::min(end - start, int(vt::LineHistory::MaxLine)));
+    cursor = uint8_t(std::max(0, std::min(terminal.x - start, int(length))));
+    memcpy(text, terminal.charRAM + first + start, length);
+    return length;
+}
+static void syncHistoryFromScreen() {
+    if (!history)
+        return;
+    const vt::HistoryProfile &profile = profiles.get(history->activeBank());
+    if (!profile.screenLine || !lineSessionActive)
+        return;
+    char text[vt::LineHistory::MaxLine];
+    uint8_t cursor;
+    uint8_t length = readCursorRow(text, cursor);
+    history->replaceCurrent(text, length, cursor);
+    lineModelAuthoritative = true;
+}
 static void keyboardSend(void *, const uint8_t *data, size_t n) {
     if (historyNoticeActive)
         return;
+    if (n)
+        resetRecallTransport();
     // The event loop reserves enough slots for a recalled line replacement.
     for (size_t i = 0; i < n; i++) {
-        if (history)
+        const vt::HistoryProfile *profile = history ? &profiles.get(history->activeBank()) : nullptr;
+        if (localComposeActive) {
+            if (data[i] == 13) finishLocalCompose(true);
+            else if (data[i] == 27) finishLocalCompose(false);
+            else if (data[i] == 8 || data[i] == 127 || (data[i] >= 0x20 && data[i] <= 0x7e)) {
+                history->input(data[i]);
+                redrawLocalCompose();
+            }
+            continue;
+        }
+        if (history && profile->inputAdapter == vt::InputAdapterMbasicNative && mbasicEditMode && data[i] == 27) {
+            // In BASIC-80 EDIT mode Q discards the line.  Make physical Esc
+            // perform that familiar cancellation without changing ordinary
+            // MBASIC immediate input.
+            input.push('Q');
+            history->discardCurrent();
+            mbasicEditMode = false;
+            mbasicEditStartPending = false;
+            mbasicEditStartKind = MbasicStartNone;
+            lineModelAuthoritative = false;
+            continue;
+        }
+        if (history && profile->screenLine && !lineModelAuthoritative &&
+            (data[i] == 13 || data[i] == 8 || data[i] == 127 ||
+             (data[i] >= 0x20 && data[i] <= 0x7e && !history->currentLength())))
+            syncHistoryFromScreen();
+        const bool capture = history && (!profile->screenLine || lineSessionActive);
+        const bool beginMbasicEdit = capture && profile->inputAdapter == vt::InputAdapterMbasicNative && data[i] == 13 &&
+                                     history->currentStartsWithIgnoreCase("edit ");
+        const bool beginMbasicComposeEdit = capture &&
+            profile->inputAdapter == vt::InputAdapterLocalCompose && data[i] == 13 &&
+            history->currentStartsWithIgnoreCase("edit ");
+        if (beginMbasicEdit) {
+            // Do not retain the EDIT command itself.  MBASIC's L command then
+            // prints the actual source line, which becomes the history entry.
+            history->discardCurrent();
+            input.push(13);
+            // MBASIC changes to its modal editor only after consuming CR.
+            // Queueing L immediately can make it race the command parser,
+            // leaving only the line number visible.  Give it a short, local
+            // settle interval, then ask the editor to list the whole line.
+            mbasicEditStartPending = true;
+            mbasicEditStartAt = millis();
+            mbasicEditStartKind = MbasicStartList;
+            mbasicEditMode = true;
+            lineModelAuthoritative = false;
+            continue;
+        }
+        if (beginMbasicComposeEdit) {
+            history->discardCurrent();
+            input.push(13);
+            mbasicEditBridge = BridgeIssueX;
+            mbasicEditBridgeAt = millis();
+            lineModelAuthoritative = false;
+            continue;
+        }
+        if (capture)
             history->input(data[i]);
         input.push(data[i]);
+        if (mbasicEditMode && (data[i] == 13 || data[i] == 27)) {
+            mbasicEditMode = false;
+            mbasicEditStartPending = false;
+            mbasicEditStartKind = MbasicStartNone;
+        }
+        if (capture && (data[i] == 13 || (profile->escapeCancels && data[i] == 27))) {
+            lineModelAuthoritative = false;
+        } else if (capture && (data[i] == 8 || data[i] == 127 ||
+                               (data[i] >= 0x20 && data[i] <= 0x7e))) {
+            lineModelAuthoritative = true;
+        }
+        if (capture && profile->escapeCancels && data[i] == 27)
+            history->discardCurrent();
     }
+}
+static void beginLocalCompose() {
+    if (!history)
+        return;
+    if (!lineModelAuthoritative)
+        syncHistoryFromScreen();
+    // The guest already owns the current typed/recalled input.  Remove it
+    // before the terminal takes over the local edit buffer.
+    localComposeSuppressBackspaces = history->currentLength();
+    history->copyCurrent(localComposeOriginal, localComposeOriginalLength, localComposeOriginalCursor);
+    for (uint8_t i = 0; i < localComposeSuppressBackspaces; ++i)
+        input.push(8);
+    localComposeActive = true;
+    localComposeRedrawPending = true;
+    localComposeRedrawAt = millis();
+}
+static void redrawLocalCompose() {
+    if (!history)
+        return;
+    char text[vt::LineHistory::MaxLine]; uint8_t length, cursor;
+    history->copyCurrent(text, length, cursor);
+    terminal.feed('\r'); terminal.feed(27); terminal.feed('['); terminal.feed('2'); terminal.feed('K');
+    for (uint8_t i = 0; i < length; ++i) terminal.feed(uint8_t(text[i]));
+    for (uint8_t i = cursor; i < length; ++i) terminal.feed(8);
+}
+static void finishLocalCompose(bool submit) {
+    if (!history || !localComposeActive)
+        return;
+    char text[vt::LineHistory::MaxLine]; uint8_t length, cursor;
+    history->copyCurrent(text, length, cursor);
+    terminal.feed('\r'); terminal.feed(27); terminal.feed('['); terminal.feed('2'); terminal.feed('K'); terminal.feed('\r');
+    localComposeActive = false;
+    localComposeRedrawPending = false;
+    if (submit) {
+        for (uint8_t i = 0; i < length; ++i) input.push(uint8_t(text[i]));
+        input.push(13);
+        history->input(13);
+    } else {
+        // Restore the original pending guest line; cancel must not execute or
+        // silently discard it merely because editing moved local.
+        for (uint8_t i = 0; i < localComposeOriginalLength; ++i)
+            input.push(uint8_t(localComposeOriginal[i]));
+        history->replaceCurrent(localComposeOriginal, localComposeOriginalLength, localComposeOriginalCursor);
+    }
+    lineModelAuthoritative = false;
+}
+static void mbasicEditBridgePoll() {
+    if (mbasicEditBridge == BridgeNone || uint32_t(millis() - mbasicEditBridgeAt) < 100)
+        return;
+    if (mbasicEditBridge == BridgeIssueX) {
+        input.push('X');
+        mbasicEditBridge = BridgeCapture;
+        mbasicEditBridgeAt = millis();
+        return;
+    }
+    // X has rendered the complete numbered source line.  Capture the visible
+    // row, leave MBASIC's native modal editor, then continue with the generic
+    // terminal-owned composer.  Escape ends X insertion; Q returns to OK.
+    char text[vt::LineHistory::MaxLine]; uint8_t cursor;
+    uint8_t length = readCursorRow(text, cursor);
+    if (history && length) {
+        history->replaceCurrent(text, length, length);
+        input.push(27); input.push('Q');
+        localComposeActive = true;
+        localComposeOriginalLength = length;
+        localComposeOriginalCursor = length;
+        memcpy(localComposeOriginal, text, length);
+        localComposeRedrawPending = true;
+        localComposeRedrawAt = millis();
+    }
+    mbasicEditBridge = BridgeNone;
+}
+static void beginMbasicCurrentEdit(vt::AppKey key) {
+    if (!history)
+        return;
+    if (!lineModelAuthoritative)
+        syncHistoryFromScreen();
+    uint8_t suffixLength = 0;
+    uint8_t suffix[2] = {};
+    switch (key) {
+    case vt::AppLeft:   history->left(); break;
+    case vt::AppRight:  history->right(); break;
+    case vt::AppHome:   history->home(); break;
+    case vt::AppEnd:    history->end(); break;
+    case vt::AppDelete:
+        history->eraseAt(); suffix[0] = '1'; suffix[1] = 'D'; suffixLength = 2; break;
+    default: return;
+    }
+    // Ctrl+A enters BASIC-80 Edit Mode at the beginning of the currently
+    // typed/recalled line.  Position after its modal transition, then carry
+    // out a requested deletion.
+    input.push(1);
+    mbasicEditMode = true;
+    mbasicEditStartPending = true;
+    mbasicEditStartAt = millis();
+    mbasicEditStartKind = MbasicStartCurrent;
+    mbasicEditStartCursor = history->currentCursor();
+    mbasicEditStartSuffixLength = suffixLength;
+    memcpy(mbasicEditStartSuffix, suffix, suffixLength);
+    lineModelAuthoritative = true;
+}
+static void mbasicEditKey(vt::AppKey key) {
+    if (!history || !mbasicEditMode)
+        return;
+    if (!lineModelAuthoritative)
+        syncHistoryFromScreen();
+    switch (key) {
+    case vt::AppLeft:
+        history->left(); input.push(8); break;
+    case vt::AppRight:
+        history->right(); input.push(' '); break;
+    case vt::AppHome:
+        history->home(); input.push('L'); break;
+    case vt::AppEnd:
+        history->end(); input.push('X'); input.push(27); break;
+    case vt::AppDelete:
+        history->eraseAt(); input.push('1'); input.push('D'); break;
+    case vt::AppPageUp:
+    case vt::AppPageDown:
+        input.push('Q'); history->discardCurrent(); mbasicEditMode = false; break;
+    default:
+        return;
+    }
+    lineModelAuthoritative = true;
+}
+static void mbasicEditBackspace() {
+    if (!history || !mbasicEditMode)
+        return;
+    if (!lineModelAuthoritative)
+        syncHistoryFromScreen();
+    history->left();
+    history->eraseAt();
+    // BASIC-80 rubout only moves left; follow it with its explicit one-byte
+    // delete command to give the PC Backspace its usual meaning.
+    input.push(8); input.push('1'); input.push('D');
+    lineModelAuthoritative = true;
+}
+static void sendRecall(const vt::LineHistory::Recall &recalled) {
+    const vt::HistoryProfile &profile = profiles.get(history->activeBank());
+    if (profile.historyClearLength) {
+        for (uint8_t i = 0; i < profile.historyClearLength; ++i)
+            input.push(profile.historyClearBytes[i]);
+    } else {
+        for (uint8_t i = 0; i < recalled.erase; ++i)
+            input.push(8);
+    }
+    recallInFlight = profile.screenLine;
+    if (profile.screenLine && profile.historyClearLength && profile.historyRetypeDelayMs) {
+        recallStaged = recalled;
+        recallStagedValid = true;
+        recallStagedAt = millis();
+        return;
+    }
+    for (uint8_t i = 0; i < recalled.length; ++i)
+        input.push(uint8_t(recalled.text[i]));
+    recallSent = recalled;
+    recallSentAt = millis();
 }
 static void historyRecall(bool previous) {
     vt::LineHistory::Recall recalled;
-    if (!history || !history->recall(previous, recalled))
+    if (!lineModelAuthoritative)
+        syncHistoryFromScreen();
+    if (!history || (profiles.get(history->activeBank()).screenLine && !lineSessionActive) ||
+        !history->recall(previous, recalled))
         return;
-    for (uint8_t i = 0; i < recalled.erase; ++i)
-        input.push(8);
-    for (uint8_t i = 0; i < recalled.length; ++i)
-        input.push(uint8_t(recalled.text[i]));
+    if (localComposeActive) {
+        if (!localComposeRedrawPending) redrawLocalCompose();
+        return;
+    }
+    const vt::HistoryProfile &profile = profiles.get(history->activeBank());
+    if (profile.screenLine && recallInFlight) {
+        recallPending = recalled;
+        recallPendingValid = true;
+    } else {
+        sendRecall(recalled);
+    }
+    lineModelAuthoritative = true;
+}
+static void recallPoll() {
+    if (!history || !recallInFlight)
+        return;
+    if (recallStagedValid) {
+        const vt::HistoryProfile &profile = profiles.get(history->activeBank());
+        if (uint32_t(millis() - recallStagedAt) < profile.historyRetypeDelayMs)
+            return;
+        recallStagedValid = false;
+        for (uint8_t i = 0; i < recallStaged.length; ++i)
+            input.push(uint8_t(recallStaged.text[i]));
+        recallSent = recallStaged;
+        recallSentAt = millis();
+        return;
+    }
+    char visible[vt::LineHistory::MaxLine];
+    uint8_t cursor;
+    uint8_t length = readCursorRow(visible, cursor);
+    (void)cursor;
+    const bool matched = length == recallSent.length && !memcmp(visible, recallSent.text, length);
+    if (!matched && uint32_t(millis() - recallSentAt) < 1000)
+        return;
+    recallInFlight = false;
+    if (!recallPendingValid)
+        return;
+    recallPendingValid = false;
+    if (recallPending.length == recallSent.length &&
+        !memcmp(recallPending.text, recallSent.text, recallPending.length))
+        return;
+    sendRecall(recallPending);
 }
 static void profileKey(vt::AppKey key) {
     if (!history)
         return;
     const vt::KeyBinding &binding = profiles.get(history->activeBank()).keys[key];
+    const vt::HistoryProfile &profile = profiles.get(history->activeBank());
+    const bool mbasicEditKeyAction = key == vt::AppLeft || key == vt::AppRight ||
+                                     key == vt::AppHome || key == vt::AppEnd ||
+                                     key == vt::AppDelete || key == vt::AppPageUp ||
+                                     key == vt::AppPageDown;
+    if (profile.inputAdapter == vt::InputAdapterLocalCompose &&
+        (key == vt::AppLeft || key == vt::AppRight || key == vt::AppHome ||
+         key == vt::AppEnd || key == vt::AppDelete || key == vt::AppInsert ||
+         key == vt::AppPageUp || key == vt::AppPageDown)) {
+        if ((key == vt::AppPageUp || key == vt::AppPageDown) && localComposeActive) {
+            finishLocalCompose(false);
+            return;
+        }
+        if (key == vt::AppPageUp || key == vt::AppPageDown)
+            return;
+        if (!localComposeActive)
+            beginLocalCompose();
+        if (key == vt::AppLeft) history->left();
+        else if (key == vt::AppRight) history->right();
+        else if (key == vt::AppHome) history->home();
+        else if (key == vt::AppEnd) history->end();
+        else if (key == vt::AppDelete) history->eraseAt();
+        else history->toggleInsert();
+                if (!localComposeRedrawPending) redrawLocalCompose();
+        return;
+    }
+    if (profile.inputAdapter == vt::InputAdapterMbasicNative && mbasicEditKeyAction) {
+        if (mbasicEditMode)
+            mbasicEditKey(key);
+        else if (key != vt::AppPageUp && key != vt::AppPageDown)
+            beginMbasicCurrentEdit(key);
+        return; // never emit edit commands during ordinary MBASIC input
+    }
     if (binding.kind == vt::BindingHistoryPrevious)
         historyRecall(true);
     else if (binding.kind == vt::BindingHistoryNext)
         historyRecall(false);
-    else if (binding.kind == vt::BindingSend)
+    else if (binding.kind == vt::BindingSend || binding.kind == vt::BindingSendCancel) {
+        resetRecallTransport();
+        if (!lineModelAuthoritative)
+            syncHistoryFromScreen();
+        if (key == vt::AppLeft) history->left();
+        else if (key == vt::AppRight) history->right();
+        else if (key == vt::AppHome) history->home();
+        else if (key == vt::AppEnd) history->end();
+        else if (key == vt::AppDelete) history->eraseAt();
+        else if (key == vt::AppInsert) history->toggleInsert();
         for (uint8_t i = 0; i < binding.length; ++i)
             input.push(binding.bytes[i]);
+        lineModelAuthoritative = true;
+        if (binding.kind == vt::BindingSendCancel) {
+            history->discardCurrent();
+            lineModelAuthoritative = false;
+        }
+    }
+}
+static void profileCommand(bool exitCommand) {
+    if (!history)
+        return;
+    const vt::HistoryProfile &profile = profiles.get(history->activeBank());
+    const uint8_t *command = exitCommand ? profile.exitBytes : profile.clearBytes;
+    const uint8_t length = exitCommand ? profile.exitLength : profile.clearLength;
+    if (!length)
+        return;
+    if (!lineModelAuthoritative)
+        syncHistoryFromScreen();
+    const uint8_t erase = history->discardCurrent();
+    if (profile.historyClearLength) {
+        for (uint8_t i = 0; i < profile.historyClearLength; ++i)
+            input.push(profile.historyClearBytes[i]);
+    } else {
+        // Profiles such as MBASIC do not have a native clear-line sequence.
+        // Remove a recalled/partially typed visible line before injecting a
+        // terminal-generated exit or clear command.
+        for (uint8_t i = 0; i < erase; ++i)
+            input.push(8);
+    }
+    if (profile.commandNewLine)
+        input.push(13);
+    // Generated exit/clear commands are terminal controls, not user input.
+    // Send them to the application but never add them to its history bank.
+    if (profile.historyClearLength && profile.historyRetypeDelayMs) {
+        memcpy(profileCommandStaged, command, length);
+        profileCommandStagedLength = length;
+        profileCommandStagedAt = millis();
+    } else {
+        for (uint8_t i = 0; i < length; ++i)
+            input.push(command[i]);
+    }
+    lineModelAuthoritative = false;
+    if (exitCommand)
+        lineSessionActive = false;
+    resetRecallTransport();
+}
+static void profileCommandPoll() {
+    if (!profileCommandStagedLength)
+        return;
+    const vt::HistoryProfile &profile = profiles.get(history ? history->activeBank() : 0);
+    if (uint32_t(millis() - profileCommandStagedAt) < profile.historyRetypeDelayMs)
+        return;
+    for (uint8_t i = 0; i < profileCommandStagedLength; ++i)
+        input.push(profileCommandStaged[i]);
+    profileCommandStagedLength = 0;
+}
+static void mbasicEditPoll() {
+    if (!mbasicEditStartPending || uint32_t(millis() - mbasicEditStartAt) < 100)
+        return;
+    mbasicEditStartPending = false;
+    if (!mbasicEditMode)
+        return;
+    if (mbasicEditStartKind == MbasicStartList) {
+        input.push('L');
+    } else if (mbasicEditStartKind == MbasicStartCurrent) {
+        for (uint8_t i = 0; i < mbasicEditStartCursor; ++i)
+            input.push(' ');
+        for (uint8_t i = 0; i < mbasicEditStartSuffixLength; ++i)
+            input.push(mbasicEditStartSuffix[i]);
+    }
+    mbasicEditStartKind = MbasicStartNone;
 }
 static void keyboardAction(void *, vt::Keyboard::Action action) {
     // Recall waits until the transient label is gone, but bank changes remain
@@ -85,7 +595,10 @@ static void keyboardAction(void *, vt::Keyboard::Action action) {
         if (history) {
             uint8_t erase = history->discardCurrent();
             while (erase--) input.push(8);
-            history->cycle(-1);
+            selectedBank = uint8_t((int(selectedBank) + vt::HistoryProfiles::Banks - 1) %
+                                   vt::HistoryProfiles::Banks);
+            history->select(selectedBank);
+            resetLineSession();
             showHistoryBank(history->activeBank());
         }
         return;
@@ -94,14 +607,16 @@ static void keyboardAction(void *, vt::Keyboard::Action action) {
         if (history) {
             uint8_t erase = history->discardCurrent();
             while (erase--) input.push(8);
-            history->cycle(1);
+            selectedBank = uint8_t((selectedBank + 1) % vt::HistoryProfiles::Banks);
+            history->select(selectedBank);
+            resetLineSession();
             showHistoryBank(history->activeBank());
         }
         return;
     }
     if (action == vt::Keyboard::HistoryBankShow) {
         if (history)
-            showHistoryBank(history->activeBank(), true);
+            showHistoryBank(selectedBank, true);
         return;
     }
     if (action == vt::Keyboard::RawToggle || action == vt::Keyboard::RawOn ||
@@ -111,12 +626,38 @@ static void keyboardAction(void *, vt::Keyboard::Action action) {
         setRawInputMode(enabled);
         return;
     }
+    if (action == vt::Keyboard::ProfileExit || action == vt::Keyboard::ProfileClear) {
+        const vt::GlobalKey physical = action == vt::Keyboard::ProfileExit
+                                          ? vt::GlobalKeyDualAltEscape
+                                          : vt::GlobalKeyDualAltDelete;
+        if (profiles.global().exitKey == physical)
+            profileCommand(true);
+        else if (profiles.global().clearKey == physical)
+            profileCommand(false);
+        return;
+    }
+    if (action == vt::Keyboard::ProfileBackspace) {
+        if (history && profiles.get(history->activeBank()).inputAdapter == vt::InputAdapterLocalCompose && localComposeActive) {
+            history->input(8);
+            if (!localComposeRedrawPending) redrawLocalCompose();
+        }
+        else
+        if (history && profiles.get(history->activeBank()).inputAdapter == vt::InputAdapterMbasicNative && mbasicEditMode)
+            mbasicEditBackspace();
+        else {
+            const uint8_t backspace = 8;
+            keyboardSend(nullptr, &backspace, 1);
+        }
+        return;
+    }
     if (action >= vt::Keyboard::HistoryBank0 && action <= vt::Keyboard::HistoryBank9) {
         if (history) {
             rawInputMode = false;
             uint8_t erase = history->discardCurrent();
             while (erase--) input.push(8);
-            history->select(uint8_t(action - vt::Keyboard::HistoryBank0));
+            selectedBank = uint8_t(action - vt::Keyboard::HistoryBank0);
+            history->select(selectedBank);
+            resetLineSession();
             showHistoryBank(history->activeBank());
         }
         return;
@@ -167,7 +708,9 @@ static void rawFeed(uint8_t c, uint32_t now) {
     if (group == '2') {
         rawInputMode = false;
         if (history) {
-            history->select(uint8_t(command - '0'));
+            selectedBank = uint8_t(command - '0');
+            history->select(selectedBank);
+            resetLineSession();
             showHistoryBank(history->activeBank());
         }
     } else if (command == '4') {
@@ -193,6 +736,26 @@ static int scanCell = 0, mirrorScan = 0;
 static char mirrorBuffer[8192];
 static size_t mirrorLength = 0, mirrorSent = 0;
 static bool mirrorReset = false;
+static int activeRow = -1;
+static uint8_t activeRowBank = 255;
+
+static vt::RGB profileRGB(const uint8_t rgb[3]) { return {rgb[0], rgb[1], rgb[2]}; }
+static void dirtyRow(int row) {
+    if (row < 0 || row >= vt::Rows)
+        return;
+    std::fill(terminal.dirty + row * vt::Cols, terminal.dirty + (row + 1) * vt::Cols, true);
+    terminal.mirrorDirty[row] = true;
+}
+static void updateActiveRow() {
+    const uint8_t bank = history ? history->activeBank() : 0;
+    const int next = profiles.get(bank).activeLine ? terminal.y : -1;
+    if (next == activeRow && bank == activeRowBank)
+        return;
+    dirtyRow(activeRow);
+    activeRow = next;
+    activeRowBank = bank;
+    dirtyRow(activeRow);
+}
 
 static uint16_t rgb565(vt::RGB c) { return ((c.r >> 3) << 11) | ((c.g >> 2) << 5) | (c.b >> 3); }
 // DEC special graphics masks. The original QL font banks remain byte-identical.
@@ -264,9 +827,17 @@ static uint8_t graphicsRow(uint8_t c, int y) {
 static void drawCell(int i) {
     int column = i % vt::Cols - terminal.viewport, row = i / vt::Cols;
     uint8_t bank = (terminal.attrRAM[i] >> 6) & 3, ch = terminal.charRAM[i];
-    uint16_t fg = rgb565(terminal.foreground(i)), bg = rgb565(terminal.background(i));
+    vt::RGB foreground = terminal.foreground(i), background = terminal.background(i);
+    const vt::HistoryProfile &profile = profiles.get(history ? history->activeBank() : 0);
+    if (profile.activeLine && row == terminal.y)
+        background = profileRGB(profile.activeLineRGB);
     bool cursor =
         terminal.cursorVisible && cursorPhase && terminal.x == i % vt::Cols && terminal.y == row;
+    if (cursor) {
+        background = profileRGB(profile.cursorRGB);
+        foreground = {0, 0, 0};
+    }
+    uint16_t fg = rgb565(foreground), bg = rgb565(background);
     bool blinkOff = (terminal.flags[i] & vt::Blink) && !cursorPhase;
     for (int y = 0; y < 10; y++) {
         uint8_t inkBits = (terminal.flags[i] & vt::Graphics)
@@ -279,8 +850,6 @@ static void drawCell(int i) {
             uint16_t color = bg;
             if (!blinkOff && (inkBits & mask))
                 color = fg;
-            if (cursor && y >= 8)
-                color = (color == fg) ? bg : fg;
             pixels[y * 6 + x] = color;
         }
     }
@@ -357,7 +926,7 @@ static void setRawInputMode(bool enabled) {
     rawControlLength = 0;
     rawInputMode = enabled;
     if (history)
-        showHistoryBank(history->activeBank(), true);
+        showHistoryBank(selectedBank, true);
 }
 static void historyNoticePoll() {
     if (!historyNoticeActive)
@@ -516,6 +1085,9 @@ static void mirrorBuild() {
             int i = row * vt::Cols + col;
             if (oldAttr != terminal.attrRAM[i] || oldFlags != terminal.flags[i]) {
                 vt::RGB f = terminal.foreground(i), b = terminal.background(i);
+                const vt::HistoryProfile &profile = profiles.get(history ? history->activeBank() : 0);
+                if (profile.activeLine && row == terminal.y)
+                    b = profileRGB(profile.activeLineRGB);
                 mirrorLength += snprintf(
                     mirrorBuffer + mirrorLength, sizeof(mirrorBuffer) - mirrorLength,
                     "\033[0;%d;38;2;%u;%u;%u;48;2;%u;%u;%um",
@@ -707,9 +1279,23 @@ void terminalLoop() {
         restoreHistoryPeek();
     }
     // Always consume CP/M output, even when its input queue is full.
-    for (int n = 0; n < 512 && output.pop(c); n++)
+    for (int n = 0; n < 512 && output.pop(c); n++) {
+        if (localComposeRedrawPending) {
+            continue;
+        }
         terminal.feed(c);
+    }
     historyNoticePoll();
+    updateEffectiveBank();
+    profileCommandPoll();
+    mbasicEditPoll();
+    mbasicEditBridgePoll();
+    if (localComposeRedrawPending && uint32_t(millis() - localComposeRedrawAt) >= 100) {
+        localComposeRedrawPending = false;
+        if (localComposeActive) redrawLocalCompose();
+    }
+    recallPoll();
+    updateActiveRow();
     uint32_t now = millis();
     if (uint32_t(now - blinkAt) >= 500) {
         blinkAt = now;

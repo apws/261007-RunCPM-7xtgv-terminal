@@ -159,6 +159,10 @@ int main() {
     assert(lastAction == vt::Keyboard::RawOn && input.empty());
     keys(historyKeys, "\033[>17v");
     assert(lastAction == vt::Keyboard::RawOff && input.empty());
+    keys(historyKeys, "\033[>60v");
+    assert(lastAction == vt::Keyboard::ProfileExit && input.empty());
+    keys(historyKeys, "\033[>61v");
+    assert(lastAction == vt::Keyboard::ProfileClear && input.empty());
     keys(historyKeys, "\033[>22v");
     assert(lastAction == vt::Keyboard::HistoryBank0 + 2 && input.empty());
     keys(historyKeys, "\033[>30v");
@@ -172,18 +176,48 @@ int main() {
 
     vt::HistoryProfiles profiles;
     const std::string profileIni =
+        "[global]\r\nexit_key=lalt+ralt+delete\r\nclear_key=lalt+ralt+escape\r\n"
         "[bank2]\r\nname=EDITOR\r\nup=send:\\x05\r\n"
-        "alt_up=history_previous\r\non_select=A4:\\r\n\x1a ignored padding";
+        "alt_up=history_previous\r\non_select=A4:\\r\n"
+        "page_up=send_cancel:\\e\r\nactive_line_rgb=210,255,210\r\n"
+        "cursor_rgb=0,255,64\r\nscreen_line=true\r\ntrim_left=true\r\nline_prefix=>\r\n"
+        "input_adapter=mbasic_native\r\n"
+        "command_new_line=true\r\n"
+        "history_retype_delay_ms=75\r\n"
+        "exit_command=BYE\\r\r\nclear_command=PAGE\\r\r\n\x1a ignored padding";
     profiles.beginLoad();
     for (uint8_t c : profileIni) profiles.feed(c);
     profiles.finishLoad();
     assert(profiles.errors() == 0);
+    assert(profiles.global().exitKey == vt::GlobalKeyDualAltDelete);
+    assert(profiles.global().clearKey == vt::GlobalKeyDualAltEscape);
     assert(std::string(profiles.get(2).name) == "EDITOR");
     assert(profiles.get(2).keys[vt::AppUp].kind == vt::BindingSend);
     assert(profiles.get(2).keys[vt::AppUp].length == 1);
     assert(profiles.get(2).keys[vt::AppUp].bytes[0] == 5);
     assert(profiles.get(2).keys[vt::AppAltUp].kind == vt::BindingHistoryPrevious);
     assert(profiles.get(2).selectLength == 4 && profiles.get(2).selectBytes[3] == 13);
+    assert(profiles.get(2).keys[vt::AppPageUp].kind == vt::BindingSendCancel);
+    assert(profiles.get(2).activeLineRGB[0] == 210 && profiles.get(2).cursorRGB[1] == 255);
+    assert(profiles.get(2).historyRetypeDelayMs == 75);
+    assert(profiles.get(2).trimLeft);
+    assert(profiles.get(2).screenLine && profiles.get(2).linePrefixBytes[0] == '>');
+    assert(profiles.get(2).inputAdapter == vt::InputAdapterMbasicNative);
+    assert(profiles.get(2).commandNewLine);
+    assert(profiles.get(2).exitLength == 4 && profiles.get(2).clearLength == 5);
+    assert(profiles.get(5).keys[vt::AppLeft].bytes[0] == 0x0a);
+    assert(profiles.get(5).keys[vt::AppRight].bytes[0] == 0x0c);
+    assert(profiles.get(5).historyClearLength == 2);
+    assert(profiles.get(5).historyClearBytes[0] == 0x06);
+    assert(profiles.get(5).historyClearBytes[1] == 0x18);
+    assert(profiles.get(5).activatePrefixLength == 1 &&
+           profiles.get(5).activatePrefixBytes[0] == '>');
+    // The generic line composer is a separately selectable adapter.
+    const std::string composeIni = "[bank1]\r\ninput_adapter=local_compose\r\n\x1a";
+    profiles.beginLoad();
+    for (uint8_t c : composeIni) profiles.feed(c);
+    profiles.finishLoad();
+    assert(profiles.errors() == 0 && profiles.get(1).inputAdapter == vt::InputAdapterLocalCompose);
 
     vt::LineHistory history;
     vt::LineHistory::Recall recalled;
@@ -192,6 +226,7 @@ int main() {
     for (uint8_t c : std::string("dir\rstat\r")) history.input(c);
     assert(history.recall(true, recalled));
     assert(recalled.erase == 0 && std::string(recalled.text, recalled.length) == "stat");
+    history.replaceCurrent("stat", 4, 4); // screen resync preserves recall position
     assert(history.recall(true, recalled));
     assert(recalled.erase == 4 && std::string(recalled.text, recalled.length) == "dir");
     assert(history.recall(false, recalled));
@@ -208,6 +243,19 @@ int main() {
     history.select(1);
     assert(history.recall(true, recalled));
     assert(std::string(recalled.text, recalled.length) == "stat");
+    vt::LineHistory edited;
+    for (uint8_t c : std::string("PRINT 12345")) edited.input(c);
+    edited.left(); edited.left();
+    edited.eraseAt();
+    edited.input('X');
+    edited.input('\r');
+    assert(edited.recall(true, recalled));
+    assert(std::string(recalled.text, recalled.length) == "PRINT 123X5");
+    edited.replaceCurrent("10 PRINT 42", 11, 8);
+    edited.input('X');
+    edited.input('\r');
+    assert(edited.recall(true, recalled));
+    assert(std::string(recalled.text, recalled.length) == "10 PRINTX 42");
     vt::LineHistory wrapped;
     for (int i = 0; i <= 100; ++i) {
         std::string line = "L" + std::to_string(i);

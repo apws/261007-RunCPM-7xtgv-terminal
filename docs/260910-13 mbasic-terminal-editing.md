@@ -53,21 +53,54 @@ An INI-only mapping cannot safely make MBASIC behave like a modern terminal:
 The current conservative `#1 MBASIC` profile therefore leaves these keys
 unbound and retains 7xtgv history recall on plain Up/Down.
 
-## Possible future adapter
+## Implemented `EDIT n` adapter
 
-A dedicated, explicitly enabled MBASIC adapter can provide PC-style
-Left/Right/Home/End.  It must maintain an MBASIC-edit-mode state in the 7xtgv
-input layer:
+`#1 MBASIC` now explicitly selects `input_adapter=mbasic_native`.  It is a narrow
+terminal-side adapter, active only after the submitted line begins with
+`EDIT `, ignoring case.  It does not alter ordinary MBASIC immediate input,
+`INPUT`, or `INKEY$`.
 
-1. On the first navigation request, enter MBASIC Edit Mode with `Ctrl+A` and
-   position its cursor according to the locally tracked input line.
-2. While active, translate Left/Right to Rubout/Space, Home to the editor's
-   beginning command, End to `X`, and Delete to `D`.
-3. End the state when Enter saves the line or `Q` discards it.
-4. Keep generic history capture separate, since MBASIC editor commands do not
-   describe the final edited line as ordinary printable input.
+After `EDIT n` is submitted, 7xtgv waits 100 ms for MBASIC to enter Edit Mode,
+then sends its `L` edit command.  The delay is necessary: sending `L` in the
+same input burst as Return can reach MBASIC before its command parser changes
+state, leaving only the line number visible.  `L` displays the complete source
+line and positions the native editor at its beginning.  The `EDIT n` command
+itself is discarded from terminal history; the displayed and subsequently
+edited source line becomes the entry.
 
-This is a terminal feature specific to MBASIC, not a general CP/M or VT100
-behavior.  It should remain disabled unless the `#1 MBASIC` profile explicitly
-enables it, so program `INPUT`, `INKEY$`, and other immediate character reads
-remain predictable.
+| PC key, while in `EDIT` mode | MBASIC input | Result |
+| --- | --- | --- |
+| Left | Rubout | Move one character left |
+| Right | Space | Move one character right |
+| Home | `L` | Display/rest at line beginning |
+| End | `X Escape` | Move to end |
+| Delete | `1D` | Delete character at cursor |
+| Backspace | Rubout, `1D` | Delete character before cursor |
+| Enter | Enter | Save line and leave native edit mode |
+| Escape | `Q` | Discard line and leave native edit mode |
+| Page Up / Page Down | `Q` | Discard line and leave native edit mode |
+
+The terminal updates its own current-history model in parallel with these
+operations, so a saved edited line is recalled correctly.  The adapter resets
+when the bank changes or the line is saved/cancelled.
+
+Outside native Edit Mode, MBASIC profile Up/Down remain ordinary 7xtgv
+history recall.  The adapter must intercept only the edit-only semantic keys,
+never the history controls.
+
+This remains MBASIC-specific.  It must stay opt-in in the profile, rather than
+becoming a general CP/M or VT100 behavior.
+
+## Local-compose `EDIT n` bridge (next stage)
+
+The native editor is unsuitable for in-place display, but an observed `X`
+immediately after `EDIT n` renders the full numbered source line.  The planned
+bridge will use that **single `X` only**, capture the rendered line into
+`input_adapter=local_compose`, and let the terminal edit/re-submit it.  Do not
+inject Escape: raw testing showed it has unreliable consequences in this state.
+The native-editor exit transition remains deliberately uncommitted until it is
+verified on the target.
+
+The MBASIC profile's unified actions are deliberately lower-case because this
+MBASIC accepts lower-case input: `system` exits and
+`print chr$(27);"[2J";chr$(27);"[H"` clears/home the ANSI terminal.
