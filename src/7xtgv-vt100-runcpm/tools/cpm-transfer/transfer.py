@@ -101,7 +101,7 @@ class Link:
             enhanced='PCT ' in text
             self.send((f'{percent:03d}%' if enhanced and percent is not None else '')+'\r');record+=1
 
-    def put(self, name, data, progress=None):
+    def put(self, name, data, progress=None, verify=False):
         assert re.fullmatch(r'[A-Z0-9_-]{1,8}\.[A-Z0-9]{1,3}', name)
         data=data+bytes((-len(data))%128)
         self.command('VTPUT '+name)
@@ -114,8 +114,10 @@ class Link:
         marker=f'PUT{len(data)//32:04X}:'
         self.until(lambda t:t.startswith(marker))
         self.send('!\r');self.until(lambda t:'SAVED' in t);self.pump(.2)
-        actual=self.get(name,progress)
-        if actual!=data:raise RuntimeError('Read-back mismatch: '+name)
+        if verify:
+            actual=self.get(name, progress)
+            if actual != data:
+                raise RuntimeError('Read-back mismatch: ' + name)
         return len(data)
 
 class Progress:
@@ -140,6 +142,8 @@ if __name__=='__main__':
                    help='CP/M mirror user area in hexadecimal (default: 0)')
     p.add_argument('--no-raw',action='store_true',
                    help='keep normal #9 mapped input for comparison testing')
+    p.add_argument('--verify', action='store_true',
+                   help='read uploaded files back for byte-for-byte verification')
     p.add_argument('action',choices=['get','put'])
     p.add_argument('files',nargs='+')
     p.add_argument('--directory',type=Path,default=Path('.'))

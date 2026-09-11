@@ -23,6 +23,7 @@ static vt::HistoryProfiles profiles;
 static std::atomic<bool> ready{false};
 static std::atomic<bool> pauseRequested{false}, pauseAcknowledged{false};
 static std::atomic<bool> textBenchmarkRequested{false}, textBenchmarkFinished{false};
+static std::atomic<uint32_t> rebootScheduledAt{0};
 static std::atomic<uint32_t> textBenchmarkElapsed{0}, textBenchmarkByteCount{0}, textBenchmarkCharCount{0};
 static uint32_t replyOverruns = 0;
 static bool rawInputMode = false;
@@ -1261,6 +1262,19 @@ void terminalPause(bool paused) {
     while (pauseAcknowledged.load(std::memory_order_acquire) != paused)
         delay(1);
 }
+void terminalScheduleReboot() {
+    // Store millis()+1 so zero remains the "not scheduled" sentinel.
+    rebootScheduledAt.store(millis() + 1, std::memory_order_release);
+}
+static void terminalRebootPoll() {
+    const uint32_t scheduled = rebootScheduledAt.load(std::memory_order_acquire);
+    if (!scheduled || uint32_t((millis() + 1) - scheduled) < 3000)
+        return;
+    rebootScheduledAt.store(0, std::memory_order_release);
+#if defined(ARDUINO_ARCH_ESP32)
+    ESP.restart();
+#endif
+}
 void terminalTextBenchmarkRequest() {
     textBenchmarkFinished.store(false, std::memory_order_release);
     textBenchmarkRequested.store(true, std::memory_order_release);
@@ -1337,6 +1351,7 @@ void virtualWrite(uint8_t c) {
         delay(1);
 }
 void terminalLoop() {
+    terminalRebootPoll();
     terminalTextBenchmarkPoll();
     if (pauseRequested.load(std::memory_order_acquire)) {
         pauseAcknowledged.store(true, std::memory_order_release);

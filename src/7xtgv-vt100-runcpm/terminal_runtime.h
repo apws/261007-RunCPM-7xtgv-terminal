@@ -16,6 +16,7 @@ typedef bool (*TerminalHistoryWriteByte)(void *context, uint8_t byte);
 bool terminalHistoryWrite(TerminalHistoryWriteByte writeByte, void *context);
 void terminalHistorySaveComplete(bool saved);
 void terminalHistoryStoragePoll();
+void terminalScheduleReboot();
 void terminalPause(bool paused);
 void terminalTextBenchmarkRequest();
 bool terminalTextBenchmarkDone();

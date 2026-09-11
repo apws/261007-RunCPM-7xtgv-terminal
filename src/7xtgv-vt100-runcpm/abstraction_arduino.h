@@ -504,6 +504,7 @@ uint8 _sys_makedisk(uint8 drive) {
 static const uint8 VTDRV_PORT = 0x7a;
 static const uint8 VTCPU_PORT = 0x7b;
 static const uint8 VTTERM_PORT = 0x79;
+static const uint8 VTREBOOT_PORT = 0x7c;
 static const uint64 VTCPU_TSTATES = 13015509ULL;
 static const uint32 VTCPU8X_LOOPS = 500000UL;
 static const uint32 VTDRV_BYTES = 32768UL;
@@ -637,6 +638,12 @@ void _HardwareOut(const uint32 Port, const uint32 Value) {
 #if !defined(RUNCPM_HEADLESS)
         vttermReported = false;
         terminalTextBenchmarkRequest();
+#endif
+    } else if (port == VTREBOOT_PORT && value == 1) {
+#if !defined(RUNCPM_HEADLESS)
+        // Wait in the terminal task, so the lazy SD history save completes
+        // before REBOOT.COM resets the ESP32-S3.
+        terminalScheduleReboot();
 #endif
     } else if (port == VTTERM_PORT && value == 2) {
 #if !defined(RUNCPM_HEADLESS)

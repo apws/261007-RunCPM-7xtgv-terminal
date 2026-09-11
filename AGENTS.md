@@ -43,3 +43,7 @@
   `YYMMDD-HH ` so extension sorting also preserves their timeline.  Keep
   stable readmes, recovered material, and vendor resources in their existing
   names.
+- Treat `cpmdrive/` as the source mirror for authored CP/M files. Deploy
+  one-way with `tools/cpm-transfer/transfer.py put`; use `--verify` only when
+  a full device read-back is worthwhile. Never silently import device files;
+  use explicit `get` only when Petr requests it.

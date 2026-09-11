@@ -192,6 +192,11 @@ void HistoryProfiles::defaults(Set &set) {
     for (uint8_t bank : {uint8_t(0), uint8_t(9)})
         decode("CLS\\r", set.banks[bank].clearBytes, HistoryProfile::MaxCommandBytes,
                set.banks[bank].clearLength);
+    // VTESTS is an MBASIC test suite, so it uses the same local composer,
+    // history behavior, and unified commands while keeping its own bank.
+    set.banks[7] = set.banks[1];
+    strncpy(set.banks[7].name, "VTESTS MBASIC", HistoryProfile::MaxName);
+    set.banks[7].name[HistoryProfile::MaxName] = 0;
     // Modifier-bearing ANSI sequences for configurable VT applications.
     for (uint8_t bank : {uint8_t(3), uint8_t(4), uint8_t(5), uint8_t(8)}) {
         setKey(bank, AppPageUp, "send:\x1b[5~"); setKey(bank, AppPageDown, "send:\x1b[6~");

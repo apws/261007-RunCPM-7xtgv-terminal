@@ -45,3 +45,8 @@ boundary ends an upload. The reader tags both the beginning and end of each
 page with its record number so coalesced screen updates cannot complete a
 partially refreshed page. The tool does not read a physically independent TFT
 framebuffer; its output is the firmware's serial mirror.
+
+
+Uploads are one-way by default: `cpmdrive/` is the source mirror and VTPUT
+reports its save result. Add `--verify` only when a byte-for-byte device
+read-back is worth the extra terminal traffic.
