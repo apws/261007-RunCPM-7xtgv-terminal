@@ -7,6 +7,7 @@
 #include <random>
 #include <string>
 #include <thread>
+#include <vector>
 static void collect(void *p, const uint8_t *s, size_t n) {
     static_cast<std::string *>(p)->append(reinterpret_cast<const char *>(s), n);
 }
@@ -20,6 +21,13 @@ static void keys(vt::Keyboard &k, const std::string &s, uint32_t now = 0) {
 }
 static int lastAction = -1;
 static void action(void *, vt::Keyboard::Action value) { lastAction = value; }
+struct PlotRecord {
+    vt::Terminal::PlotEvent event;
+    uint16_t color;
+};
+static void collectPlot(void *p, vt::Terminal::PlotEvent event, uint16_t color) {
+    static_cast<std::vector<PlotRecord> *>(p)->push_back({event, color});
+}
 int main() {
     std::string replies;
     vt::Terminal t(collect, &replies);
@@ -72,6 +80,38 @@ int main() {
     assert(t.flags[2] == 0 && t.attrRAM[2] == 1);
     feed(t, "\033[38;2;1;4;7mZ");
     assert(t.flags[2] == 0 && t.attrRAM[2] == 1);
+    // Exact xterm colors are consumed only after explicit private GCLS.  The
+    // callback is display-neutral and confirms fragmented SGR/sample parsing.
+    std::vector<PlotRecord> plots;
+    t.setPlotSink(collectPlot, &plots);
+    t.reset();
+    feed(t, "\033[>4v");
+    assert(t.plotting() && plots.size() == 1 && plots.back().event == vt::Terminal::PlotBegin);
+    feed(t, "\033[38;5;196m#\r\n\033[38;5;21m[\r\n");
+    assert(plots.size() == 5);
+    assert(plots[1].event == vt::Terminal::PlotSample && plots[1].color == 0xf800);
+    assert(plots[2].event == vt::Terminal::PlotRow);
+    assert(plots[3].event == vt::Terminal::PlotSample && plots[3].color == 0x001f);
+    assert(plots[4].event == vt::Terminal::PlotRow);
+    assert(t.charRAM[0] == ' ' && t.y == 1); // samples never enter text RAM; one logical LF
+    feed(t, "\033[0mDONE");
+    assert(!t.plotting() && plots.back().event == vt::Terminal::PlotEnd && t.charRAM[80] == 'D');
+    // Text and its CR/LF remain ordinary terminal traffic after GCLS but
+    // before the first xterm sample. This is how a submitted COM command is
+    // echoed on a clean line before it starts plotting.
+    plots.clear();
+    t.reset();
+    feed(t, "\033[>4vBROT-BS\r\n");
+    assert(plots.size() == 1 && t.charRAM[0] == 'B' && t.y == 1);
+    feed(t, "\033[38;5;196m#\r\n");
+    assert(plots.size() == 3 && plots[1].event == vt::Terminal::PlotSample &&
+           plots[2].event == vt::Terminal::PlotRow && t.y == 2);
+    // Invalid/incomplete extended colors must leave the following byte as text.
+    plots.clear();
+    t.reset();
+    plots.clear(); // reset aborts the intentionally unfinished preceding plot
+    feed(t, "\033[>4v\033[38;5mQ");
+    assert(plots.size() == 1 && t.charRAM[0] == 'Q');
     t.reset();
     feed(t, "\033(0lqqk\033(Bx");
     assert(t.graphics(3) && !t.graphics(7));
@@ -132,6 +172,11 @@ int main() {
     keys(k, "\033[B");
     assert(input == "\033OB");
     input.clear();
+    plots.clear();
+    keys(k, "\033[>4v");
+    assert(t.plotting() && plots.size() == 1 && plots[0].event == vt::Terminal::PlotBegin);
+    keys(k, "\033[>0v");
+    assert(!t.plotting() && plots.back().event == vt::Terminal::PlotAbort);
     keys(k, "\033[99~");
     assert(input == "\033[99~");
     input.clear();

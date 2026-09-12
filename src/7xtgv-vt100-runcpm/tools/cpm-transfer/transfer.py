@@ -135,6 +135,11 @@ class Progress:
         if self.line_open:
             sys.stdout.write('\n');sys.stdout.flush();self.line_open=False
 
+def cpm_text(data):
+    """Convert host text into CP/M CR/LF text ending with Ctrl+Z."""
+    data=data.replace(b'\r\n',b'\n').replace(b'\r',b'\n')
+    return data.replace(b'\n',b'\r\n').rstrip(b'\x1a')+b'\x1a'
+
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--port',default='/dev/ttyACM0')
@@ -144,14 +149,22 @@ if __name__=='__main__':
                    help='keep normal #9 mapped input for comparison testing')
     p.add_argument('--verify', action='store_true',
                    help='read uploaded files back for byte-for-byte verification')
+    p.add_argument('--cpm-text', action='store_true',
+                   help='convert uploaded host text to CP/M CR/LF text ending in Ctrl+Z')
     p.add_argument('action',choices=['get','put'])
     p.add_argument('files',nargs='+')
     p.add_argument('--directory',type=Path,default=Path('.'))
     args=p.parse_args()
     paths=[Path(f) for f in args.files]
-    progress=None
+    progress=None; uploadData={}
     if args.action=='put':
-        total=sum(((path.stat().st_size+127)//128)*128*2 for path in paths)
+        for path in paths:
+            data=path.read_bytes()
+            uploadData[path]=cpm_text(data) if args.cpm_text else data
+        # Reserve a second equal pass only for an explicit byte-for-byte
+        # read-back.  A write-only upload must visibly finish at 100%.
+        passes=2 if args.verify else 1
+        total=sum(((len(uploadData[path])+127)//128)*128*passes for path in paths)
         progress=Progress(total)
     link=Link(args.port,raw=not args.no_raw)
     try:
@@ -162,7 +175,7 @@ if __name__=='__main__':
                 (args.directory/f.upper()).write_bytes(data)
                 print('READ',f,len(data),flush=True)
             else:
-                size=link.put(path.name.upper(),path.read_bytes(),progress)
+                size=link.put(path.name.upper(),uploadData[path],progress,verify=args.verify)
                 if progress:progress.newline()
-                print('VERIFIED',path.name,size,flush=True)
+                print('VERIFIED' if args.verify else 'SAVED',path.name,size,flush=True)
     finally:link.close()

@@ -31,6 +31,7 @@ key F5        -Shift-Alt-Ctrl : "\x11\x46"
 # PC fallback for the firmware's future exact Left-Alt + Right-Alt gestures.
 key Escape     -Shift+Alt-Ctrl : "\E[>60v"
 key Backspace  -Shift+Alt-Ctrl : "\E[>61v"
+key Backspace  +Shift+Alt-Ctrl : "\E[>4v"
 
 # Application-profile Alt keys. Viewport controls remain on Ctrl+] a/e/h/l.
 key Left      -Shift+Alt-Ctrl : "\E[>52v"

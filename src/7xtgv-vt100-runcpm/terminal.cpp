@@ -29,7 +29,56 @@ void Terminal::invalidate() {
     std::fill(mirrorDirty, mirrorDirty + Rows, true);
     mirrorCursorDirty = indicatorDirty = true;
 }
+void Terminal::plot(PlotEvent event, uint16_t value) {
+    if (plot_)
+        plot_(plotContext_, event, value);
+}
+uint16_t Terminal::xterm565(int index) {
+    static const uint8_t base[16][3] = {
+        {0, 0, 0},       {205, 0, 0},   {0, 205, 0},   {205, 205, 0},
+        {0, 0, 238},     {205, 0, 205}, {0, 205, 205}, {229, 229, 229},
+        {127, 127, 127}, {255, 0, 0},   {0, 255, 0},   {255, 255, 0},
+        {92, 92, 255},   {255, 0, 255}, {0, 255, 255}, {255, 255, 255},
+    };
+    uint8_t r, g, b;
+    if (index < 16) {
+        r = base[index][0];
+        g = base[index][1];
+        b = base[index][2];
+    } else if (index < 232) {
+        static const uint8_t cube[6] = {0, 95, 135, 175, 215, 255};
+        const int value = index - 16;
+        r = cube[value / 36];
+        g = cube[(value / 6) % 6];
+        b = cube[value % 6];
+    } else {
+        r = g = b = uint8_t(8 + 10 * (index - 232));
+    }
+    return uint16_t((uint16_t(r >> 3) << 11) | (uint16_t(g >> 2) << 5) | (b >> 3));
+}
+void Terminal::beginPlot() {
+    // The private GCLS command always selects ANSI before arming one plot.
+    ansi = true;
+    state = Ground;
+    wrapPending = false;
+    applicationCursor = false;
+    abortPlot();
+    plotState = PlotReady;
+    plotInk = 0;
+    plotPaper = 0xffff;
+    plotStarted = false;
+    plotLogicalRow = false;
+    plot(PlotBegin);
+}
+void Terminal::abortPlot() {
+    if (plotState == PlotOff)
+        return;
+    plotState = PlotOff;
+    plotStarted = false;
+    plot(PlotAbort);
+}
 void Terminal::reset() {
+    abortPlot();
     x = y = viewport = top = 0;
     bottom = Rows - 1;
     ansi = cursorVisible = autowrap = true;
@@ -49,6 +98,7 @@ void Terminal::reset() {
     invalidate();
 }
 void Terminal::setMode(bool a) {
+    abortPlot();
     ansi = a;
     state = Ground;
     wrapPending = false;
@@ -123,6 +173,12 @@ void Terminal::index(bool reverse) {
     wrapPending = false;
 }
 void Terminal::put(uint8_t c) {
+    if (plotState == PlotSampleArmed) {
+        plotStarted = true;
+        plot(PlotSample, plotInk);
+        plotState = PlotReady;
+        return;
+    }
     if (wrapPending && autowrap) {
         move(0, y);
         index();
@@ -172,6 +228,7 @@ int Terminal::param(int n, int fallback) const {
     return n < count && params[n] > 0 ? params[n] : fallback;
 }
 void Terminal::sgr() {
+    bool finishPlot = false;
     for (int j = 0; j < count; j++) {
         int p = params[j] < 0 ? 0 : params[j];
         if (p == 0) {
@@ -179,6 +236,7 @@ void Terminal::sgr() {
             paper = 0;
             rendition = 0;
             bold = false;
+            finishPlot = plotting();
         } else if (p == 1)
             bold = true;
         else if (p == 22)
@@ -195,10 +253,13 @@ void Terminal::sgr() {
             rendition |= Reverse;
         else if (p == 27)
             rendition &= ~Reverse;
-        else if (p == 39)
+        else if (p == 39) {
             ink = 1;
-        else if (p == 49)
+            plotInk = 0;
+        } else if (p == 49) {
             paper = 0;
+            plotPaper = 0xffff;
+        }
         else if (p >= 30 && p <= 37)
             ink = ansiInk(p - 30);
         else if (p >= 90 && p <= 97)
@@ -215,11 +276,23 @@ void Terminal::sgr() {
         }
         // Consume unsupported extended colors as a unit, never as bold/reverse commands.
         else if (p == 38 || p == 48) {
-            if (j + 1 < count && params[j + 1] == 5)
+            if (j + 1 < count && params[j + 1] == 5) {
+                if (j + 2 < count && params[j + 2] >= 0 && params[j + 2] <= 255) {
+                    if (p == 38 && plotState != PlotOff) {
+                        plotInk = xterm565(params[j + 2]);
+                        plotState = PlotSampleArmed;
+                    } else if (p == 48 && plotState != PlotOff) {
+                        plotPaper = xterm565(params[j + 2]);
+                    }
+                }
                 j = std::min(count - 1, j + 2);
-            else if (j + 1 < count && params[j + 1] == 2)
+            } else if (j + 1 < count && params[j + 1] == 2)
                 j = std::min(count - 1, j + 4);
         }
+    }
+    if (finishPlot) {
+        plotState = PlotOff;
+        plot(PlotEnd);
     }
 }
 void Terminal::dispatch(uint8_t f) {
@@ -252,6 +325,11 @@ void Terminal::dispatch(uint8_t f) {
                 mirrorCursorDirty = true;
                 break;
             }
+        return;
+    }
+    if (prefix == '>') {
+        if (f == 'v' && count == 1 && params[0] == 4)
+            beginPlot();
         return;
     }
     if (prefix)
@@ -350,6 +428,8 @@ void Terminal::designate(uint8_t c) {
         g0 = (c == '0');
 }
 void Terminal::feed(uint8_t c) {
+    if (plotState == PlotSampleArmed && c < 32)
+        plotState = PlotReady; // A control sequence cannot also be a sample.
     if (c == 24 || c == 26) {
         state = Ground;
         return;
@@ -369,6 +449,22 @@ void Terminal::feed(uint8_t c) {
     }
     // VT52 addressing includes bytes >= 0x20 only.
     if (c < 32) {
+        // GCLS is only armed until its first actual xterm sample.  CCP/SUBMIT
+        // output in that window is ordinary ANSI text, including its CR/LF.
+        // Once plotting has begun, CR/LF belongs to the pixel stream.
+        if (plotState != PlotOff && plotStarted) {
+            if (c == 13)
+                return;
+            if (c == 10) {
+                if (!plotLogicalRow) {
+                    move(0, y);
+                    index();
+                    plotLogicalRow = true;
+                }
+                plot(PlotRow);
+                return;
+            }
+        }
         switch (c) {
         case 7:
             bells++;
@@ -556,8 +652,7 @@ void Terminal::feed(uint8_t c) {
             invalid = true;
         return;
     }
-    if (c != 127)
-        put(c);
+    put(c);
 }
 void Keyboard::output(const char *s) {
     send_(context_, reinterpret_cast<const uint8_t *>(s), strlen(s));
@@ -580,12 +675,16 @@ void Keyboard::finish() {
         t_.pan(t_.viewport - 4);
     else if (!strcmp(s, "\033[1;3C") || !strcmp(s, "\033\033[C"))
         t_.pan(t_.viewport + 4);
-    else if (!strcmp(s, "\033[>0v"))
+    else if (!strcmp(s, "\033[>0v")) {
+        t_.abortPlot();
         t_.invalidate();
+    }
     else if (!strcmp(s, "\033[>1v"))
         t_.setMode(true);
     else if (!strcmp(s, "\033[>2v"))
         t_.setMode(false);
+    else if (!strcmp(s, "\033[>4v"))
+        t_.beginPlot();
     else if (!strcmp(s, "\033[>10v")) {
         if (act_) act_(context_, HistoryPrevious);
     } else if (!strcmp(s, "\033[>11v")) {

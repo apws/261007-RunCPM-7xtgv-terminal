@@ -36,6 +36,30 @@ static void screenshot(const char *path) {
 int main() {
     terminalSetup();
     assert(ready && backlight == 150 && displayOK);
+    // The same runtime callback used by the buffered S3 target must also draw
+    // a direct 320x240 Arduino_GFX row without touching text RAM or the PC
+    // mirror.  The test stub represents that RP2350-style direct path.
+    for (uint8_t c : std::string("\033[>4v"))
+        terminal.feed(c);
+    assert(!plotCapture && gfx->framebuffer[0] == 0xffff);
+    for (uint8_t c : std::string("\033[38;5;196m#\033[38;5;21m[\r\n\033[0m"))
+        terminal.feed(c);
+    assert(gfx->framebuffer[0] == 0xf800 && gfx->framebuffer[1] == 0x001f);
+    assert(terminal.charRAM[0] == ' ' && !terminal.plotting());
+    for (bool dirty : terminal.dirty) assert(!dirty); // plot-end backlog was discarded
+    // A USB mirror reconnect must refresh only the PC, never invalidate the
+    // retained TFT plot beneath the terminal plane.
+    Serial.online = false;
+    terminalLoop();
+    Serial.online = true;
+    for (int i = 0; i < 4; ++i) terminalLoop();
+    assert(gfx->framebuffer[0] == 0xf800 && gfx->framebuffer[1] == 0x001f);
+    Serial.online = false; // preserve the later disconnected-mirror fixture
+    terminalLoop();
+    Serial.tx.clear();
+    terminal.feed('D');
+    assert(terminal.dirty[80]); // post-plot text still requests normal rendering
+    terminal.reset(); // Restore the original test fixture after the GCLS transaction.
     for (int i = 0; i < 200; ++i) terminalLoop();
     const uint16_t paleGreen = rgb565({205, 255, 205});
     const uint16_t cursorGreen = rgb565({0, 255, 80});

@@ -19,6 +19,7 @@ COMMANDS = {
     ord('a'): b'\x1b[1;3H', ord('e'): b'\x1b[1;3F',
     ord('h'): b'\x1b[1;3D', ord('l'): b'\x1b[1;3C',
     ord('r'): b'\x1b[>0v', PREFIX: bytes([PREFIX]),
+    ord('g'): b'\x1b[>4v',
     ord('#'): b'\x1b[>15v',
     ord('x'): b'\x1b[>60v', ord('c'): b'\x1b[>61v',
     ord('p'): b'\x1b[>10v', ord('n'): b'\x1b[>11v',
@@ -101,6 +102,33 @@ def configure_serial(fd):
     fcntl.ioctl(fd, termios.TIOCMBIS, struct.pack('I', termios.TIOCM_DTR))
 
 
+def open_serial(port):
+    """Open one USB-serial incarnation without disturbing the PC terminal."""
+    fd = os.open(port, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+    try:
+        fcntl.ioctl(fd, termios.TIOCEXCL)
+        saved_serial = termios.tcgetattr(fd)
+        configure_serial(fd)
+        return fd, saved_serial
+    except BaseException:
+        os.close(fd)
+        raise
+
+
+def close_serial(fd, saved_serial):
+    if fd is None:
+        return
+    try:
+        if saved_serial is not None:
+            fcntl.ioctl(fd, termios.TIOCMBIC, struct.pack('I', termios.TIOCM_DTR))
+            termios.tcsetattr(fd, termios.TCSANOW, saved_serial)
+        fcntl.ioctl(fd, termios.TIOCNXCL)
+    except OSError:
+        # A USB disconnect invalidates the old file descriptor.
+        pass
+    os.close(fd)
+
+
 def interrupted(signum, frame):
     raise KeyboardInterrupt
 
@@ -111,7 +139,7 @@ def run(port, mode):
     dimensions = os.get_terminal_size(1)
     if dimensions.columns < 80 or dimensions.lines < 24:
         raise RuntimeError('Enlarge the PC terminal to at least 80 columns and 24 rows.')
-    fd = os.open(port, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+    fd = None
     saved_serial = None
     saved_keyboard = termios.tcgetattr(0)
     saved_stdout = fcntl.fcntl(1, fcntl.F_GETFL)
@@ -119,10 +147,7 @@ def run(port, mode):
     incoming, outgoing = bytearray(), bytearray()
     entered = False
     try:
-        # Prevent another serial program from opening this device during the session.
-        fcntl.ioctl(fd, termios.TIOCEXCL)
-        saved_serial = termios.tcgetattr(fd)
-        configure_serial(fd)
+        fd, saved_serial = open_serial(port)
         tty.setraw(0, termios.TCSANOW)
         os.write(1, b'\x1b[?1049h\x1b[?2004l\x1b[?1l\x1b>\x1b[0m\x1b[2J\x1b[H')
         entered = True
@@ -130,55 +155,70 @@ def run(port, mode):
         if mode:
             outgoing.extend(COMMANDS[ord('1' if mode == 'ansi' else '2')])
         outgoing.extend(b'\x1b[>0v')
+        reconnect_at = 0.0
         while not keys.quit:
-            readers = []
-            if len(outgoing) < 8192:
-                readers.append(0)
-            if len(incoming) < 65536:
+            # Keep stdin readable during a USB outage so Ctrl+] q always works.
+            readers = [0]
+            if fd is not None and len(incoming) < 65536:
                 readers.append(fd)
-            writers = ([fd] if outgoing else []) + ([1] if incoming else [])
+            writers = ([fd] if fd is not None and outgoing else []) + ([1] if incoming else [])
             readable, writable, _ = select.select(readers, writers, [], 0.1)
             outgoing.extend(keys.tick())
             if 0 in readable:
                 data = os.read(0, 256)
                 if not data:
                     break
-                outgoing.extend(keys.feed(data))
+                translated = keys.feed(data)
+                if not keys.quit and len(outgoing) < 8192:
+                    outgoing.extend(translated)
+            if fd is None and time.monotonic() >= reconnect_at:
+                reconnect_at = time.monotonic() + 0.25
+                try:
+                    fd, saved_serial = open_serial(port)
+                except OSError:
+                    pass
+                else:
+                    # The firmware answers this with its complete text buffer.
+                    # Do not invalidate the TFT: a completed xterm256 plot stays up.
+                    incoming.clear()
+                    outgoing.extend(b'\x1b[>0v')
             if fd in readable:
                 try:
                     data = os.read(fd, 4096)
                 except BlockingIOError:
                     data = None
                 if data == b'':
-                    raise RuntimeError('RP2350 disconnected. Reconnect the device and launch the helper again.')
+                    close_serial(fd, saved_serial)
+                    fd = saved_serial = None
+                    reconnect_at = time.monotonic() + 0.25
                 if data:
                     incoming.extend(data)
             for target, pending in ((fd, outgoing), (1, incoming)):
-                if target in writable:
+                if target is not None and target in writable:
                     try:
                         written = os.write(target, pending[:4096])
                         del pending[:written]
                     except BlockingIOError:
                         pass
+                    except OSError:
+                        if target == fd:
+                            close_serial(fd, saved_serial)
+                            fd = saved_serial = None
+                            reconnect_at = time.monotonic() + 0.25
+                        else:
+                            raise
     finally:
         fcntl.fcntl(1, fcntl.F_SETFL, saved_stdout)
         if entered:
             os.write(1, b'\x1b[0m\x1b[?7h\x1b[?25h\x1b[?1049l')
         termios.tcsetattr(0, termios.TCSANOW, saved_keyboard)
-        if saved_serial is not None:
-            try:
-                fcntl.ioctl(fd, termios.TIOCMBIC, struct.pack('I', termios.TIOCM_DTR))
-                termios.tcsetattr(fd, termios.TCSANOW, saved_serial)
-                fcntl.ioctl(fd, termios.TIOCNXCL)
-            except OSError:
-                pass
-        os.close(fd)
+        close_serial(fd, saved_serial)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, epilog=(
         'Ctrl+] then q: exit; 1: ANSI; 2: VT52; a/e: left/right edge; '
-        'h/l: pan; r: redraw; p/n: history; [/]: history bank; '
+        'h/l: pan; r: redraw; g: xterm256 GCLS; p/n: history; [/]: history bank; '
         '#: toggle RAW; x: profile exit; c: profile clear; Ctrl+] again: literal Ctrl+]. '
         'Alt+Home/End and Alt+Left/Right also pan.'))
     parser.add_argument('--port', help='Serial device; defaults to the unique RP2350 by-id path')

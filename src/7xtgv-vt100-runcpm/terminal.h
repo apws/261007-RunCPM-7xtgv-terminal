@@ -21,12 +21,21 @@ class Terminal {
     bool mirrorCursorDirty = true, indicatorDirty = true;
     unsigned bells = 0;
     using Reply = void (*)(void *, const uint8_t *, size_t);
+    // xterm-256 plot samples are terminal syntax, but their RGB565 destination
+    // belongs to the display runtime.  This narrow callback keeps the parser
+    // usable by direct and buffered Arduino_GFX targets alike.
+    enum PlotEvent : uint8_t { PlotBegin, PlotSample, PlotRow, PlotEnd, PlotAbort };
+    using Plot = void (*)(void *, PlotEvent, uint16_t);
     explicit Terminal(Reply reply = nullptr, void *context = nullptr);
     void reset();
     void feed(uint8_t c);
     void setMode(bool ansiMode);
     void pan(int offset);
     void invalidate();
+    void setPlotSink(Plot plot, void *context) { plot_ = plot; plotContext_ = context; }
+    void beginPlot();
+    void abortPlot();
+    bool plotting() const { return plotState != PlotOff; }
     RGB foreground(int i) const;
     RGB background(int i) const;
     bool graphics(int i) const { return flags[i] & Graphics; }
@@ -45,6 +54,12 @@ class Terminal {
     } state = Ground;
     Reply reply_;
     void *context_;
+    Plot plot_ = nullptr;
+    void *plotContext_ = nullptr;
+    enum PlotState : uint8_t { PlotOff, PlotReady, PlotSampleArmed } plotState = PlotOff;
+    uint16_t plotInk = 0, plotPaper = 0xffff;
+    bool plotStarted = false;
+    bool plotLogicalRow = false;
     int top = 0, bottom = Rows - 1, savedX = 0, savedY = 0, addressRow = 0;
     uint8_t ink = 1, paper = 0, rendition = 0, savedInk = 1, savedPaper = 0, savedRendition = 0;
     bool bold = false, savedBold = false, origin = false, autowrap = true, wrapPending = false;
@@ -64,6 +79,8 @@ class Terminal {
     void put(uint8_t c);
     void dispatch(uint8_t final);
     void sgr();
+    void plot(PlotEvent event, uint16_t value = 0);
+    static uint16_t xterm565(int index);
     void save();
     void restore();
     void send(const char *s);

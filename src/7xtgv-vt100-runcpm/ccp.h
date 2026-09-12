@@ -1099,6 +1099,8 @@ void _ccp_readInput(void) {
         for (i = 0; i <= chars; ++i)
             _RamWrite(inBuf + i + 1, _RamRead(defDMA + i));
         _RamWrite(inBuf + i + 1, 0);
+        // SUBMIT records already carry their CR/LF terminator.  Preserve that
+        // single terminator when echoing the record before dispatch.
         _puts((char *)_RamSysAddr(inBuf + 2));
         if (!submitRecords) {
             _ccp_bdos(F_DELETE, BatchFCB); // Deletes the submit file
@@ -1201,8 +1203,11 @@ void _ccp(void) {
         paramDrive = currentDrive; // Initially the parameter drive is the same as the
                              // current drive
 
-        sprintf((char *)prompt, "\r\n%c%u%c", 'A' + currentDrive, currentUser,
-                submitFlag ? '$' : '>');
+        // Submitted records already receive CR/LF after their echo.  Adding
+        // the normal interactive prompt prefix again creates an empty row
+        // between every pair of SUB commands.
+        sprintf((char *)prompt, submitFlag ? "%c%u%c" : "\r\n%c%u%c",
+                'A' + currentDrive, currentUser, submitFlag ? '$' : '>');
         if (!bufferLen) {
             _puts((char *)prompt);
 
@@ -1294,7 +1299,11 @@ void _ccp(void) {
         if ((Status == STATUS_EXIT) || (Status == STATUS_RESTART))
             break;
     }
-    _puts("\r\n");
+    // A warm boot immediately enters another CCP instance.  SUBMIT already
+    // terminated its echoed record, and an interactive prompt supplies its
+    // own leading CR/LF, so emitting one here only creates an empty row.
+    if (Status != STATUS_RESTART)
+        _puts("\r\n");
 } // _ccp
 
 #endif // ifndef CCP_H

@@ -60,6 +60,10 @@ There are no Python package dependencies. The helper uses Linux termios at
 115200, asserts DTR, disables local echo and software/hardware flow control,
 and restores your PC terminal when it exits. It uses the PC alternate screen.
 Keyboard input is 7-bit terminal input; the mirror uses UTF-8 for DEC graphics.
+If the ESP32 USB serial device briefly disappears, the existing helper stays in
+its tmux session, reopens `/dev/ttyACM0` when it returns, and requests a fresh
+mirror snapshot. It does not blank the PC terminal or invalidate an xterm256
+plot on the TFT.
 
 If access is denied, grant temporary access to the current device:
 
@@ -82,6 +86,7 @@ exclusive access; do not run picocom or a second direct helper alongside it.
 | Ctrl+] then a / e | Same edge jumps; works without Alt mappings |
 | Ctrl+] then h / l | Same left/right pan |
 | Ctrl+] then 1 / 2 | Select ANSI / VT52 locally |
+| Ctrl+] then g or Shift+Alt+Backspace | GCLS: arm one local xterm-256 pixel plot on a white TFT canvas |
 | Ctrl+] then r | Refresh PC mirror and TFT |
 | Ctrl+] then p / n | Previous/next history line |
 | Ctrl+] then [ / ] | Previous/next history list |
@@ -234,12 +239,21 @@ A connection or refresh requests a full screen snapshot. Cursor updates are
 included; no device-identification or cursor-report queries are sent to the PC.
 The PC mirror's font need not visually match the QL font on the TFT.
 
-The firmware does not retain a full TFT framebuffer: it renders one 6×10 cell
-scratch tile at a time and sends it to the display. The ST7789 wiring is also
-write-only, so a native capture cannot read pixels back from the panel. A future
-debug-only USB request can therefore capture a deterministic 80×24 RGB image by
-replaying the terminal cell buffers through the same renderer; that request must
-use a private diagnostic framing separate from CP/M and the normal screen mirror.
+`GCLS` is the private `ESC[>4v` terminal control, not a standard xterm
+sequence. While it is armed, `CSI 38;5;n m` followed by one printable byte
+becomes one local RGB565 pixel; CR/LF ends each plot row and `CSI 0m` ends the
+transaction. The samples never enter terminal text RAM or the PC mirror.
+`BROT-BS` and `BROT-PS` can therefore remain unchanged even though RunCPM
+masks the former program's `0xDB` sample byte to `[`. Normal opaque terminal
+output after the final reset sequence overwrites the temporary image.
+
+The direct RP2350/ST7789 target renders one 6×10 scratch tile at a time and
+sends it to the display. Its write-only wiring cannot read native pixels back.
+The JC8048W535 ESP32-S3 target instead uses its documented rotated PSRAM canvas
+workaround; see [its implementation note](../../docs/260912-12%20JC8048W535%20software%20rotation%20and%20framebuffer%20implementation.md).
+A future debug-only USB request can capture a deterministic 80×24 RGB image by
+replaying terminal cell buffers through the same renderer; it must use private
+diagnostic framing separate from CP/M and the normal screen mirror.
 
 ## Tests
 

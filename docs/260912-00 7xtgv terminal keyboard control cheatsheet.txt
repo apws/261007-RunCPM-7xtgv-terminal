@@ -1,0 +1,28 @@
+
+assign our 7xtgv terminal specials Ctrl+]:
+
+future extension: 16 instead of 10 profiles (hex)
+(allowed for ALL user areas of current drive)
+profiles 0-15 0123456789ABCDEF = A user areas
+
+ALT = LALT
+CT  = Ctrl
+SH  = Shift
+
+q - ALT+CT+ESC  = TERM QUIT [[ / RESTART ]]
+r - ALT+CT+SP   = TERM refresh TFT and PC mirror
+
+c - ALT+BS      = CLS
+x - ALT+ESC     = QUIT (app) [[ REBOOT (ccp) ]]
+
+# - ALT+#       = profile toggle ## RAW
+[ - ALT+PgUp    = profile prev #0
+] - ALT+PgDn    = profile next #n
+
+a - ALT+HOME    = viewport left       (ALT+SH+Q)
+e - ALT+END     = viewport right      (ALT+SH+W)
+h - ALT+left    = viewport pan left   (ALT+Q)
+l - ALT+right   = viewport pan right  (ALT+W)
+
+p - up          = history line prev  (ALT+up)
+n - down        = history line next  (ALT+down)

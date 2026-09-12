@@ -741,12 +741,91 @@ static uint32_t displayFlushAt = 0;
 static bool displayFlushPending = false;
 #endif
 static uint16_t pixels[6 * 10];
+// xterm-256 plotting uses only a transient logical scanline.  The actual
+// backing is whichever Arduino_GFX surface this target selected: the S3 canvas
+// today, or a direct controller path on the RP2350 target.
+static uint16_t *plotScanline = nullptr;
+static int plotWidth = 0, plotX = 0, plotY = 0;
+static bool plotCapture = false;
+// Remains true after CSI 0m: the TFT still contains a completed temporary
+// plot even though the parser has resumed ordinary ANSI text.
+static bool plotCanvasValid = false;
 static int scanCell = 0, mirrorScan = 0;
 static char mirrorBuffer[8192];
 static size_t mirrorLength = 0, mirrorSent = 0;
 static bool mirrorReset = false;
 static int activeRow = -1;
 static uint8_t activeRowBank = 255;
+
+static void requestDisplayFlush() {
+#if defined(GFX_BUFFERED_CANVAS)
+    displayFlushPending = true;
+#endif
+}
+static void flushCanvasIfDue() {
+#if defined(GFX_BUFFERED_CANVAS)
+    const uint32_t now = millis();
+    if (displayFlushPending && int32_t(now - displayFlushAt) >= 0) {
+        gfx->flush();
+        displayFlushPending = false;
+        displayFlushAt = now + 33;
+    }
+#endif
+}
+static void flushPlotRow() {
+    if (!displayOK || !plotScanline || !plotX)
+        return;
+    if (plotY >= 0 && plotY < gfx->height())
+        gfx->draw16bitRGBBitmap(0, plotY, plotScanline, std::min(plotX, plotWidth), 1);
+    requestDisplayFlush();
+}
+static void terminalPlot(void *, vt::Terminal::PlotEvent event, uint16_t color) {
+    switch (event) {
+    case vt::Terminal::PlotBegin:
+        // GCLS clears the graphics surface but still lets the user see and
+        // enter the CP/M command which will generate the plot. Suppression of
+        // opaque terminal cells begins only with the first actual sample.
+        plotCapture = false;
+        plotCanvasValid = false;
+        plotX = plotY = 0;
+        // GCLS only clears the physical graphics backing. Logical text and its
+        // PC mirror remain intact; future normal output will repaint it.
+        std::fill(terminal.dirty, terminal.dirty + vt::Cells, false);
+        if (displayOK) {
+            gfx->fillScreen(0xffff);
+            requestDisplayFlush();
+        }
+        break;
+    case vt::Terminal::PlotSample:
+        plotCapture = true;
+        plotCanvasValid = true;
+        if (plotScanline && plotY >= 0 && plotY < gfx->height() && plotX >= 0 && plotX < plotWidth)
+            plotScanline[plotX] = color;
+        ++plotX;
+        break;
+    case vt::Terminal::PlotRow:
+        flushPlotRow();
+        plotX = 0;
+        ++plotY;
+        break;
+    case vt::Terminal::PlotEnd:
+        flushPlotRow();
+        plotX = 0;
+        // Discard terminal cells accumulated while plotting was deliberately
+        // suppressing opaque TFT writes. SGR 0 arrives before the benchmark's
+        // completion message, so subsequent normal output is still drawn.
+        // Without this cleanup the delayed cells erase the completed plot in
+        // one full repaint as soon as capture ends.
+        std::fill(terminal.dirty, terminal.dirty + vt::Cells, false);
+        plotCapture = false;
+        break;
+    case vt::Terminal::PlotAbort:
+        plotX = plotY = 0;
+        plotCapture = false;
+        plotCanvasValid = false;
+        break;
+    }
+}
 
 static vt::RGB profileRGB(const uint8_t rgb[3]) { return {rgb[0], rgb[1], rgb[2]}; }
 static void dirtyRow(int row) {
@@ -978,6 +1057,13 @@ static void drawIndicator() {
 static void renderBatch() {
     if (!displayOK)
         return;
+    // Plot samples paint directly into the graphics surface. Keep terminal
+    // cells out until SGR 0 ends that transaction, but still flush a buffered
+    // canvas so the physical Mandelbrot image becomes visible.
+    if (plotCapture) {
+        flushCanvasIfDue();
+        return;
+    }
     int drawn = 0;
 #if defined(GFX_BUFFERED_CANVAS)
     constexpr int DrawBudget = vt::Visible * vt::Rows;
@@ -1003,12 +1089,7 @@ static void renderBatch() {
     }
 #if defined(GFX_BUFFERED_CANVAS)
     displayFlushPending |= drawn != 0;
-    uint32_t now = millis();
-    if (displayFlushPending && int32_t(now - displayFlushAt) >= 0) {
-        gfx->flush();
-        displayFlushPending = false;
-        displayFlushAt = now + 33;
-    }
+    flushCanvasIfDue();
 #endif
 }
 static const char *graphicText(uint8_t ch) {
@@ -1129,7 +1210,12 @@ static void mirrorPump() {
         connected = now;
         mirrorLength = mirrorSent = 0;
         if (now) {
-            terminal.invalidate();
+            // A USB CDC/DTR reconnect needs a complete PC mirror snapshot,
+            // but it must not erase a completed xterm plot which is still
+            // intentionally retained on the TFT. Ctrl+] r remains the
+            // explicit way to repaint the normal opaque terminal surface.
+            if (!plotCanvasValid)
+                terminal.invalidate();
             mirrorReset = true;
         }
     }
@@ -1238,7 +1324,11 @@ void terminalSetup() {
         gfx->flush();
         displayFlushAt = millis() + 33;
 #endif
+        plotWidth = gfx->width();
+        if (plotWidth > 0)
+            plotScanline = new (std::nothrow) uint16_t[plotWidth];
     }
+    terminal.setPlotSink(terminalPlot, nullptr);
     terminal.reset();
     if (!displayOK) {
         const char *s = "TFT initialization failed; PC mirror remains available.\r\n";

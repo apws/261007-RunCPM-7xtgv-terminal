@@ -30,6 +30,7 @@ class HelperTests(unittest.TestCase):
         k = bridge.Keys()
         self.assertEqual(k.feed(b'\x1d'), b'')
         self.assertEqual(k.feed(b'2'), b'\x1b[>2v')
+        self.assertEqual(k.feed(b'\x1dg'), b'\x1b[>4v')
         self.assertEqual(k.feed(b'\x1da\x1de\x1dh\x1dl'), b'\x1b[1;3H\x1b[1;3F\x1b[1;3D\x1b[1;3C')
 
     def test_literal_and_unknown(self):

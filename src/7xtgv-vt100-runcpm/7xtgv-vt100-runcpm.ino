@@ -244,9 +244,17 @@ static void runCPM() {
               _PatchBIOS();
             #endif
 
+            // A COM program normally terminates through BDOS 0, which is a
+            // CP/M warm boot.  Keep its CCP session and SUBMIT stream intact;
+            // the version header is useful once at a real RunCPM start, not
+            // between every command in that session.
+            bool firstCCPStart = true;
             while (true)
             {
-                _puts(CCPHEAD);
+                if (firstCCPStart) {
+                    _puts(CCPHEAD);
+                    firstCCPStart = false;
+                }
                 _PatchCPM();
                 Status = STATUS_RUNNING;
 

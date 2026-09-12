@@ -11,6 +11,8 @@ class Arduino_GFX {
   public:
     uint16_t framebuffer[320 * 240] = {};
     bool begin() { return true; }
+    int width() const { return 320; }
+    int height() const { return 240; }
     void fillScreen(uint16_t c) { std::fill(framebuffer, framebuffer + 320 * 240, c); }
     void fillRect(int x, int y, int w, int h, uint16_t c) {
         assert(x >= 0 && y >= 0 && x + w <= 320 && y + h <= 240);
