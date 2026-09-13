@@ -11,9 +11,12 @@ import struct
 import sys
 import termios
 import time
+import traceback
 import tty
 
 PREFIX = 0x1D  # Ctrl+]
+SNAPSHOT_REQUEST = b'\x1b[>62v'  # PC mirror only; does not redraw the TFT.
+SNAPSHOT_RESET = b'\x1b[2J\x1b[H'
 COMMANDS = {
     ord('1'): b'\x1b[>1v', ord('2'): b'\x1b[>2v',
     ord('a'): b'\x1b[1;3H', ord('e'): b'\x1b[1;3F',
@@ -154,7 +157,10 @@ def run(port, mode):
         fcntl.fcntl(1, fcntl.F_SETFL, saved_stdout | os.O_NONBLOCK)
         if mode:
             outgoing.extend(COMMANDS[ord('1' if mode == 'ansi' else '2')])
-        outgoing.extend(b'\x1b[>0v')
+        outgoing.extend(SNAPSHOT_REQUEST)
+        snapshot_pending = True
+        snapshot_retry_at = time.monotonic() + 2.0
+        snapshot_probe = bytearray()
         reconnect_at = 0.0
         while not keys.quit:
             # Keep stdin readable during a USB outage so Ctrl+] q always works.
@@ -162,7 +168,16 @@ def run(port, mode):
             if fd is not None and len(incoming) < 65536:
                 readers.append(fd)
             writers = ([fd] if fd is not None and outgoing else []) + ([1] if incoming else [])
-            readable, writable, _ = select.select(readers, writers, [], 0.1)
+            try:
+                readable, writable, _ = select.select(readers, writers, [], 0.1)
+            except (OSError, ValueError):
+                # Native USB may invalidate the descriptor before it reports
+                # EOF.  Keep the PC alternate screen and treat this exactly
+                # like a normal serial disconnect.
+                close_serial(fd, saved_serial)
+                fd = saved_serial = None
+                reconnect_at = time.monotonic() + 0.25
+                continue
             outgoing.extend(keys.tick())
             if 0 in readable:
                 data = os.read(0, 256)
@@ -181,7 +196,12 @@ def run(port, mode):
                     # The firmware answers this with its complete text buffer.
                     # Do not invalidate the TFT: a completed xterm256 plot stays up.
                     incoming.clear()
-                    outgoing.extend(b'\x1b[>0v')
+                    snapshot_pending = True
+                    snapshot_probe.clear()
+                    snapshot_retry_at = time.monotonic()
+            if fd is not None and snapshot_pending and time.monotonic() >= snapshot_retry_at:
+                outgoing.extend(SNAPSHOT_REQUEST)
+                snapshot_retry_at = time.monotonic() + 2.0
             if fd in readable:
                 try:
                     data = os.read(fd, 4096)
@@ -192,6 +212,13 @@ def run(port, mode):
                     fd = saved_serial = None
                     reconnect_at = time.monotonic() + 0.25
                 if data:
+                    if snapshot_pending:
+                        snapshot_probe.extend(data)
+                        if SNAPSHOT_RESET in snapshot_probe:
+                            snapshot_pending = False
+                            snapshot_probe.clear()
+                        elif len(snapshot_probe) > len(SNAPSHOT_RESET):
+                            del snapshot_probe[:-len(SNAPSHOT_RESET)]
                     incoming.extend(data)
             for target, pending in ((fd, outgoing), (1, incoming)):
                 if target is not None and target in writable:
@@ -231,6 +258,12 @@ def main():
     except KeyboardInterrupt:
         pass
     except (OSError, RuntimeError) as exc:
+        # USB disconnects should be handled inside run().  Preserve a traceback
+        # for any remaining exit path; tmux otherwise disappears with only a
+        # blank Konsole alternate screen left behind.
+        with open('/tmp/7xtgv-terminal.log', 'a', encoding='utf-8') as log:
+            log.write(time.strftime('%F %T ') + repr(exc) + '\n')
+            traceback.print_exc(file=log)
         print(f'7xtgv: {exc}', file=sys.stderr)
         if isinstance(exc, PermissionError):
             print('Your user needs read/write access to the serial device. See README.md.', file=sys.stderr)

@@ -26,6 +26,9 @@ void Terminal::changed(int i) {
 }
 void Terminal::invalidate() {
     std::fill(dirty, dirty + Cells, true);
+    invalidateMirror();
+}
+void Terminal::invalidateMirror() {
     std::fill(mirrorDirty, mirrorDirty + Rows, true);
     mirrorCursorDirty = indicatorDirty = true;
 }
@@ -705,6 +708,8 @@ void Keyboard::finish() {
         if (act_) act_(context_, ProfileExit);
     } else if (!strcmp(s, "\033[>61v")) {
         if (act_) act_(context_, ProfileClear);
+    } else if (!strcmp(s, "\033[>62v")) {
+        if (act_) act_(context_, MirrorSnapshot);
     } else if (size_ == 6 && !memcmp(s, "\033[>2", 4) && s[4] >= '0' && s[4] <= '9' && s[5] == 'v') {
         if (act_) act_(context_, Action(HistoryBank0 + s[4] - '0'));
     } else if (size_ == 6 && !memcmp(s, "\033[>", 3) && s[3] >= '3' && s[3] <= '5' &&

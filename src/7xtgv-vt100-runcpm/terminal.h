@@ -32,6 +32,7 @@ class Terminal {
     void setMode(bool ansiMode);
     void pan(int offset);
     void invalidate();
+    void invalidateMirror();
     void setPlotSink(Plot plot, void *context) { plot_ = plot; plotContext_ = context; }
     void beginPlot();
     void abortPlot();
@@ -103,6 +104,7 @@ class Keyboard {
         RawOff,
         ProfileExit,
         ProfileClear,
+        MirrorSnapshot,
         ProfileBackspace,
         HistoryBank0,
         HistoryBank9 = HistoryBank0 + 9,

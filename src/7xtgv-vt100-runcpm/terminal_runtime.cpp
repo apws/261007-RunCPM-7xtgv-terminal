@@ -594,12 +594,17 @@ static void mbasicEditPoll() {
     }
     mbasicEditStartKind = MbasicStartNone;
 }
+static void requestMirrorSnapshot();
 static void keyboardAction(void *, vt::Keyboard::Action action) {
     // Recall waits until the transient label is gone, but bank changes remain
     // live so Alt+PgUp/PgDn can browse banks and redraw #n immediately.
     if (historyNoticeActive &&
         (action == vt::Keyboard::HistoryPrevious || action == vt::Keyboard::HistoryNext))
         return;
+    if (action == vt::Keyboard::MirrorSnapshot) {
+        requestMirrorSnapshot();
+        return;
+    }
     if (action == vt::Keyboard::HistoryBankPrevious) {
         if (history) {
             uint8_t erase = history->discardCurrent();
@@ -692,10 +697,11 @@ static bool rawControlPrefix() {
     if (rawControlLength >= 1 && rawControl[0] != 0x1b) return false;
     if (rawControlLength >= 2 && rawControl[1] != '[') return false;
     if (rawControlLength >= 3 && rawControl[2] != '>') return false;
-    if (rawControlLength >= 4 && rawControl[3] != '1' && rawControl[3] != '2') return false;
+    if (rawControlLength >= 4 && rawControl[3] != '1' && rawControl[3] != '2' && rawControl[3] != '6') return false;
     if (rawControlLength >= 5) {
         if (rawControl[3] == '1' && (rawControl[4] < '4' || rawControl[4] > '7')) return false;
         if (rawControl[3] == '2' && (rawControl[4] < '0' || rawControl[4] > '9')) return false;
+        if (rawControl[3] == '6' && rawControl[4] != '2') return false;
     }
     return rawControlLength < 6 || rawControl[5] == 'v';
 }
@@ -728,6 +734,8 @@ static void rawFeed(uint8_t c, uint32_t now) {
         setRawInputMode(false);
     } else if (command == '6') {
         setRawInputMode(true);
+    } else if (group == '6' && command == '2') {
+        requestMirrorSnapshot();
     }
 }
 static void rawTick(uint32_t now) {
@@ -756,6 +764,19 @@ static size_t mirrorLength = 0, mirrorSent = 0;
 static bool mirrorReset = false;
 static int activeRow = -1;
 static uint8_t activeRowBank = 255;
+static uint32_t plotActiveRows = 0;
+
+// A plot may hold back normal opaque redraws for a long time.  When it ends,
+// retire the old highlight explicitly before allowing the next prompt row to
+// become active.  This is independent of whether GCLS was typed or read from
+// a CP/M SUB file.
+static void retirePlotActiveRows();
+static void rememberPlotActiveRow(int row);
+
+static void requestMirrorSnapshot() {
+    terminal.invalidateMirror();
+    mirrorReset = true;
+}
 
 static void requestDisplayFlush() {
 #if defined(GFX_BUFFERED_CANVAS)
@@ -787,7 +808,12 @@ static void terminalPlot(void *, vt::Terminal::PlotEvent event, uint16_t color) 
         // opaque terminal cells begins only with the first actual sample.
         plotCapture = false;
         plotCanvasValid = false;
+        plotActiveRows = 0;
         plotX = plotY = 0;
+        // The PC has no graphics canvas.  Repaint its ordinary text cells now
+        // so beginning a TFT-only xterm256 plot can never leave its mirror
+        // blank until the next normal CP/M output arrives.
+        requestMirrorSnapshot();
         // GCLS only clears the physical graphics backing. Logical text and its
         // PC mirror remain intact; future normal output will repaint it.
         std::fill(terminal.dirty, terminal.dirty + vt::Cells, false);
@@ -799,6 +825,7 @@ static void terminalPlot(void *, vt::Terminal::PlotEvent event, uint16_t color) 
     case vt::Terminal::PlotSample:
         plotCapture = true;
         plotCanvasValid = true;
+        rememberPlotActiveRow(activeRow);
         if (plotScanline && plotY >= 0 && plotY < gfx->height() && plotX >= 0 && plotX < plotWidth)
             plotScanline[plotX] = color;
         ++plotX;
@@ -818,11 +845,13 @@ static void terminalPlot(void *, vt::Terminal::PlotEvent event, uint16_t color) 
         // one full repaint as soon as capture ends.
         std::fill(terminal.dirty, terminal.dirty + vt::Cells, false);
         plotCapture = false;
+        retirePlotActiveRows();
         break;
     case vt::Terminal::PlotAbort:
         plotX = plotY = 0;
         plotCapture = false;
         plotCanvasValid = false;
+        plotActiveRows = 0;
         break;
     }
 }
@@ -834,15 +863,40 @@ static void dirtyRow(int row) {
     std::fill(terminal.dirty + row * vt::Cols, terminal.dirty + (row + 1) * vt::Cols, true);
     terminal.mirrorDirty[row] = true;
 }
+static void rememberPlotActiveRow(int row) {
+    if (row >= 0 && row < vt::Rows)
+        plotActiveRows |= uint32_t(1) << row;
+}
 static void updateActiveRow() {
     const uint8_t bank = history ? history->activeBank() : 0;
     const int next = profiles.get(bank).activeLine ? terminal.y : -1;
+    if (plotCapture) {
+        rememberPlotActiveRow(activeRow);
+        rememberPlotActiveRow(next);
+    }
     if (next == activeRow && bank == activeRowBank)
         return;
     dirtyRow(activeRow);
     activeRow = next;
     activeRowBank = bank;
     dirtyRow(activeRow);
+}
+static void retirePlotActiveRows() {
+    // Terminal::feed advances the logical cursor once, on the first plot-row
+    // LF.  The row immediately above it therefore contains any status text
+    // printed before the first xterm sample (BROT's "Generating ..." line).
+    // Include both explicitly: output can outrun updateActiveRow() in the same
+    // runtime batch, especially when the command came from SUBMIT.
+    rememberPlotActiveRow(terminal.y - 1);
+    rememberPlotActiveRow(terminal.y);
+    rememberPlotActiveRow(activeRow);
+    const uint32_t rows = plotActiveRows;
+    plotActiveRows = 0;
+    activeRow = -1;
+    activeRowBank = 255;
+    for (int row = 0; row < vt::Rows; ++row)
+        if (rows & (uint32_t(1) << row))
+            dirtyRow(row);
 }
 
 static uint16_t rgb565(vt::RGB c) { return ((c.r >> 3) << 11) | ((c.g >> 2) << 5) | (c.b >> 3); }
@@ -917,7 +971,7 @@ static void drawCell(int i) {
     uint8_t bank = (terminal.attrRAM[i] >> 6) & 3, ch = terminal.charRAM[i];
     vt::RGB foreground = terminal.foreground(i), background = terminal.background(i);
     const vt::HistoryProfile &profile = profiles.get(history ? history->activeBank() : 0);
-    if (profile.activeLine && row == terminal.y)
+    if (profile.activeLine && row == activeRow)
         background = profileRGB(profile.activeLineRGB);
     bool cursor =
         terminal.cursorVisible && cursorPhase && terminal.x == i % vt::Cols && terminal.y == row;
@@ -1176,7 +1230,7 @@ static void mirrorBuild() {
             if (oldAttr != terminal.attrRAM[i] || oldFlags != terminal.flags[i]) {
                 vt::RGB f = terminal.foreground(i), b = terminal.background(i);
                 const vt::HistoryProfile &profile = profiles.get(history ? history->activeBank() : 0);
-                if (profile.activeLine && row == terminal.y)
+                if (profile.activeLine && row == activeRow)
                     b = profileRGB(profile.activeLineRGB);
                 mirrorLength += snprintf(
                     mirrorBuffer + mirrorLength, sizeof(mirrorBuffer) - mirrorLength,
@@ -1210,12 +1264,14 @@ static void mirrorPump() {
         connected = now;
         mirrorLength = mirrorSent = 0;
         if (now) {
-            // A USB CDC/DTR reconnect needs a complete PC mirror snapshot,
-            // but it must not erase a completed xterm plot which is still
-            // intentionally retained on the TFT. Ctrl+] r remains the
-            // explicit way to repaint the normal opaque terminal surface.
+            // A USB CDC/DTR reconnect needs a complete PC mirror snapshot.
+            // With a retained xterm plot, invalidate only its mirror rows:
+            // sending the reset without making those rows dirty would leave
+            // the PC permanently blank after a transient DTR drop.
             if (!plotCanvasValid)
                 terminal.invalidate();
+            else
+                terminal.invalidateMirror();
             mirrorReset = true;
         }
     }
@@ -1478,6 +1534,10 @@ void terminalLoop() {
             continue;
         }
         terminal.feed(c);
+        // Preserve every active row traversed during a graphics transaction.
+        // At PlotEnd only those rows are repainted, leaving the rest of the
+        // retained xterm canvas untouched.
+        updateActiveRow();
     }
     historyNoticePoll();
     updateEffectiveBank();

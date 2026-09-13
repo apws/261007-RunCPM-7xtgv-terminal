@@ -36,24 +36,66 @@ static void screenshot(const char *path) {
 int main() {
     terminalSetup();
     assert(ready && backlight == 150 && displayOK);
+    // A host reconnect requests only a PC mirror snapshot.  It must not mark
+    // TFT cells dirty, because a retained xterm256 canvas belongs underneath
+    // that terminal surface.
+    std::fill(terminal.dirty, terminal.dirty + vt::Cells, false);
+    std::fill(terminal.mirrorDirty, terminal.mirrorDirty + vt::Rows, false);
+    terminal.mirrorCursorDirty = false;
+    mirrorReset = false;
+    for (uint8_t c : std::string("\033[>62v")) keyboard.feed(c, fakeTime);
+    for (bool dirty : terminal.dirty) assert(!dirty);
+    for (bool dirty : terminal.mirrorDirty) assert(dirty);
+    assert(terminal.mirrorCursorDirty && mirrorReset);
+    terminal.reset();
+    mirrorReset = false;
     // The same runtime callback used by the buffered S3 target must also draw
     // a direct 320x240 Arduino_GFX row without touching text RAM or the PC
     // mirror.  The test stub represents that RP2350-style direct path.
     for (uint8_t c : std::string("\033[>4v"))
         terminal.feed(c);
     assert(!plotCapture && gfx->framebuffer[0] == 0xffff);
+    assert(mirrorReset); // GCLS keeps a text-only PC view alive.
     for (uint8_t c : std::string("\033[38;5;196m#\033[38;5;21m[\r\n\033[0m"))
         terminal.feed(c);
     assert(gfx->framebuffer[0] == 0xf800 && gfx->framebuffer[1] == 0x001f);
     assert(terminal.charRAM[0] == ' ' && !terminal.plotting());
-    for (bool dirty : terminal.dirty) assert(!dirty); // plot-end backlog was discarded
+    // The plot backlog is discarded, then only the logical status/current
+    // rows are scheduled to remove any old active-line/cursor paint.
+    for (int i = 0; i < 2 * vt::Cols; ++i) assert(terminal.dirty[i]);
+    for (int i = 2 * vt::Cols; i < vt::Cells; ++i) assert(!terminal.dirty[i]);
+    // The active-line paint state also belongs to the suppressed terminal
+    // plane.  PlotEnd retires it and dirties only that old row, so a SUB-file
+    // GCLS cannot leave a pale strip under the benchmark's status line.
+    activeRow = 4;
+    activeRowBank = 0;
+    terminal.y = 7;
+    plotActiveRows = (uint32_t(1) << 2) | (uint32_t(1) << 4);
+    std::fill(terminal.dirty, terminal.dirty + vt::Cells, false);
+    terminalPlot(nullptr, vt::Terminal::PlotEnd, 0);
+    assert(activeRow == -1 && activeRowBank == 255 && plotActiveRows == 0);
+    for (int i = 0; i < vt::Cols; ++i) assert(terminal.dirty[2 * vt::Cols + i]);
+    for (int i = 0; i < vt::Cols; ++i) assert(terminal.dirty[4 * vt::Cols + i]);
+    for (int i = 0; i < vt::Cols; ++i) assert(terminal.dirty[6 * vt::Cols + i]);
+    for (int i = 0; i < vt::Cols; ++i) assert(terminal.dirty[7 * vt::Cols + i]);
+    terminal.x = 0;
+    terminal.y = 1;
     // A USB mirror reconnect must refresh only the PC, never invalidate the
     // retained TFT plot beneath the terminal plane.
+    // A reconnect after plotting has completed must invalidate the PC mirror
+    // even though the TFT canvas remains retained.  Otherwise it transmits
+    // only ESC[2J and leaves the host blank forever.
+    std::fill(terminal.mirrorDirty, terminal.mirrorDirty + vt::Rows, false);
+    terminal.mirrorCursorDirty = false;
+    Serial.capacity = 0; // inspect state before mirrorPump can consume a row
     Serial.online = false;
     terminalLoop();
     Serial.online = true;
     for (int i = 0; i < 4; ++i) terminalLoop();
     assert(gfx->framebuffer[0] == 0xf800 && gfx->framebuffer[1] == 0x001f);
+    for (bool dirty : terminal.mirrorDirty) assert(dirty);
+    assert(terminal.mirrorCursorDirty);
+    Serial.capacity = 64;
     Serial.online = false; // preserve the later disconnected-mirror fixture
     terminalLoop();
     Serial.tx.clear();
