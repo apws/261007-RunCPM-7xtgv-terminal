@@ -38,8 +38,10 @@
   quick testing.
 - At the very end of every final reply, and at the end of every escalation or
   permission question, print the currently selected model and reasoning level
-  in the form `Model: ... | Level: ...`. If the platform does not expose the
-  reasoning level, say `Level: unavailable` rather than guessing.
+  in one label, for example `Model: GPT-5.6-SOL-high`. Use the exact exposed
+  family/variant/effort (`SOL`, `TERRA`, or `LUNA`, and `low`/`medium`/`high`
+  when available); if only a family is exposed, print that family and append
+  `-level-unavailable` rather than guessing.
 - Keep this file short. Put detailed history, inventories and experiments in
   linked documentation under `docs/`.
 - Petr uses a Czech keyboard layout (`XTGV_BANK_KEYS` in `tools/terminal.conf`)
