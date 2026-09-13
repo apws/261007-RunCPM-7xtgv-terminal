@@ -60,6 +60,11 @@ int main() {
         terminal.feed(c);
     assert(gfx->framebuffer[0] == 0xf800 && gfx->framebuffer[1] == 0x001f);
     assert(terminal.charRAM[0] == ' ' && !terminal.plotting());
+    assert(plotEndCleanupPending);
+    for (bool dirty : terminal.dirty) assert(!dirty);
+    fakeTime += 100;
+    plotEndCleanupPoll(fakeTime);
+    assert(!plotEndCleanupPending);
     // The plot backlog is discarded, then only the logical status/current
     // rows are scheduled to remove any old active-line/cursor paint.
     for (int i = 0; i < 2 * vt::Cols; ++i) assert(terminal.dirty[i]);
@@ -73,6 +78,9 @@ int main() {
     plotActiveRows = (uint32_t(1) << 2) | (uint32_t(1) << 4);
     std::fill(terminal.dirty, terminal.dirty + vt::Cells, false);
     terminalPlot(nullptr, vt::Terminal::PlotEnd, 0);
+    assert(plotEndCleanupPending);
+    fakeTime += 100;
+    plotEndCleanupPoll(fakeTime);
     assert(activeRow == -1 && activeRowBank == 255 && plotActiveRows == 0);
     for (int i = 0; i < vt::Cols; ++i) assert(terminal.dirty[2 * vt::Cols + i]);
     for (int i = 0; i < vt::Cols; ++i) assert(terminal.dirty[4 * vt::Cols + i]);

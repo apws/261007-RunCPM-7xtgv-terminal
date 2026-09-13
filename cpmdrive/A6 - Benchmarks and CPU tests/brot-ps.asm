@@ -146,7 +146,7 @@ IF _APU
 
         call    delay
         call    delay
-                                        ; DMA/Wait Control Reg Set I/O Wait States
+                                        ; set DMA/Wait I/O states
         ld      a,DCNTL_MWI1|DCNTL_IWI1
         out0    (DCNTL),a               ; 2 Memory Wait & 3 I/O Wait
 
@@ -205,7 +205,7 @@ ENDIF
 IF _APU
 
         call    apu_calc
-        ld      hl,(z_2)                ; HL now contains (z_0 ^ 2 - z_1 ^ 2) / scale
+        ld      hl,(z_2)                ; (z_0 ^ 2 - z_1 ^ 2) / scale
 
 ELSE                                    ; IF !_APU
 
@@ -355,7 +355,7 @@ ENDIF
         call    delay
 
 IF _APU
-                                        ; DMA/Wait Control Reg Set I/O Wait States
+                                        ; set DMA/Wait I/O states
         ld      a,DCNTL_MWI0|DCNTL_IWI1
         out0    (DCNTL),a               ; 1 Memory Wait & 3 I/O Wait
 ENDIF
@@ -392,7 +392,7 @@ ENDIF
 
 .setcolor
         push    af                      ; save accumulator
-        ld      de,ansifg               ; start ANSI control sequence to set foreground color
+        ld      de,ansifg               ; ANSI foreground sequence
 IF _CPM                                 ; cp/m ram model 
         call    prtmesg
 ELSE
@@ -774,9 +774,9 @@ ELSE                                    ; IF !_DOUBLE
 
 ENDIF                                   ; IF !_DOUBLE
 
-        call asm_am9511a_isr            ; KICK OFF APU PROCESS, WHICH THEN INTERRUPTS
+        call asm_am9511a_isr            ; start APU process
 
-        jp asm_am9511a_chk_idle         ; CHECK, because it could be doing a last command
+        jp asm_am9511a_chk_idle         ; wait for final command
 
 ELSE                                    ; IF !_APU
 
@@ -857,7 +857,7 @@ IF __Z180
    adc hl,bc                    ; hl = final product MSW
    ex de,hl
 
-   pop bc                       ; recover sign info from multiplicand and multiplier
+   pop bc                       ; recover multiplicand/multiplier sign
    ld a,b
    xor c
    ret P                        ; return if positive product
@@ -977,7 +977,7 @@ ELSE                                ; IF !__Z180
 
 ;------------------
 
-        pop bc                       ; recover sign info from multiplicand and multiplier
+        pop bc                       ; recover multiplicand/multiplier sign
         ld a,b
         xor c
         ret P                        ; return if positive product

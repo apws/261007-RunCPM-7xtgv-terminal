@@ -16,10 +16,10 @@
   `/dev/ttyACM0`; restore the temporary user ACL afterward with approved sudo.
   Use the shared tmux terminal for concurrent viewing—never open two serial
   readers.
-- Petr may explicitly authorize stopping the shared `7xtgv-cpm` tmux terminal
-  for a hardware update.  With that authorization, stop it, flash/upload,
-  reboot, and relaunch `kon.sh` or `kit.sh`; state that active CP/M program
-  state is lost before doing so.
+- When Petr asks for device-side transfer, flashing, or direct CP/M testing,
+  that authorizes stopping the shared `7xtgv-cpm` tmux terminal. Stop it,
+  perform the work, and relaunch `kon.sh` or `kit.sh` without asking again.
+  Briefly report that active CP/M program state was lost.
 - Petr performs longer interactive/device tests.  After a relevant build,
   provide a short exact test checklist and wait for his report instead of
   consuming time driving the hardware test.  The shared tmux screen may be
@@ -33,6 +33,9 @@
   user briefly what is needed and ask whether to search here or let them handle
   it in ChatGPT/Lyra and bring the result back. Proceed immediately when the
   user explicitly requests browsing or current external information.
+- At the start of a substantial phase, remind Petr of his preferred `/model`
+  choice: SOL for plan analysis/design, TERRA for implementation, and LUNA for
+  quick testing.
 - Keep this file short. Put detailed history, inventories and experiments in
   linked documentation under `docs/`.
 - Petr uses a Czech keyboard layout (`XTGV_BANK_KEYS` in `tools/terminal.conf`)
@@ -47,3 +50,6 @@
   one-way with `tools/cpm-transfer/transfer.py put`; use `--verify` only when
   a full device read-back is worthwhile. Never silently import device files;
   use explicit `get` only when Petr requests it.
+- Keep CP/M text source lines at 80 columns or fewer; the installed TE editor
+  rejects longer lines. Upload text with `--cpm-text` so it receives CR/LF
+  records and a trailing Ctrl-Z.

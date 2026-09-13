@@ -62,6 +62,7 @@ enum GlobalKey : uint8_t { GlobalKeyNone, GlobalKeyDualAltEscape, GlobalKeyDualA
 struct GlobalProfile {
     GlobalKey exitKey = GlobalKeyDualAltEscape;
     GlobalKey clearKey = GlobalKeyDualAltDelete;
+    uint16_t cursorBlinkMs = 500;
 };
 
 // A complete staging set is published atomically, so the terminal task never

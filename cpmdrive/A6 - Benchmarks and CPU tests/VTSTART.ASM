@@ -52,6 +52,6 @@ error:  lxi     d,errmsg
 fcb:    db      0,'VTIME   ','DAT'
         db      0,0,0,0,0,0,0,0,0,0,0,0
         db      0,0,0,0,0,0,0,0,0,0,0,0
-okmsg:  db      'VTSTART: stamp saved$'
-errmsg: db      'VTSTART: cannot write VTIME.DAT$'
+okmsg:  db      'VTSTART: stamp saved',13,10,'$'
+errmsg: db      'VTSTART: cannot write VTIME.DAT',13,10,'$'
         end     start

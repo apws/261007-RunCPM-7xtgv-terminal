@@ -765,6 +765,8 @@ static bool mirrorReset = false;
 static int activeRow = -1;
 static uint8_t activeRowBank = 255;
 static uint32_t plotActiveRows = 0;
+static bool plotEndCleanupPending = false;
+static uint32_t plotEndActivityAt = 0;
 
 // A plot may hold back normal opaque redraws for a long time.  When it ends,
 // retire the old highlight explicitly before allowing the next prompt row to
@@ -772,6 +774,7 @@ static uint32_t plotActiveRows = 0;
 // a CP/M SUB file.
 static void retirePlotActiveRows();
 static void rememberPlotActiveRow(int row);
+static void plotEndCleanupPoll(uint32_t now);
 
 static void requestMirrorSnapshot() {
     terminal.invalidateMirror();
@@ -809,6 +812,7 @@ static void terminalPlot(void *, vt::Terminal::PlotEvent event, uint16_t color) 
         plotCapture = false;
         plotCanvasValid = false;
         plotActiveRows = 0;
+        plotEndCleanupPending = false;
         plotX = plotY = 0;
         // The PC has no graphics canvas.  Repaint its ordinary text cells now
         // so beginning a TFT-only xterm256 plot can never leave its mirror
@@ -845,13 +849,22 @@ static void terminalPlot(void *, vt::Terminal::PlotEvent event, uint16_t color) 
         // one full repaint as soon as capture ends.
         std::fill(terminal.dirty, terminal.dirty + vt::Cells, false);
         plotCapture = false;
-        retirePlotActiveRows();
+        // The benchmark writes its completion text and CP/M prompt just after
+        // SGR 0.  Defer the terminal-plane repaint until that short burst has
+        // settled, otherwise an intermediate blank active row and cursor can
+        // be flushed permanently over the retained plot.
+        rememberPlotActiveRow(terminal.y - 1);
+        rememberPlotActiveRow(terminal.y);
+        rememberPlotActiveRow(activeRow);
+        plotEndCleanupPending = true;
+        plotEndActivityAt = millis();
         break;
     case vt::Terminal::PlotAbort:
         plotX = plotY = 0;
         plotCapture = false;
         plotCanvasValid = false;
         plotActiveRows = 0;
+        plotEndCleanupPending = false;
         break;
     }
 }
@@ -870,7 +883,7 @@ static void rememberPlotActiveRow(int row) {
 static void updateActiveRow() {
     const uint8_t bank = history ? history->activeBank() : 0;
     const int next = profiles.get(bank).activeLine ? terminal.y : -1;
-    if (plotCapture) {
+    if (plotCapture || plotEndCleanupPending) {
         rememberPlotActiveRow(activeRow);
         rememberPlotActiveRow(next);
     }
@@ -897,6 +910,13 @@ static void retirePlotActiveRows() {
     for (int row = 0; row < vt::Rows; ++row)
         if (rows & (uint32_t(1) << row))
             dirtyRow(row);
+}
+static void plotEndCleanupPoll(uint32_t now) {
+    if (!plotEndCleanupPending || output.available() ||
+        uint32_t(now - plotEndActivityAt) < 100)
+        return;
+    plotEndCleanupPending = false;
+    retirePlotActiveRows();
 }
 
 static uint16_t rgb565(vt::RGB c) { return ((c.r >> 3) << 11) | ((c.g >> 2) << 5) | (c.b >> 3); }
@@ -1114,7 +1134,7 @@ static void renderBatch() {
     // Plot samples paint directly into the graphics surface. Keep terminal
     // cells out until SGR 0 ends that transaction, but still flush a buffered
     // canvas so the physical Mandelbrot image becomes visible.
-    if (plotCapture) {
+    if (plotCapture || plotEndCleanupPending) {
         flushCanvasIfDue();
         return;
     }
@@ -1534,6 +1554,8 @@ void terminalLoop() {
             continue;
         }
         terminal.feed(c);
+        if (plotEndCleanupPending)
+            plotEndActivityAt = millis();
         // Preserve every active row traversed during a graphics transaction.
         // At PlotEnd only those rows are repainted, leaving the rest of the
         // retained xterm canvas untouched.
@@ -1549,9 +1571,10 @@ void terminalLoop() {
         if (localComposeActive) redrawLocalCompose();
     }
     recallPoll();
+    plotEndCleanupPoll(millis());
     updateActiveRow();
     uint32_t now = millis();
-    if (uint32_t(now - blinkAt) >= 500) {
+    if (uint32_t(now - blinkAt) >= profiles.global().cursorBlinkMs) {
         blinkAt = now;
         cursorPhase = !cursorPhase;
         // Cursor and SGR-5 text share the phase, so repaint every visible

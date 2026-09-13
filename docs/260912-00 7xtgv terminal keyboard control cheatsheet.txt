@@ -1,5 +1,6 @@
 
 assign our 7xtgv terminal specials Ctrl+]:
+==========================================
 
 future extension: 16 instead of 10 profiles (hex)
 (allowed for ALL user areas of current drive)

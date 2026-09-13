@@ -58,7 +58,7 @@ start:  lxi     d,fcb
         lxi     d,prefix
         mvi     c,9
         call    bdos
-        call    print_u32
+        call    printu32
         lxi     d,suffix
         mvi     c,9
         call    bdos
@@ -79,7 +79,9 @@ badstamp:
 
 ; Print unsigned 32-bit elapsed as decimal. For each decimal power, repeatedly
 ; subtract its 32-bit divisor (at most nine times) and emit the digit.
-print_u32:
+; CP/M ASM 2.0 does not resolve an underscore-containing forward label here.
+; Keep this symbol alphanumeric so the generated CALL targets this routine.
+printu32:
         lxi     h,divtab
         mvi     a,10
         sta     remaining
@@ -211,7 +213,7 @@ divtab: db      0,202,154,59       ; 1000000000
         db      10,0,0,0           ; 10
         db      1,0,0,0            ; 1
 prefix: db      'VTSTOP: ', '$'
-suffix: db      ' ms$',
+suffix: db      ' ms',13,10,'$'
 nomsg:  db      'VTSTOP: no VTIME.DAT on this drive/user$'
 badmsg: db      'VTSTOP: cannot read VTIME.DAT$'
         end     start

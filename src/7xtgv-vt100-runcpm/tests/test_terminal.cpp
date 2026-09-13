@@ -221,7 +221,7 @@ int main() {
 
     vt::HistoryProfiles profiles;
     const std::string profileIni =
-        "[global]\r\nexit_key=lalt+ralt+delete\r\nclear_key=lalt+ralt+escape\r\n"
+        "[global]\r\nexit_key=lalt+ralt+delete\r\nclear_key=lalt+ralt+escape\r\ncursor_blink_ms=250\r\n"
         "[bank2]\r\nname=EDITOR\r\nup=send:\\x05\r\n"
         "alt_up=history_previous\r\non_select=A4:\\r\n"
         "page_up=send_cancel:\\e\r\nactive_line_rgb=210,255,210\r\n"
@@ -236,6 +236,7 @@ int main() {
     assert(profiles.errors() == 0);
     assert(profiles.global().exitKey == vt::GlobalKeyDualAltDelete);
     assert(profiles.global().clearKey == vt::GlobalKeyDualAltEscape);
+    assert(profiles.global().cursorBlinkMs == 250);
     assert(std::string(profiles.get(2).name) == "EDITOR");
     assert(profiles.get(2).keys[vt::AppUp].kind == vt::BindingSend);
     assert(profiles.get(2).keys[vt::AppUp].length == 1);

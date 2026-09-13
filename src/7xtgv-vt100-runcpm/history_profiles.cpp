@@ -260,6 +260,13 @@ void HistoryProfiles::parseLine() {
             if (!parseGlobalKey(value, sets_[loading_].global.exitKey)) ++errors_;
         } else if (!strcmp(keyName, "clear_key")) {
             if (!parseGlobalKey(value, sets_[loading_].global.clearKey)) ++errors_;
+        } else if (!strcmp(keyName, "cursor_blink_ms")) {
+            char tail = 0;
+            unsigned period = 0;
+            if (sscanf(value, "%u%c", &period, &tail) != 1 || period < 1 || period > 5000)
+                ++errors_;
+            else
+                sets_[loading_].global.cursorBlinkMs = uint16_t(period);
         } else ++errors_;
         return;
     }
