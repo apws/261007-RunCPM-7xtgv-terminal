@@ -1,0 +1,5 @@
+{
+  "method": "arduino-cli",
+  "profile": "jc8048w535",
+  "port": "/dev/ttyACM0"
+}

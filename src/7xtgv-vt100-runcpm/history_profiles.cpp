@@ -220,6 +220,9 @@ void HistoryProfiles::beginLoad() {
 
 void HistoryProfiles::feed(uint8_t byte) {
     if (eof_) return;
+    // 7XTGVTRM.INI is intentionally CP/M-editor friendly: CR, LF, and CR/LF
+    // all terminate a line, while the usual CP/M Ctrl+Z marks logical EOF.
+    // This parser is deliberately separate from the checksummed history file.
     if (byte == 0x1a) {
         if (length_ || overflow_) parseLine();
         eof_ = true;
@@ -267,6 +270,8 @@ void HistoryProfiles::parseLine() {
                 ++errors_;
             else
                 sets_[loading_].global.cursorBlinkMs = uint16_t(period);
+        } else if (!strcmp(keyName, "viewport_gutter_rgb")) {
+            if (!parseRGB(value, sets_[loading_].global.viewportGutterRGB)) ++errors_;
         } else ++errors_;
         return;
     }

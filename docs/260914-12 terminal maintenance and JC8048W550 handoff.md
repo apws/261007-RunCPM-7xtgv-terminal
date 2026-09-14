@@ -1,0 +1,78 @@
+# Terminal maintenance and JC8048W550 handoff
+
+Status: 14 September 2026. The currently connected/tested target remains the
+3.5-inch JC8048W535 ESP32-S3. Do not infer that the 5-inch W550 is ready to
+flash.
+
+## Completed and confirmed
+
+- Backlight private CSI `ESC[>63;n v` (levels 0..9, plus 10/11 adjustment)
+  is confirmed on the W535.
+- `A0:REFLASH.ASM` was transferred to the device and rebuilt there by Petr.
+  It first forces the same verified history transaction as `SYNC.COM` through
+  private port `7Dh`; only success emits host event `ESC[>64v`.
+- Firmware intercepts that guest-output event before TFT parsing and forwards
+  it separately to the reconstructed USB mirror. `terminal.py` consumes it,
+  releases the serial port, runs the configured host upload action, reconnects,
+  and requests a snapshot.
+- Uploader output is redirected to `/tmp/7xtgv-reflash.log`, preventing raw
+  upload progress from corrupting Konsole's alternate screen.
+- `tools/reflash.py` is the common dispatcher. `XTGV_TARGET` in
+  `tools/terminal.conf` selects `tools/targets/<target>.json`; current value
+  is `jc8048w535`. `XTGV_PORT` overrides a target's default port.
+- The lazy history save is safe with `REFLASH`: force flag + immediate owner
+  core poll bypass the two-second delay, pauses the terminal core, writes
+  `.NEW`, flushes and CRC-verifies, then rotates with `.BAK` rollback.
+
+## History deletion pending device flash
+
+Source now adds `Ctrl+Shift+Backspace` / private input `ESC[>65v`:
+
+- It deletes exactly the currently recalled ring-buffer entry, including one
+  duplicate only; it cannot delete an arbitrary entry after ordinary editing.
+- At CCP bank #0 it moves to line start with `^A` and clears the recalled line
+  using `^G`, avoiding RunCPM's visible `#` behavior of `^U`.
+- Host terminal and helper tests passed.
+
+An attempted W535 upload after this change **failed before reset** because
+Arduino CLI's stale cache referenced a missing partitions file. The mirror was
+restarted by a non-fail-fast shell command, which must not be mistaken for a
+successful flash. A subsequent explicit W535 compile succeeded. The deletion
+feature needs a later explicit `reflash` before hardware validation.
+
+## JC8048W550 5-inch port state
+
+Known vendor hardware values:
+
+| Item | Value |
+| --- | --- |
+| Display | ST7262 800x480 RGB parallel, ESP32-S3 RGB peripheral/DMA |
+| Pixel clock | 16 MHz, active-negative |
+| Timing | horizontal and vertical front/pulse/back: 8/4/8 |
+| Control pins | DE40, VSYNC41, HSYNC39, PCLK42 |
+| Backlight | GPIO2 |
+| SD | independent SPI: CS10, MOSI11, MISO13, SCK12; vendor begins at 1 MHz |
+| Terminal geometry | 133x48 at the current 6x10 cells |
+
+Repository scaffolding exists in `runcpm-config.h`, `7xtgv-gfxsetup.h`,
+`sketch.yaml`, and `hal/jc8048w550_sd_spi.h`. It is deliberately not ready to
+flash. The first compile found three porting blockers:
+
+1. Arduino_GFX 1.6.4 contains `Arduino_ESP32RGBPanel` and
+   `Arduino_RGB_Display`, but their ESP32-S3 guard/configuration was not active
+   in this profile.
+2. The W550 SPI wrapper conflicts with ESP32 core `fs::File`; use a clean
+   project wrapper/name strategy rather than a global `File` alias collision.
+3. Add W550 selection to `hal/reboot.h` and correct W550's startup SD branch
+   so it does not take the RP2350 SdFat path.
+
+Next safe sequence: make W550 compile, inspect generated command/map, flash
+only when Petr explicitly asks, verify text TFT first, then independent SD
+mount/read, then RunCPM write/history persistence.
+
+## Operating rules
+
+- `reflash` in chat means explicit firmware upload and mirror restoration.
+- Before every CP/M transfer: stop `7xtgv-cpm`, transfer, restore Konsole.
+- Device-side source is assembled by Petr when convenient; `cpmdrive/` is the
+  authored source of truth.

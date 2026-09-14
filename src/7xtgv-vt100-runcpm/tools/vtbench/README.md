@@ -10,11 +10,16 @@ The guest uses private host I/O port `7Bh`. `IN 7Bh` returns `V` as a firmware
 capability check; `OUT 7Bh` commands 1, 2 and 3 start an active measurement,
 start a quiet measurement and finish/report it. Unknown ports remain ignored.
 
-`VTDRV.COM` creates `VTDRV.$$$` on the current drive/user, sequentially writes
-and reads 256 CP/M records (32 KiB), verifies a second read pass, and deletes the
-temporary file. Its timed passes include BDOS create/open/close calls and the
-complete RunCPM host filesystem and physical-drive path. Verification is
-untimed so interpreted byte comparisons do not distort the read rate.
+Plain `VTDRV` is read-only. It reads the existing `VTDRV.$$$` on the current
+drive/user, then performs an untimed byte-for-byte verification pass. Run
+`VTDRV RW` (case-insensitive; `/RW` is also accepted) once at a known-safe SD
+clock to create or replace the exact 256-record (32 KiB) fixture. The fixture
+is deliberately retained for subsequent read-only clock testing.
+
+Timed passes include CP/M BDOS create/open/close calls and the complete RunCPM
+host filesystem and physical-drive path. Verification is untimed so interpreted
+byte comparisons do not distort the read rate. Read or verification failures do
+not delete or otherwise modify the fixture.
 
 `VTCPU8X` and `VTDRV8X` restrict their guest code to instructions shared by the
 8080 and 8085. Opcode compatibility does not imply identical cycle timing: for
@@ -38,11 +43,18 @@ automatic microsecond timing is not: standard CP/M 2.2 has no portable clock
 API. Another emulator or native 8080/8085 system needs a platform timer adapter,
 terminal timestamps, or an external stopwatch around the same workload.
 
-Build with Albert Veli's `z80asm`:
+These sources use Z80 mnemonics and therefore use the `.Z80` suffix. On CP/M,
+SLR `Z80ASM NAME` defaults to `NAME.Z80` and directly creates `NAME.COM`.
+Digital Research `ASM NAME` instead defaults to `NAME.ASM`, accepts Intel 8080
+mnemonics, and emits `NAME.HEX`/`NAME.PRN`; it must not be used for these files.
+
+Build on the host with Albert Veli's `z80asm`:
 
 ```sh
-z80asm -o VTCPU.COM VTCPU.ASM
-z80asm -o VTDRV.COM VTDRV.ASM
-z80asm -o VTCPU8X.COM VTCPU8X.ASM
-z80asm -o VTDRV8X.COM VTDRV8X.ASM
+z80asm -o VTCPU.COM VTCPU.Z80
+z80asm -o VTDRV.COM VTDRV.Z80
+z80asm -o VTCPU8X.COM VTCPU8X.Z80
+z80asm -o VTDRV8X.COM VTDRV8X.Z80
+z80asm -o VTTERM.COM VTTERM.Z80
+z80asm -o REBOOT.COM REBOOT.Z80
 ```

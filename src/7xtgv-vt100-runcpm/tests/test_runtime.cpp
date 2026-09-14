@@ -1,5 +1,8 @@
 // Compile the production runtime against fake USB/GFX peripherals. Parser,
 // transport, renderer and mirror code are the same as the RP2350 build.
+// The real implementation is sketch-level because only the RunCPM core owns
+// storage; this runtime-only test supplies the owner poll as a no-op.
+bool terminalHistoryStoragePoll() { return true; }
 #include "../terminal_runtime.cpp"
 #include <fstream>
 #include <iostream>
@@ -36,6 +39,49 @@ static void screenshot(const char *path) {
 int main() {
     terminalSetup();
     assert(ready && backlight == 150 && displayOK);
+    // CP/M's A0:REFLASH.COM output event is removed from the TFT terminal
+    // stream and forwarded verbatim, between completed mirror updates only.
+    Serial.online = true;
+    settle();
+    Serial.tx.clear();
+    const uint8_t savedCell = terminal.charRAM[0];
+    emit("\033[>64v");
+    for (int i = 0; i < 20; ++i) terminalLoop();
+    assert(Serial.tx.find("\033[>64v") != std::string::npos);
+    assert(terminal.charRAM[0] == savedCell);
+    Serial.online = false;
+    // Fast owner-core disk operations are latched into a visible, fixed-pixel
+    // activity pulse; expiry restores the terminal cell underneath it.
+    terminalDiskActivity(true);
+    terminalLoop();
+    assert(gfx->framebuffer[0] == 0xf800);
+    assert(gfx->framebuffer[2 * 320 + 2] == 0xfb6d);
+    fakeTime += 76;
+    for (int i = 0; i < 200; ++i) terminalLoop();
+    assert(gfx->framebuffer[0] != 0xf800);
+    std::string historyText;
+    auto appendHistoryByte = [](void *context, uint8_t byte) {
+        static_cast<std::string *>(context)->push_back(char(byte));
+        return true;
+    };
+    assert(terminalHistoryWrite(appendHistoryByte, &historyText));
+    assert(historyText.rfind("# 7xtgv terminal history v2\n", 0) == 0);
+    assert(historyText.size() >= 17 && historyText[historyText.size() - 17] == '#');
+    uint32_t historyCRC = 0xffffffffUL;
+    for (size_t i = 0; i < historyText.size() - 17; ++i)
+        historyCRC = historyCRC32Byte(historyCRC, uint8_t(historyText[i]));
+    char expectedFooter[24];
+    snprintf(expectedFooter, sizeof(expectedFooter), "# crc32=%08lX\n",
+             static_cast<unsigned long>(historyCRC ^ 0xffffffffUL));
+    assert(historyText.compare(historyText.size() - 17, 17, expectedFooter) == 0);
+    // An explicit SYNC request bypasses the lazy two-second delay, even when
+    // no new generation has yet been observed by the owner-core poll.
+    terminalHistorySaveComplete(true);
+    assert(!terminalHistorySaveDue());
+    terminalHistoryForceSave();
+    assert(terminalHistorySaveDue());
+    terminalHistorySaveComplete(true);
+    assert(!terminalHistorySaveDue());
     // A host reconnect requests only a PC mirror snapshot.  It must not mark
     // TFT cells dirty, because a retained xterm256 canvas belongs underneath
     // that terminal surface.
@@ -112,9 +158,18 @@ int main() {
     terminal.reset(); // Restore the original test fixture after the GCLS transaction.
     for (int i = 0; i < 200; ++i) terminalLoop();
     const uint16_t paleGreen = rgb565({205, 255, 205});
-    const uint16_t cursorGreen = rgb565({0, 255, 80});
+    const uint16_t cursorGreen = rgb565({0, 150, 40});
     assert(gfx->framebuffer[5 * 320 + 5 * 6 + 3] == paleGreen);
     assert(gfx->framebuffer[5 * 320 + 3] == cursorGreen);
+    // The dark cursor paper must retain readable active-line-green glyph ink.
+    terminal.x = terminal.y = 0;
+    terminal.charRAM[0] = 'A';
+    cursorPhase = true;
+    drawCell(0);
+    bool cursorHasPaleInk = false;
+    for (int pixel = 0; pixel < 6 * 10; ++pixel)
+        cursorHasPaleInk |= gfx->framebuffer[(pixel / 6) * 320 + pixel % 6] == paleGreen;
+    assert(cursorHasPaleInk);
     selectedBank = 5;
     history->select(5);
     resetLineSession();
@@ -242,6 +297,37 @@ int main() {
     assert(bbcActual == "\b\b\b\rsystem\r");
     history->select(0);
     selectedBank = 0;
+    history->discardCurrent();
+    lineModelAuthoritative = true;
+    const std::string cpmLine = "abc";
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(cpmLine.data()), cpmLine.size());
+    while (input.pop(testByte)) {}
+    profileKey(vt::AppHome);
+    bbcActual.clear();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == "\x01\x01\x01" && history->currentCursor() == 0);
+    profileKey(vt::AppEnd);
+    bbcActual.clear();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == "\x06\x06\x06" && history->currentCursor() == 3);
+    // CP/M recall moves to the tracked start then deletes every character in
+    // place, so a suffix cannot survive a recall from a middle cursor.
+    history->discardCurrent();
+    const std::string recalledCpm = "OLD\r";
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(recalledCpm.data()), recalledCpm.size());
+    while (input.pop(testByte)) {}
+    const std::string partialCpm = "NEW";
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(partialCpm.data()), partialCpm.size());
+    while (input.pop(testByte)) {}
+    history->home(); history->right(); // emulate recall with CCP cursor inside NEW
+    profileKey(vt::AppUp);
+    bbcActual.clear();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == std::string("\x01\x07\x07\x07OLD"));
+    history->discardCurrent();
+    profileKey(vt::AppHome);
+    profileKey(vt::AppEnd);
+    assert(!input.pop(testByte)); // blank Home/End never invoke native ^B/^W
     terminal.reset();
     for (uint8_t c : std::string("EDIT IN PROGRESS"))
         terminal.feed(c);

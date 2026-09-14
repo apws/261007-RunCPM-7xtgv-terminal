@@ -14,6 +14,18 @@ RunCPM currently targets the RP2350 board; the ESP32-P4 RunCPM port is future
 work. Build outputs belong under `build/`; source and target setup stay under
 `src/`.
 
+## Display status-overlay rule
+
+Activity LEDs, viewport marks, and future taskbar/status pixels are UI overlays,
+not evidence of unused panel area and not generic HAL settings. Choose their
+position per target after checking physical resolution, controller offset and
+rotation, and any target-specific non-scrolling region. Check the schematic
+before using a board LED pin: on some modules it can be the TFT backlight or
+share display wiring. The current 2-inch RP2350 terminal therefore uses its
+final eight pixels as a full-height grey viewport gutter, configured by
+`viewport_gutter_rgb` in `A0:7XTGVTRM.INI`, and draws its temporary SD activity
+mark in the top-left; retained xterm256 plots suppress that mark.
+
 See [platform-mcu-comparison.md](260909-12 platform-mcu-comparison.md) for the CPU
 architecture differences and RunCPM portability notes.
 

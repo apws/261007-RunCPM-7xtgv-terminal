@@ -1,0 +1,8 @@
+{
+  "method": "arduino-cli",
+  "profile": "jc8048w550",
+  "port": "/dev/ttyUSB0",
+  "build_properties": {
+    "build.extra_flags": "-DRUNCPM_TARGET_JC8048W550 -DESP32"
+  }
+}

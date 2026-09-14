@@ -18,8 +18,10 @@ From this directory:
 ```
 
 The profile pins Arduino-Pico 5.4.4, Arduino_GFX 1.6.4, SdFat 2.3.0, RP2350A,
-150 MHz, and 16 MB flash. Display geometry is landscape 320×240 at rotation 3;
-font cells are 6×10, with an eight-pixel indicator strip on the right.
+150 MHz, 16 MB flash, and a conservative 12 MHz dedicated SPI1 SD bus. Display
+geometry is landscape 320×240 at rotation 3; font cells are 6×10, with an
+eight-pixel full-height grey gutter on the right. Its RGB value is configured
+by `viewport_gutter_rgb` in `A0:7XTGVTRM.INI`.
 
 Copy `../../build/build-vt100-runcpm/7xtgv-vt100-runcpm.ino.uf2` to the RP2350 BOOTSEL
 volume. The device restarts automatically. Keep the existing CP/M SD card
@@ -82,14 +84,16 @@ exclusive access; do not run picocom or a second direct helper alongside it.
 | Alt+Space | Show the active `#n name` for 1 s without changing the bank or current line |
 | Alt+# or Ctrl+] then # | Toggle temporary `## RAW` input bypass |
 | Alt+PageUp / Alt+PageDown | Select previous/next history list |
-| Shift+Alt+PageUp / Shift+Alt+PageDown | Application Alt+Page binding |
+| Ctrl+Shift or Alt+Shift+0 ... 9 | Backlight: off, then 10 ... 90% |
+| Ctrl+Shift or Alt+Shift+PageUp / PageDown | Increase / decrease backlight one level |
 | Ctrl+] then a / e | Same edge jumps; works without Alt mappings |
-| Ctrl+] then h / l | Same left/right pan |
+| Ctrl+Shift or Alt+Shift+Home / End | Global viewport jump to left / right edge |
 | Ctrl+] then 1 / 2 | Select ANSI / VT52 locally |
 | Ctrl+] then g or Shift+Alt+Backspace | GCLS: arm one local xterm-256 pixel plot on a white TFT canvas |
 | Ctrl+] then r | Refresh PC mirror and TFT |
 | Ctrl+] then p / n | Previous/next history line |
 | Ctrl+] then [ / ] | Previous/next history list |
+| Ctrl+] then b then 0 ... 9 / + / - | Backlight fallback: set / raise / lower |
 | Ctrl+] then q | Exit PC helper; leave CP/M running |
 | Ctrl+] then x / c | Active profile's unified Exit / Clear command |
 | Alt+Esc / Alt+Backspace | Same unified Exit / Clear commands in Kitty/Konsole |
@@ -108,12 +112,22 @@ key bindings, and future application adapters. Toggle it again to restore the
 underlying bank; selecting `#0` through `#9` exits RAW and selects that bank.
 `Alt+Space` reports `[#n name]` normally or `[## RAW / #n]` in RAW mode.
 Private host controls are `CSI > 15 v` (toggle), `CSI > 16 v` (on), and
-`CSI > 17 v` (off). Those sequences remain reserved even in RAW mode.
+`CSI > 17 v` (off). `CSI > 63 ; n v` controls the backlight: `n=0..9` sets
+off/10..90%, `n=10` raises, and `n=11` lowers. These sequences remain reserved
+even in RAW mode.
 
-Panning is manual, even when the cursor moves off-screen. The strip shows the
-visible fraction of the page. White marks at its top/bottom mean the cursor is
-left/right of the viewport. A yellow flash means BEL; a persistent red mark
-means a terminal-response overflow from a program that is not reading input.
+Panning is manual, with only left/right edge jumps, even when the cursor moves
+off-screen. The final eight pixels of this compact 320-pixel target are a
+full-height configurable-grey gutter, not an unused controller margin. A 6×6
+red square at the top-left is the short-latched SD activity indicator. It is a
+fixed display overlay, so scrolling cannot move it; retained plots suppress it.
+
+Status overlays are target-specific display policy, not a HAL or pin default.
+Before placing a future activity LED, pan mark, or taskbar indicator on another
+module, check its physical resolution, controller offsets/rotation, and any
+reserved non-scrolling area. Also check the board schematic: a nominal LED pin
+may instead control TFT backlight or share display wiring, and must not be
+driven as a disk LED.
 
 The helper does not reset terminal mode on connection. Use `--mode ansi` or
 `--mode vt52` to select explicitly. Mode switches preserve the screen and cursor
@@ -148,7 +162,9 @@ ESC). Remove conflicting mappings in that profile if necessary.
 | Key | Konsole output | Bytes |
 | --- | --- | --- |
 | Ctrl+] then `a` / `e` | private helper action | Viewport left/right edge |
-| Ctrl+] then `h` / `l` | private helper action | Pan viewport left/right |
+| Ctrl+Shift or Alt+Shift+Home / End | global viewport action | Viewport left/right edge |
+| Ctrl+Shift or Alt+Shift+0 ... 9 | local terminal action | Backlight off / 10 ... 90% |
+| Ctrl+Shift or Alt+Shift+PageUp / PageDown | local terminal action | Raise / lower backlight |
 
 ## Supported terminal subset
 
@@ -300,6 +316,9 @@ dark inks except black were raised about 5% for the latest visual tuning.
 
 The terminal keeps its ten 100-line history banks in `A/0/7XTGVTRM.BUF`, beside
 `7XTGVTRM.INI`.  It loads once at boot and, after two seconds without a new
-stored line, atomically rewrites the plain-text buffer through `7XTGVTRM.NEW`.
-Each bank is `[0]` through `[9]`; each retained command begins with `>`, making
-the file safe to edit on a host while the device is off.
+stored line, writes and rereads a complete `7XTGVTRM.NEW` on the RunCPM/SD-owner
+core. Rotation keeps the previous generation in `7XTGVTRM.BAK` until the new
+buffer is installed. A CRC-32 footer rejects torn v2 writes at boot, with
+fallback through `.NEW` and `.BAK`; existing v1 files remain readable. Each bank
+is `[0]` through `[9]`; each retained command begins with `>`, making the file
+safe to edit on a host while the device is off.

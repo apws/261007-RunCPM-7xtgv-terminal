@@ -25,5 +25,9 @@ e - ALT+END     = viewport right      (ALT+SH+W)
 h - ALT+left    = viewport pan left   (ALT+Q)
 l - ALT+right   = viewport pan right  (ALT+W)
 
+b - CT+] b 0..9 = backlight off / 10..90%   (CT+SH or ALT+SH + 0..9)
+    CT+] b + / - = backlight up / down      (CT+SH or ALT+SH + PgUp/PgDn)
+    CT+SH or ALT+SH + Home/End = viewport left/right edge
+
 p - up          = history line prev  (ALT+up)
 n - down        = history line next  (ALT+down)

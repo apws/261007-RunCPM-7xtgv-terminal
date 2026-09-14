@@ -19,6 +19,8 @@
 //#include "hardware/pico/pico_w_sd_spi.h"               // Raspberry Pi Pico W(iFi)   (LED = GPIO64)
 #if defined(RUNCPM_TARGET_JC8048W535)
 #include "hal/jc8048w535_sdmmc.h"
+#elif defined(RUNCPM_TARGET_JC8048W550)
+#include "hal/jc8048w550_sd_spi.h"
 #else
 #include "hal/pico_rp2350_touch_lcd_2_sd_spi.h"        // WAVESHARE-rp2350-touch-lcd-2
 #endif
@@ -26,7 +28,7 @@
 
 
 
-#if defined(RUNCPM_TARGET_JC8048W535)
+#if defined(RUNCPM_TARGET_JC8048W535) || defined(RUNCPM_TARGET_JC8048W550)
 RunCPMStorage SD;
 #else
 #include <SPI.h>
@@ -41,26 +43,127 @@ typedef File32 File;
 
 #if !defined(RUNCPM_HEADLESS)
 // Human-editable terminal history, separate from CP/M files but kept beside
-// 7XTGVTRM.INI.  A completed .NEW file is renamed into place, so an interrupted
-// write retains either the old buffer or a recoverable new one.
+// 7XTGVTRM.INI. A validated .NEW file is rotated into place while .BAK retains
+// the prior generation, so an interrupted write never destroys the last copy.
 static constexpr const char *TerminalHistoryPath = "A/0/7XTGVTRM.BUF";
 static constexpr const char *TerminalHistoryNewPath = "A/0/7XTGVTRM.NEW";
+static constexpr const char *TerminalHistoryBackupPath = "A/0/7XTGVTRM.BAK";
+static constexpr const char *TerminalHistoryV1Header = "# 7xtgv terminal history v1\n";
+static constexpr const char *TerminalHistoryV2Header = "# 7xtgv terminal history v2\n";
+static constexpr size_t TerminalHistoryV2FooterLength = 17; // # crc32=XXXXXXXX\n
+static uint32_t terminalHistoryCRC32Byte(uint32_t crc, uint8_t byte) {
+    crc ^= byte;
+    for (uint8_t bit = 0; bit < 8; ++bit)
+        crc = (crc >> 1) ^ (0xedb88320UL & uint32_t(-int32_t(crc & 1)));
+    return crc;
+}
+static int terminalHistoryHex(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    return -1;
+}
+
+static bool terminalHistoryFileValid(File &file) {
+    const size_t headerLength = strlen(TerminalHistoryV2Header);
+    const size_t size = file.size();
+    if (size < headerLength)
+        return false;
+    char header[32] = {};
+    if (!file.seek(0) ||
+        file.read(reinterpret_cast<uint8_t *>(header), headerLength) != headerLength)
+        return false;
+    // Existing v1 history remains readable. Every newly written v2 file must
+    // have its completion marker, so a torn write is rejected.
+    if (!memcmp(header, TerminalHistoryV1Header, headerLength))
+        return file.seek(0);
+    if (memcmp(header, TerminalHistoryV2Header, headerLength) ||
+        size < headerLength + TerminalHistoryV2FooterLength)
+        return false;
+    char footer[TerminalHistoryV2FooterLength + 1] = {};
+    if (!file.seek(size - TerminalHistoryV2FooterLength) ||
+        file.read(reinterpret_cast<uint8_t *>(footer), TerminalHistoryV2FooterLength) !=
+            TerminalHistoryV2FooterLength ||
+        memcmp(footer, "# crc32=", 8) || footer[16] != '\n')
+        return false;
+    uint32_t expected = 0;
+    for (uint8_t i = 8; i < 16; ++i) {
+        const int digit = terminalHistoryHex(footer[i]);
+        if (digit < 0)
+            return false;
+        expected = (expected << 4) | uint32_t(digit);
+    }
+    if (!file.seek(0))
+        return false;
+    uint32_t crc = 0xffffffffUL;
+    for (size_t remaining = size - TerminalHistoryV2FooterLength; remaining; --remaining) {
+        const int byte = file.read();
+        if (byte < 0)
+            return false;
+        crc = terminalHistoryCRC32Byte(crc, uint8_t(byte));
+    }
+    if ((crc ^ 0xffffffffUL) != expected)
+        return false;
+    return file.seek(0);
+}
+
+static File openTerminalHistory() {
+    const char *paths[] = {TerminalHistoryPath, TerminalHistoryNewPath,
+                           TerminalHistoryBackupPath};
+    for (const char *path : paths) {
+        if (!SD.exists(path))
+            continue;
+        File file = SD.open(path, FILE_READ);
+        if (file && terminalHistoryFileValid(file))
+            return file;
+        if (file)
+            file.close();
+    }
+    return File();
+}
+
 static bool writeTerminalHistoryByte(void *context, uint8_t byte) {
     return static_cast<File *>(context)->write(byte) == 1;
 }
-void terminalHistoryStoragePoll() {
+bool terminalHistoryStoragePoll() {
     if (!terminalHistorySaveDue())
-        return;
-    SD.remove(TerminalHistoryNewPath);
+        return true;
+    // Stop history mutation while this owner core serialises it. Filesystem
+    // operations themselves never leave the RunCPM core.
+    terminalPause(true);
+    terminalDiskActivity(true);
+    if (SD.exists(TerminalHistoryNewPath))
+        SD.remove(TerminalHistoryNewPath);
     File file = SD.open(TerminalHistoryNewPath, O_CREAT | O_WRITE);
     bool saved = bool(file) && terminalHistoryWrite(writeTerminalHistoryByte, &file);
-    if (file)
+    if (file) {
+        file.flush();
         file.close();
-    if (saved) {
-        SD.remove(TerminalHistoryPath);
-        saved = SD.rename(TerminalHistoryNewPath, TerminalHistoryPath);
     }
+    if (saved) {
+        File verification = SD.open(TerminalHistoryNewPath, FILE_READ);
+        saved = bool(verification) && terminalHistoryFileValid(verification);
+        if (verification)
+            verification.close();
+    }
+    if (saved) {
+        if (SD.exists(TerminalHistoryBackupPath))
+            SD.remove(TerminalHistoryBackupPath);
+        const bool hadPrevious = SD.exists(TerminalHistoryPath);
+        const bool backedUp = !hadPrevious ||
+                              SD.rename(TerminalHistoryPath, TerminalHistoryBackupPath);
+        saved = backedUp && SD.rename(TerminalHistoryNewPath, TerminalHistoryPath);
+        if (saved && SD.exists(TerminalHistoryBackupPath))
+            SD.remove(TerminalHistoryBackupPath);
+        else if (hadPrevious && backedUp && !SD.exists(TerminalHistoryPath))
+            SD.rename(TerminalHistoryBackupPath, TerminalHistoryPath);
+    }
+    terminalPause(false);
+    // Refresh the visible pulse after the paused display task resumes. A slow
+    // verified write can otherwise consume the entire 75 ms latch unseen.
+    terminalDiskActivity(true);
     terminalHistorySaveComplete(saved);
+    return saved;
 }
 #endif
 
@@ -161,10 +264,12 @@ static void runCPM() {
 // SPIINIT !! ONLY !! for ESP32-Boards = #define board_esp32
 // =========================================================================================
 
-#if !defined(RUNCPM_TARGET_JC8048W535)
-    #define SDMHZ 19                    // setting Mhz  - SPI-Bus = SPI_FULL_SPEED = 50Mhz
-    #define SDMHZ_TXT "19"              // for outputing SDMHZ-Text
-    // normal is 12Mhz because of
+#if !defined(RUNCPM_TARGET_JC8048W535) && !defined(RUNCPM_TARGET_JC8048W550)
+    // Conservative module/card-connector setting. SPI1 is dedicated to SD;
+    // the TFT uses a separate PIO-backed bus.
+    #define SDMHZ RUNCPM_SD_MHZ
+    #define SDMHZ_TXT RUNCPM_SD_MHZ_TEXT
+    // This follows the RP2040/RP2350 SdFat guidance noted at
     // https://www.pschatzmann.ch/home/2021/03/14/rasperry-pico-with-the-sdfat-library/
 
     #define SD_CONFIG SdSpiConfig(SD_CS, DEDICATED_SPI, SD_SCK_MHZ(SDMHZ), &SPIBUS)
@@ -188,7 +293,11 @@ static void runCPM() {
     //FIXME - this is now SINGLE confusing path, fail of SPI and CARD-presence mismatch !!!
     const bool storageReady = SD.begin(SD_CONFIG);
 #else
+    #if defined(RUNCPM_TARGET_JC8048W535)
     _puts("Init SD_MMC pins .....");
+    #else
+    _puts("Init SD SPI bus ......");
+    #endif
     const bool pinsReady = SD.setPins();
     _puts(pinsReady ? "OK\r\n" : "FAILED\r\n");
     _puts("Mount MicroSD card ...");
@@ -202,10 +311,19 @@ static void runCPM() {
 #if defined(RUNCPM_HEADLESS)
         SD.printRoot(Serial);
 #endif
+#elif defined(RUNCPM_TARGET_JC8048W550)
+        char sdInfo[80];
+        snprintf(sdInfo, sizeof(sdInfo),
+                 "OK (SPI, CS=10 MOSI=11 MISO=13 SCK=12, %lu Hz)\r\n",
+                 (unsigned long)RUNCPM_W550_SD_EFFECTIVE_HZ);
+        _puts(sdInfo);
 #else
         _puts(SDMHZ_TXT); _puts(" Mhz\r\n");
 #endif
 #if !defined(RUNCPM_HEADLESS)
+        // Configuration and history objects belong to the terminal core.
+        // Pause it while the SD-owner core initializes them from storage.
+        terminalPause(true);
         _puts("Terminal profile .....");
         File profileFile = SD.open("A/0/7XTGVTRM.INI", FILE_READ);
         if (profileFile) {
@@ -221,9 +339,7 @@ static void runCPM() {
 #endif
 #if !defined(RUNCPM_HEADLESS)
         _puts("Terminal history .....");
-        File historyFile = SD.open(TerminalHistoryPath, FILE_READ);
-        if (!historyFile)
-            historyFile = SD.open(TerminalHistoryNewPath, FILE_READ);
+        File historyFile = openTerminalHistory();
         if (historyFile) {
             terminalHistoryLoadBegin();
             while (historyFile.available())
@@ -234,6 +350,7 @@ static void runCPM() {
         } else {
             _puts("EMPTY\r\n");
         }
+        terminalPause(false);
 #endif
         _puts("-------------------------------------------------");
 
@@ -330,18 +447,25 @@ void setup() {
     runCPM();
 }
 void loop() { delay(10); }
-#elif defined(RUNCPM_TARGET_JC8048W535)
+#elif defined(RUNCPM_TARGET_JC8048W535) || defined(RUNCPM_TARGET_JC8048W550)
 static TaskHandle_t runCPMTaskHandle = nullptr;
 static TaskHandle_t runCPMIdleWindowTaskHandle = nullptr;
 
 static void runCPMTask(void *) {
     runCPM();
+    // A missing SD card legitimately makes runCPM() return. Do not leave the
+    // watchdog-yield helper holding a deleted FreeRTOS task handle.
+    runCPMTaskHandle = nullptr;
     vTaskDelete(nullptr);
 }
 
 static void runCPMIdleWindowTask(void *) {
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(250));
+        if (!runCPMTaskHandle) {
+            runCPMIdleWindowTaskHandle = nullptr;
+            vTaskDelete(nullptr);
+        }
         // A one-tick suspension guarantees time for core 0's watched idle
         // task without adding work to the Z80 instruction dispatch path.
         vTaskSuspend(runCPMTaskHandle);
@@ -373,11 +497,11 @@ void setup() {
             virtualWrite(*message++);
     }
 }
-void loop() { terminalLoop(); terminalHistoryStoragePoll(); }
+void loop() { terminalLoop(); }
 #else
 bool core1_separate_stack = true;
 void setup() { terminalSetup(); }
-void loop() { terminalLoop(); terminalHistoryStoragePoll(); }
+void loop() { terminalLoop(); }
 void setup1() { runCPM(); }
 void loop1() { delay(1); }
 #endif

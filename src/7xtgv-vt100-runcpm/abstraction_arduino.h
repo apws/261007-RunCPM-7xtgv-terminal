@@ -21,12 +21,15 @@
     #define HostOS 0x07
 #endif
 
+static inline void _diskActivity(bool active);
+
 /* Memory abstraction functions */
 /*===============================================================================*/
 uint16 _RamLoad(uint8 *filename, uint16 address, uint16 maxsize) {
     File f;
     uint16 bytesread = 0;
 
+    _diskActivity(true);
     if (f = SD.open((char *)filename, FILE_READ)) {
         while (f.available()) {
             _RamWrite(address++, f.read());
@@ -36,11 +39,15 @@ uint16 _RamLoad(uint8 *filename, uint16 address, uint16 maxsize) {
         }
         f.close();
     }
+    _diskActivity(false);
     return (bytesread);
 }
 
 // Boards without a dedicated activity LED leave LED undefined.
 static inline void _diskActivity(bool active) {
+#if !defined(RUNCPM_HEADLESS)
+    terminalDiskActivity(active);
+#endif
 #ifdef LED
     digitalWrite(LED, (active ? HIGH : LOW) ^ LEDinv);
 #endif
@@ -72,11 +79,17 @@ typedef struct {
 static DirFat_t fileDirEntry;
 
 bool _sys_exists(uint8 *filename) {
-    return (SD.exists((const char *)filename));
+    _diskActivity(true);
+    const bool exists = SD.exists((const char *)filename);
+    _diskActivity(false);
+    return exists;
 }
 
 File _sys_fopen_w(uint8 *filename) {
-    return (SD.open((char *)filename, O_CREAT | O_WRITE));
+    _diskActivity(true);
+    File file = SD.open((char *)filename, O_CREAT | O_WRITE);
+    _diskActivity(false);
+    return file;
 }
 
 int _sys_fputc(uint8 ch, File &f) {
@@ -149,8 +162,9 @@ int _sys_makefile(uint8 *filename) {
 
 int _sys_deletefile(uint8 *filename) {
     _diskActivity(true);
-    return (SD.remove((char *)filename));
+    const int result = SD.remove((char *)filename);
     _diskActivity(false);
+    return result;
 }
 
 int _sys_renamefile(uint8 *filename, uint8 *newname) {
@@ -505,6 +519,7 @@ static const uint8 VTDRV_PORT = 0x7a;
 static const uint8 VTCPU_PORT = 0x7b;
 static const uint8 VTTERM_PORT = 0x79;
 static const uint8 VTREBOOT_PORT = 0x7c;
+static const uint8 VTSYNC_PORT = 0x7d;
 static const uint64 VTCPU_TSTATES = 13015509ULL;
 static const uint32 VTCPU8X_LOOPS = 500000UL;
 static const uint32 VTDRV_BYTES = 32768UL;
@@ -515,6 +530,7 @@ static bool vtcpu8x = false;
 static uint8 vtdrvOperation = 0;
 static bool vtdrv8x = false;
 static bool vttermReported = false;
+static uint8 vtSyncStatus = 0;
 
 void _putch(uint8 ch);
 
@@ -645,6 +661,15 @@ void _HardwareOut(const uint32 Port, const uint32 Value) {
         // before REBOOT.COM resets the ESP32-S3.
         terminalScheduleReboot();
 #endif
+    } else if (port == VTSYNC_PORT && value == 1) {
+#if !defined(RUNCPM_HEADLESS)
+        // SYNC.COM must complete the verified history transaction before a
+        // following long graphics stream can starve the normal input-wait poll.
+        terminalHistoryForceSave();
+        vtSyncStatus = terminalHistoryStoragePoll() ? 1 : 0xff;
+#else
+        vtSyncStatus = 0xff;
+#endif
     } else if (port == VTTERM_PORT && value == 2) {
 #if !defined(RUNCPM_HEADLESS)
         if (terminalTextBenchmarkDone() && !vttermReported) {
@@ -679,6 +704,8 @@ uint32 _HardwareIn(const uint32 Port) {
         return 0;
 #endif
     }
+    if (port == VTSYNC_PORT)
+        return vtSyncStatus;
     return 0;
 }
 

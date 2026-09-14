@@ -44,8 +44,9 @@ then `MBASIC` and `RUN "VTESTS"` when testing that pair in isolation. 1 = ink,
 The `VTCPU`, `VTCPU8X`, `VTDRV` and `VTDRV8X` commands are installed in A0 so
 the internal CCP can find them from every user area. Duplicates in A6 keep them
 with the benchmark collection. CPU tests report active and terminal-paused
-passes. Drive tests measure 32 KiB sequential write/read throughput, verify the
-data and remove their temporary files. The `8X` versions use only the common
+passes. Plain `VTDRV` read-tests and verifies a retained 32 KiB `VTDRV.$$$`
+fixture; `VTDRV RW` creates it once at a known-safe clock. `VTDRV8X` retains the
+older write/read/verify/delete test. The `8X` versions use only the common
 8080/8085 instruction subset. Sources and protocol notes are in
 `../src/7xtgv-vt100-runcpm/tools/vtbench/`.
 

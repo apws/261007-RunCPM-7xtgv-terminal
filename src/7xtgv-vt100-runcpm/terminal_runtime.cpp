@@ -7,6 +7,8 @@
 #include "history_profiles.h"
 #include "line_history.h"
 #include "terminal.h"
+#include "hal/backlight.h"
+#include "hal/reboot.h"
 #include <Arduino.h>
 #include <algorithm>
 #include <atomic>
@@ -24,6 +26,7 @@ static std::atomic<bool> ready{false};
 static std::atomic<bool> pauseRequested{false}, pauseAcknowledged{false};
 static std::atomic<bool> textBenchmarkRequested{false}, textBenchmarkFinished{false};
 static std::atomic<uint32_t> rebootScheduledAt{0};
+static std::atomic<uint32_t> diskActivityUntil{0};
 static std::atomic<uint32_t> textBenchmarkElapsed{0}, textBenchmarkByteCount{0}, textBenchmarkCharCount{0};
 static uint32_t replyOverruns = 0;
 static bool rawInputMode = false;
@@ -54,6 +57,7 @@ static uint8_t selectedBank = 0;
 static uint32_t historyObservedGeneration = 0;
 static uint32_t historyChangedAt = 0;
 static bool historySavePending = false;
+static std::atomic<bool> historyForceSaveRequested{false};
 static uint8_t historyLoadBank = 0, historyLoadLength = 0;
 static char historyLoadText[vt::LineHistory::MaxLine] = {};
 static bool historyNoticeActive = false;
@@ -401,7 +405,15 @@ static void mbasicEditBackspace() {
 }
 static void sendRecall(const vt::LineHistory::Recall &recalled) {
     const vt::HistoryProfile &profile = profiles.get(history->activeBank());
-    if (profile.historyClearLength) {
+    if (history->activeBank() == 0) {
+        // RunCPM's ^U redraws the line on the next row, so it cannot be used
+        // for a seamless recall replacement. Move to the tracked line start
+        // and delete every original character in place instead.
+        for (uint8_t i = 0; i < recalled.cursor; ++i)
+            input.push(0x01); // ^A: one character left
+        for (uint8_t i = 0; i < recalled.erase; ++i)
+            input.push(0x07); // ^G: delete character under cursor
+    } else if (profile.historyClearLength) {
         for (uint8_t i = 0; i < profile.historyClearLength; ++i)
             input.push(profile.historyClearBytes[i]);
     } else {
@@ -507,6 +519,25 @@ static void profileKey(vt::AppKey key) {
             beginMbasicCurrentEdit(key);
         return; // never emit edit commands during ordinary MBASIC input
     }
+    // RunCPM overloads ^B and ^W: on an empty CCP line they toggle/recall
+    // rather than simply moving to its start/end.  At the effective CP/M
+    // prompt, make physical Home/End deterministic from our tracked line by
+    // using only the unambiguous one-cell editor motions.  This also prevents
+    // a native recalled line being silently prepended to 7xtgv history.
+    if (history->activeBank() == 0 && (key == vt::AppHome || key == vt::AppEnd)) {
+        const uint8_t cursor = history->currentCursor();
+        const uint8_t length = history->currentLength();
+        const uint8_t count = key == vt::AppHome ? cursor : uint8_t(length - cursor);
+        const uint8_t motion = key == vt::AppHome ? 0x01 : 0x06; // ^A / ^F
+        for (uint8_t i = 0; i < count; ++i)
+            input.push(motion);
+        if (key == vt::AppHome)
+            history->home();
+        else
+            history->end();
+        lineModelAuthoritative = true;
+        return;
+    }
     if (binding.kind == vt::BindingHistoryPrevious)
         historyRecall(true);
     else if (binding.kind == vt::BindingHistoryNext)
@@ -595,6 +626,18 @@ static void mbasicEditPoll() {
     mbasicEditStartKind = MbasicStartNone;
 }
 static void requestMirrorSnapshot();
+static void terminalBacklight(uint8_t value) {
+    if (value <= 9)
+        xtgvBacklightSet(value);
+    else if (value == 10)
+        xtgvBacklightAdjust(1);
+    else if (value == 11)
+        xtgvBacklightAdjust(-1);
+}
+static void terminalControl(void *, vt::Terminal::ControlEvent event, uint8_t value) {
+    if (event == vt::Terminal::Backlight)
+        terminalBacklight(value);
+}
 static void keyboardAction(void *, vt::Keyboard::Action action) {
     // Recall waits until the transient label is gone, but bank changes remain
     // live so Alt+PgUp/PgDn can browse banks and redraw #n immediately.
@@ -603,6 +646,26 @@ static void keyboardAction(void *, vt::Keyboard::Action action) {
         return;
     if (action == vt::Keyboard::MirrorSnapshot) {
         requestMirrorSnapshot();
+        return;
+    }
+    if (action == vt::Keyboard::HistoryDelete) {
+        if (history) {
+            const uint8_t cursor = history->currentCursor();
+            const uint8_t length = history->currentLength();
+            if (history->deleteRecalled()) {
+                if (history->activeBank() == 0) {
+                    for (uint8_t i = 0; i < cursor; ++i) input.push(1);
+                    for (uint8_t i = 0; i < length; ++i) input.push(7);
+                } else {
+                    for (uint8_t i = 0; i < length; ++i) input.push(8);
+                }
+                lineModelAuthoritative = false;
+            }
+        }
+        return;
+    }
+    if (action >= vt::Keyboard::Backlight0 && action <= vt::Keyboard::Backlight11) {
+        terminalBacklight(uint8_t(action - vt::Keyboard::Backlight0));
         return;
     }
     if (action == vt::Keyboard::HistoryBankPrevious) {
@@ -684,7 +747,7 @@ static void keyboardAction(void *, vt::Keyboard::Action action) {
     historyRecall(action == vt::Keyboard::HistoryPrevious);
 }
 static vt::Keyboard keyboard(terminal, keyboardSend, nullptr, keyboardAction);
-static uint8_t rawControl[6];
+static uint8_t rawControl[9];
 static uint8_t rawControlLength = 0;
 static uint32_t rawControlAt = 0;
 
@@ -701,9 +764,25 @@ static bool rawControlPrefix() {
     if (rawControlLength >= 5) {
         if (rawControl[3] == '1' && (rawControl[4] < '4' || rawControl[4] > '7')) return false;
         if (rawControl[3] == '2' && (rawControl[4] < '0' || rawControl[4] > '9')) return false;
-        if (rawControl[3] == '6' && rawControl[4] != '2') return false;
+        if (rawControl[3] == '6' && rawControl[4] != '2' && rawControl[4] != '3') return false;
     }
-    return rawControlLength < 6 || rawControl[5] == 'v';
+    if (rawControl[3] != '6' || rawControlLength < 5 || rawControl[4] != '3')
+        return rawControlLength < 6 || rawControl[5] == 'v';
+    if (rawControlLength >= 6 && rawControl[5] != ';') return false;
+    if (rawControlLength >= 7 && (rawControl[6] < '0' || rawControl[6] > '9')) return false;
+    if (rawControlLength == 8)
+        return rawControl[7] == 'v' || (rawControl[6] == '1' && (rawControl[7] == '0' || rawControl[7] == '1'));
+    if (rawControlLength == 9)
+        return rawControl[6] == '1' && (rawControl[7] == '0' || rawControl[7] == '1') && rawControl[8] == 'v';
+    return rawControlLength < 8;
+}
+static int rawBacklightValue() {
+    if (rawControlLength == 8 && rawControl[7] == 'v' && rawControl[6] >= '0' && rawControl[6] <= '9')
+        return rawControl[6] - '0';
+    if (rawControlLength == 9 && rawControl[8] == 'v' && rawControl[6] == '1' &&
+        (rawControl[7] == '0' || rawControl[7] == '1'))
+        return 10 + rawControl[7] - '0';
+    return -1;
 }
 static void rawFeed(uint8_t c, uint32_t now) {
     if (!rawControlLength && c != 0x1b) {
@@ -716,7 +795,15 @@ static void rawFeed(uint8_t c, uint32_t now) {
         rawFlush();
         return;
     }
-    if (rawControlLength != sizeof(rawControl))
+    int brightness = rawBacklightValue();
+    if (brightness >= 0) {
+        rawControlLength = 0;
+        terminalBacklight(uint8_t(brightness));
+        return;
+    }
+    // All established private controls are six bytes. Brightness uses the
+    // longer 63;n form and was consumed above when its final v arrived.
+    if (rawControlLength != 6)
         return;
     uint8_t group = rawControl[3], command = rawControl[4];
     rawControlLength = 0;
@@ -744,7 +831,7 @@ static void rawTick(uint32_t now) {
 }
 static bool displayOK = false, cursorPhase = true, connected = false;
 static uint32_t blinkAt = 0, bellUntil = 0, oldBells = 0;
-#if defined(GFX_BUFFERED_CANVAS)
+#if defined(GFX_BUFFERED_CANVAS) || defined(GFX_DEFERRED_FLUSH)
 static uint32_t displayFlushAt = 0;
 static bool displayFlushPending = false;
 #endif
@@ -762,11 +849,21 @@ static int scanCell = 0, mirrorScan = 0;
 static char mirrorBuffer[8192];
 static size_t mirrorLength = 0, mirrorSent = 0;
 static bool mirrorReset = false;
+// A guest program may request an explicitly configured host action.  This
+// event crosses the reconstructed mirror separately, because ordinary CP/M
+// ANSI output is consumed into terminal cells before that mirror is built.
+static constexpr uint8_t hostReflashEvent[] = {27, '[', '>', '6', '4', 'v'};
+static uint8_t hostEventCandidate[sizeof(hostReflashEvent)];
+static uint8_t hostEventCandidateLength = 0;
+static bool hostReflashPending = false;
+static uint8_t hostReflashSent = 0;
 static int activeRow = -1;
 static uint8_t activeRowBank = 255;
 static uint32_t plotActiveRows = 0;
 static bool plotEndCleanupPending = false;
 static uint32_t plotEndActivityAt = 0;
+static bool diskIndicatorVisible = false;
+static bool diskIndicatorDirty = false;
 
 // A plot may hold back normal opaque redraws for a long time.  When it ends,
 // retire the old highlight explicitly before allowing the next prompt row to
@@ -782,12 +879,29 @@ static void requestMirrorSnapshot() {
 }
 
 static void requestDisplayFlush() {
-#if defined(GFX_BUFFERED_CANVAS)
+#if defined(GFX_BUFFERED_CANVAS) || defined(GFX_DEFERRED_FLUSH)
     displayFlushPending = true;
 #endif
 }
+void terminalDiskActivity(bool active) {
+    // Latch even a sub-millisecond filesystem operation long enough for the
+    // display core to show it. The SD-owner core never calls Arduino_GFX.
+    if (active)
+        diskActivityUntil.store(millis() + 75, std::memory_order_release);
+}
+static void diskActivityIndicatorPoll() {
+    const uint32_t until = diskActivityUntil.load(std::memory_order_acquire);
+    const bool plotOwnsPixels = plotCapture || plotEndCleanupPending || plotCanvasValid;
+    const bool visible = !plotOwnsPixels && until && int32_t(until - millis()) > 0;
+    if (visible == diskIndicatorVisible)
+        return;
+    diskIndicatorVisible = visible;
+    diskIndicatorDirty = true;
+    if (!visible && !plotOwnsPixels)
+        terminal.dirty[terminal.viewport] = true;
+}
 static void flushCanvasIfDue() {
-#if defined(GFX_BUFFERED_CANVAS)
+#if defined(GFX_BUFFERED_CANVAS) || defined(GFX_DEFERRED_FLUSH)
     const uint32_t now = millis();
     if (displayFlushPending && int32_t(now - displayFlushAt) >= 0) {
         gfx->flush();
@@ -997,7 +1111,9 @@ static void drawCell(int i) {
         terminal.cursorVisible && cursorPhase && terminal.x == i % vt::Cols && terminal.y == row;
     if (cursor) {
         background = profileRGB(profile.cursorRGB);
-        foreground = {0, 0, 0};
+        // The cursor is dark paper, but preserve the active-line colour as
+        // its ink so a character under the blinking block stays readable.
+        foreground = profile.activeLine ? profileRGB(profile.activeLineRGB) : terminal.foreground(i);
     }
     uint16_t fg = rgb565(foreground), bg = rgb565(background);
     bool blinkOff = (terminal.flags[i] & vt::Blink) && !cursorPhase;
@@ -1112,20 +1228,11 @@ static void historyNoticePoll() {
     if (!intact)
         writeHistoryNotice(true);
 }
-#if !defined(GFX_BUFFERED_CANVAS)
+#if defined(GFX_VIEWPORT_INDICATOR)
 static void drawIndicator() {
-    gfx->fillRect(312, 0, 8, 240, 0);
-    // Track shows the visible fraction of the 80-column page.
-    int start = terminal.viewport * 220 / vt::Cols;
-    gfx->fillRect(314, start + 10, 4, vt::Visible * 220 / vt::Cols, 0x7bef);
-    if (terminal.x < terminal.viewport)
-        gfx->fillRect(312, 0, 8, 6, 0xffff);
-    if (terminal.x >= terminal.viewport + vt::Visible)
-        gfx->fillRect(312, 234, 8, 6, 0xffff);
-    if (int32_t(bellUntil - millis()) > 0)
-        gfx->fillRect(312, 112, 8, 16, 0xffe0);
-    if (replyOverruns)
-        gfx->fillRect(312, 106, 8, 4, 0xf800);
+    gfx->fillRect(GFX_VIEWPORT_INDICATOR_X, GFX_VIEWPORT_INDICATOR_Y,
+                  GFX_VIEWPORT_INDICATOR_W, GFX_VIEWPORT_INDICATOR_H,
+                  rgb565(profileRGB(profiles.global().viewportGutterRGB)));
 }
 #endif
 static void renderBatch() {
@@ -1156,12 +1263,22 @@ static void renderBatch() {
     // Keep the scan index bounded even after months of continuous operation.
     scanCell %= vt::Visible * vt::Rows;
     if (terminal.indicatorDirty) {
-#if !defined(GFX_BUFFERED_CANVAS)
+#if defined(GFX_VIEWPORT_INDICATOR)
         drawIndicator();
 #endif
         terminal.indicatorDirty = false;
     }
-#if defined(GFX_BUFFERED_CANVAS)
+    // Compact displays have no taskbar, so overlay a small top-left activity
+    // LED. The pale-red centre gives the maximum-red block a visible hot spot.
+    // When it expires, the normal 6x10 cell renderer restores every pixel
+    // underneath it. Retained graphics plots are never touched.
+    if (diskIndicatorVisible && (diskIndicatorDirty || drawn)) {
+        gfx->fillRect(GFX_OFS_X, GFX_OFS_Y, 6, 6, 0xf800);
+        gfx->fillRect(GFX_OFS_X + 2, GFX_OFS_Y + 2, 2, 2, 0xfb6d);
+        requestDisplayFlush();
+    }
+    diskIndicatorDirty = false;
+#if defined(GFX_BUFFERED_CANVAS) || defined(GFX_DEFERRED_FLUSH)
     displayFlushPending |= drawn != 0;
     flushCanvasIfDue();
 #endif
@@ -1297,6 +1414,23 @@ static void mirrorPump() {
     }
     if (!connected)
         return;
+    // Never inject into a partially written reconstructed ANSI update.  The
+    // PC bridge receives this exact private sequence as an out-of-band event
+    // and consumes it before displaying anything.
+    if (hostReflashPending && mirrorSent == mirrorLength) {
+        int available = Serial.availableForWrite();
+        if (available > 0) {
+            size_t left = sizeof(hostReflashEvent) - hostReflashSent;
+            size_t n = std::min(left, std::min(size_t(available), size_t(64)));
+            n = Serial.write(hostReflashEvent + hostReflashSent, n);
+            hostReflashSent += n;
+            if (hostReflashSent == sizeof(hostReflashEvent)) {
+                hostReflashPending = false;
+                hostReflashSent = 0;
+            }
+        }
+        return;
+    }
     if (mirrorSent == mirrorLength)
         mirrorBuild();
     int available = Serial.availableForWrite();
@@ -1345,39 +1479,72 @@ static bool writeHistoryText(TerminalHistoryWriteByte writeByte, void *context,
             return false;
     return true;
 }
+struct HistoryWriteState {
+    TerminalHistoryWriteByte writeByte;
+    void *context;
+    uint32_t crc = 0xffffffffUL;
+};
+static uint32_t historyCRC32Byte(uint32_t crc, uint8_t byte) {
+    crc ^= byte;
+    for (uint8_t bit = 0; bit < 8; ++bit)
+        crc = (crc >> 1) ^ (0xedb88320UL & uint32_t(-int32_t(crc & 1)));
+    return crc;
+}
+static bool writeHistoryCheckedByte(void *context, uint8_t byte) {
+    HistoryWriteState *state = static_cast<HistoryWriteState *>(context);
+    if (!state->writeByte(state->context, byte))
+        return false;
+    state->crc = historyCRC32Byte(state->crc, byte);
+    return true;
+}
 bool terminalHistoryWrite(TerminalHistoryWriteByte writeByte, void *context) {
-    if (!history || !writeHistoryText(writeByte, context, "# 7xtgv terminal history v1\n"))
+    HistoryWriteState state{writeByte, context};
+    if (!history || !writeHistoryText(writeHistoryCheckedByte, &state,
+                                      "# 7xtgv terminal history v2\n"))
         return false;
     char text[vt::LineHistory::MaxLine];
     for (uint8_t bank = 0; bank < vt::LineHistory::Banks; ++bank) {
         char header[8];
         snprintf(header, sizeof(header), "[%u]\n", unsigned(bank));
-        if (!writeHistoryText(writeByte, context, header))
+        if (!writeHistoryText(writeHistoryCheckedByte, &state, header))
             return false;
         for (uint8_t ordinal = 0; ordinal < history->bankCount(bank); ++ordinal) {
             uint8_t length = 0;
             if (!history->copyEntry(bank, ordinal, text, length) ||
-                !writeByte(context, '>'))
+                !writeHistoryCheckedByte(&state, '>'))
                 return false;
             for (uint8_t i = 0; i < length; ++i)
-                if (!writeByte(context, uint8_t(text[i])))
+                if (!writeHistoryCheckedByte(&state, uint8_t(text[i])))
                     return false;
-            if (!writeByte(context, '\n'))
+            if (!writeHistoryCheckedByte(&state, '\n'))
                 return false;
         }
     }
-    return true;
+    char footer[24];
+    snprintf(footer, sizeof(footer), "# crc32=%08lX\n",
+             static_cast<unsigned long>(state.crc ^ 0xffffffffUL));
+    // The checksum footer is deliberately excluded from its own CRC.
+    return writeHistoryText(writeByte, context, footer);
 }
 bool terminalHistorySaveDue() {
     if (!history)
         return false;
     const uint32_t generation = history->generation();
+    const bool forced = historyForceSaveRequested.exchange(false, std::memory_order_acq_rel);
     if (generation != historyObservedGeneration) {
         historyObservedGeneration = generation;
         historyChangedAt = millis();
         historySavePending = true;
     }
-    return historySavePending && uint32_t(millis() - historyChangedAt) >= 2000;
+    if (forced) {
+        historyChangedAt = millis();
+        historySavePending = true;
+    }
+    return historySavePending &&
+           (forced || uint32_t(millis() - historyChangedAt) >= 2000);
+}
+void terminalHistoryForceSave() {
+    historyForceSaveRequested.store(true, std::memory_order_release);
 }
 void terminalHistorySaveComplete(bool saved) {
     if (saved)
@@ -1392,11 +1559,10 @@ void terminalSetup() {
     // No USB diagnostics: this port carries only the interpreted screen mirror.
     GFX_DEVICE_INIT();
     displayOK = GFX_BEGIN_OK();
-    pinMode(GFX_BL, OUTPUT);
-    analogWrite(GFX_BL, 150);
+    xtgvBacklightInit();
     if (displayOK) {
         gfx->fillScreen(0);
-#if defined(GFX_BUFFERED_CANVAS)
+#if defined(GFX_BUFFERED_CANVAS) || defined(GFX_DEFERRED_FLUSH)
         gfx->flush();
         displayFlushAt = millis() + 33;
 #endif
@@ -1405,6 +1571,7 @@ void terminalSetup() {
             plotScanline = new (std::nothrow) uint16_t[plotWidth];
     }
     terminal.setPlotSink(terminalPlot, nullptr);
+    terminal.setControlSink(terminalControl, nullptr);
     terminal.reset();
     if (!displayOK) {
         const char *s = "TFT initialization failed; PC mirror remains available.\r\n";
@@ -1437,9 +1604,7 @@ static void terminalRebootPoll() {
     if (!scheduled || uint32_t((millis() + 1) - scheduled) < 3000)
         return;
     rebootScheduledAt.store(0, std::memory_order_release);
-#if defined(ARDUINO_ARCH_ESP32)
-    ESP.restart();
-#endif
+    runCPMHardwareReboot();
 }
 void terminalTextBenchmarkRequest() {
     textBenchmarkFinished.store(false, std::memory_order_release);
@@ -1508,16 +1673,42 @@ static void terminalTextBenchmarkPoll() {
 int virtualAvailable() { return input.available(); }
 uint8_t virtualRead() {
     uint8_t c;
-    while (!input.pop(c))
+    while (!input.pop(c)) {
+        // RunCPM and its filesystem live on this core. Lazy history writes
+        // must never touch SdFat/SD_MMC from the terminal/display core.
+        terminalHistoryStoragePoll();
+        // REBOOT.COM returns to the CCP, making this input wait the safe point
+        // to reset after the pending history transaction had its opportunity.
+        terminalRebootPoll();
         delay(1);
+    }
     return c;
 }
 void virtualWrite(uint8_t c) {
     while (!output.push(c))
         delay(1);
 }
+static void guestOutputFeed(uint8_t c) {
+    // Hold only a possible prefix of ESC[>64v.  On any mismatch, immediately
+    // return the held bytes to the normal terminal parser in their original
+    // order, so all ordinary ANSI and text behavior stays unchanged.
+    if (!hostEventCandidateLength && c != hostReflashEvent[0]) {
+        terminal.feed(c);
+        return;
+    }
+    hostEventCandidate[hostEventCandidateLength++] = c;
+    if (!memcmp(hostEventCandidate, hostReflashEvent, hostEventCandidateLength)) {
+        if (hostEventCandidateLength == sizeof(hostReflashEvent)) {
+            hostEventCandidateLength = 0;
+            hostReflashPending = true;
+        }
+        return;
+    }
+    for (uint8_t i = 0; i < hostEventCandidateLength; ++i)
+        terminal.feed(hostEventCandidate[i]);
+    hostEventCandidateLength = 0;
+}
 void terminalLoop() {
-    terminalRebootPoll();
     terminalTextBenchmarkPoll();
     if (pauseRequested.load(std::memory_order_acquire)) {
         pauseAcknowledged.store(true, std::memory_order_release);
@@ -1553,7 +1744,7 @@ void terminalLoop() {
         if (localComposeRedrawPending) {
             continue;
         }
-        terminal.feed(c);
+        guestOutputFeed(c);
         if (plotEndCleanupPending)
             plotEndActivityAt = millis();
         // Preserve every active row traversed during a graphics transaction.
@@ -1599,6 +1790,7 @@ void terminalLoop() {
         observedOverruns = replyOverruns;
         terminal.indicatorDirty = true;
     }
+    diskActivityIndicatorPoll();
     renderBatch();
     mirrorPump();
 }

@@ -1,0 +1,178 @@
+# JC8048W550 SD SPI validation
+
+Validated 2026-09-14 on the 5-inch JC8048W550 ESP32-S3 module with the current
+microSD card and the 800x480 RGB display running continuously.
+
+## Wiring and driver limit
+
+- Independent SPI bus: CS 10, MOSI 11, MISO 13, SCK 12.
+- Arduino-ESP32 3.1.0 `libraries/SD/src/sd_diskio.cpp` clamps a requested SPI
+  clock above 25 MHz to 25 MHz after card probing.
+- The target HAL therefore defaults to and explicitly caps the effective clock
+  at 25 MHz. Startup reports the effective value, not a higher requested value.
+
+## Read-only benchmark
+
+`VTDRV RW` was run once at 10 MHz to create the deterministic 256-record
+(32 KiB) `VTDRV.$$$` fixture. Plain `VTDRV` then performs only a timed read and
+an untimed byte-for-byte verification; it does not create, write, rename, or
+delete the fixture. Arguments are case-insensitive and `/RW` is equivalent to
+`RW`.
+
+| Requested/effective SPI | Runs | Read result | Verification |
+| --- | ---: | ---: | --- |
+| 10/10 MHz | 1 | 5.28 KiB/s | PASS |
+| 20/20 MHz | 3 | 7.36, 7.36, 7.36 KiB/s | PASS each |
+| 40/25 MHz | 3 | 7.36, 7.35, 7.36 KiB/s | PASS each |
+| 25/25 MHz, `VTDRV RW` | 2 | write 4.31 KiB/s; read 7.35, 7.36 KiB/s | PASS each |
+
+The 25 MHz library maximum is read/write-stable in this tested board/card
+combination: two complete `VTDRV RW` write/read/verify runs passed there.
+
+The modest application-level throughput is dominated by CP/M BDOS 128-byte
+record operations, filesystem overhead, and continuous RGB framebuffer DMA.
+The 800x480 panel has no controller GRAM, so scanout continues even for a static
+screen. The bounce buffers make that scanout reliable but do not eliminate its
+memory-bandwidth and scheduling cost.
+
+## What VTDRV measures
+
+The 25 MHz SPI wire limit is 3,125,000 bytes/s (about 3,052 KiB/s) before SD
+protocol overhead. Long native sequential reads could reasonably approach that
+order of magnitude. `VTDRV` is deliberately not such a bulk-SD test.
+
+CP/M 2.2 standard BDOS sequential read/write functions operate on one 128-byte
+logical record at a time. In this RunCPM FAT-file implementation, each record
+currently reaches the host as a separate `SD.open(path)`, `seek(offset)`,
+128-byte read/write, emulated-DMA copy, and `close()` sequence. A 32 KiB VTDRV
+read has 256 such transactions. The measured 7.36 KiB/s therefore corresponds
+to about 17 ms per logical record and characterizes the cold CP/M-record/FAT
+path, not raw SD bandwidth.
+
+Classic CP/M BIOS implementations may translate those 128-byte logical records
+to 256- or 512-byte physical sectors and retain a deblocking/cache buffer. A
+direct-LBA implementation (for example, a disk-image or raw-card design) still
+has the same portable BDOS record interface, but avoids FAT pathname lookup and
+can retain physical sectors or active files across adjacent calls. It can be
+much faster. The same improvement is possible without abandoning FAT32 here:
+retain host file handles keyed by CP/M FCB/path and skip open/seek/close when
+the next request is contiguous. That is future storage-layer work; no such
+behavior change was made during this validation.
+
+The terminal file-transfer utility is slower for a separate reason: it encodes
+32-byte chunks as hexadecimal and performs a visible request/acknowledgement
+round trip for every chunk. Its design favors recovery and exact terminal-state
+synchronization rather than bulk throughput.
+
+## RunCPM BDOS, ABDOS, BIOS, and CCP alternatives
+
+### What the normal build actually emulates
+
+The current 7xtgv build selects `CCP_INTERNAL` and `INT_HANDOFF`. It is a hybrid,
+not a complete CP/M machine image:
+
+- COM programs execute as interpreted Z80 code in RunCPM's 64 KiB guest memory.
+- The internal CCP is native C/C++ code, so the prompt, command parsing, and
+  SUBMIT handling do not consume emulated Z80 cycles.
+- A guest call through CP/M address `0005h` reaches native `_Bdos()` through the
+  `RST 10h` interrupt handoff. BIOS jump-table calls similarly reach native
+  `_Bios()` through `RST 08h`.
+- Native `_Bdos()` maps CP/M drives and user areas onto FAT directories and
+  files. There is no resident Digital Research BDOS processing disk requests in
+  guest RAM, and there is no CP/M disk image or raw logical-block backend.
+
+Consequently, VTDRV measures an interpreted CP/M caller invoking a native host
+BDOS implementation. "Native BDOS" does not mean one bulk native read: BDOS
+function 20 still requests one 128-byte CP/M record, and this implementation
+currently opens, seeks, reads, copies, and closes its FAT file for every call.
+
+### What `ABDOS` is in this tree
+
+`ABDOS` is a compile-time experimental alternative by Pavel Zampach. Despite
+its name, the available `ABDOS.SYS` is only 256 bytes and is **not a complete
+guest CP/M BDOS**. Its source comments and dispatch table show this split:
+
+- BDOS functions 0 through 11 are implemented in guest Z80 and use the patched
+  BIOS console, reader, punch, and list entries. Function 10 contains its own
+  small buffered-console line editor, including backspace/delete, `^U`/`^Y`,
+  and initial `^C` warm boot handling.
+- Functions 12 and above, including all normal file and record operations, are
+  delegated to RunCPM's native `_Bdos()` by `IN A,(0FFh)`.
+
+ABDOS therefore changes primarily the low-level CP/M console semantics. It does
+not remove FAT, implement raw sectors, add disk deblocking, or avoid the current
+per-record `open/seek/read/close` path. It should have essentially no benefit
+for VTDRV disk throughput; its guest console routines will instead add some
+interpreter overhead.
+
+The option cannot be combined with `CCP_INTERNAL`; `globals.h` rejects that
+combination. It requires one of the external guest CCPs and an `A/0/ABDOS.SYS`
+file. There is also an important issue in the present fork: `INT_HANDOFF` is
+enabled, but under that mode CPU port input no longer treats port `FFh` as a
+native BDOS call, and `_HardwareIn()` has no `FFh` fallback. ABDOS still uses
+that legacy instruction for functions 12 and above. Thus ABDOS should currently
+be considered **unvalidated/incompatible with `INT_HANDOFF`**, not a safe switch
+to enable. Supporting both would require a small, deliberate handoff fix and
+hardware testing.
+
+Source-of-truth warning: the current card snapshot contains `ABDOS.ORG`, but the
+repository's descriptive `cpmdrive` mirror currently retains only `ABDOS.SYS`
+and `ABDOS.SUB`; the SUB expects an ABDOS source file that is absent there. Do
+not assume ABDOS is reproducibly buildable from the repository until that
+source and its `Z3BASE.LIB` dependency are recovered and provenance-checked.
+
+### External CCP choices
+
+RunCPM also offers build-time selection of these guest command processors:
+
+| Selection | Expected binary | Guest RAM reserved below BDOS | Character |
+| --- | --- | ---: | --- |
+| `CCP_DR` | `CCP-DR.<TPASIZE>K` | 2 KiB | Digital Research CCP |
+| `CCP_CCPZ` | `CCP-CCPZ.<TPASIZE>K` | 2 KiB | CCPZ |
+| `CCP_ZCPR2` | `CCP-ZCP2.<TPASIZE>K` | 2 KiB | ZCPR2 |
+| `CCP_ZCPR3` | `CCP-ZCP3.<TPASIZE>K` | 4 KiB | ZCPR3 |
+| `CCP_Z80` | `CCP-Z80.<TPASIZE>K` | 2 KiB | Z80CCP |
+
+Unlike the internal CCP, these binaries are loaded into guest RAM and execute
+through the Z80 interpreter. That makes shell startup, parsing, built-ins, and
+SUBMIT interaction slower and changes compatibility and command behavior. It
+does not make a launched COM program's CPU loop intrinsically slower, because
+that program was interpreted already, and it does not replace the native file
+BDOS unless ABDOS or a much larger architectural change is also selected.
+ZCPR3 additionally costs another 2 KiB of TPA. The correct 60K/64K binary must
+exist under the exact filename RunCPM derives at build time. The local archive
+contains CCP-related material, but these alternatives have not been installed
+and validated as part of the current 7xtgv firmware work.
+
+The upstream RunCPM description and CCP list are in the
+[official RunCPM README](https://github.com/MockbaTheBorg/RunCPM). Upstream also
+describes regular host folders, rather than disk images, as a deliberate RunCPM
+design goal.
+
+### Practical alternatives and likely performance
+
+1. **Current native internal CCP plus native BDOS/BIOS:** simplest and generally
+   fastest shell; direct, convenient FAT files; current 128-byte record path is
+   inefficient but straightforward to optimize.
+2. **External guest CCP plus native BDOS/BIOS:** useful for authentic CCP/ZCPR
+   behavior and compatibility testing. Expect a slower shell and 2--4 KiB less
+   TPA, but approximately the same application disk path.
+3. **ABDOS plus an external CCP:** provides guest implementations of BDOS
+   console calls 0--11, while disk/file calls remain native. It first needs the
+   `INT_HANDOFF` compatibility issue resolved and its sources restored.
+4. **Full guest BDOS and BIOS over disk images or raw media:** this is not an
+   existing RunCPM switch. The current native BIOS disk functions do not provide
+   a real sector backend suitable for it. It would require a disk controller or
+   sector service, DPB/DPH and deblocking/cache policy, image/media management,
+   and much more compatibility testing. More Z80 instructions would be
+   interpreted, but cached 512-byte physical-sector I/O could still outperform
+   today's repeated FAT open/close path. The net result must be measured.
+5. **Optimize the existing native FAT BDOS:** retain open host-file handles,
+   detect sequential FCB access, and cache adjacent 128/512-byte records. This
+   preserves the convenient RunCPM drive-directory model and is the smallest,
+   most promising route to substantially better storage performance.
+
+For 7xtgv, option 5 is the sensible first performance experiment. External CCPs
+and ABDOS are more valuable as compatibility/behavior experiments than as SD
+speed improvements. A full guest CP/M system is a separate emulator/storage
+architecture, not a tuning flag.

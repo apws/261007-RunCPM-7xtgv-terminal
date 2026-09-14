@@ -4,10 +4,15 @@ import argparse
 import errno
 import fcntl
 import glob
+import grp
 import os
+import pwd
 import select
+import shlex
+import shutil
 import signal
 import struct
+import subprocess
 import sys
 import termios
 import time
@@ -17,21 +22,27 @@ import tty
 PREFIX = 0x1D  # Ctrl+]
 SNAPSHOT_REQUEST = b'\x1b[>62v'  # PC mirror only; does not redraw the TFT.
 SNAPSHOT_RESET = b'\x1b[2J\x1b[H'
+# Guest-to-host capability request.  This is deliberately handled by the PC
+# bridge only: the firmware has no knowledge of the host build/upload setup.
+HOST_REFLASH_REQUEST = b'\x1b[>64v'
 COMMANDS = {
     ord('1'): b'\x1b[>1v', ord('2'): b'\x1b[>2v',
     ord('a'): b'\x1b[1;3H', ord('e'): b'\x1b[1;3F',
-    ord('h'): b'\x1b[1;3D', ord('l'): b'\x1b[1;3C',
+    # Preserve the old prefix chords as harmless no-ops. Partial 4-column
+    # panning has been retired in favour of the two global edge jumps.
+    ord('h'): b'', ord('l'): b'',
     ord('r'): b'\x1b[>0v', PREFIX: bytes([PREFIX]),
     ord('g'): b'\x1b[>4v',
     ord('#'): b'\x1b[>15v',
     ord('x'): b'\x1b[>60v', ord('c'): b'\x1b[>61v',
-    ord('p'): b'\x1b[>10v', ord('n'): b'\x1b[>11v',
+    ord('p'): b'\x1b[>10v', ord('n'): b'\x1b[>11v', ord('d'): b'\x1b[>65v',
     ord('['): b'\x1b[>12v', ord(']'): b'\x1b[>13v',
 }
 
 class Keys:
     def __init__(self):
         self.prefix = False
+        self.brightness = False
         self.quit = False
         keys = os.environ.get('XTGV_BANK_KEYS', '+ěščřžýáíé')
         numbers = os.environ.get('XTGV_BANK_NUMBERS', '1234567890')
@@ -67,11 +78,24 @@ class Keys:
     def feed(self, data):
         result = bytearray()
         for c in data:
-            if self.prefix:
+            if self.brightness:
+                self.brightness = False
+                if ord('0') <= c <= ord('9'):
+                    result.extend(b'\x1b[>63;' + bytes([c]) + b'v')
+                elif c == ord('+'):
+                    result.extend(b'\x1b[>63;10v')
+                elif c == ord('-'):
+                    result.extend(b'\x1b[>63;11v')
+                else:
+                    result.extend(bytes([PREFIX, ord('b'), c]))
+            elif self.prefix:
                 self.prefix = False
                 if c == ord('q'):
                     self.quit = True
                     break
+                if c == ord('b'):
+                    self.brightness = True
+                    continue
                 result.extend(COMMANDS.get(c, bytes([PREFIX, c])))
             elif self.alt:
                 result.extend(self._feed_alt(c))
@@ -85,6 +109,26 @@ class Keys:
         return result
 
 
+class HostEvents:
+    """Remove reserved guest-to-host events from the displayed byte stream."""
+    def __init__(self):
+        self.pending = bytearray()
+
+    def feed(self, data):
+        displayed = bytearray()
+        reflash = False
+        for byte in data:
+            self.pending.append(byte)
+            while self.pending:
+                if HOST_REFLASH_REQUEST.startswith(self.pending):
+                    if self.pending == HOST_REFLASH_REQUEST:
+                        reflash = True
+                        self.pending.clear()
+                    break
+                displayed.append(self.pending.pop(0))
+        return bytes(displayed), reflash
+
+
 def choose_port(port):
     if port:
         return port
@@ -92,6 +136,29 @@ def choose_port(port):
     if len(ports) != 1:
         raise RuntimeError('Specify --port: expected exactly one RP2350 serial device.')
     return ports[0]
+
+
+def ensure_port_group(port):
+    """Enter the configured device group when this login predates membership."""
+    try:
+        device_gid = os.stat(port).st_gid
+        current_groups = set(os.getgroups()) | {os.getgid(), os.getegid()}
+        account = pwd.getpwuid(os.getuid())
+        configured_groups = set(os.getgrouplist(account.pw_name, account.pw_gid))
+        newgrp = shutil.which('newgrp')
+        if device_gid in current_groups or device_gid not in configured_groups or not newgrp:
+            return
+        group_name = grp.getgrgid(device_gid).gr_name
+    except (KeyError, OSError):
+        return
+    command = shlex.join([sys.executable, os.path.realpath(__file__), *sys.argv[1:]])
+    os.execv(newgrp, [newgrp, group_name, '-c', command])
+
+
+def port_identity(port):
+    """Identity changes when udev replaces a native-USB serial device node."""
+    status = os.stat(port)
+    return status.st_dev, status.st_ino, status.st_rdev
 
 
 def configure_serial(fd):
@@ -136,7 +203,7 @@ def interrupted(signum, frame):
     raise KeyboardInterrupt
 
 
-def run(port, mode):
+def run(port, mode, reflash_command=None):
     if not os.isatty(0) or not os.isatty(1):
         raise RuntimeError('Run this helper inside kitty or Konsole, with an interactive keyboard.')
     dimensions = os.get_terminal_size(1)
@@ -147,10 +214,12 @@ def run(port, mode):
     saved_keyboard = termios.tcgetattr(0)
     saved_stdout = fcntl.fcntl(1, fcntl.F_GETFL)
     keys = Keys()
+    host_events = HostEvents()
     incoming, outgoing = bytearray(), bytearray()
     entered = False
     try:
         fd, saved_serial = open_serial(port)
+        opened_identity = port_identity(port)
         tty.setraw(0, termios.TCSANOW)
         os.write(1, b'\x1b[?1049h\x1b[?2004l\x1b[?1l\x1b>\x1b[0m\x1b[2J\x1b[H')
         entered = True
@@ -162,6 +231,7 @@ def run(port, mode):
         snapshot_retry_at = time.monotonic() + 2.0
         snapshot_probe = bytearray()
         reconnect_at = 0.0
+        identity_check_at = time.monotonic() + 0.25
         while not keys.quit:
             # Keep stdin readable during a USB outage so Ctrl+] q always works.
             readers = [0]
@@ -179,6 +249,16 @@ def run(port, mode):
                 reconnect_at = time.monotonic() + 0.25
                 continue
             outgoing.extend(keys.tick())
+            if fd is not None and time.monotonic() >= identity_check_at:
+                identity_check_at = time.monotonic() + 0.25
+                try:
+                    replaced = port_identity(port) != opened_identity
+                except OSError:
+                    replaced = True
+                if replaced:
+                    close_serial(fd, saved_serial)
+                    fd = saved_serial = None
+                    reconnect_at = time.monotonic() + 0.05
             if 0 in readable:
                 data = os.read(0, 256)
                 if not data:
@@ -193,6 +273,7 @@ def run(port, mode):
                 except OSError:
                     pass
                 else:
+                    opened_identity = port_identity(port)
                     # The firmware answers this with its complete text buffer.
                     # Do not invalidate the TFT: a completed xterm256 plot stays up.
                     incoming.clear()
@@ -212,6 +293,7 @@ def run(port, mode):
                     fd = saved_serial = None
                     reconnect_at = time.monotonic() + 0.25
                 if data:
+                    data, reflash_requested = host_events.feed(data)
                     if snapshot_pending:
                         snapshot_probe.extend(data)
                         if SNAPSHOT_RESET in snapshot_probe:
@@ -220,6 +302,29 @@ def run(port, mode):
                         elif len(snapshot_probe) > len(SNAPSHOT_RESET):
                             del snapshot_probe[:-len(SNAPSHOT_RESET)]
                     incoming.extend(data)
+                    if reflash_requested:
+                        if not reflash_command:
+                            incoming.extend(b'\r\n[7xtgv: REFLASH requested, but no host uploader is configured]\r\n')
+                        else:
+                            # Release the exclusive serial lock before the
+                            # configured uploader resets or replaces the USB
+                            # device.  The normal reconnect/snapshot logic
+                            # resumes this same mirror afterwards.
+                            close_serial(fd, saved_serial)
+                            fd = saved_serial = None
+                            incoming.extend(b'\r\n[7xtgv: host reflash requested]\r\n')
+                            try:
+                                # terminal.py owns Konsole's raw alternate
+                                # screen.  Upload progress written there would
+                                # be interpreted as terminal text and corrupt
+                                # the mirror, so retain it in a normal log.
+                                with open('/tmp/7xtgv-reflash.log', 'ab') as log:
+                                    log.write(time.strftime('\n%F %T reflash\n').encode())
+                                    subprocess.run(reflash_command, check=True,
+                                                   stdout=log, stderr=subprocess.STDOUT)
+                            except (OSError, subprocess.CalledProcessError) as exc:
+                                incoming.extend(f'[7xtgv: host reflash failed: {exc}]\r\n'.encode())
+                            reconnect_at = time.monotonic() + 0.25
             for target, pending in ((fd, outgoing), (1, incoming)):
                 if target is not None and target in writable:
                     try:
@@ -245,16 +350,21 @@ def run(port, mode):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, epilog=(
         'Ctrl+] then q: exit; 1: ANSI; 2: VT52; a/e: left/right edge; '
-        'h/l: pan; r: redraw; g: xterm256 GCLS; p/n: history; [/]: history bank; '
+        'r: redraw; g: xterm256 GCLS; p/n: history; [/]: history bank; '
         '#: toggle RAW; x: profile exit; c: profile clear; Ctrl+] again: literal Ctrl+]. '
-        'Alt+Home/End and Alt+Left/Right also pan.'))
+        'Ctrl+Shift+Home/End also jump to the viewport edges.'))
     parser.add_argument('--port', help='Serial device; defaults to the unique RP2350 by-id path')
     parser.add_argument('--mode', choices=('ansi', 'vt52'), help='Select mode on connection; otherwise preserve it')
+    parser.add_argument('--reflash-command',
+                        help='opt-in host uploader invoked by guest CSI >64v; overrides XTGV_REFLASH_COMMAND')
     args = parser.parse_args()
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGHUP, interrupted)
     try:
-        run(choose_port(args.port), args.mode)
+        port = choose_port(args.port)
+        ensure_port_group(port)
+        command = args.reflash_command or os.environ.get('XTGV_REFLASH_COMMAND')
+        run(port, args.mode, shlex.split(command) if command else None)
     except KeyboardInterrupt:
         pass
     except (OSError, RuntimeError) as exc:

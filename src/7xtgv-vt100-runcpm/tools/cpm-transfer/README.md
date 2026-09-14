@@ -13,11 +13,15 @@ that percentage on the device TFT. Percentage text is sent as an optional suffix
 or acknowledgement, so the Python tool can bootstrap an older helper and the new
 helpers still accept the original protocol.
 
-Build with the z80asm assembler (AlbertVeli/z80asm upstream):
+The source suffix is intentional: these files contain Z80 mnemonics. SLR
+`Z80ASM NAME` on CP/M defaults to `NAME.Z80` and directly emits `NAME.COM`;
+Digital Research `ASM` defaults to `.ASM` and is not compatible with them.
+
+Build on the host with the z80asm assembler (AlbertVeli/z80asm upstream):
 
 ```
-z80asm -o VTGET.COM VTGET.ASM
-z80asm -o VTPUT.COM VTPUT.ASM
+z80asm -o VTGET.COM VTGET.Z80
+z80asm -o VTPUT.COM VTPUT.Z80
 ```
 
 Install both COM files in A0. RunCPM's command lookup can find them from other

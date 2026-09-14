@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -13,6 +14,7 @@ class LineHistory {
 
     struct Recall {
         uint8_t erase = 0;
+        uint8_t cursor = 0;
         uint8_t length = 0;
         char text[MaxLine];
     };
@@ -44,7 +46,7 @@ class LineHistory {
             ++target.count;
         return true;
     }
-    uint32_t generation() const { return generation_; }
+    uint32_t generation() const { return generation_.load(std::memory_order_acquire); }
     uint8_t currentLength() const { return length_; }
     uint8_t currentCursor() const { return cursor_; }
     void copyCurrent(char *target, uint8_t &length, uint8_t &cursor) const {
@@ -136,6 +138,7 @@ class LineHistory {
             --nextOffset;
         }
         result.erase = length_;
+        result.cursor = cursor_;
         offset_ = nextOffset;
         if (!offset_) {
             length_ = 0;
@@ -153,6 +156,24 @@ class LineHistory {
         return true;
     }
 
+    bool deleteRecalled() {
+        if (!recalling_ || !offset_ || offset_ > banks_[active_].count)
+            return false;
+        Bank &bank = banks_[active_];
+        uint8_t index = uint8_t((bank.next + Depth - offset_) % Depth);
+        const uint8_t last = uint8_t((bank.next + Depth - 1) % Depth);
+        while (index != last) {
+            const uint8_t following = uint8_t((index + 1) % Depth);
+            bank.entries[index] = bank.entries[following];
+            index = following;
+        }
+        bank.next = last;
+        --bank.count;
+        resetLine();
+        generation_.fetch_add(1, std::memory_order_release);
+        return true;
+    }
+
   private:
     struct Entry {
         uint8_t length = 0;
@@ -167,7 +188,7 @@ class LineHistory {
     uint8_t active_ = 0, length_ = 0, cursor_ = 0, offset_ = 0;
     bool recalling_ = false, insert_ = true;
     char current_[MaxLine];
-    uint32_t generation_ = 0;
+    std::atomic<uint32_t> generation_{0};
 
     void resetLine() {
         length_ = cursor_ = offset_ = 0;
@@ -187,7 +208,7 @@ class LineHistory {
         bank.next = uint8_t((bank.next + 1) % Depth);
         if (bank.count < Depth)
             ++bank.count;
-        ++generation_;
+        generation_.fetch_add(1, std::memory_order_release);
     }
 };
 

@@ -3,9 +3,9 @@
 ; command returns normally. It is useful from BROT-*.SUB scripts.
 
         org     0100h
-        ld      de,message
-        ld      c,9                    ; BDOS print-string
+        lxi     d,message
+        mvi     c,9                    ; BDOS print-string
         call    5
-        jp      0
+        jmp     0
 
 message: db      27,'[>4v','$'

@@ -12,7 +12,7 @@ may define different keys.
 | Raw key | Function | 7xtgv PC-key mapping |
 |---|---|---|
 | `^A` | Move left one character | `Left` in bank profile `#0 CP/M` |
-| `^B` | Toggle between beginning and end of line | `Home` in `#0 CP/M`; `Ctrl+Left` sends `^Q ^B` |
+| `^B` | Toggle between beginning and end of line | Direct `Ctrl+B`; physical Home is made stable by 7xtgv with repeated `^A` moves. |
 | `^C` | Abort input when the line is empty | No special mapping; press `Ctrl+C` |
 | `^E` | Continue at the beginning of the next display line | `Ctrl+Insert` sends `^Q ^E` |
 | `^F` | Move right one character | `Right` in `#0 CP/M` |
@@ -22,12 +22,14 @@ may define different keys.
 | `^K` | Delete from the cursor through the end of line | `Ctrl+Delete`; also `Ctrl+End` sends `^Q ^K` |
 | `^R` | Redisplay the current line | No special mapping; press `Ctrl+R` |
 | `^U` | Delete the entire line | No special mapping; press `Ctrl+U` |
-| `^W` | At line start, recall RunCPM's previous command; within a line, move to its end | `End` in `#0 CP/M`; `Ctrl+Right` sends `^Q ^W` |
+| `^W` | At line start, recall RunCPM's previous command; within a line, move to its end | Direct `Ctrl+W`; physical End is made stable by 7xtgv with repeated `^F` moves. |
 | `^X` | Delete everything left of the cursor | `Ctrl+Backspace`; also `Ctrl+Home` sends `^Q ^X` |
 | `^?` in RunCPM's help (`0x1F`, formally `^_`) | Display RunCPM's editing-key help | No special mapping; try `Ctrl+?`, `Ctrl+_`, or `Ctrl+Shift+-`, depending on terminal and layout |
 
 Plain navigation keys are logical 7xtgv events. The selected application
-profile maps them using `A0:7XTGVTRM.INI`. Some applications use `^Q`
+profile maps them using `A0:7XTGVTRM.INI`. At the detected CP/M prompt,
+7xtgv intercepts physical Home/End to avoid RunCPM's ambiguous `^B`/`^W`
+semantics. Some applications use `^Q`
 as their own command prefix; the explicitly prefixed variants remain on
 `Ctrl+Left` and `Ctrl+Right`.
 
@@ -42,7 +44,7 @@ They remain available through their direct `Ctrl` combinations.
 | `PgUp`, `PgDn` | Selected application profile | No default action in `#0 CP/M`; TE uses page movement |
 | `Insert` | Selected bank profile | `^V` in `#0 CP/M`; no RunCPM line-editor action |
 | `F5` | `^Q F` | Application-oriented; at the prompt it can insert `F` |
-| `Up`, `Down` | 7xtgv private controls | Recall previous/next line in the selected 7xtgv history list |
+| `Up`, `Down` | 7xtgv private controls | Recall previous/next line in the selected 7xtgv history list; at the CCP prompt recall moves to line start with `^A` and deletes with `^G`, so it replaces the whole native line even from a middle cursor. |
 | `Alt+0` ... `Alt+9` | 7xtgv private controls | Select named history/key profile `#0` ... `#9` |
 | `Alt+Space` | 7xtgv private control | Temporarily show the active bank without changing it or the current line |
 | `Alt+#`, or `Ctrl+]` then `#` | 7xtgv private control | Toggle `## RAW`; bypass history and application input translation |

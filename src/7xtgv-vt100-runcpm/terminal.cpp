@@ -333,6 +333,8 @@ void Terminal::dispatch(uint8_t f) {
     if (prefix == '>') {
         if (f == 'v' && count == 1 && params[0] == 4)
             beginPlot();
+        else if (f == 'v' && count == 2 && params[0] == 63 && params[1] >= 0 && params[1] <= 11)
+            control(Backlight, uint8_t(params[1]));
         return;
     }
     if (prefix)
@@ -674,10 +676,6 @@ void Keyboard::finish() {
     else if (!strcmp(s, "\033[1;3F") || !strcmp(s, "\033[4;3~") || !strcmp(s, "\033[8;3~") ||
              !strcmp(s, "\033\033[F"))
         t_.pan(Cols - Visible);
-    else if (!strcmp(s, "\033[1;3D") || !strcmp(s, "\033\033[D"))
-        t_.pan(t_.viewport - 4);
-    else if (!strcmp(s, "\033[1;3C") || !strcmp(s, "\033\033[C"))
-        t_.pan(t_.viewport + 4);
     else if (!strcmp(s, "\033[>0v")) {
         t_.abortPlot();
         t_.invalidate();
@@ -692,6 +690,8 @@ void Keyboard::finish() {
         if (act_) act_(context_, HistoryPrevious);
     } else if (!strcmp(s, "\033[>11v")) {
         if (act_) act_(context_, HistoryNext);
+    } else if (!strcmp(s, "\033[>65v")) {
+        if (act_) act_(context_, HistoryDelete);
     } else if (!strcmp(s, "\033[>12v")) {
         if (act_) act_(context_, HistoryBankPrevious);
     } else if (!strcmp(s, "\033[>13v")) {
@@ -710,6 +710,11 @@ void Keyboard::finish() {
         if (act_) act_(context_, ProfileClear);
     } else if (!strcmp(s, "\033[>62v")) {
         if (act_) act_(context_, MirrorSnapshot);
+    } else if ((size_ == 8 || size_ == 9) && !memcmp(s, "\033[>63;", 6) && s[size_ - 1] == 'v') {
+        int value = -1;
+        if (size_ == 8 && s[6] >= '0' && s[6] <= '9') value = s[6] - '0';
+        else if (size_ == 9 && s[6] == '1' && (s[7] == '0' || s[7] == '1')) value = 10 + s[7] - '0';
+        if (value >= 0 && act_) act_(context_, Action(Backlight0 + value));
     } else if (size_ == 6 && !memcmp(s, "\033[>2", 4) && s[4] >= '0' && s[4] <= '9' && s[5] == 'v') {
         if (act_) act_(context_, Action(HistoryBank0 + s[4] - '0'));
     } else if (size_ == 6 && !memcmp(s, "\033[>", 3) && s[3] >= '3' && s[3] <= '5' &&

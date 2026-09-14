@@ -1,6 +1,6 @@
 # 7xtgv RunCPM terminal manual
 
-This is the practical manual for the current ESP32-S3 RunCPM terminal: the TFT
+This is the practical manual for the current 7xtgv RunCPM terminal: the TFT
 terminal, its PC Konsole/Kitty mirror, persistent command histories, and the
 ten application profiles.  The active device configuration is loaded once at
 boot from `A0:7XTGVTRM.INI`.
@@ -35,12 +35,13 @@ input unless a profile deliberately maps them that way.
 | `Ctrl+] r` | Repaint normal terminal text on the TFT and PC. This also ends an active xterm256 plot. |
 | `Ctrl+] g` | GCLS: arm the direct xterm256 graphics canvas below terminal cells. |
 | `Ctrl+] a` / `e` | Move the 80-column viewport to its left / right edge. |
-| `Ctrl+] h` / `l` | Pan that viewport four columns left / right. |
 | `Ctrl+] p` / `n` | Previous / next history entry of the active effective bank. |
 | `Ctrl+] [` / `]` | Select preceding / next application profile. |
 | `Ctrl+] #` | Toggle `## RAW` direct-input mode. |
 | `Ctrl+] x` | Send the selected profile's configured exit command. |
 | `Ctrl+] c` | Send the selected profile's configured clear command. |
+| `Ctrl+] b 0` … `9` | Backlight off, then 10% … 90%. |
+| `Ctrl+] b +` / `-` | Raise / lower backlight one level. |
 
 The PC key tables provide the more natural shortcuts:
 
@@ -54,10 +55,15 @@ The PC key tables provide the more natural shortcuts:
 | `Alt+Backspace` | Configured profile clear. |
 | `Alt+Shift+Backspace` | GCLS / xterm256 canvas clear. |
 | `Alt+Shift+3` | Toggle `## RAW` mode. |
+| `Ctrl+Shift` or `Alt+Shift` + `0` … `9` | Backlight off, then 10% … 90%. |
+| `Ctrl+Shift` or `Alt+Shift` + `PgUp` / `PgDn` | Raise / lower backlight one level. |
+| `Ctrl+Shift` or `Alt+Shift` + `Home` / `End` | Global viewport jump to the left / right 80-column edge. |
 
 `Alt+Esc` and `Alt+Backspace` are configured globally in `7XTGVTRM.INI` as
-dual-Alt gestures.  Their generated commands are intentionally not saved in
-history.
+dual-Alt gestures. Their generated commands, and the Ctrl+Shift viewport
+jumps, are handled before application-profile bindings and are not saved in
+history. Brightness is not persisted: it starts at the normal boot brightness
+after every module reset.
 
 ## Histories, banks, and the active line
 
@@ -67,15 +73,18 @@ directly; each profile can instead give those keys to the target application and
 put history on Alt+Up/Alt+Down.
 
 The histories live in `A0:7XTGVTRM.BUF`.  After two seconds without a newly
-stored line the firmware atomically rewrites that ordinary text file through
-`7XTGVTRM.NEW`; history therefore survives normal resets.  It can be inspected
-or repaired from CP/M if required.
+stored line, the RunCPM/SD-owner core writes and rereads `7XTGVTRM.NEW`, then
+rotates the prior generation through `7XTGVTRM.BAK`. Completed v2 files carry a
+CRC-32 footer; boot rejects a torn copy and tries `.NEW` and `.BAK`. History
+therefore survives normal resets without cross-core filesystem access. It can
+be inspected or repaired from CP/M if required.
 
 Profile selection is explicit and persistent, but the RunCPM CCP prompt
 (`A0>`, `AF>`, and similar) silently uses effective bank `#0` so shell commands
 do not pollute an application history.  The selected bank is restored when the
 application prompt returns.  The cursor row is rendered with a pale-green
-background; its cursor is a saturated green block.
+background; its cursor is a mid-green block whose character ink remains the
+same pale green.
 
 `## RAW` bypasses profile/history translation for direct control of an
 application.  It is the escape hatch for diagnostic tools and unusual full
@@ -86,7 +95,7 @@ work.
 
 | Bank | Name | Select action | History and key behaviour |
 | --- | --- | --- | --- |
-| `#0` | CP/M | Sends `A0:` | Up/Down history. Left/Right/Home/End/Delete/Insert send the CCP/WordStar-style controls `^A`, `^F`, `^B`, `^W`, `^G`, `^V`. Clear is `CLS`. |
+| `#0` | CP/M | Sends `A0:` | Up/Down history. Left/Right/Delete/Insert use CCP/WordStar-style controls. Home/End are stable terminal-side start/end movements, avoiding RunCPM's context-sensitive `^B`/`^W` toggle/recall. Clear is `CLS`. |
 | `#1` | MBASIC | Sends `A7:` | Screen-line history with the local composer. Left=`rubout`, Right=`space`, Home=`L`, End=`X Esc`, Delete=`1D`; supports practical `EDIT n` editing. Exit is `system`; clear prints ANSI clear/home. |
 | `#2` | TE | Sends `A0:` | Keeps TE's normal cursor movement: `^S`, `^D`, `^Q S`, `^Q D`, `^E`, `^X`; history is Alt+Up/Alt+Down. Page keys map to TE commands. |
 | `#3` | TURBO | Sends `A2:` | ANSI cursor and six-key sequences are passed through; history is Alt+Up/Alt+Down. |
@@ -117,19 +126,91 @@ ordinary line edits and safely retypes recalled history using the profile's
 configured clear/retype sequence.  This is why its controls differ from
 MBASIC's.
 
+## 7xtgv CP/M commands and user areas
+
+This compact reference covers files added or adapted by this project. It does
+not repeat ordinary CP/M programs and imported language packages; use `?` at
+the CCP prompt for the internal CCP command list. An A0 command is found from
+other user areas by this RunCPM CCP, while files it creates normally belong to
+the current DU (for example `A6>`).
+
+| DU | 7xtgv additions or adapted launchers |
+| --- | --- |
+| A0 | `REBOOT`, `UNSUB`, `VTCPU`, `VTCPU8X`, `VTDRV`, `VTDRV8X`, `VTTERM`, `VTGET`, `VTPUT`, and shared `VTESTS.BAS`. `7XTGVTRM.INI` and history generations live here. |
+| A1 | `BBCLOWER`, a project-built BBC BASIC accepting lowercase keywords and immediate commands only. |
+| A2 | No project command; Turbo Pascal and `TINST` are supplied software. |
+| A3 | No project command; the COMAL area is presently empty. |
+| A4 | No project command; assembler/debugger tools are supplied software. |
+| A5 | No project command; imported CP/M/CCP source and its build SUB files. |
+| A6 | Graphics, timing, sync, and benchmark helpers; Brot scripts and sources. |
+| A7 | Isolated duplicate `MBASIC` plus `VTESTS.BAS` workspace. |
+| A8 | `VTDEMO.BAS` and `VTDEMO2.BAS`, the 7xtgv ANSI/colour demo programs. |
+| A9 | No project command; Lua files are experimental supplied material. |
+| AA | No project command; alternate MBASIC binaries. |
+| AC | No project command; GEEK2350 source/archive material. |
+| AD | No project command; disk-image archive only, not a device-sync target. |
+
+### Shared A0 commands
+
+| Command | Purpose |
+| --- | --- |
+| `REBOOT` | Schedules a whole-module reboot after a three-second notice. The serial mirror disconnects, so relaunch `tools/kon.sh` or `tools/kit.sh` afterwards. |
+| `REFLASH` | First forces and verifies the same history save as `SYNC`, then emits the reserved host event `ESC[>64v`. It flashes nothing by itself; an attached `terminal.py` acts only when its target-specific `XTGV_REFLASH_COMMAND` is explicitly configured. |
+| `UNSUB` | Deletes a stranded `$$$.SUB` queue in the current DU without switching drive or user. It is silent if none exists. |
+| `VTCPU` / `VTCPU8X` | Measure the RunCPM interpreter with the terminal active and paused. `8X` uses the 8080/8085 common instruction subset. |
+| `VTDRV` | Plain invocation read-tests and verifies a retained 32 KiB `VTDRV.$$$` fixture. Run `VTDRV RW` once at a known-safe clock to create it. Options are case-insensitive. |
+| `VTDRV8X` | Write, read, and verify 32 KiB in the current DU, then remove its temporary test file. Uses the 8080/8085 instruction subset. |
+| `VTTERM` | Run the firmware-native terminal/parser benchmark. |
+| `VTGET` / `VTPUT` | CP/M ends of the host `tools/cpm-transfer/transfer.py` protocol; normally use the host tool rather than type their protocol manually. |
+| `MBASIC`, then `RUN "VTESTS"` | Start the shared terminal visual-test menu. A7 provides the same isolated pair. |
+
+`UNSUB.ASM` is retained in the A0 source mirror; its assembled `UNSUB.COM` is
+currently installed on the card and should be rebuilt/deployed after card
+replacement.
+
+### A6 graphics and timing helpers
+
+| Command | Purpose |
+| --- | --- |
+| `GCLS` | Emits private `ESC[>4v`, arming the local xterm256 graphics canvas. It does not erase logical terminal content. |
+| `SYNC` | Forces the verified terminal-history save immediately. Use before a long graphics stream or likely hardware reset. |
+| `VTPAD [n]` | Prints `n` CR/LF pairs; default is 18. It provides visible space where SUBMIT would discard empty script records. |
+| `VTSTART` / `VTSTOP` | Save and report elapsed RunCPM uptime around a test, using `VTIME.DAT` in the current DU. |
+| `SUBMIT BROT_BS` / `SUBMIT BROT_PS` | Recommended Brot launchers: clear, pad nine lines, start timing, sync history, arm GCLS, run the renderer, then report elapsed time. |
+| `SUBMIT VTPARG n` | Argument-expansion test: runs `VTPAD n`. |
+
+The current card contains the assembled A6 helpers. The source mirror retains
+their `.ASM` sources (and, where available, `.HEX` files); after replacing a
+card, rebuild missing `.COM` files in A6 with `ASM name` then `LOAD name`. The
+two Brot renderers use underscores deliberately: TE treats `-` as an editing
+command separator, so use `BROT_BS` and `BROT_PS`, not hyphenated names.
+
+### Boot, AUTOEXEC, and pending SUBMIT work
+
+`AUTOEXEC.TXT` is a RunCPM convenience, not a standard CP/M 2.2 CCP command.
+It is a short first-boot command line at the SD-card filesystem root (outside
+every A0--AF DU). For deliberate startup, it can contain `SUBMIT STARTUP`,
+with ordinary `STARTUP.SUB` held in the intended CP/M DU.
+
+`SUBMIT` builds the internal `$$$.SUB` queue. On boot the CCP can find such a
+pending queue and resume it; that is useful after interruption but is not a
+safe way to turn ordinary text prefixed with `$` into autorun. If an abandoned
+queue causes surprising commands after boot, switch to its DU and run `UNSUB`.
+A pending queue takes precedence over `AUTOEXEC.TXT`.
+
 ## xterm256 graphics
 
 `Ctrl+] g` or `Alt+Shift+Backspace` starts a local GCLS graphics layer.  The
 next xterm256 indexed-color samples (`CSI 38;5;<index>m` plus byte values) are
 drawn as RGB565 pixels directly on the TFT and are not mirrored to the PC.  The
 normal terminal cell layer remains logically present and opaque text output can
-paint over the image.  `BROT-BS` and `BROT-PS` demonstrate this path from A6.
+paint over the image.  `BROT_BS` and `BROT_PS` demonstrate this path from A6.
 
 Use the supplied submit scripts after selecting A6:
 
 ```text
-A6>SUBMIT BROT-BS
-A6>SUBMIT BROT-PS
+A6>SUBMIT BROT_BS
+A6>SUBMIT BROT_PS
 ```
 
 The direct plot ends on SGR reset (`CSI 0m`).  Rows used by status text and the
@@ -140,7 +221,9 @@ screen to the normal terminal surface.
 
 ## Configuration reference
 
-`A0:7XTGVTRM.INI` is read once at firmware boot.  Each `[bankN]` supports a
+`A0:7XTGVTRM.INI` is read once at firmware boot. Its `[global]` section holds
+the global exit/clear key policy, cursor blink, and `viewport_gutter_rgb`
+(the full-height compact-display gutter colour). Each `[bankN]` supports a
 name, `on_select`, `exit_command`, `clear_command`, regular/Ctrl/Alt cursor and
 six-key bindings, history controls, active-line/cursor RGB values, and narrow
 editing options such as `screen_line`, `line_prefix`, `activate_prefix`,
@@ -148,7 +231,30 @@ editing options such as `screen_line`, `line_prefix`, `activate_prefix`,
 
 Binding values are `none`, `history_previous`, `history_next`, `send:<bytes>`,
 or `send_cancel:<bytes>`.  Escape notation accepts `\e`, `\r`, `\n`, `\t`, `\\`,
-and `\xNN`.  Edit the file on the SD card and reboot to load a changed profile.
+and `\xNN`.
+
+`7XTGVTRM.INI` is deliberately CP/M-text friendly: its loader accepts CR, LF,
+or CR/LF line endings and treats a CP/M Ctrl+Z (`1Ah`) as logical end of file.
+It can therefore be edited as `A0:7XTGVTRM.INI` with a CP/M editor, then
+reloaded by `REBOOT`. The firmware presently only reads this configuration; it
+does not rewrite it. The host transfer tool's `--cpm-text` mode writes the same
+CR/LF-plus-Ctrl+Z convention. This applies only to the INI file: do not edit
+the checksummed native history files (`7XTGVTRM.BUF`, `.NEW`, or `.BAK`) from
+CP/M.
 
 The mirror and keyboard bridge are implemented by `tools/terminal.py`; Kitty
 and Konsole mappings are in `tools/kitty.conf` and `tools/7xtgv-cpm.keytab`.
+
+`A0:REFLASH` is deliberately a guest-to-host capability request, not a CP/M
+firmware writer. Its event is removed from the displayed terminal stream. On a
+development PC, set `XTGV_REFLASH_COMMAND` in `tools/terminal.conf` to a
+non-interactive uploader for one specific target; the bridge releases its
+serial lock, runs that command, then reconnects and requests a mirror snapshot.
+Leaving the variable unset is the safe default and reports the request without
+changing the device. Assemble `REFLASH.ASM` to install `REFLASH.COM`.
+The mirror selects an explicit `XTGV_TARGET` in `tools/terminal.conf` and
+uses `tools/reflash.py` to load that target's profile, default port and upload
+method from `tools/targets/<target>.json`. Override a changed USB node with
+`XTGV_PORT`. The current development target is `jc8048w535`; change it before
+moving to another module. A `bootsel-uf2` target intentionally refuses this
+automatic host event until its BOOTSEL/UF2 flow is explicitly configured.

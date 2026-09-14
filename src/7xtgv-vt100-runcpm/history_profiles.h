@@ -49,7 +49,9 @@ struct HistoryProfile {
     uint8_t exitLength = 0, clearLength = 0;
     uint8_t exitBytes[MaxCommandBytes] = {}, clearBytes[MaxCommandBytes] = {};
     uint8_t activeLineRGB[3] = {205, 255, 205};
-    uint8_t cursorRGB[3] = {0, 255, 80};
+    // Mid-green paper stays distinct from the pale active-line overlay while
+    // its glyph still uses the pale active-line ink.
+    uint8_t cursorRGB[3] = {0, 150, 40};
     uint16_t historyRetypeDelayMs = 0;
     // This deliberately narrow adapter is for BASIC-80's modal EDIT command.
     // It is off for every other CP/M application.
@@ -63,6 +65,9 @@ struct GlobalProfile {
     GlobalKey exitKey = GlobalKeyDualAltEscape;
     GlobalKey clearKey = GlobalKeyDualAltDelete;
     uint16_t cursorBlinkMs = 500;
+    // The compact 52-column layout leaves an 8-pixel right gutter. This is
+    // deliberately global rather than a per-application profile colour.
+    uint8_t viewportGutterRGB[3] = {128, 128, 128};
 };
 
 // A complete staging set is published atomically, so the terminal task never

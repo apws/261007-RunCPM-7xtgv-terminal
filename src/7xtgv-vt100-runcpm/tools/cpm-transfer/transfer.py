@@ -66,6 +66,12 @@ class Link:
     def command(self, text):
         self.send(text+'\r');self.pump(.25)
 
+    def fresh_screen(self):
+        # VTPUT/VTGET use a deterministic full-screen text protocol.  Do not
+        # let an earlier failed transaction still visible in the terminal RAM
+        # make the next transaction fail before its command has run.
+        self.screen = smoke.Mirror()
+
     def until(self, predicate, timeout=15):
         end=time.monotonic()+timeout
         while time.monotonic()<end:
@@ -77,11 +83,16 @@ class Link:
 
     def user(self, user):
         assert 0<=user<16
+        self.fresh_screen()
         self.command(f'A{user}:')
-        self.until(lambda t:f'A{user}>' in t)
+        # A verified lazy-history save temporarily pauses RunCPM. Slow SD
+        # targets can therefore echo the drive/user command well before CCP
+        # gets a chance to print its new prompt.
+        self.until(lambda t:f'A{user}>' in t, timeout=60)
 
     def get(self, name, progress=None):
         assert re.fullmatch(r'[A-Z0-9_-]{1,8}\.[A-Z0-9]{1,3}', name)
+        self.fresh_screen()
         self.command('VTGET '+name)
         data=bytearray();record=0
         while True:
@@ -104,6 +115,7 @@ class Link:
     def put(self, name, data, progress=None, verify=False):
         assert re.fullmatch(r'[A-Z0-9_-]{1,8}\.[A-Z0-9]{1,3}', name)
         data=data+bytes((-len(data))%128)
+        self.fresh_screen()
         self.command('VTPUT '+name)
         for count,offset in enumerate(range(0,len(data),32)):
             marker=f'PUT{count:04X}:'

@@ -8,6 +8,7 @@ import select
 import struct
 import subprocess
 import sys
+import tempfile
 import termios
 import time
 import unittest
@@ -52,7 +53,9 @@ class HelperIntegration(unittest.TestCase):
             fcntl.ioctl(pc_slave, termios.TIOCSWINSZ, struct.pack('HHHH', 24, 80, 0, 0))
             proc = subprocess.Popen([sys.executable, '-c', CHILD, HELPER, os.ttyname(board_slave)],
                                     stdin=pc_slave, stdout=pc_slave, stderr=pc_slave)
-            until(board_master, b'\x1b[>0v')
+            # Initial attachment requests the dedicated mirror-only snapshot;
+            # it must not issue the older full terminal/TFT reset command.
+            until(board_master, b'\x1b[>62v')
             os.write(pc_master, b'DIR\r\x03')
             until(board_master, b'DIR\r\x03')
             os.write(board_master, b'\x1b[2J\x1b[HCP/M MIRROR\r\nA0>')
@@ -70,6 +73,36 @@ class HelperIntegration(unittest.TestCase):
                 proc.wait()
             for fd in (pc_master, pc_slave, board_master, board_slave):
                 os.close(fd)
+
+    def test_reconnects_when_serial_node_is_replaced(self):
+        pc_master, pc_slave = pty.openpty()
+        board1_master, board1_slave = pty.openpty()
+        board2_master, board2_slave = pty.openpty()
+        proc = None
+        with tempfile.TemporaryDirectory() as temporary:
+            port = os.path.join(temporary, 'ttyACM0')
+            os.symlink(os.ttyname(board1_slave), port)
+            try:
+                fcntl.ioctl(pc_slave, termios.TIOCSWINSZ,
+                            struct.pack('HHHH', 24, 80, 0, 0))
+                proc = subprocess.Popen([sys.executable, '-c', CHILD, HELPER, port],
+                                        stdin=pc_slave, stdout=pc_slave, stderr=pc_slave)
+                until(board1_master, b'\x1b[>62v')
+                os.unlink(port)
+                os.symlink(os.ttyname(board2_slave), port)
+                until(board2_master, b'\x1b[>62v')
+                os.write(board2_master, b'\x1b[2J\x1b[HRECONNECTED')
+                until(pc_master, b'RECONNECTED')
+                os.write(pc_master, b'\x1dq')
+                proc.wait(timeout=3)
+                self.assertEqual(proc.returncode, 0)
+            finally:
+                if proc and proc.poll() is None:
+                    proc.kill()
+                    proc.wait()
+                for fd in (pc_master, pc_slave, board1_master, board1_slave,
+                           board2_master, board2_slave):
+                    os.close(fd)
 
 if __name__ == '__main__':
     unittest.main()

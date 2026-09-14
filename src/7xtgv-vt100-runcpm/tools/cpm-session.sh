@@ -23,7 +23,16 @@ case "${1-}" in
 esac
 
 if [ "$#" -eq 0 ]; then
-    set -- --port /dev/ttyACM0
+    # ESP32-S3 modules may enumerate as ACM or USB serial.  The selected
+    # target's terminal.conf supplies the explicit port when it is not ACM.
+    set -- --port "${XTGV_PORT:-/dev/ttyACM0}"
+fi
+
+# An existing shared session already owns the serial port.  A new Konsole
+# window is only a tmux attachment, so it must not request an ACL/sudo or try
+# to inspect the port before attaching.
+if tmux has-session -t "$session" 2>/dev/null; then
+    exec tmux attach-session -t "$session"
 fi
 
 if [ "${1-}" = "--port" ] && [ -n "${2-}" ]; then
@@ -34,9 +43,18 @@ if [ "${1-}" = "--port" ] && [ -n "${2-}" ]; then
     done
 fi
 
+configured_for_port_group=0
+if [ "${1-}" = "--port" ] && [ -n "${2-}" ] && [ -e "$2" ]; then
+    port_group=$(stat -c '%G' "$2" 2>/dev/null || true)
+    case " $(id -nG "$USER" 2>/dev/null || true) " in
+        *" $port_group "*) configured_for_port_group=1 ;;
+    esac
+fi
+
 # Recreated USB nodes may lose the user's ACL after a reboot or reflash.
 # Ask once here so kit.sh/kon.sh work without a separate setup command.
 if [ "${1-}" = "--port" ] && [ -n "${2-}" ] && [ -e "$2" ] \
+    && [ "$configured_for_port_group" -eq 0 ] \
     && { [ ! -r "$2" ] || [ ! -w "$2" ]; }; then
     if command -v sudo >/dev/null 2>&1; then
         sudo setfacl -m "u:${USER}:rw" "$2" || true
@@ -48,7 +66,9 @@ fi
 case "${1-}" in
     --port)
         port=${2-}
-        if [ -n "$port" ] && [ -e "$port" ] && { [ ! -r "$port" ] || [ ! -w "$port" ]; }; then
+        if [ -n "$port" ] && [ -e "$port" ] \
+            && [ "$configured_for_port_group" -eq 0 ] \
+            && { [ ! -r "$port" ] || [ ! -w "$port" ]; }; then
             echo "Cannot access $port (serial permissions)."
             echo "Run once: sudo setfacl -m u:$USER:rw $port"
             echo "Or add $USER to the device group (usually uucp/dialout), then log in again."

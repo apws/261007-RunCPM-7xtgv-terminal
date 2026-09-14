@@ -5,7 +5,12 @@
 #include "7xtgv-palette.h"
 
 namespace vt {
-constexpr int Cols = 80, Rows = RUNCPM_TERM_ROWS, Visible = RUNCPM_TERM_VISIBLE_COLS,
+// CP/M's conventional output width is 80 columns, but larger panels expose a
+// correspondingly wider terminal plane.  Small panels retain the 80-column
+// plane and use viewport panning; the 800px W550 owns 133 six-pixel cells.
+constexpr int Visible = RUNCPM_TERM_VISIBLE_COLS,
+              Cols = Visible > 80 ? Visible : 80,
+              Rows = RUNCPM_TERM_ROWS,
               Cells = Cols * Rows;
 using RGB = mixworx::RGB;
 extern const RGB (&Ink)[16];
@@ -26,6 +31,8 @@ class Terminal {
     // usable by direct and buffered Arduino_GFX targets alike.
     enum PlotEvent : uint8_t { PlotBegin, PlotSample, PlotRow, PlotEnd, PlotAbort };
     using Plot = void (*)(void *, PlotEvent, uint16_t);
+    enum ControlEvent : uint8_t { Backlight };
+    using Control = void (*)(void *, ControlEvent, uint8_t);
     explicit Terminal(Reply reply = nullptr, void *context = nullptr);
     void reset();
     void feed(uint8_t c);
@@ -34,6 +41,7 @@ class Terminal {
     void invalidate();
     void invalidateMirror();
     void setPlotSink(Plot plot, void *context) { plot_ = plot; plotContext_ = context; }
+    void setControlSink(Control control, void *context) { control_ = control; controlContext_ = context; }
     void beginPlot();
     void abortPlot();
     bool plotting() const { return plotState != PlotOff; }
@@ -57,6 +65,8 @@ class Terminal {
     void *context_;
     Plot plot_ = nullptr;
     void *plotContext_ = nullptr;
+    Control control_ = nullptr;
+    void *controlContext_ = nullptr;
     enum PlotState : uint8_t { PlotOff, PlotReady, PlotSampleArmed } plotState = PlotOff;
     uint16_t plotInk = 0, plotPaper = 0xffff;
     bool plotStarted = false;
@@ -81,6 +91,7 @@ class Terminal {
     void dispatch(uint8_t final);
     void sgr();
     void plot(PlotEvent event, uint16_t value = 0);
+    void control(ControlEvent event, uint8_t value) { if (control_) control_(controlContext_, event, value); }
     static uint16_t xterm565(int index);
     void save();
     void restore();
@@ -96,6 +107,7 @@ class Keyboard {
     enum Action : uint8_t {
         HistoryPrevious,
         HistoryNext,
+        HistoryDelete,
         HistoryBankPrevious,
         HistoryBankNext,
         HistoryBankShow,
@@ -109,7 +121,9 @@ class Keyboard {
         HistoryBank0,
         HistoryBank9 = HistoryBank0 + 9,
         ProfileKey0,
-        ProfileKey29 = ProfileKey0 + 29
+        ProfileKey29 = ProfileKey0 + 29,
+        Backlight0,
+        Backlight11 = Backlight0 + 11
     };
     using Act = void (*)(void *, Action);
     Keyboard(Terminal &t, Send send, void *context, Act act = nullptr)

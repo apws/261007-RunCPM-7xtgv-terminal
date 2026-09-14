@@ -28,12 +28,24 @@ struct PlotRecord {
 static void collectPlot(void *p, vt::Terminal::PlotEvent event, uint16_t color) {
     static_cast<std::vector<PlotRecord> *>(p)->push_back({event, color});
 }
+static int lastBacklight = -1;
+static void control(void *, vt::Terminal::ControlEvent event, uint8_t value) {
+    if (event == vt::Terminal::Backlight) lastBacklight = value;
+}
 int main() {
     std::string replies;
     vt::Terminal t(collect, &replies);
+    t.setControlSink(control, nullptr);
     assert(t.x == 0 && t.y == 0 && t.ansi && t.attrRAM[0] == 1);
     feed(t, "HELLO\r\nWORLD");
     assert(t.charRAM[80] == 'W' && t.x == 5 && t.y == 1);
+    lastBacklight = -1;
+    feed(t, "\033[>63;7v");
+    assert(lastBacklight == 7 && t.charRAM[85] == ' ');
+    feed(t, "\033[>63;10v");
+    assert(lastBacklight == 10);
+    feed(t, "\033[>63;12v");
+    assert(lastBacklight == 10);
     feed(t, "\033[24;80HX");
     assert(t.x == 79 && t.y == 23 && t.charRAM[1919] == 'X');
     feed(t, "Y");
@@ -158,12 +170,8 @@ int main() {
     vt::Keyboard k(t, collect, &input);
     keys(k, "\033[1;3H");
     assert(t.viewport == 0 && input.empty());
-    keys(k, "\033[1;3C");
-    assert(t.viewport == 4 && input.empty());
     keys(k, "\033[1;3F");
     assert(t.viewport == 28);
-    keys(k, "\033[1;3D");
-    assert(t.viewport == 24);
     keys(k, "\033[>2v\033[A");
     assert(input == "\033A" && !t.ansi);
     input.clear();
@@ -218,10 +226,15 @@ int main() {
     assert(lastAction == vt::Keyboard::ProfileKey0 + vt::AppAltDown && input.empty());
     keys(historyKeys, "\033[>59v");
     assert(lastAction == vt::Keyboard::ProfileKey0 + vt::AppAltPageDown && input.empty());
+    keys(historyKeys, "\033[>63;9v");
+    assert(lastAction == vt::Keyboard::Backlight0 + 9 && input.empty());
+    keys(historyKeys, "\033[>63;11v");
+    assert(lastAction == vt::Keyboard::Backlight11 && input.empty());
 
     vt::HistoryProfiles profiles;
     const std::string profileIni =
         "[global]\r\nexit_key=lalt+ralt+delete\r\nclear_key=lalt+ralt+escape\r\ncursor_blink_ms=250\r\n"
+        "viewport_gutter_rgb=128,129,130\r\n"
         "[bank2]\r\nname=EDITOR\r\nup=send:\\x05\r\n"
         "alt_up=history_previous\r\non_select=A4:\\r\n"
         "page_up=send_cancel:\\e\r\nactive_line_rgb=210,255,210\r\n"
@@ -237,6 +250,9 @@ int main() {
     assert(profiles.global().exitKey == vt::GlobalKeyDualAltDelete);
     assert(profiles.global().clearKey == vt::GlobalKeyDualAltEscape);
     assert(profiles.global().cursorBlinkMs == 250);
+    assert(profiles.global().viewportGutterRGB[0] == 128);
+    assert(profiles.global().viewportGutterRGB[1] == 129);
+    assert(profiles.global().viewportGutterRGB[2] == 130);
     assert(std::string(profiles.get(2).name) == "EDITOR");
     assert(profiles.get(2).keys[vt::AppUp].kind == vt::BindingSend);
     assert(profiles.get(2).keys[vt::AppUp].length == 1);

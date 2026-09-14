@@ -31,7 +31,13 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(k.feed(b'\x1d'), b'')
         self.assertEqual(k.feed(b'2'), b'\x1b[>2v')
         self.assertEqual(k.feed(b'\x1dg'), b'\x1b[>4v')
-        self.assertEqual(k.feed(b'\x1da\x1de\x1dh\x1dl'), b'\x1b[1;3H\x1b[1;3F\x1b[1;3D\x1b[1;3C')
+        self.assertEqual(k.feed(b'\x1da\x1de\x1dh\x1dl'), b'\x1b[1;3H\x1b[1;3F')
+
+    def test_backlight_prefix(self):
+        k = bridge.Keys()
+        self.assertEqual(k.feed(b'\x1db7'), b'\x1b[>63;7v')
+        self.assertEqual(k.feed(b'\x1db+\x1db-'), b'\x1b[>63;10v\x1b[>63;11v')
+        self.assertEqual(k.feed(b'\x1dbx'), b'\x1dbx')
 
     def test_literal_and_unknown(self):
         k = bridge.Keys()
@@ -41,6 +47,15 @@ class HelperTests(unittest.TestCase):
         k = bridge.Keys()
         self.assertEqual(k.feed(b'X\x1dqUNSENT'), b'X')
         self.assertTrue(k.quit)
+
+    def test_guest_reflash_event_is_consumed_as_an_event(self):
+        events = bridge.HostEvents()
+        self.assertEqual(events.feed(b'normal\x1b[>'), (b'normal', False))
+        self.assertEqual(events.feed(b'64vafter'), (b'after', True))
+
+    def test_non_event_escape_sequence_is_preserved(self):
+        events = bridge.HostEvents()
+        self.assertEqual(events.feed(b'\x1b[31mOK'), (b'\x1b[31mOK', False))
 
 if __name__ == '__main__':
     unittest.main()

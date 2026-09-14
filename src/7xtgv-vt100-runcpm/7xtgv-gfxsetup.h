@@ -32,8 +32,38 @@ Arduino_GFX *gfx;
 //#define WAVESHARE_RP2350_AMOLED_1_64
 #if defined(RUNCPM_TARGET_JC8048W535)
 #define JC8048W535_AXS15231
+#elif defined(RUNCPM_TARGET_JC8048W550)
+#define JC8048W550_ST7262
 #else
 #define WAVESHARE_RP2350_LCD_2
+#endif
+
+#if defined(JC8048W550_ST7262)
+
+  #define GFX_DEVICE JC8048W550_ST7262
+  #define SCR_COLS 133
+  #define SCR_ROWS 48
+  #define GFX_OFS_X 0
+  #define GFX_OFS_Y 0
+  #define GFX_BL 2
+  // RGB scanout owns a PSRAM framebuffer. Batch dirty cell updates and flush
+  // it once, rather than cache-flushing a large row range per 6x10 glyph.
+  #define GFX_DEFERRED_FLUSH 1
+
+  void GFX_DEVICE_INIT()
+  {
+    Arduino_ESP32RGBPanel *rgbPanel = new Arduino_ESP32RGBPanel(
+        40, 41, 39, 42,
+        45, 48, 47, 21, 14,
+        5, 6, 7, 15, 16, 4,
+        8, 3, 46, 9, 1,
+        0, 8, 4, 8,
+        0, 8, 4, 8,
+        1, 16000000, false,
+        0, 0, 8000); // two 10-line internal-RAM DMA bounce buffers
+    gfx = new Arduino_RGB_Display(800, 480, rgbPanel, 0, false);
+  }
+
 #endif
 
 #if defined(JC8048W535_AXS15231)
@@ -273,6 +303,13 @@ Arduino_GFX *gfx;
   #define GFX_DY13  0
 
   #define GFX_BL   15
+  // Only this compact panel exposes part of the 80-column plane and needs a
+  // visual panning boundary. Larger targets must not inherit this ornament.
+  #define GFX_VIEWPORT_INDICATOR 1
+  #define GFX_VIEWPORT_INDICATOR_X 312
+  #define GFX_VIEWPORT_INDICATOR_Y 0
+  #define GFX_VIEWPORT_INDICATOR_W 8
+  #define GFX_VIEWPORT_INDICATOR_H 240
   #define GFX_CS   17
   #define GFX_RST  20
   #define GFX_SCK  18

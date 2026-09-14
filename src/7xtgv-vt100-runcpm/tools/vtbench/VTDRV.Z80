@@ -1,10 +1,10 @@
 ; VTDRV.COM - sequential CP/M drive-path benchmark for RunCPM.
 ; Requires the 7xtgv RunCPM host timer on private I/O port 7Ah.
 ;
-; Creates VTDRV.$$$ on the current CP/M drive/user, writes and reads 256
-; 128-byte records (32 KiB), reports both rates, verifies a second read pass,
-; then deletes the temporary file.  Timed passes include CP/M BDOS calls and
-; RunCPM's complete host filesystem/SD path.  Console output is outside them.
+; Plain VTDRV only reads and verifies the existing 32 KiB VTDRV.$$$ file.
+; VTDRV RW (or /RW) explicitly recreates that file before reading it.
+; Timed passes include CP/M BDOS calls and RunCPM's complete host
+; filesystem/SD path.  Console output is outside them.
 
         org     0100h
 
@@ -36,6 +36,13 @@ fcblen: equ     36
         ld      de,banner
         ld      c,print
         call    bdos
+        call    parse_mode
+        or      a
+        jp      z,read_pass
+        inc     a
+        jp      z,bad_option
+
+; Explicit RW mode starts here.
         call    fill_buffer
 
 ; Remove a stale file from an interrupted earlier run.
@@ -74,6 +81,8 @@ write_loop:
 
 ; Timed open/read/close pass.  Verification is deliberately separate so its
 ; interpreted byte-comparison loop does not distort the drive rate.
+read_pass:
+        call    set_dma
         ld      a,rbegin
         out     (port),a
         call    open_for_read
@@ -120,11 +129,14 @@ verify_record:
         ld      c,close
         call    bdos
 
-        call    remove_file
         ld      de,passed
         ld      c,print
         call    bdos
         jp      0
+
+bad_option:
+        ld      de,usage_message
+        jr      show_and_exit
 
 unsupported:
         ld      de,unsupported_message
@@ -134,7 +146,10 @@ write_error:
         ld      a,cancel
         out     (port),a
         ld      de,write_message
-        jr      failed
+        push    de
+        call    remove_file
+        pop     de
+        jr      show_and_exit
 
 read_error:
         ld      a,cancel
@@ -151,9 +166,6 @@ verify_data_error:
 verify_eof_error:
         ld      de,verify_eof_message
 failed:
-        push    de
-        call    remove_file
-        pop     de
 show_and_exit:
         ld      c,print
         call    bdos
@@ -169,6 +181,38 @@ copy_fcb:
         inc     hl
         inc     de
         djnz    copy_fcb
+        ret
+
+; Return A=0 for no option, A=1 for explicit RW, A=FF for anything else.
+parse_mode:
+        ld      a,(0080h)
+        or      a
+        ret     z
+        ld      hl,0081h
+parse_skip:
+        ld      a,(hl)
+        cp      ' '
+        jr      nz,parse_first
+        inc     hl
+        jr      parse_skip
+parse_first:
+        cp      '/'
+        jr      nz,parse_r
+        inc     hl
+        ld      a,(hl)
+parse_r:
+        and     05fh
+        cp      'R'
+        jr      nz,parse_bad
+        inc     hl
+        ld      a,(hl)
+        and     05fh
+        cp      'W'
+        jr      nz,parse_bad
+        ld      a,1
+        ret
+parse_bad:
+        ld      a,0ffh
         ret
 
 open_for_read:
@@ -223,7 +267,9 @@ remove_file:
         jp      bdos
 
 banner:
-        db      'VTDRV: 32 KiB sequential BDOS test',13,10,'$'
+        db      'VTDRV: 32 KiB BDOS test; default read-only',13,10,'$'
+usage_message:
+        db      'Usage: VTDRV [RW]',13,10,'$'
 passed:
         db      'VTDRV verify: PASS',13,10,'$'
 unsupported_message:
@@ -231,7 +277,7 @@ unsupported_message:
 write_message:
         db      'VTDRV write failed.',13,10,'$'
 read_message:
-        db      'VTDRV read failed.',13,10,'$'
+        db      'VTDRV read failed; run VTDRV RW once at safe speed.',13,10,'$'
 verify_read_message:
         db      'VTDRV verify read failed.',13,10,'$'
 verify_data_message:
