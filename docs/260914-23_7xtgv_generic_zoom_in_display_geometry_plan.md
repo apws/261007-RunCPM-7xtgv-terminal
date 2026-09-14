@@ -1,0 +1,955 @@
+# 7xtgv generic zoom-in, runtime terminal geometry, display HAL identity, and plot scaling plan
+
+**Approved design / implementation plan**  
+**Date:** 2026-09-14  
+**Scope:** current single-terminal RunCPM/7xtgv implementation, all present MCU/TFT HALs, and future display HALs.  
+**Related earlier specification:** `docs/260912-10_7xtgv_terminal_viewport_birdseye_xterm256_spec.md`
+
+---
+
+## 1. Purpose
+
+This document extends the existing 7xtgv viewport/bird's-eye specification with a complementary **integer zoom-in** design and the runtime terminal geometry needed to support it cleanly.
+
+The central goal is not a JC8048W550-specific 2x hack. The implementation should become a generic display-policy layer which can be reused by all existing and future 7xtgv display HALs, the planned SDL2 desktop emulator, and later native 7xtgv/compositor work.
+
+The approved design adds:
+
+1. real glyph zoom-in levels **1x, 2x, 3x, and 4x**;
+2. an explicit logical terminal size for every zoom-in level;
+3. HAL-provided defaults with optional per-display overrides from `7XTGVTRM.INI`;
+4. a stable logical **display HAL identity** so one CP/M SD card can be shared between several modules;
+5. horizontal left-edge/right-edge panning only when the configured logical terminal is wider than the physical view;
+6. black unused physical display area, with a grey edge indicator only when hidden horizontally panned content exists;
+7. unified user controls for zoom-in and the previously specified bird's-eye zoom-out modes, while retaining separate render algorithms internally;
+8. xterm-256/GCLS plot zoom and plot origin parameters;
+9. separate configuration of terminal render/flush cadence and RGB-panel physical scanout rate where applicable;
+10. dynamic terminal geometry reporting and one-shot complete TFT/PC-mirror redraw when geometry changes.
+
+The guiding rule is:
+
+> **Logical terminal geometry, renderer scale, physical display geometry, parser personality, and display transport are separate concerns, but a selected zoom-in mode is allowed to choose a different active logical terminal geometry.**
+
+This deliberately differs from bird's-eye zoom-out, where the logical terminal geometry remains unchanged.
+
+---
+
+## 2. Current implementation context
+
+At the time of this design the current W550 target uses:
+
+```text
+physical panel:            800 x 480
+normal glyph raster:         6 x 10
+normal logical terminal:   133 x 48
+```
+
+Thus normal 1x text occupies:
+
+```text
+133 x 6  = 798 px
+48  x 10 = 480 px
+```
+
+The implementation currently has a compile-time terminal geometry and a horizontal-only `Terminal::viewport`. The renderer draws one 6x10 RGB565 bitmap per visible cell. The W550 RGB path uses an RGB framebuffer scanned continuously by the ESP32-S3 RGB peripheral and batches framebuffer/cache flushes rather than flushing after every glyph.
+
+The present `drawIndicator()` is not a true viewport position indicator: it paints a fixed grey rectangle. This plan replaces that behavior with explicit black-unused-area and grey-hidden-content rules.
+
+---
+
+## 3. Zoom-in semantics: 1x, 2x, 3x, 4x
+
+Zoom-in uses the real 6x10 QL/7xtgv glyph raster and integer nearest-neighbour enlargement.
+
+| Zoom | Physical cell size | Rendering |
+|---|---:|---|
+| 1x | 6x10 | real glyph |
+| 2x | 12x20 | each glyph pixel becomes 2x2 |
+| 3x | 18x30 | each glyph pixel becomes 3x3 |
+| 4x | 24x40 | each glyph pixel becomes 4x4 |
+
+No alternate font is required. No filtering or interpolation is required.
+
+The zoom renderer should preserve the exact shape and colors of the normal 6x10 raster.
+
+### 3.1 Integer scaling implementation
+
+A zoomed cell may be rendered by either:
+
+- expanding the 6x10 RGB565 source into a temporary scaled cell bitmap; or
+- preferably, expanding one logical raster row horizontally and emitting/repeating it `zoom` times vertically.
+
+The second approach limits temporary storage and naturally generalizes to the xterm-256 plot path.
+
+---
+
+## 4. Zoom-in changes active logical terminal geometry
+
+Unlike bird's-eye zoom-out, zoom-in is allowed to select a different logical terminal size.
+
+This is intentional.
+
+For example, the W550 can run as:
+
+| Zoom | Cell | Cells physically fitting | Recommended W550 default logical terminal |
+|---|---:|---:|---:|
+| 1x | 6x10 | 133x48 | **133x48** |
+| 2x | 12x20 | 66x24 | **80x24** |
+| 3x | 18x30 | 44x16 | **80x16** |
+| 4x | 24x40 | 33x12 | **80x12** |
+
+The 2x case is especially useful:
+
+```text
+logical terminal:  80 x 24
+visible view:       66 x 24
+cell raster:        12 x 20
+```
+
+This preserves a conventional 80x24 CP/M terminal while making each original font pixel a 2x2 physical block.
+
+The 3x and 4x recommended defaults intentionally reduce logical row count so no vertical panning is required.
+
+### 4.1 No vertical panning for zoom-in
+
+For this implementation:
+
+> **Zoom-in modes do not use vertical panning.**
+
+The configured logical row count must fit physically at the selected zoom level.
+
+If an INI override requests more rows than fit, reject/clamp it according to implementation policy and record a configuration error. Silent vertical clipping is not desirable.
+
+### 4.2 Horizontal panning is only a compatibility compromise
+
+Horizontal panning is permitted when:
+
+```text
+logicalCols > physicallyVisibleCols
+```
+
+but it remains a simple two-position model:
+
+```text
+LEFT EDGE
+RIGHT EDGE
+```
+
+The current full-left/full-right Home/End-style viewport controls are sufficient.
+
+Do not implement automatic cursor-follow horizontal panning for this feature.
+
+For highly zoomed native 7xtgv usage, the preferred design is to configure a logical terminal width which fits the physical display rather than rely on panning.
+
+---
+
+## 5. Runtime terminal geometry with statically allocated maximum storage
+
+The implementation should retain statically allocated maximum backing storage appropriate to each compiled HAL, while introducing runtime **active** dimensions.
+
+Conceptually:
+
+```cpp
+MaxCols = HAL maximum logical columns;
+MaxRows = HAL maximum logical rows;
+
+activeCols = current logical terminal columns;
+activeRows = current logical terminal rows;
+```
+
+For the W550, the maximum backing geometry may remain at least 133x48.
+
+This avoids dynamic allocation during zoom changes while allowing parser/render work to operate only on the currently active logical surface.
+
+### 5.1 Backing stride
+
+Use a stable maximum backing stride rather than physically reallocating/repacking RAM when geometry changes.
+
+Conceptually:
+
+```text
+cellIndex = row * MaxCols + col
+```
+
+while all terminal operations validate against:
+
+```text
+0 <= col < activeCols
+0 <= row < activeRows
+```
+
+This keeps backing addresses stable and simplifies static allocation.
+
+### 5.2 Geometry-sensitive terminal state
+
+A geometry change must update or clamp all geometry-sensitive state, including at least:
+
+- cursor position;
+- saved cursor position;
+- scrolling margins/region;
+- tab stops;
+- parser erase/insert/delete limits;
+- row/column iteration;
+- dirty-cell scanning;
+- history/screen-line capture;
+- transient overlays/notices;
+- viewport/pan state;
+- mirror dimensions and snapshot state.
+
+The implementation should audit all current compile-time uses of `Cols`, `Rows`, `Visible`, and `Cells` and decide whether each means:
+
+```text
+maximum backing geometry
+active logical geometry
+physical visible geometry
+```
+
+These three concepts must no longer be conflated.
+
+### 5.3 Hidden data after shrinking geometry
+
+When changing from a larger logical geometry to a smaller one, cells outside the new active geometry must no longer retain meaningful hidden terminal state.
+
+Example:
+
+```text
+133x48 -> 80x24
+```
+
+Rows 24..47 and columns 80..132 become irrelevant and should be cleared/invalidated appropriately.
+
+If the terminal later returns to 133x48, newly re-exposed space should be blank, not reveal stale fragments from an earlier session.
+
+This makes geometry switching behave like a genuine terminal resize rather than like hiding and later uncovering memory.
+
+---
+
+## 6. Per-HAL default display policy
+
+Each display HAL should provide a small stable logical identity and its compiled display-policy defaults.
+
+Suggested concept:
+
+```cpp
+struct DisplayHalDefaults {
+    const char *id;               // stable short ASCII logical ID
+    int physicalWidth;
+    int physicalHeight;
+    int defaultZoom;
+    Geometry zoomGeometry[4];     // logical geometry defaults for 1x..4x
+    int defaultRenderFlushHz;
+    int defaultRgbRefreshHz;      // 0/not-applicable for non-RGB panels
+};
+```
+
+Exact structure/naming is implementation-dependent.
+
+### 6.1 Stable logical HAL ID
+
+Every display HAL should expose a stable short logical name, preferably no more than eight simple ASCII characters so it remains useful in CP/M-oriented diagnostics and filenames as well as INI sections.
+
+Examples only:
+
+```text
+JCW550
+JCW535
+RP2LCD2
+```
+
+The name should identify the compiled display/HAL personality, not a transient runtime state.
+
+It should also be printed at startup, for example:
+
+```text
+Display HAL ........... JCW550
+Panel ................. 800x480
+Terminal .............. 80x24 @ 2x
+Visible ................ 66x24
+```
+
+This will become increasingly useful as raw MCU modules and additional displays are added.
+
+---
+
+## 7. One shared CP/M SD card: per-display INI sections
+
+The design should keep one shared `7XTGVTRM.INI` rather than creating a separate file for every hardware module.
+
+The existing global and application/history configuration remains shared.
+
+Add optional per-display sections selected by the HAL ID.
+
+Recommended form:
+
+```ini
+[global]
+cursor_blink_ms=250
+viewport_gutter_rgb=128,128,128
+
+[display:JCW550]
+view_zoom=2
+zoom1_terminal=133x48
+zoom2_terminal=80x24
+zoom3_terminal=80x16
+zoom4_terminal=80x12
+render_flush_hz=15
+rgb_refresh_hz=25
+
+[display:JCW535]
+view_zoom=1
+zoom1_terminal=80x32
+zoom2_terminal=40x16
+zoom3_terminal=26x10
+zoom4_terminal=20x8
+
+[display:RP2LCD2]
+view_zoom=1
+zoom1_terminal=80x24
+zoom2_terminal=40x12
+```
+
+Values above are examples/default candidates; each HAL should define its own authoritative compiled defaults.
+
+### 7.1 Configuration precedence
+
+Use this precedence:
+
+```text
+HAL compiled defaults
+        ↓
+[global] generic overrides, where meaningful
+        ↓
+matching [display:HALID] overrides
+```
+
+Application/history bank configuration remains independent of display selection.
+
+Unknown `[display:...]` sections should simply remain inactive on the current hardware rather than be treated as errors. This is necessary for a portable shared SD card.
+
+### 7.2 Validation
+
+INI geometry must be validated against:
+
+- HAL maximum allocated terminal geometry;
+- physical display dimensions;
+- selected zoom cell dimensions;
+- no-vertical-pan rule;
+- minimum useful logical dimensions where applicable.
+
+A malformed or impossible override should produce an INI configuration error and fall back to a safe HAL default.
+
+---
+
+## 8. Physical client placement, black unused area, and grey pan indicator
+
+Unused display space and hidden-content indication are different concepts.
+
+### 8.1 Rule 1: unused physical display area is black
+
+Any physical pixels not occupied by the configured logical terminal raster are **BLACK** for now, matching the surrounding display/module frame.
+
+Examples include:
+
+- integer-cell remainder pixels;
+- a deliberately smaller configured terminal;
+- unused rows/columns when the logical surface fits inside the panel.
+
+Example, W550 2x with an exact-fit 66x24 logical terminal:
+
+```text
+66 * 12 = 792 px
+24 * 20 = 480 px
+```
+
+The remaining eight horizontal pixels are black because no terminal content is hidden.
+
+### 8.2 Rule 2: grey edge marker exists only when horizontal content is hidden
+
+If the logical terminal is wider than the physical visible cell count, the unused/remainder edge strip may become a grey pan indicator.
+
+For W550 2x/3x/4x, the convenient complete-cell raster is 792 pixels wide, leaving eight physical pixels:
+
+```text
+2x: 66 * 12 = 792
+3x: 44 * 18 = 792
+4x: 33 * 24 = 792
+```
+
+When viewing the **left** edge of a wider terminal:
+
+```text
+[ visible terminal ................................ ][ GREY ]
+                                                     hidden ->
+```
+
+When viewing the **right** edge:
+
+```text
+[ GREY ][ ................................ visible terminal ]
+   <- hidden
+```
+
+Thus the grey bar indicates the direction in which hidden terminal content exists.
+
+If the logical terminal fits completely, both/all unused physical margins remain black and no grey indicator is shown.
+
+### 8.3 Replace current `drawIndicator()` semantics
+
+The existing fixed-position grey fill should be replaced by a computed presentation result based on:
+
+```text
+active logical width
+selected zoom
+physical display width
+left/right viewport edge
+whether hidden horizontal content exists
+```
+
+The indicator should not remain statically attached to one physical side regardless of viewport position.
+
+---
+
+## 9. Full clear and repaint behavior
+
+A complete display/terminal redraw should establish a deterministic composition:
+
+```text
+1. clear physical display/client backing to BLACK
+2. render active logical terminal at current zoom
+3. render grey pan edge indicator only if horizontal hidden content exists
+4. publish/flush according to backend policy
+```
+
+This is especially important because retained xterm-256 graphics may occupy pixels not subsequently overwritten by text.
+
+A full clear/reset must therefore remove stale plot pixels as well as text.
+
+Ordinary ANSI partial erase operations may continue to operate only within logical terminal coordinates; they do not need to repaint unrelated black physical margins.
+
+Exact `CSI 2J` versus explicit full-display reset behavior should be covered by implementation tests, but geometry/zoom changes must always perform a complete clean rebuild.
+
+---
+
+## 10. Zoom mode changes: deliberately complete one-shot rebuild
+
+Zoom/geometry changes are rare human actions and do not need an optimized incremental transition.
+
+Recommended sequence:
+
+```text
+pause incremental presentation
+select new view mode / active geometry
+clear excluded/newly exposed logical storage appropriately
+reset/clamp geometry-sensitive parser state
+reset viewport to a valid edge
+clear physical display to black
+invalidate all active logical cells
+redraw whole TFT composition
+reset/clear PC mirror composition
+emit one complete PC mirror snapshot
+resume incremental rendering
+```
+
+This favors correctness and simplicity over saving a few milliseconds during a manual zoom operation.
+
+---
+
+## 11. Dynamic terminal reports
+
+Changing zoom-in level can change the terminal's active logical geometry, therefore terminal reports which describe geometry must use the **current active logical size**.
+
+For example:
+
+```text
+W550 1x default          -> 133x48
+W550 2x default          -> 80x24
+W550 2x overridden fit   -> 66x24
+```
+
+Cursor position reports remain logical row/column coordinates.
+
+Terminal personality/device identification does not need to change merely because geometry changed. VT100/ANSI versus VT52 identity remains a parser/personality concern.
+
+The implementation should audit current and future CSI/terminal size queries to ensure that responses use `activeCols`/`activeRows` where appropriate rather than compile-time maximums.
+
+Add regression tests which exercise terminal reports before and after runtime geometry changes.
+
+---
+
+## 12. Bird's-eye zoom-out remains semantically different
+
+The earlier bird's-eye specification remains valid and should not be rewritten as ordinary scaled font rendering.
+
+The implementation may expose zoom-in and zoom-out through one **view-level controller**, but internally they are different renderer families.
+
+Recommended conceptual order:
+
+```text
+4x real glyph
+3x real glyph
+2x real glyph
+1x real glyph
+---------------- normal/full boundary
+3x5 summary
+2x3 summary
+1x2 summary
+1x1 summary
+```
+
+### 12.1 Real-glyph side
+
+For 1x..4x:
+
+```text
+renderGlyphScaled()
+```
+
+The actual QL/7xtgv 6x10 glyph is rendered, with integer enlargement above 1x.
+
+### 12.2 Bird's-eye side
+
+For reduced views:
+
+```text
+renderSummary3x5()
+renderSummary2x3()
+renderSummary1x2()
+renderSummary1x1()
+```
+
+These use occupancy, effective `INK`/`PAPER`, attributes, and later native 7xtgv semantic modes such as `WIND`.
+
+Do not downsample fonts into fake readable miniature glyphs.
+
+### 12.3 ANSI/VT bird's-eye can be implemented now
+
+It is useful to implement the compatibility-terminal summary renderer now even though future native `WIND` frame/chrome semantics are not yet fully defined.
+
+For ANSI/VT cells, initial behavior can remain simple:
+
+```text
+blank cell    -> PAPER/background summary
+occupied cell -> INK/foreground summary
+```
+
+Actual visual testing on real displays should then guide future refinement.
+
+---
+
+## 13. Unified zoom controls
+
+The user-visible control model should be simple even though the underlying renderers differ.
+
+Primary physical controls:
+
+```text
+Ctrl+Shift++   move one level toward larger real glyphs
+Ctrl+Shift+-   move one level toward smaller/bird's-eye view
+```
+
+These combinations are selected because they coexist well with the primary Konsole PC mirror workflow.
+
+The terminal's private control namespace should expose matching commands so USB/BLE/other input adapters can invoke the same operations.
+
+The next currently available private controls may be used, for example:
+
+```text
+CSI > 66 v    zoom/view one step larger
+CSI > 67 v    zoom/view one step smaller
+```
+
+Exact numbers should be checked against the current private-control table at implementation time and documented centrally.
+
+Optional direct selection commands may be added later if useful, but the primary user interaction is two-key up/down traversal through the unified view-level sequence.
+
+---
+
+## 14. xterm-256/GCLS plot zoom and origin
+
+The existing experimental xterm-256 plot path should gain explicit plot zoom and top-left origin parameters.
+
+Extend the current private GCLS operation from:
+
+```text
+CSI > 4 v
+```
+
+to conceptually:
+
+```text
+CSI > 4 ; zoom ; x ; y v
+```
+
+Defaults when omitted:
+
+```text
+zoom = 1
+x = 0
+y = 0
+```
+
+Examples:
+
+```text
+CSI > 4 v
+CSI > 4 ; 2 v
+CSI > 4 ; 2 ; 100 ; 40 v
+```
+
+### 14.1 Coordinate convention
+
+`x` and `y` are **physical panel/client pixel coordinates for the top-left placement**.
+
+They are not multiplied by plot zoom.
+
+Thus:
+
+```text
+GCLS zoom=2, x=100, y=40
+```
+
+means the first logical plot sample becomes a 2x2 physical block whose top-left physical pixel is `(100,40)`.
+
+This is easier to reason about than scaling the requested origin itself.
+
+### 14.2 Plot scaling
+
+For plot zoom `N`:
+
+- expand each logical sample to `N` pixels horizontally;
+- emit/repeat each completed logical scanline `N` times vertically;
+- clip against physical client/display bounds;
+- retain the existing xterm-256 -> RGB565 color conversion.
+
+This can use a scaled scanline buffer rather than allocating a full scaled plot framebuffer.
+
+### 14.3 Clear semantics
+
+For now GCLS retains its meaning as a graphics clear/init operation.
+
+If later 7xtgv needs multiple positioned plots without clearing previous graphics, define a separate command rather than making GCLS ambiguous.
+
+---
+
+## 15. RGB panel physical scanout versus renderer publish rate
+
+These are different rates and must not be conflated.
+
+### 15.1 RGB physical scanout
+
+On an RGB panel such as the W550, the display does not contain ordinary SPI-style persistent GRAM. The ESP32-S3 RGB peripheral continuously scans the framebuffer into the panel.
+
+Reducing physical scanout frequency too far can therefore cause visible flicker/scan artifacts even if terminal content is static.
+
+The present W550 timing is approximately 39 Hz. The exact acceptable lower limit must be established experimentally on the real module.
+
+Recommended test points:
+
+```text
+39 Hz current/reference
+30 Hz
+25 Hz
+20 Hz
+15 Hz
+```
+
+Do not assume 15 Hz is comfortable merely because terminal content changes slowly.
+
+A likely practical result may be a physical scanout rate around 25..40 Hz while software presentation/update cadence is much lower.
+
+### 15.2 Renderer/framebuffer publish cadence
+
+Terminal rendering is mostly static and need not publish changes at the RGB scanout frequency.
+
+Expose a separate policy such as:
+
+```ini
+render_flush_hz=15
+```
+
+This is a maximum cadence while changes are pending, not an instruction to repaint the complete screen continuously when nothing changed.
+
+A static terminal should consume essentially no renderer work beyond the unavoidable hardware RGB scanout.
+
+### 15.3 INI parameters
+
+For HALs where the concepts apply:
+
+```ini
+rgb_refresh_hz=25
+render_flush_hz=15
+```
+
+For SPI/QSPI or other controller-framebuffer displays, `rgb_refresh_hz` is not applicable and should be ignored/not exposed.
+
+### 15.4 Boot-order implication
+
+If RGB timing is configured from the SD-card INI, the display setup must be structured so the effective display configuration is available before the RGB panel is fully begun at its final pixel clock.
+
+Recommended high-level boot order:
+
+```text
+initialize enough platform/SD support to read configuration
+load + validate 7XTGVTRM.INI
+resolve HAL defaults + per-display overrides
+initialize/start display with resolved RGB timing
+start normal terminal presentation
+```
+
+If practical constraints require an early temporary display init, a later controlled re-init is possible, but a single final init from resolved configuration is preferred.
+
+---
+
+## 16. Framebuffer policy across display HALs
+
+Use a local framebuffer/canvas where RAM and the backend make it useful, but do **not** impose periodic full-screen retransmission on every module.
+
+Recommended generic policy:
+
+```text
+render into local framebuffer/canvas where appropriate
+mark changed regions / display dirty
+publish no faster than render_flush_hz
+publish nothing when no display content changed
+```
+
+### 16.1 RGB panel
+
+For an ESP32 RGB display, the local framebuffer is the continuously scanned display source. Software flush/publish work is largely about cache visibility/coherency rather than copying into persistent panel GRAM.
+
+Reducing unnecessary whole-frame cache writeback/publish frequency may materially improve CP/M CPU availability.
+
+Start with rate reduction and measurement before implementing sophisticated dirty-cache-range optimization.
+
+### 16.2 SPI/QSPI controller displays
+
+For panels with controller GRAM, unchanged pixels remain in the display controller. Re-sending a complete local framebuffer at 10..15 Hz would waste bus and CPU bandwidth.
+
+Prefer dirty-cell, dirty-row, or dirty-rectangle transfers as supported by the HAL/backend.
+
+A local framebuffer can still be useful for composition, rotation, mirror consistency, or reducing per-glyph overhead; it does not imply continuous full-screen transfer.
+
+---
+
+## 17. Accessibility and practical motivation
+
+The 5-inch 800x480 W550 makes the value of integer zoom especially clear.
+
+At 2x:
+
+```text
+one original 6x10 glyph -> 12x20 physical pixels
+logical compatibility terminal -> 80x24
+visible physical window -> 66x24
+```
+
+This is useful for visually impaired users while preserving the exact familiar terminal glyph shapes and CP/M semantics.
+
+It also remains compatible with simple optical aids such as inexpensive Fresnel magnifiers, making a compact battery-powered RunCPM/7xtgv system a plausible portable large-text terminal.
+
+The feature should nevertheless remain generic and configurable on smaller displays as well; an INI-selected logical geometry can trade information density against legibility on every HAL.
+
+---
+
+## 18. PC mirror requirements
+
+A zoom/geometry change must also reset the PC mirror composition.
+
+A transition such as:
+
+```text
+133x48 -> 80x24
+```
+
+must not leave old rows 25..48 or columns 81..133 stranded in Konsole.
+
+On every geometry/view change:
+
+1. clear/reset the mirror's previous composition;
+2. announce/establish the new effective dimensions if the mirror protocol requires it;
+3. emit one complete fresh snapshot;
+4. then resume incremental updates.
+
+The mirror should reflect the active logical terminal/presentation, not stale maximum backing storage.
+
+---
+
+## 19. History/input buffer audit
+
+Runtime geometry exposes a current mismatch worth fixing while this work is underway: screen-line/history support must not assume fewer characters than a legal active terminal row.
+
+In particular, any current 127-character screen/history buffer limit should be audited against the W550's 133-column maximum and future HAL maxima.
+
+The history subsystem may retain an intentionally bounded command-line length, but screen-row capture must handle active terminal geometry safely and explicitly rather than overflow or silently truncate because the display became wider.
+
+---
+
+## 20. Recommended implementation decomposition
+
+A practical staged implementation is:
+
+### Phase A — display policy and runtime geometry
+
+- define stable HAL ID;
+- define per-HAL maximum geometry and zoom defaults;
+- extend INI global/per-display parsing;
+- introduce active logical `cols/rows` separate from maximum storage geometry;
+- audit terminal parser operations for runtime geometry;
+- add geometry-change reset/clear behavior;
+- update dynamic terminal reports;
+- update PC mirror rebuild logic.
+
+### Phase B — real integer zoom renderer
+
+- add 1x..4x real-glyph scale state;
+- make visible cell count runtime-computed;
+- scale glyph raster with nearest-neighbour integer expansion;
+- implement black unused area;
+- replace fixed gutter with conditional left/right grey pan indicator;
+- retain left/right edge viewport controls only;
+- add Ctrl+Shift +/- and matching private actions.
+
+### Phase C — compatibility bird's-eye renderer
+
+- integrate the previously specified 3x5, 2x3, 1x2, and 1x1 summary renderers into the same view-level controller;
+- keep logical geometry unchanged when entering bird's-eye modes;
+- initially summarize ANSI/VT cells from blank/occupied + effective PAPER/INK;
+- leave native `WIND` micro-frame semantics for later refinement after visual testing.
+
+### Phase D — xterm-256 plot transform
+
+- extend GCLS with optional zoom/x/y;
+- implement scaled scanline output;
+- add physical clipping;
+- ensure full terminal/display clear removes retained plot pixels.
+
+### Phase E — refresh/publish tuning
+
+- expose `render_flush_hz`;
+- expose `rgb_refresh_hz` for RGB HALs;
+- arrange boot/config order so display timing can use effective INI values;
+- benchmark RunCPM CPU throughput and rendering at several W550 RGB rates;
+- visually evaluate flicker/artifacts at 39/30/25/20/15 Hz;
+- only then choose a lower W550 HAL default;
+- investigate dirty cache-range/dirty-row optimization only if measurements show worthwhile remaining overhead.
+
+---
+
+## 21. Test matrix
+
+At minimum test:
+
+### Geometry and rendering
+
+- W550 1x 133x48;
+- W550 2x 80x24, left edge;
+- W550 2x 80x24, right edge;
+- W550 2x 66x24 exact-fit, black 8px remainder/no grey indicator;
+- W550 3x and 4x default geometries;
+- smaller configured terminal which leaves black margins;
+- geometry shrink then enlarge, verifying no stale hidden text returns;
+- cursor/saved cursor/margins/tabs after geometry changes;
+- full clear removing retained xterm-256 pixels.
+
+### Input and viewport
+
+- existing left/right viewport edge keys;
+- Ctrl+Shift +/- traversal through real zoom and bird's-eye modes;
+- no vertical panning in zoom-in modes;
+- impossible INI row count rejected/falls back safely.
+
+### Reporting and mirror
+
+- cursor position reports after every geometry change;
+- any supported terminal dimension report returns active logical geometry;
+- terminal identity remains personality-consistent;
+- PC mirror performs one complete clean rebuild with no stale old rows/columns.
+
+### Shared SD configuration
+
+Boot the same card on at least:
+
+- W550;
+- W535;
+- RP2350 display target;
+
+and verify that only the matching `[display:HALID]` section affects display behavior while shared application/history profiles remain unchanged.
+
+### RGB performance
+
+On W550 compare:
+
+```text
+RGB scanout:      39 / 30 / 25 / 20 / 15 Hz
+render_flush_hz:  30 / 20 / 15 / 10 Hz as useful
+```
+
+For each combination record:
+
+- visible flicker/scan artifacts;
+- text interaction latency;
+- RunCPM benchmark/VTCPU impact;
+- renderer timing;
+- stability under heavy terminal output;
+- xterm-256 plot performance.
+
+The goal is to choose defaults from measurements, not assumptions.
+
+---
+
+## 22. Non-goals for this implementation
+
+Do not make this work depend on:
+
+- full native 7xtgv `WIND` glyph/chrome definitions;
+- a complete compositor or multiwindow desktop;
+- vertical panning in zoom-in modes;
+- arbitrary fractional scaling;
+- filtered/interpolated glyph scaling;
+- continuously re-transmitting complete framebuffers on controller-GRAM displays;
+- preserving stale off-geometry terminal contents;
+- dynamically allocating arbitrary terminal sizes from untrusted INI values.
+
+---
+
+## 23. Final architecture summary
+
+The intended architecture is:
+
+```text
+              terminal parser/personality
+                        |
+              active logical geometry
+                  cols x rows
+                        |
+        +---------------+----------------+
+        |                                |
+ real glyph renderer               bird's-eye renderer
+ 1x / 2x / 3x / 4x                3x5 / 2x3 / 1x2 / 1x1
+        |                                |
+        +---------------+----------------+
+                        |
+             presentation / viewport
+          left/right edge, black fill,
+          conditional grey pan marker
+                        |
+                 display HAL policy
+          physical size / HAL ID / timing
+                        |
+              Arduino_GFX / SDL2 / etc.
+```
+
+The xterm-256 plot renderer remains an alternate ANSI rendering interpretation with its own logical sample stream, optional integer plot zoom, and physical top-left origin, but it shares the same physical client/display policy and clear semantics.
+
+This gives 7xtgv one coherent framework for:
+
+- dense 133x48 use on the 5-inch W550;
+- conventional 80x24 CP/M at real 2x enlargement;
+- very large 3x/4x text on portable displays;
+- future bird's-eye desktop navigation;
+- shared SD-card configuration across heterogeneous hardware;
+- accessibility-oriented display setups;
+- configurable RGB bandwidth/refresh experiments;
+- later SDL2 and native 7xtgv/compositor development.
+
+The implementation should therefore be treated as a **generic renderer/display-policy refactor**, not as a special-case W550 zoom feature.
