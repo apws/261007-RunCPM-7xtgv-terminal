@@ -20,8 +20,9 @@ From this directory:
 The profile pins Arduino-Pico 5.4.4, Arduino_GFX 1.6.4, SdFat 2.3.0, RP2350A,
 150 MHz, 16 MB flash, and a conservative 12 MHz dedicated SPI1 SD bus. Display
 geometry is landscape 320×240 at rotation 3; font cells are 6×10, with an
-eight-pixel full-height grey gutter on the right. Its RGB value is configured
-by `viewport_gutter_rgb` in `A0:7XTGVTRM.INI`.
+eight-pixel full-height grey gutter on the left at the default viewport (and
+on the right after the right-edge pan). Its RGB value is configured by
+`viewport_gutter_rgb` in `A0:7XTGVTRM.INI`.
 
 Copy `../../build/build-vt100-runcpm/7xtgv-vt100-runcpm.ino.uf2` to the RP2350 BOOTSEL
 volume. The device restarts automatically. Keep the existing CP/M SD card
@@ -84,16 +85,16 @@ exclusive access; do not run picocom or a second direct helper alongside it.
 | Alt+Space | Show the active `#n name` for 1 s without changing the bank or current line |
 | Alt+# or Ctrl+] then # | Toggle temporary `## RAW` input bypass |
 | Alt+PageUp / Alt+PageDown | Select previous/next history list |
-| Ctrl+Shift or Alt+Shift+0 ... 9 | Backlight: off, then 10 ... 90% |
-| Ctrl+Shift or Alt+Shift+PageUp / PageDown | Increase / decrease backlight one level |
+| Ctrl+Shift or Alt+Shift+0 ... 9 | Backlight: off, then coarse 20 ... 100% |
+| Ctrl+Shift or Alt+Shift+PageUp / PageDown | Increase / decrease one of 32 brightness levels |
 | Ctrl+] then a / e | Same edge jumps; works without Alt mappings |
 | Ctrl+Shift or Alt+Shift+Home / End | Global viewport jump to left / right edge |
 | Ctrl+] then 1 / 2 | Select ANSI / VT52 locally |
-| Ctrl+] then g or Shift+Alt+Backspace | GCLS: arm one local xterm-256 pixel plot on a white TFT canvas |
+| Ctrl+] then g or Shift+Alt+Backspace | GCLS: arm one local xterm-256 pixel plot without clearing the TFT |
 | Ctrl+] then r | Refresh PC mirror and TFT |
 | Ctrl+] then p / n | Previous/next history line |
 | Ctrl+] then [ / ] | Previous/next history list |
-| Ctrl+] then b then 0 ... 9 / + / - | Backlight fallback: set / raise / lower |
+| Ctrl+] then b then 0 ... 9 / + / - | Backlight fallback: coarse set / precise raise / lower |
 | Ctrl+] then q | Exit PC helper; leave CP/M running |
 | Ctrl+] then x / c | Active profile's unified Exit / Clear command |
 | Alt+Esc / Alt+Backspace | Same unified Exit / Clear commands in Kitty/Konsole |
@@ -112,13 +113,17 @@ key bindings, and future application adapters. Toggle it again to restore the
 underlying bank; selecting `#0` through `#9` exits RAW and selects that bank.
 `Alt+Space` reports `[#n name]` normally or `[## RAW / #n]` in RAW mode.
 Private host controls are `CSI > 15 v` (toggle), `CSI > 16 v` (on), and
-`CSI > 17 v` (off). `CSI > 63 ; n v` controls the backlight: `n=0..9` sets
-off/10..90%, `n=10` raises, and `n=11` lowers. These sequences remain reserved
-even in RAW mode.
+`CSI > 17 v` (off). `CSI > 63 ; n v` controls the backlight: `n=0..32` sets
+off or an exact one of 32 active levels; `n=33` raises and `n=34` lowers one
+level. The remembered non-off value is safely written to `[global]`
+`backlight_level` in `7XTGVTRM.INI` after input settles; zoom changes also
+persist as `view_zoom` in the active HAL's display section. These sequences remain
+reserved even in RAW mode.
 
 Panning is manual, with only left/right edge jumps, even when the cursor moves
-off-screen. The final eight pixels of this compact 320-pixel target are a
-full-height configurable-grey gutter, not an unused controller margin. A 6×6
+off-screen. The hidden-content side is a full-height configurable-grey gutter,
+not an unused controller margin: left at the default edge, right after panning.
+A 6×6
 red square at the top-left is the short-latched SD activity indicator. It is a
 fixed display overlay, so scrolling cannot move it; retained plots suppress it.
 
@@ -163,8 +168,8 @@ ESC). Remove conflicting mappings in that profile if necessary.
 | --- | --- | --- |
 | Ctrl+] then `a` / `e` | private helper action | Viewport left/right edge |
 | Ctrl+Shift or Alt+Shift+Home / End | global viewport action | Viewport left/right edge |
-| Ctrl+Shift or Alt+Shift+0 ... 9 | local terminal action | Backlight off / 10 ... 90% |
-| Ctrl+Shift or Alt+Shift+PageUp / PageDown | local terminal action | Raise / lower backlight |
+| Ctrl+Shift or Alt+Shift+0 ... 9 | local terminal action | Backlight off / coarse 20 ... 100% |
+| Ctrl+Shift or Alt+Shift+PageUp / PageDown | local terminal action | Raise / lower one of 32 levels |
 
 ## Supported terminal subset
 
@@ -256,12 +261,19 @@ included; no device-identification or cursor-report queries are sent to the PC.
 The PC mirror's font need not visually match the QL font on the TFT.
 
 `GCLS` is the private `ESC[>4v` terminal control, not a standard xterm
-sequence. While it is armed, `CSI 38;5;n m` followed by one printable byte
-becomes one local RGB565 pixel; CR/LF ends each plot row and `CSI 0m` ends the
-transaction. The samples never enter terminal text RAM or the PC mirror.
-`BROT-BS` and `BROT-PS` can therefore remain unchanged even though RunCPM
-masks the former program's `0xDB` sample byte to `[`. Normal opaque terminal
-output after the final reset sequence overwrites the temporary image.
+sequence. Its extended form is `ESC[>4;zoom;x;yv`, where zoom is 1..4 and x/y
+are absolute physical panel pixels from the display's top-left corner,
+independent of terminal zoom, gutter width, and viewport pan. Thus `x=0` may
+paint over the gutter; the requested coordinates are not multiplied by zoom.
+GCLS itself does not clear or redraw the TFT or PC mirror; use `CLS`
+separately when a fresh text screen is wanted. While armed, `CSI 38;5;n m` followed by
+one printable byte becomes one local RGB565 sample block; CR/LF ends each
+logical plot row and `CSI 0m` ends the transaction. The samples never enter
+terminal text RAM or the PC mirror. `BROT-BS` and `BROT-PS` can therefore
+remain unchanged even though RunCPM masks the former program's `0xDB` sample
+byte to `[`. Normal opaque terminal output after the final reset sequence
+overwrites the temporary image. The first later terminal scroll retires the
+plot and repaints the gutter without a full-screen clear.
 
 The direct RP2350/ST7789 target renders one 6×10 scratch tile at a time and
 sends it to the display. Its write-only wiring cannot read native pixels back.

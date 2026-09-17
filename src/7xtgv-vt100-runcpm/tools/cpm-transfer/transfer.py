@@ -149,8 +149,11 @@ class Progress:
 
 def cpm_text(data):
     """Convert host text into CP/M CR/LF text ending with Ctrl+Z."""
+    # A file previously edited on CP/M may contain whole-record NUL padding
+    # after its logical Ctrl-Z.  Never transfer that tail as text content.
+    data=data.split(b'\x1a',1)[0]
     data=data.replace(b'\r\n',b'\n').replace(b'\r',b'\n')
-    return data.replace(b'\n',b'\r\n').rstrip(b'\x1a')+b'\x1a'
+    return data.replace(b'\n',b'\r\n')+b'\x1a'
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)

@@ -16,6 +16,13 @@
   `/dev/ttyACM0`; restore the temporary user ACL afterward with approved sudo.
   Use the shared tmux terminal for concurrent viewing—never open two serial
   readers.
+- If a flash, transfer, or serial session becomes confused (stale protocol
+  text, disappearing/re-enumerating port, or no mirror), do not keep sending
+  diagnostic/recovery keystrokes into CP/M. Stop the tmux owner, perform one
+  simple supported target reset (DTR/RTS where available), or ask Petr for a
+  power-cycle when it is not. Wait for one stable serial node, then start one
+  clean mirror attachment. Do not loop across ports or launchers; a clean boot
+  is preferable to preserving a potentially contaminated session.
 - When Petr asks for device-side transfer, flashing, or direct CP/M testing,
   that authorizes stopping the shared `7xtgv-cpm` tmux terminal. Stop it,
   perform the work, and relaunch `kon.sh` or `kit.sh` without asking again.
@@ -36,11 +43,41 @@
   transfer, and always relaunch `tools/kon.sh` or `tools/kit.sh` afterwards.
   Do not first attempt a transfer against the live port merely to discover its
   lock owner.
+- Treat the physical USB-serial device as outside-sandbox state: request
+  escalation when it is needed rather than retrying inside the sandbox. Every
+  device flash or direct serial operation must finish by relaunching the
+  user-visible `kon.sh`/`kit.sh` mirror, even if the upload itself succeeded.
+- Keep target firmware artifacts under `build/<project>/<target>/current` only
+  after a verified host build. Archive replaced stable artifacts alongside it
+  as `build/<project>/<target>/YYMMDD-HHMM <note>`; do not mass-rename
+  historical experiment folders merely to impose this newer chronology. A
+  device-triggered reflash uploads only that target's `current` artifact; a
+  deliberate host build first stages and verifies its own target artifact as
+  `new`, then uploads that candidate for hardware test while leaving `current`
+  untouched. Device-side `REFLASH` normally uploads `new`, falling back to
+  `current` only if no candidate exists. Promote a confirmed candidate with
+  `tools/reflash.py --promote-new`; recover explicitly with `--current` or by
+  promoting an archive with `--restore '<archive>'` (which quarantines `new`).
+  `/tmp` build paths are transient validation space, never the intended
+  deployed state. Never let one target reuse another target's build directory
+  or manually promote an ad-hoc Arduino build: use the target-aware reflash
+  path so HAL build properties are present.
 - Petr performs longer interactive/device tests.  After a relevant build,
   provide a short exact test checklist and wait for his report instead of
   consuming time driving the hardware test.  The shared tmux screen may be
   inspected afterward; add an opt-in input/output recording hook when useful
   for diagnosing a reported interaction.
+- Batch ordinary firmware edits by default: run small host tests when useful,
+  but do not compile, replace a target's `new` candidate, archive a candidate,
+  or touch hardware after each isolated change. Petr's explicit chat command
+  `rebuild` authorizes one target-aware host build/stage for all pending edits;
+  use `tools/reflash.py --build-only` so `rebuild` never flashes implicitly.
+  When `rebuild` also covers changed CP/M mirror files, deploy those files to
+  the device separately and report exactly which were updated; the firmware
+  reflash remains an independent user request. `reflash` uploads the already
+  staged candidate. State when a
+  change remains pending a rebuild. Build immediately only when Petr expressly
+  asks for it or a hardware test is needed to make safe progress.
 - Before sending automated commands through the shared CP/M terminal, select
   terminal profile/history bank `#9`; use explicit `## RAW` on/off controls for
   transfers or exact-byte tests. Keep the user's active application history in
@@ -48,7 +85,8 @@
 - Send agent-authored CP/M commands in uppercase. Petr normally types lowercase,
   so uppercase history entries remain visibly attributable even if an automated
   command lands outside reserved bank `#9`; do not discard them merely for being
-  agent-generated.
+  agent-generated. Exception: inside `BBCLOWER`, use lowercase commands because
+  that deliberately patched interpreter does not accept the uppercase forms.
 - Before starting a nonessential web search or broad external research, tell the
   user briefly what is needed and ask whether to search here or let them handle
   it in ChatGPT/Lyra and bring the result back. Proceed immediately when the
@@ -76,6 +114,13 @@
   `YYMMDD-HH ` so extension sorting also preserves their timeline.  Keep
   stable readmes, recovered material, and vendor resources in their existing
   names.
+- Before an agent-triggered context compaction during active work, write a
+  dated Markdown handoff in `docs/`: current implementation state, relevant
+  tests/hardware observations, pending work, and exact recovery/build details.
+  Treat it as durable project history, not merely a private chat summary.
+- Format every human-facing project date as `YYMMDD` (intentionally no
+  century); use `YYMMDD-HH` only where the existing chronological document
+  naming convention needs the hour.
 - Treat `cpmdrive/` as the source mirror for authored CP/M files. Deploy
   one-way with `tools/cpm-transfer/transfer.py put`; use `--verify` only when
   a full device read-back is worthwhile. Never silently import device files;
@@ -90,3 +135,8 @@
   SLR `Z80ASM` defaults to `.Z80` and directly emits `.COM`. Preserve historical
   MAC/M80/vendor filenames and their existing build scripts rather than
   renaming them merely by dialect.
+- For new CP/M assembly helpers, save every register whose value remains live
+  across BDOS/BIOS calls. Verify the local RunCPM implementation when possible:
+  `_Bdos()` in `src/7xtgv-vt100-runcpm/cpm.h` explicitly resets `HL` on entry
+  and also changes `C`. Do not assume a call preserves a parsing pointer or
+  loop counter merely because a different CP/M implementation does.

@@ -22,14 +22,17 @@ static uint8_t selectedInk(uint8_t ink, bool bold) {
 Terminal::Terminal(Reply reply, void *context) : reply_(reply), context_(context) { reset(); }
 void Terminal::changed(int i) {
     dirty[i] = true;
-    mirrorDirty[i / Cols] = true;
+    mirrorDirty[i / MaxCols] = true;
 }
 void Terminal::invalidate() {
     std::fill(dirty, dirty + Cells, true);
     invalidateMirror();
 }
 void Terminal::invalidateMirror() {
-    std::fill(mirrorDirty, mirrorDirty + Rows, true);
+    // The mirror sender visits only active rows.  Clear excluded maximum
+    // rows when geometry shrinks so a snapshot can actually finish.
+    std::fill(mirrorDirty, mirrorDirty + MaxRows, false);
+    std::fill(mirrorDirty, mirrorDirty + rows, true);
     mirrorCursorDirty = indicatorDirty = true;
 }
 void Terminal::plot(PlotEvent event, uint16_t value) {
@@ -59,7 +62,7 @@ uint16_t Terminal::xterm565(int index) {
     }
     return uint16_t((uint16_t(r >> 3) << 11) | (uint16_t(g >> 2) << 5) | (b >> 3));
 }
-void Terminal::beginPlot() {
+void Terminal::beginPlot(uint8_t requestedZoom, uint16_t requestedX, uint16_t requestedY) {
     // The private GCLS command always selects ANSI before arming one plot.
     ansi = true;
     state = Ground;
@@ -71,6 +74,9 @@ void Terminal::beginPlot() {
     plotPaper = 0xffff;
     plotStarted = false;
     plotLogicalRow = false;
+    plot(PlotConfigZoom, requestedZoom);
+    plot(PlotConfigX, requestedX);
+    plot(PlotConfigY, requestedY);
     plot(PlotBegin);
 }
 void Terminal::abortPlot() {
@@ -83,22 +89,57 @@ void Terminal::abortPlot() {
 void Terminal::reset() {
     abortPlot();
     x = y = viewport = top = 0;
-    bottom = Rows - 1;
+    bottom = rows - 1;
     ansi = cursorVisible = autowrap = true;
     applicationCursor = applicationKeypad = origin = wrapPending = bold = g0 = g1 = useG1 = false;
     ink = 1;
     paper = rendition = 0;
     state = Ground;
     bells = 0;
-    for (int i = 0; i < Cols; i++)
+    for (int i = 0; i < MaxCols; i++)
         tabs[i] = (i % 8 == 0);
-    for (int i = 0; i < Cells; i++) {
+    for (int i = 0; i < MaxCells; i++) {
         paperRAM[i] = charRAM[i] = ' ';
         attrRAM[i] = 1;
         flags[i] = 0;
     }
     save();
     invalidate();
+}
+bool Terminal::setGeometry(int activeCols, int activeRows, int visible, int scale) {
+    if (activeCols < 1 || activeCols > MaxCols || activeRows < 1 || activeRows > MaxRows ||
+        visible < 1 || visible > activeCols || scale < 1 || scale > 4)
+        return false;
+    abortPlot();
+    const int oldCols = cols, oldRows = rows;
+    cols = activeCols;
+    rows = activeRows;
+    visibleCols = visible;
+    zoom = scale;
+    // Cells outside the preserved intersection must never reappear after a
+    // later enlargement.  Reset them to ordinary terminal blanks.
+    for (int row = 0; row < MaxRows; ++row)
+        for (int col = 0; col < MaxCols; ++col)
+            if (row >= rows || col >= cols || row >= oldRows || col >= oldCols) {
+                const int i = index(col, row);
+                paperRAM[i] = charRAM[i] = ' ';
+                attrRAM[i] = 1;
+                flags[i] = 0;
+            }
+    x = std::max(0, std::min(cols - 1, x));
+    y = std::max(0, std::min(rows - 1, y));
+    savedX = std::max(0, std::min(cols - 1, savedX));
+    savedY = std::max(0, std::min(rows - 1, savedY));
+    top = 0;
+    bottom = rows - 1;
+    viewport = 0;
+    compositionDirty = true;
+    wrapPending = false;
+    state = Ground;
+    for (int i = 0; i < MaxCols; ++i)
+        tabs[i] = (i % 8 == 0);
+    invalidate();
+    return true;
 }
 void Terminal::setMode(bool a) {
     abortPlot();
@@ -108,11 +149,11 @@ void Terminal::setMode(bool a) {
     applicationCursor = false;
 }
 void Terminal::pan(int offset) {
-    offset = std::max(0, std::min(Cols - Visible, offset));
+    offset = std::max(0, std::min(viewportLimit(), offset));
     if (offset != viewport) {
         viewport = offset;
         std::fill(dirty, dirty + Cells, true);
-        indicatorDirty = true;
+        indicatorDirty = compositionDirty = true;
     }
 }
 RGB Terminal::foreground(int i) const {
@@ -122,10 +163,10 @@ RGB Terminal::background(int i) const {
     return (flags[i] & Reverse) ? Ink[attrRAM[i] & 15] : Paper[(attrRAM[i] >> 4) & 3];
 }
 void Terminal::move(int col, int row) {
-    changed(y * Cols + x);
-    x = std::max(0, std::min(Cols - 1, col));
-    y = std::max(0, std::min(Rows - 1, row));
-    changed(y * Cols + x);
+    changed(index(x, y));
+    x = std::max(0, std::min(cols - 1, col));
+    y = std::max(0, std::min(rows - 1, row));
+    changed(index(x, y));
     wrapPending = false;
     mirrorCursorDirty = indicatorDirty = true;
 }
@@ -135,31 +176,46 @@ void Terminal::blank(int i) {
     flags[i] = rendition;
     changed(i);
 }
-void Terminal::erase(int first, int last) {
-    for (int i = first; i <= last; i++)
-        blank(i);
+void Terminal::erase(int firstRow, int firstCol, int lastRow, int lastCol) {
+    firstRow = std::max(0, firstRow); lastRow = std::min(rows - 1, lastRow);
+    if (firstRow > lastRow) return;
+    for (int row = firstRow; row <= lastRow; ++row) {
+        const int begin = row == firstRow ? std::max(0, firstCol) : 0;
+        const int end = row == lastRow ? std::min(cols - 1, lastCol) : cols - 1;
+        for (int col = begin; col <= end; ++col)
+            blank(index(col, row));
+    }
+}
+void Terminal::eraseDisplay(bool beforeCursor, bool afterCursor) {
+    if (beforeCursor)
+        erase(0, 0, y, x);
+    if (afterCursor)
+        erase(y, x, rows - 1, cols - 1);
 }
 void Terminal::scroll(int delta) {
-    int a = top * Cols, b = (bottom + 1) * Cols;
     if (delta > 0) {
-        for (int i = a; i < b - Cols; i++) {
-            paperRAM[i] = paperRAM[i + Cols];
-            charRAM[i] = charRAM[i + Cols];
-            attrRAM[i] = attrRAM[i + Cols];
-            flags[i] = flags[i + Cols];
-        }
-        erase(b - Cols, b - 1);
+        for (int row = top; row < bottom; ++row)
+            for (int col = 0; col < cols; ++col) {
+                const int dst = index(col, row), src = index(col, row + 1);
+                paperRAM[dst] = paperRAM[src]; charRAM[dst] = charRAM[src];
+                attrRAM[dst] = attrRAM[src]; flags[dst] = flags[src];
+            }
+        erase(bottom, 0, bottom, cols - 1);
     } else {
-        for (int i = b - 1; i >= a + Cols; i--) {
-            paperRAM[i] = paperRAM[i - Cols];
-            charRAM[i] = charRAM[i - Cols];
-            attrRAM[i] = attrRAM[i - Cols];
-            flags[i] = flags[i - Cols];
-        }
-        erase(a, a + Cols - 1);
+        for (int row = bottom; row > top; --row)
+            for (int col = 0; col < cols; ++col) {
+                const int dst = index(col, row), src = index(col, row - 1);
+                paperRAM[dst] = paperRAM[src]; charRAM[dst] = charRAM[src];
+                attrRAM[dst] = attrRAM[src]; flags[dst] = flags[src];
+            }
+        erase(top, 0, top, cols - 1);
     }
-    for (int i = a; i < b; i++)
-        changed(i);
+    for (int row = top; row <= bottom; ++row)
+        for (int col = 0; col < cols; ++col)
+            changed(index(col, row));
+    // A completed local plot is no longer retained once ordinary terminal
+    // scrolling repaints its cells. Let the display restore its gutter once.
+    plot(PlotScroll);
 }
 void Terminal::index(bool reverse) {
     if (reverse) {
@@ -186,13 +242,13 @@ void Terminal::put(uint8_t c) {
         move(0, y);
         index();
     }
-    int i = y * Cols + x;
+    int i = index(x, y);
     paperRAM[i] = ' ';
     charRAM[i] = (c < 128 ? c : '?');
     attrRAM[i] = (paper << 4) | selectedInk(ink, bold);
     flags[i] = rendition | ((useG1 ? g1 : g0) && c >= 0x5f && c <= 0x7e ? Graphics : 0);
     changed(i);
-    if (x == Cols - 1)
+    if (x == cols - 1)
         wrapPending = autowrap;
     else
         move(x + 1, y);
@@ -301,7 +357,7 @@ void Terminal::sgr() {
 void Terminal::dispatch(uint8_t f) {
     if (invalid)
         return;
-    int n = param(0), lo = origin ? top : 0, hi = origin ? bottom : Rows - 1;
+    int n = param(0), lo = origin ? top : 0, hi = origin ? bottom : rows - 1;
     if (prefix == '?') {
         if (f != 'h' && f != 'l')
             return;
@@ -324,17 +380,25 @@ void Terminal::dispatch(uint8_t f) {
                 break;
             case 25:
                 cursorVisible = on;
-                changed(y * Cols + x);
+                changed(index(x, y));
                 mirrorCursorDirty = true;
                 break;
             }
         return;
     }
     if (prefix == '>') {
-        if (f == 'v' && count == 1 && params[0] == 4)
-            beginPlot();
-        else if (f == 'v' && count == 2 && params[0] == 63 && params[1] >= 0 && params[1] <= 11)
+        if (f == 'v' && params[0] == 4 && count >= 1 && count <= 4) {
+            const int requestedZoom = count >= 2 && params[1] >= 0 ? params[1] : 1;
+            const int requestedX = count >= 3 && params[2] >= 0 ? params[2] : 0;
+            const int requestedY = count >= 4 && params[3] >= 0 ? params[3] : 0;
+            if (requestedZoom >= 1 && requestedZoom <= 4 && requestedX <= 9999 &&
+                requestedY <= 9999)
+                beginPlot(uint8_t(requestedZoom), uint16_t(requestedX), uint16_t(requestedY));
+        }
+        else if (f == 'v' && count == 2 && params[0] == 63 && params[1] >= 0 && params[1] <= 34)
             control(Backlight, uint8_t(params[1]));
+        else if (f == 'v' && count == 2 && params[0] == 68 && params[1] >= 1 && params[1] <= 4)
+            control(Zoom, uint8_t(params[1]));
         return;
     }
     if (prefix)
@@ -371,28 +435,28 @@ void Terminal::dispatch(uint8_t f) {
         break;
     case 'J':
         if (params[0] <= 0)
-            erase(y * Cols + x, Cells - 1);
+            eraseDisplay(false, true);
         else if (params[0] == 1)
-            erase(0, y * Cols + x);
+            eraseDisplay(true, false);
         else if (params[0] == 2)
-            erase(0, Cells - 1);
+            erase(0, 0, rows - 1, cols - 1);
         wrapPending = false;
         break;
     case 'K':
         if (params[0] <= 0)
-            erase(y * Cols + x, (y + 1) * Cols - 1);
+            erase(y, x, y, cols - 1);
         else if (params[0] == 1)
-            erase(y * Cols, y * Cols + x);
+            erase(y, 0, y, x);
         else if (params[0] == 2)
-            erase(y * Cols, (y + 1) * Cols - 1);
+            erase(y, 0, y, cols - 1);
         wrapPending = false;
         break;
     case 'm':
         sgr();
         break;
     case 'r': {
-        int a = param(0) - 1, b = param(1, Rows) - 1;
-        if (a >= 0 && b < Rows && a < b) {
+        int a = param(0) - 1, b = param(1, rows) - 1;
+        if (a >= 0 && b < rows && a < b) {
             top = a;
             bottom = b;
             move(0, origin ? top : 0);
@@ -403,7 +467,7 @@ void Terminal::dispatch(uint8_t f) {
         if (params[0] <= 0)
             tabs[x] = false;
         else if (params[0] == 3)
-            std::fill(tabs, tabs + Cols, false);
+            std::fill(tabs, tabs + cols, false);
         break;
     case 's':
         save();
@@ -480,7 +544,7 @@ void Terminal::feed(uint8_t c) {
             break;
         case 9: {
             int next = x + 1;
-            while (next < Cols - 1 && !tabs[next])
+            while (next < cols - 1 && !tabs[next])
                 next++;
             move(next, y);
             break;
@@ -519,10 +583,11 @@ void Terminal::feed(uint8_t c) {
     }
     if (state == Hash) {
         if (c == '8') {
-            for (int i = 0; i < Cells; i++) {
-                blank(i);
-                charRAM[i] = 'E';
-            }
+            for (int row = 0; row < rows; ++row)
+                for (int col = 0; col < cols; ++col) {
+                    const int i = index(col, row);
+                    blank(i); charRAM[i] = 'E';
+                }
         }
         state = Ground;
         return;
@@ -554,10 +619,10 @@ void Terminal::feed(uint8_t c) {
                 index(true);
                 break;
             case 'J':
-                erase(y * Cols + x, Cells - 1);
+                eraseDisplay(false, true);
                 break;
             case 'K':
-                erase(y * Cols + x, (y + 1) * Cols - 1);
+                erase(y, x, y, cols - 1);
                 break;
             case 'Y':
                 state = VTAddressRow;
@@ -675,7 +740,7 @@ void Keyboard::finish() {
         t_.pan(0);
     else if (!strcmp(s, "\033[1;3F") || !strcmp(s, "\033[4;3~") || !strcmp(s, "\033[8;3~") ||
              !strcmp(s, "\033\033[F"))
-        t_.pan(Cols - Visible);
+        t_.pan(t_.viewportLimit());
     else if (!strcmp(s, "\033[>0v")) {
         t_.abortPlot();
         t_.invalidate();
@@ -710,11 +775,17 @@ void Keyboard::finish() {
         if (act_) act_(context_, ProfileClear);
     } else if (!strcmp(s, "\033[>62v")) {
         if (act_) act_(context_, MirrorSnapshot);
+    } else if (!strcmp(s, "\033[>66v")) {
+        if (act_) act_(context_, ZoomIn);
+    } else if (!strcmp(s, "\033[>67v")) {
+        if (act_) act_(context_, ZoomOut);
     } else if ((size_ == 8 || size_ == 9) && !memcmp(s, "\033[>63;", 6) && s[size_ - 1] == 'v') {
         int value = -1;
         if (size_ == 8 && s[6] >= '0' && s[6] <= '9') value = s[6] - '0';
-        else if (size_ == 9 && s[6] == '1' && (s[7] == '0' || s[7] == '1')) value = 10 + s[7] - '0';
-        if (value >= 0 && act_) act_(context_, Action(Backlight0 + value));
+        else if (size_ == 9 && s[6] >= '1' && s[6] <= '3' && s[7] >= '0' && s[7] <= '9')
+            value = (s[6] - '0') * 10 + s[7] - '0';
+        // 0..32 set a direct level; 33/34 are one step up/down.
+        if (value >= 0 && value <= 34 && act_) act_(context_, Action(Backlight0 + value));
     } else if (size_ == 6 && !memcmp(s, "\033[>2", 4) && s[4] >= '0' && s[4] <= '9' && s[5] == 'v') {
         if (act_) act_(context_, Action(HistoryBank0 + s[4] - '0'));
     } else if (size_ == 6 && !memcmp(s, "\033[>", 3) && s[3] >= '3' && s[3] <= '5' &&

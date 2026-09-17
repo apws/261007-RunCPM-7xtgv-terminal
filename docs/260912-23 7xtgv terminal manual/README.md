@@ -35,13 +35,28 @@ input unless a profile deliberately maps them that way.
 | `Ctrl+] r` | Repaint normal terminal text on the TFT and PC. This also ends an active xterm256 plot. |
 | `Ctrl+] g` | GCLS: arm the direct xterm256 graphics canvas below terminal cells. |
 | `Ctrl+] a` / `e` | Move the 80-column viewport to its left / right edge. |
-| `Ctrl+] p` / `n` | Previous / next history entry of the active effective bank. |
+| `Ctrl+] p` / `n` | Previous / next history entry of the active effective bank. A token before the cursor filters entries beginning with it. |
 | `Ctrl+] [` / `]` | Select preceding / next application profile. |
 | `Ctrl+] #` | Toggle `## RAW` direct-input mode. |
 | `Ctrl+] x` | Send the selected profile's configured exit command. |
 | `Ctrl+] c` | Send the selected profile's configured clear command. |
-| `Ctrl+] b 0` … `9` | Backlight off, then 10% … 90%. |
-| `Ctrl+] b +` / `-` | Raise / lower backlight one level. |
+| `Ctrl+] b 0` … `9` | Backlight off, then coarse 20% … 100%. |
+| `Ctrl+] b +` / `-` | Raise / lower one of 32 backlight levels. |
+
+### Output interpretation modes
+
+There are exactly two persistent terminal-output interpretations: ANSI/VT100
+(the normal default, including the implemented xterm colour extensions) and
+VT52. `Ctrl+] 1` / `2` select them; the host bridge can also select one at
+connection with `--mode ansi` or `--mode vt52`. An application can request the
+standard DEC transition itself: `CSI ? 2 h` selects ANSI/VT100, `CSI ? 2 l`
+selects VT52, and VT52 `ESC <` returns to ANSI/VT100.
+
+`## RAW` is only an input-routing state, application profiles are keyboard
+translation choices, and GCLS/xterm256 plot is a temporary graphics canvas;
+none is a third persistent terminal emulation mode. Application cursor/keypad
+flags are likewise negotiated submodes within ANSI/VT100, not separate
+terminal types.
 
 The PC key tables provide the more natural shortcuts:
 
@@ -53,24 +68,33 @@ The PC key tables provide the more natural shortcuts:
 | `Alt+Up` / `Alt+Down` | Profile-level alternate history controls where configured. |
 | `Alt+Esc` | Configured profile exit. |
 | `Alt+Backspace` | Configured profile clear. |
-| `Alt+Shift+Backspace` | GCLS / xterm256 canvas clear. |
+| `Alt+Shift+Backspace` | Arm GCLS / xterm256 plotting without clearing the screen. |
 | `Alt+Shift+3` | Toggle `## RAW` mode. |
-| `Ctrl+Shift` or `Alt+Shift` + `0` … `9` | Backlight off, then 10% … 90%. |
-| `Ctrl+Shift` or `Alt+Shift` + `PgUp` / `PgDn` | Raise / lower backlight one level. |
+| `Ctrl+Shift` or `Alt+Shift` + `0` … `9` | Backlight off, then coarse 20% … 100%. |
+| `Ctrl+Shift` or `Alt+Shift` + `PgUp` / `PgDn` | Raise / lower one of 32 backlight levels. |
+| `LAlt+Ctrl+Shift+PgUp` / `PgDn` | Increase / decrease glyph zoom. |
+| `LAlt+Ctrl+Shift+1` / `2` | Select ANSI/VT100 / VT52 terminal output interpretation. |
 | `Ctrl+Shift` or `Alt+Shift` + `Home` / `End` | Global viewport jump to the left / right 80-column edge. |
 
 `Alt+Esc` and `Alt+Backspace` are configured globally in `7XTGVTRM.INI` as
 dual-Alt gestures. Their generated commands, and the Ctrl+Shift viewport
 jumps, are handled before application-profile bindings and are not saved in
-history. Brightness is not persisted: it starts at the normal boot brightness
-after every module reset.
+history. The last non-off brightness and selected glyph zoom are safely
+persisted in the INI file after input settles.
 
 ## Histories, banks, and the active line
 
 There are ten named FIFO histories, each retaining at most 100 entered lines.
-Single-character submissions are ignored.  Up and Down normally recall entries
+Single-character submissions are ignored. Up and Down normally recall entries
 directly; each profile can instead give those keys to the target application and
-put history on Alt+Up/Alt+Down.
+put history on Alt+Up/Alt+Down. If there is a token immediately before the
+cursor (characters back to space, tab, or line start), recall filters for
+history entries beginning with that token, wraps in both directions, replaces
+only that token while retaining the surrounding line, and adds one trailing
+space. A filtered completion inside a nonempty prefix (for example `10 PR`) is
+never stored as a new history item; an edited completion at line start remains
+an ordinary storable REPL command. Tabs are accepted as existing input and
+filter separators, but spaces are preferred for authored CP/M text.
 
 The histories live in `A0:7XTGVTRM.BUF`.  After two seconds without a newly
 stored line, the RunCPM/SD-owner core writes and rereads `7XTGVTRM.NEW`, then
@@ -156,6 +180,7 @@ the current DU (for example `A6>`).
 | --- | --- |
 | `REBOOT` | Schedules a whole-module reboot after a three-second notice. The serial mirror disconnects, so relaunch `tools/kon.sh` or `tools/kit.sh` afterwards. |
 | `REFLASH` | First forces and verifies the same history save as `SYNC`, then emits the reserved host event `ESC[>64v`. It flashes nothing by itself; an attached `terminal.py` acts only when its target-specific `XTGV_REFLASH_COMMAND` is explicitly configured. |
+| `ZOOM [1|2|3|4]` | Set absolute 1x…4x glyph zoom; no argument means 1x. Its source is A0 `ZOOM.ASM` and it requires firmware implementing private output `CSI >68;n v`. |
 | `UNSUB` | Deletes a stranded `$$$.SUB` queue in the current DU without switching drive or user. It is silent if none exists. |
 | `VTCPU` / `VTCPU8X` | Measure the RunCPM interpreter with the terminal active and paused. `8X` uses the 8080/8085 common instruction subset. |
 | `VTDRV` | Plain invocation read-tests and verifies a retained 32 KiB `VTDRV.$$$` fixture. Run `VTDRV RW` once at a known-safe clock to create it. Options are case-insensitive. |
@@ -172,7 +197,7 @@ replacement.
 
 | Command | Purpose |
 | --- | --- |
-| `GCLS` | Emits private `ESC[>4v`, arming the local xterm256 graphics canvas. It does not erase logical terminal content. |
+| `GCLS [zoom [x y]]` | Arm local xterm256 plotting without clearing or redrawing the screen. `zoom` is 1…4; `x,y` are unscaled physical pixel coordinates from the display's top-left corner, independent of terminal zoom, gutter, or pan. Bare `GCLS` retains `ESC[>4v` and defaults to 1× at `(0,0)`. Use `CLS` separately when wanted. |
 | `SYNC` | Forces the verified terminal-history save immediately. Use before a long graphics stream or likely hardware reset. |
 | `VTPAD [n]` | Prints `n` CR/LF pairs; default is 18. It provides visible space where SUBMIT would discard empty script records. |
 | `VTSTART` / `VTSTOP` | Save and report elapsed RunCPM uptime around a test, using `VTIME.DAT` in the current DU. |
@@ -200,11 +225,17 @@ A pending queue takes precedence over `AUTOEXEC.TXT`.
 
 ## xterm256 graphics
 
-`Ctrl+] g` or `Alt+Shift+Backspace` starts a local GCLS graphics layer.  The
-next xterm256 indexed-color samples (`CSI 38;5;<index>m` plus byte values) are
-drawn as RGB565 pixels directly on the TFT and are not mirrored to the PC.  The
-normal terminal cell layer remains logically present and opaque text output can
-paint over the image.  `BROT_BS` and `BROT_PS` demonstrate this path from A6.
+`Ctrl+] g` or `Alt+Shift+Backspace` starts a local GCLS graphics layer. The
+extended private form is `CSI >4;zoom;x;y v`; `zoom` is 1…4 and `x,y` are
+physical pixel coordinates from the display's top-left corner, not logical
+text cells and not multiplied by zoom. The origin does not move with the
+gutter or viewport; samples at `x=0` may cover the gutter. Each source sample becomes a `zoom × zoom` RGB565 block, clipped at the
+physical client boundary. The next xterm256 indexed-color samples
+(`CSI 38;5;<index>m` plus byte values) are drawn directly on the TFT and are
+not mirrored to the PC. The normal terminal cell layer remains logically
+present and opaque text output can paint over the image. The first later
+terminal scroll retires the plot and restores the gutter without a full-screen
+clear. `BROT_BS` and `BROT_PS` demonstrate the compatible bare path from A6.
 
 Use the supplied submit scripts after selecting A6:
 
@@ -222,8 +253,11 @@ screen to the normal terminal surface.
 ## Configuration reference
 
 `A0:7XTGVTRM.INI` is read once at firmware boot. Its `[global]` section holds
-the global exit/clear key policy, cursor blink, and `viewport_gutter_rgb`
-(the full-height compact-display gutter colour). Each `[bankN]` supports a
+the global exit/clear key policy, cursor blink, `viewport_gutter_rgb` (the
+always-present full-height display gutter), `viewport_active_gutter_rgb`
+(normally `active_line` when horizontal panning exists), and persisted
+`backlight_level`. The matching `[display:HAL_ID]` section holds the persisted
+`view_zoom` and per-zoom geometry. Each `[bankN]` supports a
 name, `on_select`, `exit_command`, `clear_command`, regular/Ctrl/Alt cursor and
 six-key bindings, history controls, active-line/cursor RGB values, and narrow
 editing options such as `screen_line`, `line_prefix`, `activate_prefix`,
@@ -236,8 +270,10 @@ and `\xNN`.
 `7XTGVTRM.INI` is deliberately CP/M-text friendly: its loader accepts CR, LF,
 or CR/LF line endings and treats a CP/M Ctrl+Z (`1Ah`) as logical end of file.
 It can therefore be edited as `A0:7XTGVTRM.INI` with a CP/M editor, then
-reloaded by `REBOOT`. The firmware presently only reads this configuration; it
-does not rewrite it. The host transfer tool's `--cpm-text` mode writes the same
+reloaded by `REBOOT`. A delayed, verified transaction updates only the active
+HAL's `view_zoom` and global `backlight_level` after a zoom/brightness change;
+other settings and other HAL sections remain user-authored. The saved zoom is
+applied before the CP/M boot banner. The host transfer tool's `--cpm-text` mode writes the same
 CR/LF-plus-Ctrl+Z convention. This applies only to the INI file: do not edit
 the checksummed native history files (`7XTGVTRM.BUF`, `.NEW`, or `.BAK`) from
 CP/M.

@@ -598,7 +598,10 @@ CSI > 4 ; 2 ; 100 ; 40 v
 
 ### 14.1 Coordinate convention
 
-`x` and `y` are **physical panel/client pixel coordinates for the top-left placement**.
+`x` and `y` are **absolute physical panel pixel coordinates** for the top-left
+placement. The origin is the display's top-left pixel, independent of terminal
+zoom, gutter width, and viewport pan. Consequently `(0,0)` may paint over the
+gutter; the same coordinates place an image identically at every terminal zoom.
 
 They are not multiplied by plot zoom.
 
@@ -608,7 +611,8 @@ Thus:
 GCLS zoom=2, x=100, y=40
 ```
 
-means the first logical plot sample becomes a 2x2 physical block whose top-left physical pixel is `(100,40)`.
+means the first logical plot sample becomes a 2x2 physical block whose top-left
+physical pixel is `(100,40)`.
 
 This is easier to reason about than scaling the requested origin itself.
 
@@ -625,9 +629,9 @@ This can use a scaled scanline buffer rather than allocating a full scaled plot 
 
 ### 14.3 Clear semantics
 
-For now GCLS retains its meaning as a graphics clear/init operation.
-
-If later 7xtgv needs multiple positioned plots without clearing previous graphics, define a separate command rather than making GCLS ambiguous.
+GCLS only arms the graphics parser. It does not clear or redraw the physical
+screen or logical terminal; use `CLS` separately if a fresh text screen is
+wanted. Positioned plots may therefore overlay existing pixels.
 
 ---
 

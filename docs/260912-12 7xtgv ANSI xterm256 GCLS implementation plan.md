@@ -1,5 +1,10 @@
 # 7xtgv ANSI xterm-256 GCLS and Mandelbrot plot plan
 
+Implementation revision (260916): GCLS now only arms plotting; it does not
+clear the TFT. Extended `x,y` coordinates are absolute physical panel pixels,
+independent of gutter, pan, and terminal zoom. The white-canvas steps below
+record the original plan, not the current implementation.
+
 Date: 2026-09-12
 
 Status: implemented in the terminal source on 2026-09-12; host parser,

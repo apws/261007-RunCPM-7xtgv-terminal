@@ -1,0 +1,31 @@
+# Zoom hardware-test corrections
+
+This note records the 5-inch ES3_5 test feedback after the signed plan in
+`260915-01 7xtgv signed zoom-in implementation plan.md`. The earlier plan
+remains the design history.
+
+- The ES3_5 geometry is 132x48 at 1x, 80x24 at 2x, 44x16 at 3x, and 32x12
+  at 4x. The two highest levels fit the physical display with no horizontal
+  pan. The 2x view intentionally retains 80 columns and two edge positions.
+- The shared `7XTGVTRM.INI` now lists the current zoom geometries and render
+  flush defaults for ES3_5, ES3_35, and RP2_2. A nonmatching HAL section is
+  ignored, so one card remains portable between modules.
+- RunCPM internal CCP uses a 125-character BDOS input buffer and automatically
+  dispatches when full. Bank-0 history recall is limited to 124 characters;
+  other application banks retain the 127-character history limit. The local
+  history model also closes a CCP line when its 125th character is sent.
+- Deleting a recalled history line retains the traversal position: the next
+  Up visits the immediately older entry, including after consecutive deletes.
+- A nonempty input prefix with the cursor at its end filters history Up/Down
+  by exact initial bytes. Down beyond the newest match restores that prefix;
+  deletion keeps the filter and position. Empty or mid-line browsing is
+  unchanged.
+- Rapid zoom keys now count toward the pending level and rebuild the display
+  after 150 ms of quiet, avoiding several full-panel/mirror repaints in a
+  single burst. A mirror snapshot clears dirty flags for excluded rows.
+
+The reported occasional restart/CPU-halted event has not yet been attributed
+to a specific failure path. RunCPM prints `CPU halted` for SD initialization
+failure as well as CCP-load failure; the exact preceding line is needed if the
+event recurs. Host sanitizer tests cover rapid zoom requests and long output
+wrapping in a tiny view, but hardware retesting remains necessary.

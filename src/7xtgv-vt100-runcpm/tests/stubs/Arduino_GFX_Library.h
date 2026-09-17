@@ -11,6 +11,7 @@ class Arduino_GFX {
   public:
     uint16_t framebuffer[320 * 240] = {};
     bool begin() { return true; }
+    void flush(bool = false) {}
     int width() const { return 320; }
     int height() const { return 240; }
     void fillScreen(uint16_t c) { std::fill(framebuffer, framebuffer + 320 * 240, c); }
@@ -21,7 +22,7 @@ class Arduino_GFX {
                 framebuffer[r * 320 + col] = c;
     }
     void draw16bitRGBBitmap(int x, int y, uint16_t *p, int w, int h) {
-        assert(x >= 0 && y >= 0 && x + w <= 312 && y + h <= 240);
+        assert(x >= 0 && y >= 0 && x + w <= 320 && y + h <= 240);
         for (int r = 0; r < h; r++)
             for (int col = 0; col < w; col++)
                 framebuffer[(y + r) * 320 + x + col] = p[r * w + col];

@@ -38,6 +38,28 @@ static char *trim(char *s) {
     *end = 0;
     return s;
 }
+static bool equalNoCase(const char *a, const char *b) {
+    while (*a && *b) {
+        if (tolower(static_cast<unsigned char>(*a++)) != tolower(static_cast<unsigned char>(*b++)))
+            return false;
+    }
+    return !*a && !*b;
+}
+static bool startsNoCase(const char *text, const char *prefix) {
+    while (*prefix) {
+        if (!*text || tolower(static_cast<unsigned char>(*text++)) !=
+                          tolower(static_cast<unsigned char>(*prefix++)))
+            return false;
+    }
+    return true;
+}
+static bool parseGeometry(const char *value, Geometry &result) {
+    unsigned cols = 0, rows = 0; char tail = 0;
+    if (sscanf(value, "%ux%u%c", &cols, &rows, &tail) != 2 || cols > 65535 || rows > 65535)
+        return false;
+    result = {uint16_t(cols), uint16_t(rows)};
+    return true;
+}
 
 static bool hexDigit(char c, uint8_t &value) {
     if (c >= '0' && c <= '9') value = uint8_t(c - '0');
@@ -116,13 +138,20 @@ static bool parseInputAdapter(const char *value, InputAdapter &result) {
 }
 } // namespace
 
-HistoryProfiles::HistoryProfiles() { defaults(sets_[0]); defaults(sets_[1]); }
+HistoryProfiles::HistoryProfiles() {
+    hal_ = &displayHalDefaults();
+    defaults(sets_[0]); defaults(sets_[1]);
+    displayDefaults(sets_[0]); displayDefaults(sets_[1]);
+}
 
 const HistoryProfile &HistoryProfiles::get(uint8_t bank) const {
     return sets_[active_.load(std::memory_order_acquire)].banks[bank < Banks ? bank : 0];
 }
 const GlobalProfile &HistoryProfiles::global() const {
     return sets_[active_.load(std::memory_order_acquire)].global;
+}
+const DisplayProfile &HistoryProfiles::display() const {
+    return sets_[active_.load(std::memory_order_acquire)].display;
 }
 
 void HistoryProfiles::defaults(Set &set) {
@@ -146,6 +175,8 @@ void HistoryProfiles::defaults(Set &set) {
         setKey(bank, AppCtrlInsert, "send:\x11\x05");
     }
     // TE v1.11 WordStar bindings from its embedded help screen.
+    set.banks[2].editingSurface = EditingSurfaceScreen;
+    set.banks[3].editingSurface = EditingSurfaceScreen;
     setKey(2, AppPageUp, "send:\x03");
     setKey(2, AppPageDown, "send:\x12");
     setKey(2, AppCtrlLeft, "send:\x01");
@@ -173,6 +204,7 @@ void HistoryProfiles::defaults(Set &set) {
     set.banks[1].commandNewLine = true;
     set.banks[5].screenLine = true;
     set.banks[5].trimLeft = true;
+    set.banks[5].activateNumberedLine = true;
     decode(">", set.banks[5].linePrefixBytes, HistoryProfile::MaxPrefixBytes,
            set.banks[5].linePrefixLength);
     decode(">", set.banks[5].activatePrefixBytes, HistoryProfile::MaxPrefixBytes,
@@ -212,9 +244,50 @@ void HistoryProfiles::defaults(Set &set) {
     }
 }
 
-void HistoryProfiles::beginLoad() {
+void HistoryProfiles::displayDefaults(Set &set) {
+    const DisplayHalDefaults &hal = *hal_;
+    set.display.viewZoom = hal.defaultZoom;
+    set.display.renderFlushHz = hal.defaultRenderFlushHz;
+    for (int i = 0; i < 4; ++i)
+        set.display.geometry[i] = hal.zoomGeometry[i];
+}
+
+void HistoryProfiles::validateDisplay(Set &set) {
+    const DisplayHalDefaults &hal = *hal_;
+    if (set.display.viewZoom < 1 || set.display.viewZoom > 4) {
+        ++errors_;
+        set.display.viewZoom = hal.defaultZoom;
+    }
+    if (set.display.renderFlushHz > 60) {
+        ++errors_;
+        set.display.renderFlushHz = hal.defaultRenderFlushHz;
+    }
+    for (int i = 0; i < 4; ++i) {
+        Geometry &geometry = set.display.geometry[i];
+        const int zoom = i + 1;
+        bool valid = geometry.cols >= 2 && geometry.rows >= 1 && geometry.cols <= hal.maxCols &&
+                     geometry.rows <= hal.maxRows && geometry.rows * 10 * zoom <= hal.physicalHeight;
+        if (!valid) {
+            ++errors_;
+            geometry = hal.zoomGeometry[i];
+            continue;
+        }
+        // A visible boundary is deliberately even.  Active terminal widths
+        // follow the same rule; make an otherwise valid explicit odd width
+        // deterministic without increasing the malformed-config error count.
+        geometry.cols &= ~1u;
+        if (geometry.cols < 2) {
+            ++errors_;
+            geometry = hal.zoomGeometry[i];
+        }
+    }
+}
+
+void HistoryProfiles::beginLoad(const DisplayHalDefaults &hal) {
+    hal_ = &hal;
     loading_ = uint8_t(1 - active_.load(std::memory_order_acquire));
     defaults(sets_[loading_]);
+    displayDefaults(sets_[loading_]);
     section_ = -1; errors_ = 0; length_ = 0; overflow_ = false; eof_ = false;
 }
 
@@ -239,6 +312,7 @@ void HistoryProfiles::feed(uint8_t byte) {
 
 void HistoryProfiles::finishLoad() {
     if (length_ || overflow_) parseLine();
+    validateDisplay(sets_[loading_]);
     active_.store(loading_, std::memory_order_release);
 }
 
@@ -247,7 +321,12 @@ void HistoryProfiles::parseLine() {
     line_[length_] = 0; length_ = 0;
     char *text = trim(line_);
     if (!*text || *text == '#' || *text == ';') return;
-    if (!strcmp(text, "[global]")) { section_ = -2; return; }
+    if (equalNoCase(text, "[global]")) { section_ = -2; return; }
+    if (startsNoCase(text, "[display:") && text[strlen(text) - 1] == ']') {
+        text[strlen(text) - 1] = 0;
+        section_ = equalNoCase(text + 9, hal_->id) ? -3 : -4;
+        return;
+    }
     int bank = -1; char tail = 0;
     if (sscanf(text, "[bank%d]%c", &bank, &tail) == 1) {
         if (bank >= 0 && bank < Banks) section_ = bank;
@@ -270,11 +349,49 @@ void HistoryProfiles::parseLine() {
                 ++errors_;
             else
                 sets_[loading_].global.cursorBlinkMs = uint16_t(period);
+        } else if (!strcmp(keyName, "backlight_level")) {
+            char tail = 0;
+            unsigned level = 0;
+            if (sscanf(value, "%u%c", &level, &tail) != 1 || level < 1 || level > 32)
+                ++errors_;
+            else
+                sets_[loading_].global.backlightLevel = uint8_t(level);
         } else if (!strcmp(keyName, "viewport_gutter_rgb")) {
             if (!parseRGB(value, sets_[loading_].global.viewportGutterRGB)) ++errors_;
+        } else if (!strcmp(keyName, "viewport_active_gutter_rgb")) {
+            if (!strcmp(value, "active_line")) {
+                sets_[loading_].global.viewportActiveGutterFollowsLine = true;
+            } else if (parseRGB(value, sets_[loading_].global.viewportActiveGutterRGB)) {
+                sets_[loading_].global.viewportActiveGutterFollowsLine = false;
+            } else {
+                ++errors_;
+            }
         } else ++errors_;
         return;
     }
+    if (section_ == -3) {
+        DisplayProfile &display = sets_[loading_].display;
+        if (!strcmp(keyName, "view_zoom")) {
+            unsigned parsed = 0; char tail = 0;
+            if (sscanf(value, "%u%c", &parsed, &tail) != 1 || parsed < 1 || parsed > 4) ++errors_;
+            else display.viewZoom = uint8_t(parsed);
+        } else if (!strncmp(keyName, "zoom", 4) && keyName[4] >= '1' && keyName[4] <= '4' &&
+                   !strcmp(keyName + 5, "_terminal")) {
+            Geometry geometry;
+            if (!parseGeometry(value, geometry)) ++errors_;
+            else display.geometry[keyName[4] - '1'] = geometry;
+        } else if (!strcmp(keyName, "render_flush_hz")) {
+            unsigned parsed = 0; char tail = 0;
+            if (sscanf(value, "%u%c", &parsed, &tail) != 1 || parsed > 60) ++errors_;
+            else display.renderFlushHz = uint16_t(parsed);
+        } else if (!strcmp(keyName, "rgb_refresh_hz")) {
+            // Saved for forward-compatible shared cards.  Physical RGB timing
+            // is intentionally compile-time until its SD/display boot order is redesigned.
+        } else ++errors_;
+        return;
+    }
+    if (section_ == -4)
+        return;
     if (section_ < 0) { ++errors_; return; }
     HistoryProfile &profile = sets_[loading_].banks[section_];
     if (!strcmp(keyName, "name")) {
@@ -318,6 +435,16 @@ void HistoryProfiles::parseLine() {
     }
     if (!strcmp(keyName, "screen_line")) {
         if (!parseBool(value, profile.screenLine)) ++errors_;
+        return;
+    }
+    if (!strcmp(keyName, "editing_surface")) {
+        if (!strcmp(value, "line")) profile.editingSurface = EditingSurfaceLine;
+        else if (!strcmp(value, "screen")) profile.editingSurface = EditingSurfaceScreen;
+        else ++errors_;
+        return;
+    }
+    if (!strcmp(keyName, "activate_numbered_line")) {
+        if (!parseBool(value, profile.activateNumberedLine)) ++errors_;
         return;
     }
     if (!strcmp(keyName, "input_adapter")) {

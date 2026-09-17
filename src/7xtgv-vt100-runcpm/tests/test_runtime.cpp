@@ -3,9 +3,11 @@
 // The real implementation is sketch-level because only the RunCPM core owns
 // storage; this runtime-only test supplies the owner poll as a no-op.
 bool terminalHistoryStoragePoll() { return true; }
+bool terminalConfigStoragePoll() { return true; }
 #include "../terminal_runtime.cpp"
 #include <fstream>
 #include <iostream>
+#include <vector>
 static void emit(const std::string &s) {
     for (uint8_t c : s) {
         while (!output.push(c))
@@ -38,7 +40,14 @@ static void screenshot(const char *path) {
 }
 int main() {
     terminalSetup();
-    assert(ready && backlight == 150 && displayOK);
+    assert(ready && backlight == 145 && displayOK);
+    const int plotBaseX = 0, plotBaseY = 0; // physical panel origin, not text origin
+    xtgvBacklightSet(0); assert(backlight == 0);
+    xtgvBacklightAdjust(1); assert(xtgvBacklightGet() == 16 && backlight == 145);
+    xtgvBacklightSet(0);
+    xtgvBacklightSet(1); assert(backlight == 51);
+    xtgvBacklightSet(32); assert(backlight == 255);
+    xtgvBacklightSet(16); assert(backlight == 145);
     // CP/M's A0:REFLASH.COM output event is removed from the TFT terminal
     // stream and forwarded verbatim, between completed mirror updates only.
     Serial.online = true;
@@ -54,11 +63,33 @@ int main() {
     // activity pulse; expiry restores the terminal cell underneath it.
     terminalDiskActivity(true);
     terminalLoop();
-    assert(gfx->framebuffer[0] == 0xf800);
-    assert(gfx->framebuffer[2 * 320 + 2] == 0xfb6d);
+    assert(gfx->framebuffer[1 * 320 + 1] == 0xf800);
+    assert(gfx->framebuffer[6 * 320 + 6] == 0xf800);
+    assert(gfx->framebuffer[7 * 320 + 7] != 0xf800);
     fakeTime += 76;
     for (int i = 0; i < 200; ++i) terminalLoop();
-    assert(gfx->framebuffer[0] != 0xf800);
+    assert(gfx->framebuffer[1 * 320 + 1] != 0xf800);
+    // GCLS only arms the parser: the existing gutter stays untouched. A disk
+    // pulse may still appear before plotting, but the first sample retires it.
+    const uint16_t gutterUnderlying = gfx->framebuffer[1 * 320 + 1];
+    terminalDiskActivity(true);
+    terminalLoop();
+    const uint16_t gutterBeforeGcls = gfx->framebuffer[1 * 320 + 1];
+    const std::vector<uint16_t> screenBeforeArm(std::begin(gfx->framebuffer),
+                                                 std::end(gfx->framebuffer));
+    for (uint8_t c : std::string("\033[>4;2;20;20v")) terminal.feed(c);
+    assert(std::equal(screenBeforeArm.begin(), screenBeforeArm.end(),
+                      std::begin(gfx->framebuffer)));
+    terminalLoop();
+    assert(gfx->framebuffer[1 * 320 + 1] == gutterBeforeGcls);
+    terminalDiskActivity(true);
+    terminalLoop();
+    assert(gfx->framebuffer[1 * 320 + 1] == 0xf800);
+    for (uint8_t c : std::string("\033[38;5;196m1\r\n\033[0m")) terminal.feed(c);
+    fakeTime += 76;
+    terminalLoop();
+    assert(gfx->framebuffer[1 * 320 + 1] == gutterUnderlying);
+    terminal.reset();
     std::string historyText;
     auto appendHistoryByte = [](void *context, uint8_t byte) {
         static_cast<std::string *>(context)->push_back(char(byte));
@@ -98,14 +129,39 @@ int main() {
     // The same runtime callback used by the buffered S3 target must also draw
     // a direct 320x240 Arduino_GFX row without touching text RAM or the PC
     // mirror.  The test stub represents that RP2350-style direct path.
+    const uint16_t screenBeforeGcls = gfx->framebuffer[0];
     for (uint8_t c : std::string("\033[>4v"))
         terminal.feed(c);
-    assert(!plotCapture && gfx->framebuffer[0] == 0xffff);
-    assert(mirrorReset); // GCLS keeps a text-only PC view alive.
+    assert(!plotCapture && gfx->framebuffer[0] == screenBeforeGcls);
+    assert(!mirrorReset); // Arming GCLS does not reset the PC view either.
     for (uint8_t c : std::string("\033[38;5;196m#\033[38;5;21m[\r\n\033[0m"))
         terminal.feed(c);
-    assert(gfx->framebuffer[0] == 0xf800 && gfx->framebuffer[1] == 0x001f);
+    assert(gfx->framebuffer[plotBaseY * 320 + plotBaseX] == 0xf800 &&
+           gfx->framebuffer[plotBaseY * 320 + plotBaseX + 1] == 0x001f);
     assert(terminal.charRAM[0] == ' ' && !terminal.plotting());
+    // A partly off-screen scaled source sample is clipped rather than wrapped
+    // or attempting an out-of-range display write.
+    const std::string clippedGcls = "\033[>4;4;" + std::to_string(319 - plotBaseX) +
+                                    ";" + std::to_string(239 - plotBaseY) +
+                                    "v\033[38;5;196m#\033[0m";
+    for (uint8_t c : clippedGcls)
+        terminal.feed(c);
+    assert(gfx->framebuffer[239 * 320 + 319] == 0xf800 &&
+           gfx->framebuffer[239 * 320 + 318] == 0xffff &&
+           gfx->framebuffer[238 * 320 + 319] == 0xffff);
+    // The extended GCLS parameters scale source samples and place them in
+    // physical pixels, without changing logical terminal geometry.
+    terminal.reset();
+    for (uint8_t c : std::string("\033[>4;2;10;100v"))
+        terminal.feed(c);
+    for (uint8_t c : std::string("\033[38;5;196m#\033[38;5;21m[\r\n\033[0m"))
+        terminal.feed(c);
+    assert(gfx->framebuffer[(plotBaseY + 100) * 320 + plotBaseX + 10] == 0xf800 &&
+           gfx->framebuffer[(plotBaseY + 101) * 320 + plotBaseX + 11] == 0xf800);
+    assert(gfx->framebuffer[(plotBaseY + 100) * 320 + plotBaseX + 12] == 0x001f &&
+           gfx->framebuffer[(plotBaseY + 101) * 320 + plotBaseX + 13] == 0x001f);
+    assert(gfx->framebuffer[(plotBaseY + 100) * 320 + plotBaseX + 9] == 0xffff &&
+           gfx->framebuffer[(plotBaseY + 99) * 320 + plotBaseX + 10] == 0xffff);
     assert(plotEndCleanupPending);
     for (bool dirty : terminal.dirty) assert(!dirty);
     fakeTime += 100;
@@ -121,13 +177,14 @@ int main() {
     activeRow = 4;
     activeRowBank = 0;
     terminal.y = 7;
-    plotActiveRows = (uint32_t(1) << 2) | (uint32_t(1) << 4);
+    std::fill(plotActiveRows, plotActiveRows + vt::MaxRows, false);
+    plotActiveRows[2] = plotActiveRows[4] = true;
     std::fill(terminal.dirty, terminal.dirty + vt::Cells, false);
     terminalPlot(nullptr, vt::Terminal::PlotEnd, 0);
     assert(plotEndCleanupPending);
     fakeTime += 100;
     plotEndCleanupPoll(fakeTime);
-    assert(activeRow == -1 && activeRowBank == 255 && plotActiveRows == 0);
+    assert(activeRow == -1 && activeRowBank == 255 && !plotActiveRows[2] && !plotActiveRows[4]);
     for (int i = 0; i < vt::Cols; ++i) assert(terminal.dirty[2 * vt::Cols + i]);
     for (int i = 0; i < vt::Cols; ++i) assert(terminal.dirty[4 * vt::Cols + i]);
     for (int i = 0; i < vt::Cols; ++i) assert(terminal.dirty[6 * vt::Cols + i]);
@@ -141,12 +198,15 @@ int main() {
     // only ESC[2J and leaves the host blank forever.
     std::fill(terminal.mirrorDirty, terminal.mirrorDirty + vt::Rows, false);
     terminal.mirrorCursorDirty = false;
+    const uint16_t untouchedBeforeReconnect = gfx->framebuffer[0];
     Serial.capacity = 0; // inspect state before mirrorPump can consume a row
     Serial.online = false;
     terminalLoop();
     Serial.online = true;
     for (int i = 0; i < 4; ++i) terminalLoop();
-    assert(gfx->framebuffer[0] == 0xf800 && gfx->framebuffer[1] == 0x001f);
+    assert(gfx->framebuffer[(plotBaseY + 100) * 320 + plotBaseX + 10] == 0xf800 &&
+           gfx->framebuffer[(plotBaseY + 100) * 320 + plotBaseX + 12] == 0x001f &&
+           gfx->framebuffer[0] == untouchedBeforeReconnect);
     for (bool dirty : terminal.mirrorDirty) assert(dirty);
     assert(terminal.mirrorCursorDirty);
     Serial.capacity = 64;
@@ -159,8 +219,8 @@ int main() {
     for (int i = 0; i < 200; ++i) terminalLoop();
     const uint16_t paleGreen = rgb565({205, 255, 205});
     const uint16_t cursorGreen = rgb565({0, 150, 40});
-    assert(gfx->framebuffer[5 * 320 + 5 * 6 + 3] == paleGreen);
-    assert(gfx->framebuffer[5 * 320 + 3] == cursorGreen);
+    assert(gfx->framebuffer[5 * 320 + presentationGutter + 5 * 6 + 3] == paleGreen);
+    assert(gfx->framebuffer[5 * 320 + presentationGutter + 3] == cursorGreen);
     // The dark cursor paper must retain readable active-line-green glyph ink.
     terminal.x = terminal.y = 0;
     terminal.charRAM[0] = 'A';
@@ -168,7 +228,7 @@ int main() {
     drawCell(0);
     bool cursorHasPaleInk = false;
     for (int pixel = 0; pixel < 6 * 10; ++pixel)
-        cursorHasPaleInk |= gfx->framebuffer[(pixel / 6) * 320 + pixel % 6] == paleGreen;
+        cursorHasPaleInk |= gfx->framebuffer[(pixel / 6) * 320 + presentationGutter + pixel % 6] == paleGreen;
     assert(cursorHasPaleInk);
     selectedBank = 5;
     history->select(5);
@@ -225,10 +285,14 @@ int main() {
     keyboardSend(nullptr, reinterpret_cast<const uint8_t *>("\r"), 1);
     while (input.pop(testByte)) {}
     terminal.reset();
+    resetLineSession(); // EDIT's numbered row must reactivate history itself.
     emit("   10 PRINT 42");
     while (output.available()) terminalLoop();
+    assert(lineSessionActive);
     keyboardSend(nullptr, reinterpret_cast<const uint8_t *>("\r"), 1);
     while (input.pop(testByte)) {}
+    emit("\r\n>"); // BBC returns to its immediate prompt after EDIT Enter.
+    while (output.available()) terminalLoop();
     profileKey(vt::AppUp);
     bbcActual.clear();
     while (input.pop(testByte)) bbcActual.push_back(char(testByte));
@@ -238,6 +302,34 @@ int main() {
     bbcActual.clear();
     while (input.pop(testByte)) bbcActual.push_back(char(testByte));
     assert(bbcActual == "10 PRINT 42");
+    keyboardAction(nullptr, vt::Keyboard::HistoryDelete);
+    bbcActual.clear();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == bbcClear); // native clear includes the EDIT suffix
+    // A source operator near column zero is not a prompt. The numbered line
+    // and suffix must survive a filtered completion at its inner cursor.
+    terminal.reset();
+    emit("   10 A>B");
+    while (output.available()) terminalLoop();
+    uint8_t sourceCursor;
+    uint8_t sourceLength = readCursorRow(screenRowCapture, sizeof(screenRowCapture), sourceCursor);
+    assert(std::string(screenRowCapture, sourceLength) == "10 A>B");
+    assert(history->appendEntry(5, "for", 3));
+    history->discardCurrent();
+    resetLineSession();
+    terminal.reset();
+    emit("   10 f i = 1 TO 100\033[1;8H");
+    while (output.available()) terminalLoop();
+    assert(lineSessionActive);
+    profileKey(vt::AppUp);
+    bbcActual.clear();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == bbcClear && recallStagedValid);
+    fakeTime += 100;
+    recallPoll();
+    bbcActual.clear();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == "10 for i = 1 TO 100");
     // MBASIC's EDIT command is deliberately adapted only while it is modal.
     history->select(1);
     selectedBank = 1;
@@ -295,8 +387,38 @@ int main() {
     bbcActual.clear();
     while (input.pop(testByte)) bbcActual.push_back(char(testByte));
     assert(bbcActual == "\b\b\b\rsystem\r");
+    // The launcher row can remain visible after its CR. It must cease to be
+    // effective CCP input and must not become MBASIC's first history line.
+    history->select(1);
+    selectedBank = 1;
+    resetLineSession();
+    terminal.reset();
+    emit("A7>");
+    while (output.available()) terminalLoop();
+    assert(ccpPromptLive && history->activeBank() == 0);
+    const std::string launch = "mbasic\r";
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(launch.data()), launch.size());
+    while (input.pop(testByte)) {}
+    terminalLoop();
+    assert(!ccpPromptLive && history->activeBank() == 1);
+    emit("mbasic"); // stale launcher echo, still on the cursor row
+    while (output.available()) terminalLoop();
+    history->discardCurrent();
+    lineModelAuthoritative = false;
+    const uint8_t beforeAppCount = history->bankCount(1);
+    const std::string appLine = "print 7\r";
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(appLine.data()), appLine.size());
+    while (input.pop(testByte)) {}
+    char savedAppLine[vt::LineHistory::MaxLine]; uint8_t savedAppLength;
+    assert(history->bankCount(1) == beforeAppCount + 1);
+    assert(history->copyEntry(1, beforeAppCount, savedAppLine, savedAppLength));
+    assert(std::string(savedAppLine, savedAppLength) == "print 7");
     history->select(0);
     selectedBank = 0;
+    terminal.reset();
+    emit("  A0>");
+    while (output.available()) terminalLoop();
+    assert(ccpPromptLive && history->activeBank() == 0);
     history->discardCurrent();
     lineModelAuthoritative = true;
     const std::string cpmLine = "abc";
@@ -316,14 +438,18 @@ int main() {
     const std::string recalledCpm = "OLD\r";
     keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(recalledCpm.data()), recalledCpm.size());
     while (input.pop(testByte)) {}
-    const std::string partialCpm = "NEW";
+    emit("\r\nA0>");
+    while (output.available()) terminalLoop();
+    const std::string partialCpm = "A NEW";
     keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(partialCpm.data()), partialCpm.size());
     while (input.pop(testByte)) {}
-    history->home(); history->right(); // emulate recall with CCP cursor inside NEW
+    emit("A NEW");
+    while (output.available()) terminalLoop();
+    history->home(); history->right(); history->right(); // after the separating space
     profileKey(vt::AppUp);
     bbcActual.clear();
     while (input.pop(testByte)) bbcActual.push_back(char(testByte));
-    assert(bbcActual == std::string("\x01\x07\x07\x07OLD"));
+    assert(bbcActual == std::string("\x01\x01\x07\x07\x07\x07\x07OLD"));
     history->discardCurrent();
     profileKey(vt::AppHome);
     profileKey(vt::AppEnd);
@@ -388,7 +514,7 @@ int main() {
     emit("\033[HSTALLED PC STILL DRAWS");
     for (int i = 0; i < 200; i++)
         terminalLoop();
-    assert(output.available() == 0 && terminal.charRAM[0] == 'S' && backlight == 150);
+    assert(output.available() == 0 && terminal.charRAM[0] == 'S' && backlight == 145);
     // Deliberately hostile report flood: replies bounded, output still drains.
     for (int i = 0; i < 400; i++)
         emit("\033[6n");
@@ -423,6 +549,18 @@ int main() {
         Serial.rx.push_back(b);
     terminalLoop();
     assert(terminal.viewport == 28 && input.available() == 0);
+    // Exact host key path: PgUp/PgDn use private 33/34. From off, the first
+    // adjustment restores the saved level; later presses move every time.
+    xtgvBacklightSet(16);
+    for (uint8_t b : std::string("\033[>63;33v")) Serial.rx.push_back(b);
+    terminalLoop();
+    assert(xtgvBacklightGet() == 17 && backlight == 158);
+    for (uint8_t b : std::string("\033[>63;34v")) Serial.rx.push_back(b);
+    terminalLoop();
+    assert(xtgvBacklightGet() == 16 && backlight == 145);
+    for (uint8_t b : std::string("\033[>63;0v\033[>63;33v")) Serial.rx.push_back(b);
+    terminalLoop();
+    assert(xtgvBacklightGet() == 16 && backlight == 145);
     Serial.rx.push_back('D');
     terminalLoop();
     assert(virtualRead() == 'D');
@@ -449,6 +587,59 @@ int main() {
     screenshot("/tmp/7xtgv-terminal-left.ppm");
     terminal.pan(28);
     screenshot("/tmp/7xtgv-terminal-right.ppm");
+    // Matching display INI data is applied by the display core after the
+    // storage-owner core publishes it.  Zoomed pixels are exact 2x2 repeats.
+    terminalConfigBegin();
+    for (uint8_t c : std::string("[display:rp2_2]\nview_zoom=2\nzoom2_terminal=40x12\n"))
+        terminalConfigFeed(c);
+    assert(terminalConfigEnd() == 0);
+    uint8_t savedBacklight = 0, savedZoom = 0;
+    assert(!terminalConfigSaveDue(savedBacklight, savedZoom));
+    assert(!displayProfileApplied.load());
+    terminalLoop();
+    assert(displayProfileApplied.load());
+    assert(terminal.zoom == 2 && terminal.cols == 40 && terminal.rows == 12 &&
+           terminal.visibleCols == 26 && terminal.viewport == 0);
+    // Rapid zoom keys advance from the pending view but compose only once.
+    requestZoom(1);
+    requestZoom(1);
+    terminalLoop();
+    assert(terminal.zoom == 2);
+    fakeTime += 150;
+    terminalLoop();
+    assert(terminal.zoom == 4 && terminal.cols == 20 && terminal.rows == 6);
+    requestZoom(-1);
+    fakeTime += 150;
+    terminalLoop();
+    assert(terminal.zoom == 3 && terminal.cols == 26 && terminal.rows == 8);
+    assert(!terminalConfigSaveDue(savedBacklight, savedZoom));
+    fakeTime += 1500;
+    assert(terminalConfigSaveDue(savedBacklight, savedZoom));
+    assert(savedZoom == 3 && savedBacklight == xtgvBacklightGetRemembered());
+    terminalConfigSaveComplete(true);
+    assert(!terminalConfigSaveDue(savedBacklight, savedZoom));
+    // A long CCP-style output wraps and scrolls a tiny view without touching
+    // backing cells or mirror rows beyond its active geometry.
+    emit(std::string(200, 'X'));
+    settle();
+    assert(terminal.x >= 0 && terminal.x < terminal.cols && terminal.y >= 0 &&
+           terminal.y < terminal.rows);
+    requestZoom(-1);
+    fakeTime += 150;
+    terminalLoop();
+    assert(terminal.zoom == 2);
+    terminal.cursorVisible = false;
+    terminal.charRAM[terminal.index(0, 0)] = 'A';
+    terminal.attrRAM[terminal.index(0, 0)] = 1;
+    terminal.flags[terminal.index(0, 0)] = 0;
+    drawCell(terminal.index(0, 0));
+    for (int y = 0; y < 20; y += 2)
+        for (int x = 0; x < 12; x += 2) {
+            const uint16_t pixel = gfx->framebuffer[y * 320 + x];
+            assert(gfx->framebuffer[y * 320 + x + 1] == pixel);
+            assert(gfx->framebuffer[(y + 1) * 320 + x] == pixel);
+            assert(gfx->framebuffer[(y + 1) * 320 + x + 1] == pixel);
+        }
     std::cout << "runtime render/mirror, slow/disconnected USB, queue saturation, and reconnect "
                  "tests passed\n";
 }

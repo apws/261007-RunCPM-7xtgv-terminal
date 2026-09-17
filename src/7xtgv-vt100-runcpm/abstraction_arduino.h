@@ -725,7 +725,7 @@ uint8 _getche(void) {
     return ch;
 }
 void _putch(uint8 ch) { Serial.write(ch); }
-void _clrscr(void) { Serial.print("\033[H\033[J"); }
+void _clrscr(void) { Serial.print("\033[2J\033[H"); }
 #else
 int _kbhit(void) { return virtualAvailable(); }
 uint8 _getch(void) { return virtualRead(); }
@@ -736,7 +736,7 @@ uint8 _getche(void) {
 }
 void _putch(uint8 ch) { virtualWrite(ch); }
 void _clrscr(void) {
-    const char *clear = "\033[H\033[J";
+    const char *clear = "\033[2J\033[H";
     while (*clear) virtualWrite(*clear++);
 }
 #endif

@@ -8,10 +8,13 @@ namespace vt {
 // CP/M's conventional output width is 80 columns, but larger panels expose a
 // correspondingly wider terminal plane.  Small panels retain the 80-column
 // plane and use viewport panning; the 800px W550 owns 133 six-pixel cells.
-constexpr int Visible = RUNCPM_TERM_VISIBLE_COLS,
-              Cols = Visible > 80 ? Visible : 80,
-              Rows = RUNCPM_TERM_ROWS,
-              Cells = Cols * Rows;
+constexpr int MaxVisible = RUNCPM_TERM_VISIBLE_COLS,
+              MaxCols = MaxVisible > 80 ? MaxVisible : 80,
+              MaxRows = RUNCPM_TERM_ROWS,
+              MaxCells = MaxCols * MaxRows;
+// Compatibility names identify backing allocation only.  Parser and renderer
+// code must use Terminal::cols/rows/visibleCols for runtime geometry.
+constexpr int Visible = MaxVisible, Cols = MaxCols, Rows = MaxRows, Cells = MaxCells;
 using RGB = mixworx::RGB;
 extern const RGB (&Ink)[16];
 extern const RGB (&Paper)[4];
@@ -19,22 +22,34 @@ enum Flag : uint8_t { Underline = 1, Reverse = 2, Graphics = 4, Blink = 8 };
 class Terminal {
   public:
     // Original 7xtgv planes and packed GGPPIIII attributes.
-    uint8_t paperRAM[Cells], charRAM[Cells], attrRAM[Cells], flags[Cells];
-    bool dirty[Cells], mirrorDirty[Rows];
+    uint8_t paperRAM[MaxCells], charRAM[MaxCells], attrRAM[MaxCells], flags[MaxCells];
+    bool dirty[MaxCells], mirrorDirty[MaxRows];
     int x = 0, y = 0, viewport = 0;
+    int cols = MaxCols, rows = MaxRows, visibleCols = MaxVisible, zoom = 1;
     bool ansi = true, cursorVisible = true, applicationCursor = false, applicationKeypad = false;
-    bool mirrorCursorDirty = true, indicatorDirty = true;
+    bool mirrorCursorDirty = true, indicatorDirty = true, compositionDirty = true;
     unsigned bells = 0;
     using Reply = void (*)(void *, const uint8_t *, size_t);
     // xterm-256 plot samples are terminal syntax, but their RGB565 destination
     // belongs to the display runtime.  This narrow callback keeps the parser
     // usable by direct and buffered Arduino_GFX targets alike.
-    enum PlotEvent : uint8_t { PlotBegin, PlotSample, PlotRow, PlotEnd, PlotAbort };
+    enum PlotEvent : uint8_t {
+        PlotConfigZoom, PlotConfigX, PlotConfigY,
+        PlotBegin, PlotSample, PlotRow, PlotEnd, PlotAbort, PlotScroll
+    };
     using Plot = void (*)(void *, PlotEvent, uint16_t);
-    enum ControlEvent : uint8_t { Backlight };
+    // Private `CSI >68;n v` is output-side terminal view control. It lets a
+    // CP/M transient request an absolute 1x..4x zoom without pretending that
+    // keyboard-only private controls are part of application output.
+    enum ControlEvent : uint8_t { Backlight, Zoom };
     using Control = void (*)(void *, ControlEvent, uint8_t);
     explicit Terminal(Reply reply = nullptr, void *context = nullptr);
     void reset();
+    // Change only the active terminal surface; backing memory always retains
+    // the MaxCols stride.  The overlapping old/new rectangle is preserved.
+    bool setGeometry(int activeCols, int activeRows, int visible, int scale);
+    int index(int column, int row) const { return row * MaxCols + column; }
+    int viewportLimit() const { return cols > visibleCols ? cols - visibleCols : 0; }
     void feed(uint8_t c);
     void setMode(bool ansiMode);
     void pan(int offset);
@@ -42,7 +57,7 @@ class Terminal {
     void invalidateMirror();
     void setPlotSink(Plot plot, void *context) { plot_ = plot; plotContext_ = context; }
     void setControlSink(Control control, void *context) { control_ = control; controlContext_ = context; }
-    void beginPlot();
+    void beginPlot(uint8_t plotZoom = 1, uint16_t plotX = 0, uint16_t plotY = 0);
     void abortPlot();
     bool plotting() const { return plotState != PlotOff; }
     RGB foreground(int i) const;
@@ -71,20 +86,21 @@ class Terminal {
     uint16_t plotInk = 0, plotPaper = 0xffff;
     bool plotStarted = false;
     bool plotLogicalRow = false;
-    int top = 0, bottom = Rows - 1, savedX = 0, savedY = 0, addressRow = 0;
+    int top = 0, bottom = MaxRows - 1, savedX = 0, savedY = 0, addressRow = 0;
     uint8_t ink = 1, paper = 0, rendition = 0, savedInk = 1, savedPaper = 0, savedRendition = 0;
     bool bold = false, savedBold = false, origin = false, autowrap = true, wrapPending = false;
     bool savedOrigin = false, savedWrap = false, savedG0 = false, savedG1 = false,
          savedUseG1 = false;
     bool g0 = false, g1 = false, useG1 = false, designateG1 = false;
-    bool tabs[Cols];
+    bool tabs[MaxCols];
     int params[16], count = 0;
     char prefix = 0;
     bool invalid = false;
     void changed(int i);
     void move(int col, int row);
     void blank(int i);
-    void erase(int first, int last);
+    void erase(int firstRow, int firstCol, int lastRow, int lastCol);
+    void eraseDisplay(bool beforeCursor, bool afterCursor);
     void scroll(int delta);
     void index(bool reverse = false);
     void put(uint8_t c);
@@ -123,7 +139,9 @@ class Keyboard {
         ProfileKey0,
         ProfileKey29 = ProfileKey0 + 29,
         Backlight0,
-        Backlight11 = Backlight0 + 11
+        Backlight34 = Backlight0 + 34,
+        ZoomIn,
+        ZoomOut
     };
     using Act = void (*)(void *, Action);
     Keyboard(Terminal &t, Send send, void *context, Act act = nullptr)

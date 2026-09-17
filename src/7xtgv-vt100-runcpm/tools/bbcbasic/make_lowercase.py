@@ -22,6 +22,11 @@ COMMAND_START = b"\x80AUTO\x81DELETE\x82LIST\x83LOAD"
 # COMNDS is followed by the CMDTAB word-address table, whose first word is
 # never FFFF in this binary.  The FFFF terminator is therefore unambiguous.
 COMMAND_END = b"\xff\xff"
+# EDIT and its special line-editor form of LIST are not members of COMNDS.
+# They occupy their own fixed eight-byte immediate-command table elsewhere in
+# the executable.  Keep this an exact signature, rather than lowercasing
+# arbitrary executable strings.
+EDITOR_COMMANDS = b"EDITLIST"
 
 
 def lowercase_table(result: bytearray, start_marker: bytes, end_marker: bytes,
@@ -38,10 +43,21 @@ def lowercase_table(result: bytearray, start_marker: bytes, end_marker: bytes,
             result[offset] = byte + (ord("a") - ord("A"))
 
 
+def lowercase_exact(result: bytearray, marker: bytes, description: str) -> None:
+    start = result.find(marker)
+    if start < 0 or result.find(marker, start + 1) >= 0:
+        raise ValueError(f"unsupported BBC BASIC binary: {description} signature")
+    for offset in range(start, start + len(marker)):
+        byte = result[offset]
+        if ord("A") <= byte <= ord("Z"):
+            result[offset] = byte + (ord("a") - ord("A"))
+
+
 def patch_keywords(image: bytes) -> bytes:
     result = bytearray(image)
     lowercase_table(result, TABLE_START, TABLE_END, "keyword-table")
     lowercase_table(result, COMMAND_START, COMMAND_END, "command-table")
+    lowercase_exact(result, EDITOR_COMMANDS, "editor-command table")
     return bytes(result)
 
 

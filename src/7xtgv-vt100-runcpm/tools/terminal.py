@@ -33,6 +33,9 @@ COMMANDS = {
     ord('h'): b'', ord('l'): b'',
     ord('r'): b'\x1b[>0v', PREFIX: bytes([PREFIX]),
     ord('g'): b'\x1b[>4v',
+    # Retain these ASCII prefix fallbacks for host bridges/keyboards which
+    # cannot generate the dedicated modifier chord.
+    ord('+'): b'\x1b[>66v', ord('-'): b'\x1b[>67v',
     ord('#'): b'\x1b[>15v',
     ord('x'): b'\x1b[>60v', ord('c'): b'\x1b[>61v',
     ord('p'): b'\x1b[>10v', ord('n'): b'\x1b[>11v', ord('d'): b'\x1b[>65v',
@@ -81,11 +84,14 @@ class Keys:
             if self.brightness:
                 self.brightness = False
                 if ord('0') <= c <= ord('9'):
-                    result.extend(b'\x1b[>63;' + bytes([c]) + b'v')
+                    # The digit shortcuts are coarse 0/off, 20%, 30% ...
+                    # 100%; PgUp/PgDn carry the full 32-level precision.
+                    level = (0, 4, 7, 11, 14, 18, 21, 25, 28, 32)[c - ord('0')]
+                    result.extend(b'\x1b[>63;' + str(level).encode('ascii') + b'v')
                 elif c == ord('+'):
-                    result.extend(b'\x1b[>63;10v')
+                    result.extend(b'\x1b[>63;33v')
                 elif c == ord('-'):
-                    result.extend(b'\x1b[>63;11v')
+                    result.extend(b'\x1b[>63;34v')
                 else:
                     result.extend(bytes([PREFIX, ord('b'), c]))
             elif self.prefix:
@@ -232,6 +238,8 @@ def run(port, mode, reflash_command=None):
         snapshot_probe = bytearray()
         reconnect_at = 0.0
         identity_check_at = time.monotonic() + 0.25
+        host_dimensions = dimensions
+        resize_seen_at = 0.0
         while not keys.quit:
             # Keep stdin readable during a USB outage so Ctrl+] q always works.
             readers = [0]
@@ -249,6 +257,19 @@ def run(port, mode, reflash_command=None):
                 reconnect_at = time.monotonic() + 0.25
                 continue
             outgoing.extend(keys.tick())
+            # Konsole/Kitty font changes usually change this PTY's cell
+            # geometry.  The device cannot know that newly visible host rows
+            # were previously clipped, so request a clean reconstructed mirror
+            # after the resize has settled.  Do not resize the host ourselves.
+            current_dimensions = os.get_terminal_size(1)
+            if current_dimensions != host_dimensions:
+                host_dimensions = current_dimensions
+                resize_seen_at = time.monotonic()
+            elif resize_seen_at and time.monotonic() - resize_seen_at >= 0.15:
+                resize_seen_at = 0.0
+                snapshot_pending = True
+                snapshot_probe.clear()
+                snapshot_retry_at = time.monotonic()
             if fd is not None and time.monotonic() >= identity_check_at:
                 identity_check_at = time.monotonic() + 0.25
                 try:
@@ -352,7 +373,7 @@ def main():
         'Ctrl+] then q: exit; 1: ANSI; 2: VT52; a/e: left/right edge; '
         'r: redraw; g: xterm256 GCLS; p/n: history; [/]: history bank; '
         '#: toggle RAW; x: profile exit; c: profile clear; Ctrl+] again: literal Ctrl+]. '
-        'Ctrl+Shift+Home/End also jump to the viewport edges.'))
+        'Ctrl+Shift+Home/End jump to viewport edges; Ctrl+Alt+Shift+PgUp/PgDn changes glyph zoom.'))
     parser.add_argument('--port', help='Serial device; defaults to the unique RP2350 by-id path')
     parser.add_argument('--mode', choices=('ansi', 'vt52'), help='Select mode on connection; otherwise preserve it')
     parser.add_argument('--reflash-command',

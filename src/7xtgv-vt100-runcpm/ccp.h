@@ -32,6 +32,7 @@ uint8 paramDrive = 0;                   // 0 -> 15 = A -> P (Drive for the first
 uint8 currentUser = 0;                  // 0 -> 15 (Current user area to access)
 bool submitFlag = FALSE;                // Submit Flag
 uint8 submitRecords = 0;                // Number of records on the Submit file
+bool ccpSuppressNextPromptNewline = FALSE; // CLS owns the next prompt row
 uint8 prompt[PROMPT_SIZE] = "\r\n  >";  // Command prompt
 uint16 cmdBufferPtr, errorPtr;          // Pointer to the command buffer, and error position
 uint8 bufferLen = 0;                    // Actual size of the typed command line
@@ -495,6 +496,9 @@ uint8 _ccp_user(void) {
 // CLS command - clears the screen
 uint8 _ccp_cls(void) {
     _clrscr();
+    // The regular interactive CCP prompt begins with CR/LF.  CLS has already
+    // homed the cursor, so consume that one separator and leave A0> on row 1.
+    ccpSuppressNextPromptNewline = !submitFlag;
     return (FALSE);
 } // _ccp_cls
 
@@ -1167,6 +1171,21 @@ void _ccp(void) {
     submitFlag = (bool)_ccp_bdos(DRV_ALLRESET, 0x0000);
     _ccp_bdos(DRV_SET, currentDrive);
 
+#if defined(XTGV_ABORT_PENDING_SUBMIT_ON_BOOT)
+    // One-shot recovery firmware can deliberately cancel a stranded batch
+    // before CCP consumes its next record.  Ordinary builds preserve the
+    // traditional submit-resume behavior unchanged.
+    if (firstBoot && submitFlag) {
+        _ccp_initFCB(tmpFCB, 36);
+        _HostnameToFCB(tmpFCB, (uint8 *)"$$$.SUB");
+#ifdef BATCHA
+        _RamWrite(tmpFCB, 1); // RunCPM searches submit queues on drive A:
+#endif
+        _ccp_bdos(F_DELETE, tmpFCB);
+        submitFlag = FALSE;
+    }
+#endif
+
     for (i = 0; i < 36; ++i) {
         _RamWrite(BatchFCB + i, _RamRead(tmpFCB + i));
     }
@@ -1206,8 +1225,10 @@ void _ccp(void) {
         // Submitted records already receive CR/LF after their echo.  Adding
         // the normal interactive prompt prefix again creates an empty row
         // between every pair of SUB commands.
-        sprintf((char *)prompt, submitFlag ? "%c%u%c" : "\r\n%c%u%c",
+        const bool compactPrompt = submitFlag || ccpSuppressNextPromptNewline;
+        sprintf((char *)prompt, compactPrompt ? "%c%u%c" : "\r\n%c%u%c",
                 'A' + currentDrive, currentUser, submitFlag ? '$' : '>');
+        ccpSuppressNextPromptNewline = FALSE;
         if (!bufferLen) {
             _puts((char *)prompt);
 

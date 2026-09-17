@@ -35,8 +35,8 @@ class HelperTests(unittest.TestCase):
 
     def test_backlight_prefix(self):
         k = bridge.Keys()
-        self.assertEqual(k.feed(b'\x1db7'), b'\x1b[>63;7v')
-        self.assertEqual(k.feed(b'\x1db+\x1db-'), b'\x1b[>63;10v\x1b[>63;11v')
+        self.assertEqual(k.feed(b'\x1db7'), b'\x1b[>63;25v')
+        self.assertEqual(k.feed(b'\x1db+\x1db-'), b'\x1b[>63;33v\x1b[>63;34v')
         self.assertEqual(k.feed(b'\x1dbx'), b'\x1dbx')
 
     def test_literal_and_unknown(self):
