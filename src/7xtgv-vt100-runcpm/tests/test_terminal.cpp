@@ -38,7 +38,7 @@ int main() {
     std::string replies;
     vt::Terminal t(collect, &replies);
     t.setControlSink(control, nullptr);
-    assert(t.x == 0 && t.y == 0 && t.ansi && t.attrRAM[0] == 1);
+    assert(t.x == 0 && t.y == 0 && t.ansi && t.attrRAM[0] == 0);
     feed(t, "HELLO\r\nWORLD");
     assert(t.charRAM[80] == 'W' && t.x == 5 && t.y == 1);
     lastBacklight = -1;
@@ -100,9 +100,15 @@ int main() {
     feed(t, "\033[0m\033[90mD");
     assert((t.attrRAM[2] & 15) == 1);
     feed(t, "\033[0mY");
-    assert(t.flags[2] == 0 && t.attrRAM[2] == 1);
+    assert(t.flags[3] == 0 && t.attrRAM[3] == 0);
     feed(t, "\033[38;2;1;4;7mZ");
-    assert(t.flags[2] == 0 && t.attrRAM[2] == 1);
+    assert(t.flags[4] == 0 && t.attrRAM[4] == 0);
+    feed(t, "\033[30mA\033[1mB\033[39mC");
+    assert((t.attrRAM[5] & 15) == 0);
+    assert((t.attrRAM[6] & 15) == 1);
+    assert((t.attrRAM[7] & 15) == 1); // SGR 39 keeps the active bold attribute.
+    feed(t, "\033[22mD");
+    assert((t.attrRAM[8] & 15) == 0);
     // Exact xterm colors are consumed only after explicit private GCLS.  The
     // callback is display-neutral and confirms fragmented SGR/sample parsing.
     std::vector<PlotRecord> plots;

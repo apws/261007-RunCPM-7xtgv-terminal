@@ -87,7 +87,7 @@ class Terminal {
     bool plotStarted = false;
     bool plotLogicalRow = false;
     int top = 0, bottom = MaxRows - 1, savedX = 0, savedY = 0, addressRow = 0;
-    uint8_t ink = 1, paper = 0, rendition = 0, savedInk = 1, savedPaper = 0, savedRendition = 0;
+    uint8_t ink = 0, paper = 0, rendition = 0, savedInk = 0, savedPaper = 0, savedRendition = 0;
     bool bold = false, savedBold = false, origin = false, autowrap = true, wrapPending = false;
     bool savedOrigin = false, savedWrap = false, savedG0 = false, savedG1 = false,
          savedUseG1 = false;

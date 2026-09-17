@@ -92,7 +92,7 @@ void Terminal::reset() {
     bottom = rows - 1;
     ansi = cursorVisible = autowrap = true;
     applicationCursor = applicationKeypad = origin = wrapPending = bold = g0 = g1 = useG1 = false;
-    ink = 1;
+    ink = 0;
     paper = rendition = 0;
     state = Ground;
     bells = 0;
@@ -100,7 +100,7 @@ void Terminal::reset() {
         tabs[i] = (i % 8 == 0);
     for (int i = 0; i < MaxCells; i++) {
         paperRAM[i] = charRAM[i] = ' ';
-        attrRAM[i] = 1;
+        attrRAM[i] = 0;
         flags[i] = 0;
     }
     save();
@@ -123,7 +123,7 @@ bool Terminal::setGeometry(int activeCols, int activeRows, int visible, int scal
             if (row >= rows || col >= cols || row >= oldRows || col >= oldCols) {
                 const int i = index(col, row);
                 paperRAM[i] = charRAM[i] = ' ';
-                attrRAM[i] = 1;
+                attrRAM[i] = 0;
                 flags[i] = 0;
             }
     x = std::max(0, std::min(cols - 1, x));
@@ -291,7 +291,7 @@ void Terminal::sgr() {
     for (int j = 0; j < count; j++) {
         int p = params[j] < 0 ? 0 : params[j];
         if (p == 0) {
-            ink = 1;
+            ink = 0;
             paper = 0;
             rendition = 0;
             bold = false;
@@ -313,7 +313,7 @@ void Terminal::sgr() {
         else if (p == 27)
             rendition &= ~Reverse;
         else if (p == 39) {
-            ink = 1;
+            ink = 0;
             plotInk = 0;
         } else if (p == 49) {
             paper = 0;
