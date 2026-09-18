@@ -1,3 +1,4 @@
+import configparser
 import importlib.util
 import pathlib
 import unittest
@@ -7,6 +8,30 @@ bridge = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bridge)
 
 class HelperTests(unittest.TestCase):
+    def test_konsole_profile_keeps_wheel_out_of_cpm(self):
+        profile = configparser.ConfigParser()
+        profile.read(pathlib.Path(__file__).parents[1] / 'tools' / '7xtgv-cpm.profile')
+        self.assertFalse(profile.getboolean('Interaction Options', 'AllowMouseTracking'))
+        self.assertFalse(profile.getboolean('Interaction Options', 'AlternateScrolling'))
+
+    def test_mirror_resets_host_mouse_and_alternate_scroll_modes(self):
+        resets = bridge.mirror_sanitize_host_modes()
+        for mode in bridge.MOUSE_MODES:
+            self.assertIn(f'\x1b[?{mode}l'.encode(), resets)
+        self.assertTrue(bridge.mirror_init().startswith(b'\x1b[?1049h' + resets))
+
+    def test_mouse_reports_are_discarded_without_filtering_keyboard_csi(self):
+        reports = bridge.MouseReports()
+        self.assertEqual(reports.feed(b'\x1b[<64;12;'), b'')
+        self.assertEqual(reports.feed(b'34M\x1b[A\x1b[H\x1b[F'),
+                         b'\x1b[A\x1b[H\x1b[F')
+        self.assertEqual(reports.feed(b'\x1b[M`23\x1b[96;12;34M'), b'')
+        self.assertEqual(reports.feed(b'\x1b[<0;1;2m\x1b[1;5D\x1b[200~'),
+                         b'\x1b[1;5D\x1b[200~')
+        self.assertEqual(reports.feed(b'\x1b[<64;12;'), b'')
+        reports.pending_at = 0.0
+        self.assertEqual(reports.tick(), b'\x1b[<64;12;')
+
     def test_ordinary_control_bytes(self):
         k = bridge.Keys()
         self.assertEqual(k.feed(b'DIR\r\x03\x1b[A'), b'DIR\r\x03\x1b[A')

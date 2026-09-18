@@ -169,11 +169,12 @@ int main() {
     feed(t, "\033[5;8H\033[4m\0337\033[1;1H\033[0m\0338X");
     assert(t.charRAM[4 * 80 + 7] == 'X' && t.flags[4 * 80 + 7] == vt::Underline);
     t.reset();
-    feed(t, "\033[?2l\033Y");
+    feed(t, "\033[31m\033[?2l\033Y");
     t.feed(32 + 10);
     t.feed(32 + 70);
     feed(t, "Z");
-    assert(!t.ansi && t.charRAM[10 * 80 + 70] == 'Z');
+    assert(!t.ansi && t.charRAM[10 * 80 + 70] == 'Z' &&
+           (t.attrRAM[10 * 80 + 70] & 15) == 2);
     feed(t, "\033Z");
     assert(replies == "\033/Z");
     replies.clear();
@@ -181,6 +182,58 @@ int main() {
     assert(t.graphics(0) && !t.graphics(1));
     feed(t, "\033<\033[6n");
     assert(t.ansi && replies == "\033[1;3R");
+    feed(t, "A");
+    assert((t.attrRAM[2] & 15) == 2); // mode changes preserve ink.
+    // Both CSI encodings reach the same ANSI scanner; C1 is not an output
+    // mode switch and fragmented bytes are handled just like ESC [.
+    t.reset();
+    t.feed(0x9b);
+    feed(t, "2;3H");
+    t.feed(0x9b);
+    feed(t, "31mR");
+    assert(t.ansi && t.charRAM[t.index(2, 1)] == 'R' &&
+           (t.attrRAM[t.index(2, 1)] & 15) == 2);
+    t.feed(0x9b);
+    feed(t, "0mN"); // FAND's compact three-byte attribute reset.
+    assert(t.charRAM[t.index(3, 1)] == 'N' &&
+           (t.attrRAM[t.index(3, 1)] & 15) == 0);
+    t.feed(0x9b);
+    feed(t, "1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16;17mS");
+    assert(t.charRAM[t.index(4, 1)] == 'S' && t.ansi);
+    // RunCPM's Console7 output mask turns C1 CSI into a bare ESC; compact
+    // attributes cannot work until Console8 lets the original byte through.
+    t.reset();
+    for (uint8_t c : std::string("\x9b" "31mX", 5)) t.feed(c & 0x7f);
+    assert(t.charRAM[2] == 'X' && (t.attrRAM[2] & 15) == 0);
+    t.reset();
+    feed(t, "\033[?2l\033Y");
+    t.feed(0x9b); // VT52 addressing column 123, not a C1 CSI prefix.
+    t.feed(uint8_t(' ' + 2));
+    assert(!t.ansi && t.x == 2 && t.y == t.rows - 1);
+    lastZoom = -1;
+    feed(t, "\033[>68;3v");
+    assert(lastZoom == 3 && !t.ansi);
+    const int vtX = t.x, vtY = t.y;
+    feed(t, "\033[1;1H"); // ordinary ANSI cursor movement is inert in VT52.
+    assert(t.x == vtX && t.y == vtY && !t.ansi);
+    t.feed(0x9b);
+    feed(t, "1;1H");
+    assert(t.charRAM[t.index(vtX, vtY)] == '?' && !t.ansi);
+    plots.clear();
+    feed(t, "\033[>4v");
+    assert(t.plotting() && !t.ansi);
+    feed(t, "\033[31m"); // not a GCLS SGR subset: ignore it in VT52.
+    assert(t.plotting());
+    const int beforePlot = t.index(t.x, t.y);
+    feed(t, "Q");
+    assert((t.attrRAM[beforePlot] & 15) == 0);
+    feed(t, "\033[38;5;196m#\r\n\033[0m");
+    assert(!t.plotting() && !t.ansi && plots.back().event == vt::Terminal::PlotEnd);
+    const int afterPlot = t.index(t.x, t.y);
+    feed(t, "T");
+    assert((t.attrRAM[afterPlot] & 15) == 0);
+    feed(t, "\033<");
+    assert(t.ansi);
     replies.clear();
     feed(t, "\033[5n\033[c");
     assert(replies == "\033[0n\033[?1;0c");
@@ -218,7 +271,7 @@ int main() {
     keys(k, "\033[1;3F");
     assert(t.viewport == 28);
     keys(k, "\033[>2v\033[A");
-    assert(input == "\033A" && !t.ansi);
+    assert(input == "\033[A" && !t.ansi); // fallback is independent of output mode
     input.clear();
     keys(k, "\033[>1v");
     feed(t, "\033[?1h");
@@ -358,6 +411,36 @@ int main() {
     assert(displayProfiles.display().geometry[1].cols == 40 &&
            displayProfiles.display().geometry[1].rows == 12 &&
            displayProfiles.display().renderFlushHz == 15);
+
+    // Mode, console width and input keys are independent. A late input=
+    // line must not overwrite an explicit key entered earlier in the INI.
+    vt::HistoryProfiles legacyProfiles;
+    const std::string legacyIni =
+        "[global]\nmode=vt52\nconsole_bits=8\n"
+        "[bank2]\nup=send:\\e[A\ninput=wordstar\nmode=ansi\n"
+        "zoom1_terminal=79x20\nzoom3_terminal=80x24\n"
+        "[bank3]\ninput=vt52\n";
+    legacyProfiles.beginLoad();
+    for (uint8_t c : legacyIni) legacyProfiles.feed(c);
+    legacyProfiles.finishLoad();
+    assert(legacyProfiles.errors() == 1); // 24 rows cannot fit at 3x.
+    assert(legacyProfiles.global().consoleBits == 8 &&
+           legacyProfiles.modeFor(0) == vt::OutputVT52 &&
+           legacyProfiles.modeFor(2) == vt::OutputAnsi &&
+           legacyProfiles.modeFor(3) == vt::OutputVT52);
+    assert(legacyProfiles.geometryFor(2, 1).cols == 78 &&
+           legacyProfiles.geometryFor(2, 1).rows == 20 &&
+           legacyProfiles.geometryFor(2, 3).cols ==
+               legacyProfiles.display().geometry[2].cols);
+    assert(legacyProfiles.get(2).keys[vt::AppUp].length == 3 &&
+           legacyProfiles.get(2).keys[vt::AppUp].bytes[1] == '[');
+    assert(legacyProfiles.get(2).keys[vt::AppLeft].bytes[0] == 0x13 &&
+           legacyProfiles.get(2).keys[vt::AppPageUp].bytes[0] == 0x12);
+    assert(legacyProfiles.get(3).keys[vt::AppLeft].length == 2 &&
+           legacyProfiles.get(3).keys[vt::AppLeft].bytes[0] == 27 &&
+           legacyProfiles.get(3).keys[vt::AppLeft].bytes[1] == 'D');
+    assert(legacyProfiles.get(3).keys[vt::AppAltUp].kind == vt::BindingHistoryPrevious);
+    assert(legacyProfiles.get(2).editingSurface == vt::EditingSurfaceScreen);
 
     vt::LineHistory history;
     vt::LineHistory::Recall recalled;

@@ -73,6 +73,7 @@ static std::atomic<bool> historyForceSaveRequested{false};
 // The RunCPM/storage core owns INI writes. Publish one settled snapshot after
 // either a brightness or zoom change; the off state is deliberately not saved.
 static std::atomic<bool> configSavePending{false};
+static std::atomic<bool> configForceSaveRequested{false};
 static std::atomic<uint8_t> configSaveBacklight{16};
 static std::atomic<uint8_t> configSaveZoom{1};
 static std::atomic<uint32_t> configChangedAt{0};
@@ -696,6 +697,7 @@ static void mbasicEditPoll() {
 }
 static void requestMirrorSnapshot();
 static void requestZoomLevel(uint8_t zoom);
+static void applyDisplayProfile(const vt::DisplayProfile &profile);
 static void terminalBacklight(uint8_t value) {
     const uint8_t before = xtgvBacklightGetRemembered();
     if (value <= XTGV_BACKLIGHT_LEVELS)
@@ -716,6 +718,8 @@ static void terminalControl(void *, vt::Terminal::ControlEvent event, uint8_t va
         terminalBacklight(value);
     else if (event == vt::Terminal::Zoom)
         requestZoomLevel(value);
+    else if (event == vt::Terminal::FullClear)
+        terminal.compositionDirty = true;
 }
 static void requestZoom(int delta) {
     // A burst of keys should select successive levels but cause only one
@@ -741,6 +745,14 @@ static void requestZoomLevel(uint8_t zoom) {
     zoomRequestPending = true;
     zoomRequestedAt = millis();
     displayProfilePending.store(true, std::memory_order_release);
+}
+static void applySelectedProfile() {
+    // This is an explicit user action, unlike the temporary effective-bank
+    // change inferred from a CCP prompt. In-band mode commands stay transient.
+    terminal.setMode(profiles.modeFor(selectedBank) == vt::OutputAnsi);
+    const vt::Geometry geometry = profiles.geometryFor(selectedBank, activeDisplayProfile.viewZoom);
+    if (terminal.cols != geometry.cols || terminal.rows != geometry.rows)
+        applyDisplayProfile(activeDisplayProfile);
 }
 static void keyboardAction(void *, vt::Keyboard::Action action) {
     // Recall waits until the transient label is gone, but bank changes remain
@@ -803,6 +815,7 @@ static void keyboardAction(void *, vt::Keyboard::Action action) {
                                    vt::HistoryProfiles::Banks);
             history->select(selectedBank);
             resetLineSession();
+            applySelectedProfile();
             showHistoryBank(history->activeBank());
         }
         return;
@@ -814,6 +827,7 @@ static void keyboardAction(void *, vt::Keyboard::Action action) {
             selectedBank = uint8_t((selectedBank + 1) % vt::HistoryProfiles::Banks);
             history->select(selectedBank);
             resetLineSession();
+            applySelectedProfile();
             showHistoryBank(history->activeBank());
         }
         return;
@@ -862,6 +876,7 @@ static void keyboardAction(void *, vt::Keyboard::Action action) {
             selectedBank = uint8_t(action - vt::Keyboard::HistoryBank0);
             history->select(selectedBank);
             resetLineSession();
+            applySelectedProfile();
             showHistoryBank(history->activeBank());
         }
         return;
@@ -945,6 +960,7 @@ static void rawFeed(uint8_t c, uint32_t now) {
             selectedBank = uint8_t(command - '0');
             history->select(selectedBank);
             resetLineSession();
+            applySelectedProfile();
             showHistoryBank(history->activeBank());
         }
     } else if (command == '4') {
@@ -1023,6 +1039,7 @@ static bool plotOwnsPixels() {
 static void retirePlotActiveRows();
 static void rememberPlotActiveRow(int row);
 static void plotEndCleanupPoll(uint32_t now);
+static uint16_t rgb565(vt::RGB color);
 
 static void requestMirrorSnapshot() {
     terminal.invalidateMirror();
@@ -1035,7 +1052,8 @@ static void applyDisplayProfile(const vt::DisplayProfile &profile) {
     const vt::DisplayHalDefaults &hal = vt::displayHalDefaults();
     int zoom = profile.viewZoom;
     if (zoom < 1 || zoom > 4) zoom = hal.defaultZoom;
-    vt::Geometry geometry = profile.geometry[zoom - 1];
+    vt::Geometry geometry = profiles.geometryFor(selectedBank, uint8_t(zoom),
+                                                 profile.geometry[zoom - 1]);
     const int width = displayOK ? gfx->width() : hal.physicalWidth;
     const int height = displayOK ? gfx->height() : hal.physicalHeight;
     const int fitCols = vt::evenVisibleCols(width, zoom);
@@ -1049,7 +1067,10 @@ static void applyDisplayProfile(const vt::DisplayProfile &profile) {
         return;
     activeDisplayProfile = profile;
     activeDisplayProfile.viewZoom = uint8_t(zoom);
-    presentationGutter = width - visible * 6 * zoom;
+    // The gutter is only the panel's residual edge strip. A deliberately
+    // narrower logical grid leaves ordinary default-paper pixels, not a
+    // massive grey gutter occupying the unused portion of the TFT.
+    presentationGutter = width - fitCols * 6 * zoom;
     displayFlushIntervalMs = profile.renderFlushHz ? 1000u / profile.renderFlushHz : 0;
     scanCell = mirrorScan = 0;
     activeRow = -1;
@@ -1141,6 +1162,16 @@ static void terminalPlot(void *, vt::Terminal::PlotEvent event, uint16_t color) 
     case vt::Terminal::PlotSample: {
         if (!plotCapture)
             retireDiskIndicatorForPlot();
+        // A CLS or geometry redraw can still be pending when a queued GCLS
+        // stream reaches its first pixel. Consume that clear *before* the
+        // pixel canvas takes ownership; otherwise renderBatch() would clear
+        // the completed image after SGR 0 ends the transaction.
+        if (!plotCapture && terminal.compositionDirty && displayOK) {
+            gfx->fillScreen(rgb565(vt::Paper[0]));
+            terminal.compositionDirty = false;
+            terminal.indicatorDirty = true;
+            requestDisplayFlush();
+        }
         plotCapture = true;
         plotCanvasValid = true;
         rememberPlotActiveRow(activeRow);
@@ -1425,9 +1456,11 @@ static void showHistoryBank(uint8_t bank, bool peek) {
     restoreHistoryPeek();
     historyNoticeBank = bank;
     historyNoticeRow = uint8_t(terminal.y);
-    historyNoticePeek = peek;
+    // Without an on_select command there is no app/CCP redraw after the
+    // notice expires. Preserve the existing row, including its prompt.
+    historyNoticePeek = peek || profiles.get(bank).selectLength == 0;
     historyNoticeRaw = rawInputMode;
-    if (peek) {
+    if (historyNoticePeek) {
         int first = terminal.index(0, historyNoticeRow);
         memcpy(historyNoticePaper, terminal.paperRAM + first, terminal.cols);
         memcpy(historyNoticeChars, terminal.charRAM + first, terminal.cols);
@@ -1517,7 +1550,7 @@ static void renderBatch() {
         // A full zoom/pan redraw replaces the retained xterm-256 image.
         // Retire its ownership before repainting the gutter and disk LED.
         plotCanvasValid = false;
-        gfx->fillScreen(0);
+        gfx->fillScreen(rgb565(vt::Paper[0]));
         terminal.compositionDirty = false;
         terminal.indicatorDirty = true;
         requestDisplayFlush();
@@ -1885,6 +1918,7 @@ void terminalConfigBegin() { profiles.beginLoad(vt::displayHalDefaults()); }
 void terminalConfigFeed(uint8_t byte) { profiles.feed(byte); }
 unsigned terminalConfigEnd() {
     profiles.finishLoad();
+    terminal.setMode(profiles.global().mode == vt::OutputAnsi);
     pendingDisplayProfile = profiles.display();
     xtgvBacklightSet(profiles.global().backlightLevel);
     configSaveBacklight.store(xtgvBacklightGetRemembered(), std::memory_order_release);
@@ -1893,15 +1927,22 @@ unsigned terminalConfigEnd() {
     displayProfilePending.store(true, std::memory_order_release);
     return profiles.errors();
 }
+uint8_t terminalConfiguredConsoleBits() { return profiles.global().consoleBits; }
+void terminalConfigForceSave() {
+    if (configSavePending.load(std::memory_order_acquire))
+        configForceSaveRequested.store(true, std::memory_order_release);
+}
 bool terminalConfigSaveDue(uint8_t &backlightLevel, uint8_t &zoomLevel) {
     if (!configSavePending.load(std::memory_order_acquire) ||
-        uint32_t(millis() - configChangedAt.load(std::memory_order_acquire)) < 1500)
+        (!configForceSaveRequested.load(std::memory_order_acquire) &&
+         uint32_t(millis() - configChangedAt.load(std::memory_order_acquire)) < 1500))
         return false;
     backlightLevel = configSaveBacklight.load(std::memory_order_acquire);
     zoomLevel = configSaveZoom.load(std::memory_order_acquire);
     return true;
 }
 void terminalConfigSaveComplete(bool saved) {
+    configForceSaveRequested.store(false, std::memory_order_release);
     if (saved)
         configSavePending.store(false, std::memory_order_release);
     else

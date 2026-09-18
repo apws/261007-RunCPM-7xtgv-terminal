@@ -78,7 +78,12 @@ def main():
         parser.error(f"no new candidate for {args.target}: run host reflash with --build first")
     compile_command = [cli, "compile", "--profile", definition["profile"],
                        "--output-dir", str(build_dir)]
-    for key, value in definition.get("build_properties", {}).items():
+    build_properties = dict(definition.get("build_properties", {}))
+    if building:
+        build_properties["build.extra_flags"] = (
+            build_properties.get("build.extra_flags", "") +
+            f" -DXTGV_BUILD_STAMP={stamp}").strip()
+    for key, value in build_properties.items():
         compile_command.extend(["--build-property", f"{key}={value}"])
     compile_command.append(str(ROOT))
     # A build is uploaded from its eventual `new` location; promotion and

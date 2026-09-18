@@ -56,8 +56,12 @@ class HelperIntegration(unittest.TestCase):
             # Initial attachment requests the dedicated mirror-only snapshot;
             # it must not issue the older full terminal/TFT reset command.
             until(board_master, b'\x1b[>62v')
+            until(pc_master, b'\x1b[?1016l')
             os.write(pc_master, b'DIR\r\x03')
             until(board_master, b'DIR\r\x03')
+            os.write(pc_master, b'\x1b[<64;12;34M\x1b[M`23\x1b[96;12;34M\x1b[A')
+            keyboard = until(board_master, b'\x1b[A')
+            self.assertEqual(keyboard, b'\x1b[A')
             os.write(board_master, b'\x1b[2J\x1b[HCP/M MIRROR\r\nA0>')
             until(pc_master, b'CP/M MIRROR\r\nA0>')
             os.write(pc_master, b'\x1d2\x1da')
@@ -88,9 +92,11 @@ class HelperIntegration(unittest.TestCase):
                 proc = subprocess.Popen([sys.executable, '-c', CHILD, HELPER, port],
                                         stdin=pc_slave, stdout=pc_slave, stderr=pc_slave)
                 until(board1_master, b'\x1b[>62v')
+                until(pc_master, b'\x1b[?1016l')
                 os.unlink(port)
                 os.symlink(os.ttyname(board2_slave), port)
                 until(board2_master, b'\x1b[>62v')
+                until(pc_master, b'\x1b[?1016l')
                 os.write(board2_master, b'\x1b[2J\x1b[HRECONNECTED')
                 until(pc_master, b'RECONNECTED')
                 os.write(pc_master, b'\x1dq')

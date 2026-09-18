@@ -63,11 +63,9 @@ uint16_t Terminal::xterm565(int index) {
     return uint16_t((uint16_t(r >> 3) << 11) | (uint16_t(g >> 2) << 5) | (b >> 3));
 }
 void Terminal::beginPlot(uint8_t requestedZoom, uint16_t requestedX, uint16_t requestedY) {
-    // The private GCLS command always selects ANSI before arming one plot.
-    ansi = true;
+    // GCLS is a temporary pixel transaction, not an output-mode switch.
     state = Ground;
     wrapPending = false;
-    applicationCursor = false;
     abortPlot();
     plotState = PlotReady;
     plotInk = 0;
@@ -354,9 +352,49 @@ void Terminal::sgr() {
         plot(PlotEnd);
     }
 }
+void Terminal::beginCSI() {
+    state = CSI;
+    count = 1;
+    params[0] = -1;
+    prefix = 0;
+    invalid = false;
+}
+void Terminal::dispatchPrivate(uint8_t f) {
+    if (prefix == '>') {
+        if (f == 'v' && params[0] == 4 && count >= 1 && count <= 4) {
+            const int requestedZoom = count >= 2 && params[1] >= 0 ? params[1] : 1;
+            const int requestedX = count >= 3 && params[2] >= 0 ? params[2] : 0;
+            const int requestedY = count >= 4 && params[3] >= 0 ? params[3] : 0;
+            if (requestedZoom >= 1 && requestedZoom <= 4 && requestedX <= 9999 &&
+                requestedY <= 9999)
+                beginPlot(uint8_t(requestedZoom), uint16_t(requestedX), uint16_t(requestedY));
+        }
+        else if (f == 'v' && count == 2 && params[0] == 63 && params[1] >= 0 && params[1] <= 34)
+            control(Backlight, uint8_t(params[1]));
+        else if (f == 'v' && count == 2 && params[0] == 68 && params[1] >= 1 && params[1] <= 4)
+            control(Zoom, uint8_t(params[1]));
+    }
+}
 void Terminal::dispatch(uint8_t f) {
     if (invalid)
         return;
+    if (prefix == '>') {
+        dispatchPrivate(f);
+        return;
+    }
+    // VT52 accepts our reserved private controls and only the exact SGR
+    // forms emitted by the plot stream. Ordinary ANSI commands remain inert.
+    if (!ansi) {
+        if (prefix || f != 'm' || !plotting())
+            return;
+        const bool end = count == 1 && params[0] <= 0;
+        const bool color = count == 3 && (params[0] == 38 || params[0] == 48) &&
+                           params[1] == 5 && params[2] >= 0 && params[2] <= 255;
+        if (!end && !color)
+            return;
+        sgr();
+        return;
+    }
     int n = param(0), lo = origin ? top : 0, hi = origin ? bottom : rows - 1;
     if (prefix == '?') {
         if (f != 'h' && f != 'l')
@@ -384,21 +422,6 @@ void Terminal::dispatch(uint8_t f) {
                 mirrorCursorDirty = true;
                 break;
             }
-        return;
-    }
-    if (prefix == '>') {
-        if (f == 'v' && params[0] == 4 && count >= 1 && count <= 4) {
-            const int requestedZoom = count >= 2 && params[1] >= 0 ? params[1] : 1;
-            const int requestedX = count >= 3 && params[2] >= 0 ? params[2] : 0;
-            const int requestedY = count >= 4 && params[3] >= 0 ? params[3] : 0;
-            if (requestedZoom >= 1 && requestedZoom <= 4 && requestedX <= 9999 &&
-                requestedY <= 9999)
-                beginPlot(uint8_t(requestedZoom), uint16_t(requestedX), uint16_t(requestedY));
-        }
-        else if (f == 'v' && count == 2 && params[0] == 63 && params[1] >= 0 && params[1] <= 34)
-            control(Backlight, uint8_t(params[1]));
-        else if (f == 'v' && count == 2 && params[0] == 68 && params[1] >= 1 && params[1] <= 4)
-            control(Zoom, uint8_t(params[1]));
         return;
     }
     if (prefix)
@@ -438,8 +461,10 @@ void Terminal::dispatch(uint8_t f) {
             eraseDisplay(false, true);
         else if (params[0] == 1)
             eraseDisplay(true, false);
-        else if (params[0] == 2)
+        else if (params[0] == 2) {
             erase(0, 0, rows - 1, cols - 1);
+            control(FullClear, 0);
+        }
         wrapPending = false;
         break;
     case 'K':
@@ -576,6 +601,12 @@ void Terminal::feed(uint8_t c) {
         state = Ground;
         return;
     }
+    // C1 CSI is an ANSI ground-state control, not a VT52 address byte or a
+    // printable upper-half glyph. Plot sample markers remain opaque bytes.
+    if (state == Ground && ansi && plotState != PlotSampleArmed && c == 0x9b) {
+        beginCSI();
+        return;
+    }
     if (state == Charset) {
         designate(c);
         state = Ground;
@@ -599,6 +630,10 @@ void Terminal::feed(uint8_t c) {
             return;
         }
         if (!ansi) {
+            if (c == '[') {
+                beginCSI();
+                return;
+            }
             switch (c) {
             case 'A':
                 move(x, y - 1);
@@ -652,11 +687,7 @@ void Terminal::feed(uint8_t c) {
         }
         switch (c) {
         case '[':
-            state = CSI;
-            count = 1;
-            params[0] = -1;
-            prefix = 0;
-            invalid = false;
+            beginCSI();
             break;
         case '(':
         case ')':
@@ -795,15 +826,12 @@ void Keyboard::finish() {
     else if (size_ == 3 && (buffer_[1] == '[' || buffer_[1] == 'O') && buffer_[2] >= 'A' &&
              buffer_[2] <= 'D') {
         char out[4] = {27, '[', char(buffer_[2]), 0};
-        if (!t_.ansi) {
-            out[1] = out[2];
-            out[2] = 0;
-        } else if (t_.applicationCursor)
+        if (t_.applicationCursor)
             out[1] = 'O';
         output(out);
     } else if (size_ == 3 && buffer_[1] == 'O' && buffer_[2] >= 'p' && buffer_[2] <= 'y') {
         if (t_.applicationKeypad) {
-            char out[5] = {27, t_.ansi ? 'O' : '?', char(buffer_[2]), 0};
+            char out[5] = {27, 'O', char(buffer_[2]), 0};
             output(out);
         } else {
             uint8_t c = '0' + buffer_[2] - 'p';
@@ -812,7 +840,7 @@ void Keyboard::finish() {
     } else if (size_ == 3 && buffer_[1] == 'O' &&
                (buffer_[2] == 'M' || buffer_[2] == 'n' || buffer_[2] == 'm' || buffer_[2] == 'l')) {
         if (t_.applicationKeypad) {
-            char out[4] = {27, t_.ansi ? 'O' : '?', char(buffer_[2]), 0};
+            char out[4] = {27, 'O', char(buffer_[2]), 0};
             output(out);
         } else {
             uint8_t c = buffer_[2] == 'M'   ? 13

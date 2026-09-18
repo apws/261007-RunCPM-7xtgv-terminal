@@ -1,5 +1,5 @@
-; SYNC.COM -- synchronously persist the 7xtgv terminal history to SD.
-; Port 7Dh returns 1 only after the verified temp/CRC/rename transaction.
+; SYNC.COM -- synchronously persist terminal history and changed INI settings.
+; Port 7Dh returns 1 only after both required verified transactions succeed.
 
         org     0100h
 

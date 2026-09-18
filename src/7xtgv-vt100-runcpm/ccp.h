@@ -245,7 +245,7 @@ uint8 _ccp_dir(void) {
     if (_RamRead(ParFCB + 1) == ' ')
         for (i = 1; i < 12; ++i)
             _RamWrite(ParFCB + i, '?');
-    dirHead[0] = _RamRead(ParFCB) ? _RamRead(ParFCB) + '@' : prompt[2];
+    dirHead[0] = _RamRead(ParFCB) ? _RamRead(ParFCB) + '@' : 'A' + currentDrive;
 
     _puts("\r\n");
     if (!_SearchFirst(ParFCB, TRUE)) {

@@ -41,7 +41,7 @@ class Terminal {
     // Private `CSI >68;n v` is output-side terminal view control. It lets a
     // CP/M transient request an absolute 1x..4x zoom without pretending that
     // keyboard-only private controls are part of application output.
-    enum ControlEvent : uint8_t { Backlight, Zoom };
+    enum ControlEvent : uint8_t { Backlight, Zoom, FullClear };
     using Control = void (*)(void *, ControlEvent, uint8_t);
     explicit Terminal(Reply reply = nullptr, void *context = nullptr);
     void reset();
@@ -104,7 +104,9 @@ class Terminal {
     void scroll(int delta);
     void index(bool reverse = false);
     void put(uint8_t c);
+    void beginCSI();
     void dispatch(uint8_t final);
+    void dispatchPrivate(uint8_t final);
     void sgr();
     void plot(PlotEvent event, uint16_t value = 0);
     void control(ControlEvent event, uint8_t value) { if (control_) control_(controlContext_, event, value); }

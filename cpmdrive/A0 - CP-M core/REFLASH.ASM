@@ -1,7 +1,7 @@
 ; REFLASH.COM -- request an opt-in host firmware reflash from 7xtgv terminal.py.
 ;
-; First forces the same verified history save as SYNC.COM (port 7Dh).  Only
-; after that succeeds does it emit the reserved guest-to-host event ESC[>64v.
+; First forces the same verified history/settings save as SYNC.COM (port 7Dh).
+; Only after that succeeds does it emit guest-to-host event ESC[>64v.
 ; It does not reboot the MCU and does not itself alter firmware. The PC bridge
 ; acts only when its XTGV_REFLASH_COMMAND is configured.
 ;

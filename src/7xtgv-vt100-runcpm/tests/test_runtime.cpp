@@ -465,6 +465,20 @@ int main() {
     historyNoticePoll();
     assert(!historyNoticeActive && terminal.x == savedX);
     assert(std::string(reinterpret_cast<char *>(terminal.charRAM), 16) == "EDIT IN PROGRESS");
+    // Selecting a bank with empty on_select must show its label temporarily,
+    // then restore the prompt rather than clearing its row permanently.
+    terminal.reset();
+    for (uint8_t c : std::string("A0>")) terminal.feed(c);
+    keyboardAction(nullptr, vt::Keyboard::Action(vt::Keyboard::HistoryBank0 + 2));
+    assert(selectedBank == 2 && historyNoticeActive && historyNoticePeek);
+    fakeTime += 1000;
+    historyNoticePoll();
+    assert(!historyNoticeActive && terminal.x == 3);
+    assert(std::string(reinterpret_cast<char *>(terminal.charRAM), 3) == "A0>");
+    assert(!input.pop(testByte));
+    selectedBank = 0;
+    history->select(0);
+    resetLineSession();
     for (uint8_t c : std::string("dir\r")) history->input(c);
     setRawInputMode(true);
     assert(rawInputMode && history->activeBank() == 0);
@@ -618,6 +632,23 @@ int main() {
     assert(savedZoom == 3 && savedBacklight == xtgvBacklightGetRemembered());
     terminalConfigSaveComplete(true);
     assert(!terminalConfigSaveDue(savedBacklight, savedZoom));
+    // SYNC/REFLASH bypass the lazy INI delay only for a pending change. A
+    // failed forced save resumes the normal delay rather than retrying hot.
+    terminalConfigForceSave();
+    configSaveBacklight.store(7);
+    configSaveZoom.store(2);
+    configChangedAt.store(millis());
+    configSavePending.store(true);
+    assert(!terminalConfigSaveDue(savedBacklight, savedZoom));
+    terminalConfigForceSave();
+    assert(terminalConfigSaveDue(savedBacklight, savedZoom));
+    assert(savedBacklight == 7 && savedZoom == 2);
+    terminalConfigSaveComplete(false);
+    assert(!terminalConfigSaveDue(savedBacklight, savedZoom));
+    terminalConfigForceSave();
+    assert(terminalConfigSaveDue(savedBacklight, savedZoom));
+    terminalConfigSaveComplete(true);
+    assert(!terminalConfigSaveDue(savedBacklight, savedZoom));
     // A long CCP-style output wraps and scrolls a tiny view without touching
     // backing cells or mirror rows beyond its active geometry.
     emit(std::string(200, 'X'));
@@ -640,6 +671,49 @@ int main() {
             assert(gfx->framebuffer[(y + 1) * 320 + x] == pixel);
             assert(gfx->framebuffer[(y + 1) * 320 + x + 1] == pixel);
         }
+    // A selected profile can narrow the logical grid without expanding the
+    // fixed physical gutter; the unused panel area remains default paper.
+    selectedBank = 0;
+    history->select(0);
+    terminalConfigBegin();
+    const std::string legacyConfig =
+        "[global]\nmode=vt52\nconsole_bits=8\n"
+        "[display:RP2_2]\nview_zoom=1\n"
+        "[bank2]\nmode=ansi\ninput=wordstar\nzoom1_terminal=40x12\n"
+        "[bank3]\nmode=vt52\ninput=vt52\nzoom1_terminal=20x12\n";
+    for (uint8_t c : legacyConfig) terminalConfigFeed(c);
+    assert(terminalConfigEnd() == 0 && terminalConfiguredConsoleBits() == 8);
+    terminalLoop();
+    assert(!terminal.ansi && terminal.cols == 80 && terminal.rows == 24);
+    keyboardAction(nullptr, vt::Keyboard::Action(vt::Keyboard::HistoryBank0 + 2));
+    assert(terminal.ansi && selectedBank == 2 && terminal.cols == 40 &&
+           terminal.rows == 12 && terminal.visibleCols == 40 &&
+           presentationGutter == 8);
+    uint8_t presetByte;
+    while (input.pop(presetByte)) {}
+    profileKey(vt::AppUp);
+    assert(input.pop(presetByte) && presetByte == 0x05 && !input.pop(presetByte));
+    for (int i = 0; i < 1000; ++i) terminalLoop();
+    const uint16_t defaultPaper = rgb565(vt::Paper[0]);
+    assert(gfx->framebuffer[100 * 320 + 300] == defaultPaper);
+    gfx->framebuffer[100 * 320 + 300] = 0xf800;
+    for (uint8_t c : std::string("\033[2J")) terminal.feed(c);
+    for (int i = 0; i < 1000; ++i) terminalLoop();
+    assert(gfx->framebuffer[100 * 320 + 300] == defaultPaper);
+    keyboardAction(nullptr, vt::Keyboard::Action(vt::Keyboard::HistoryBank0 + 3));
+    assert(!terminal.ansi && selectedBank == 3 && terminal.cols == 20 &&
+           terminal.rows == 12 && presentationGutter == 8);
+    profileKey(vt::AppLeft);
+    assert(input.pop(presetByte) && presetByte == 27);
+    assert(input.pop(presetByte) && presetByte == 'D' && !input.pop(presetByte));
+    for (uint8_t c : std::string("\033<")) terminal.feed(c);
+    assert(terminal.ansi);
+    selectEffectiveBank(0); // CCP history heuristic must not switch output.
+    assert(terminal.ansi && selectedBank == 3 && history->activeBank() == 0);
+    for (uint8_t c : std::string("\033[?2l")) terminal.feed(c);
+    assert(!terminal.ansi);
+    keyboardAction(nullptr, vt::Keyboard::Action(vt::Keyboard::HistoryBank0 + 2));
+    assert(terminal.ansi); // explicit selection reapplies bank 2's default.
     std::cout << "runtime render/mirror, slow/disconnected USB, queue saturation, and reconnect "
                  "tests passed\n";
 }

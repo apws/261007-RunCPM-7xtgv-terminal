@@ -366,6 +366,12 @@ bool terminalConfigStoragePoll() {
 #include "host.h"
 #include "cpm.h"
 
+// Target-aware builds inject a fresh stamp even when Arduino reuses the
+// sketch object. Direct Arduino builds fall back to the sketch compile time.
+#ifdef XTGV_BUILD_STAMP
+#define XTGV_STRINGIZE_INNER(value) #value
+#define XTGV_STRINGIZE(value) XTGV_STRINGIZE_INNER(value)
+#else
 // __DATE__ is always "Mmm dd yyyy".  Project-facing timestamps deliberately
 // use the compact YYMMDD form, including a leading zero for single-digit days.
 static void printBuildDate() {
@@ -381,6 +387,7 @@ static void printBuildDate() {
     _putcon('0' + (month + 1) % 10);
     _putcon(date[4] == ' ' ? '0' : date[4]); _putcon(date[5]);
 }
+#endif
 
 #ifdef CCP_INTERNAL
   #include "ccp.h"
@@ -395,9 +402,15 @@ static void printBootBanner() {
     _puts("HAL tweaks by 7alken\r\n");
     //TODO HAL/BOARD defined section here //_puts("arduino-pico suport by Guido .........\r\n");
     //TODO HAL/BOARD defined section here //_puts("WaveShare RP2350-TOUCH-LCD-2 by 7alken\r\n");
-    _puts("Build "); _puts(BUILD); _puts(" / "); printBuildDate();
+    _puts("Build "); _puts(BUILD); _puts(" / ");
+#ifdef XTGV_BUILD_STAMP
+    _puts(XTGV_STRINGIZE(XTGV_BUILD_STAMP));
+#else
+    printBuildDate();
     _putcon('-'); _putcon(__TIME__[0]); _putcon(__TIME__[1]);
-    _putcon(__TIME__[3]); _putcon(__TIME__[4]); _puts("\r\n");
+    _putcon(__TIME__[3]); _putcon(__TIME__[4]);
+#endif
+    _puts("\r\n");
 
     _puts("------------------------------------------------\r\n");
     _puts("CPU is "); _puts(CPU_IS); _puts("\r\n");
@@ -490,6 +503,7 @@ static void runCPM() {
                 terminalConfigFeed(uint8_t(profileFile.read()));
             profileFile.close();
             profileErrors = terminalConfigEnd();
+            mask8bit = terminalConfiguredConsoleBits() == 8 ? 0xff : 0x7f;
         }
         File historyFile = openTerminalHistory();
         if (historyFile) {

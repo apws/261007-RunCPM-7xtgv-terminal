@@ -663,10 +663,13 @@ void _HardwareOut(const uint32 Port, const uint32 Value) {
 #endif
     } else if (port == VTSYNC_PORT && value == 1) {
 #if !defined(RUNCPM_HEADLESS)
-        // SYNC.COM must complete the verified history transaction before a
-        // following long graphics stream can starve the normal input-wait poll.
+        // SYNC/REFLASH must finish both pending settings and history writes
+        // before a graphics stream or firmware reset can starve lazy polling.
         terminalHistoryForceSave();
-        vtSyncStatus = terminalHistoryStoragePoll() ? 1 : 0xff;
+        terminalConfigForceSave();
+        const bool historySaved = terminalHistoryStoragePoll();
+        const bool configSaved = terminalConfigStoragePoll();
+        vtSyncStatus = historySaved && configSaved ? 1 : 0xff;
 #else
         vtSyncStatus = 0xff;
 #endif

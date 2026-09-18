@@ -98,15 +98,20 @@ class Link:
         while True:
             marker=f'REC{record:04X}'
             endmarker=f'END{record:04X}'
-            text=self.until(lambda t:endmarker in t or (t.startswith(marker) and f'READY{record:04X}' in t))
+            def complete_rows(text):
+                if not text.startswith(marker) or f'READY{record:04X}' not in text:
+                    return None
+                rows=text.splitlines()[1:5]
+                return rows if len(rows)==4 and all(re.fullmatch('[0-9A-F]{64}', r) for r in rows) else None
+            # Mirror cells arrive incrementally. READY can be visible before
+            # the four hex rows are complete; a snapshot request in raw mode
+            # would instead reach VTGET as input and abort the transfer.
+            text=self.until(lambda t:endmarker in t or complete_rows(t) is not None)
             if endmarker in text:
                 self.pump(.1)
                 return bytes(data)
-            rows=text.splitlines()[1:5]
-            if len(rows)!=4 or any(not re.fullmatch('[0-9A-F]{64}', r) for r in rows):
-                self.send('\x1b[>0v');self.pump(.15)
-                rows=self.screen.text().splitlines()[1:5]
-            if len(rows)!=4 or any(not re.fullmatch('[0-9A-F]{64}', r) for r in rows):raise RuntimeError(self.screen.text())
+            rows=complete_rows(text)
+            if rows is None:raise RuntimeError(self.screen.text())
             data.extend(bytes.fromhex(''.join(rows)))
             percent=progress.advance(128,name,'verify') if progress else None
             enhanced='PCT ' in text

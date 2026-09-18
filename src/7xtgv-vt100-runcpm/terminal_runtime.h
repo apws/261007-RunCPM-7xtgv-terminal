@@ -6,6 +6,7 @@ void terminalWaitReady();
 void terminalConfigBegin();
 void terminalConfigFeed(uint8_t byte);
 unsigned terminalConfigEnd();
+uint8_t terminalConfiguredConsoleBits();
 // History lives beside 7XTGVTRM.INI on the CP/M SD card.  Storage itself stays
 // board-specific; these functions only parse and serialise the text format.
 void terminalHistoryLoadBegin();
@@ -18,6 +19,7 @@ bool terminalHistoryWrite(TerminalHistoryWriteByte writeByte, void *context);
 void terminalHistorySaveComplete(bool saved);
 bool terminalHistoryStoragePoll();
 bool terminalConfigStoragePoll();
+void terminalConfigForceSave();
 bool terminalConfigSaveDue(uint8_t &backlightLevel, uint8_t &zoomLevel);
 void terminalConfigSaveComplete(bool saved);
 void terminalWaitDisplayProfileApplied();

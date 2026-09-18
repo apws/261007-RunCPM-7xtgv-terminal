@@ -95,14 +95,20 @@ static bool decode(const char *source, uint8_t *target, uint8_t capacity, uint8_
 }
 
 static bool parseBinding(const char *value, KeyBinding &result) {
-    result = KeyBinding{};
-    if (!strcmp(value, "none")) return true;
-    if (!strcmp(value, "history_previous")) { result.kind = BindingHistoryPrevious; return true; }
-    if (!strcmp(value, "history_next")) { result.kind = BindingHistoryNext; return true; }
+    KeyBinding parsed{};
+    if (!strcmp(value, "none")) { result = parsed; return true; }
+    if (!strcmp(value, "history_previous")) {
+        parsed.kind = BindingHistoryPrevious; result = parsed; return true;
+    }
+    if (!strcmp(value, "history_next")) {
+        parsed.kind = BindingHistoryNext; result = parsed; return true;
+    }
     const bool cancel = !strncmp(value, "send_cancel:", 12);
     if (!cancel && strncmp(value, "send:", 5)) return false;
-    if (!decode(value + (cancel ? 12 : 5), result.bytes, KeyBinding::MaxBytes, result.length)) return false;
-    result.kind = result.length ? (cancel ? BindingSendCancel : BindingSend) : BindingNone;
+    if (!decode(value + (cancel ? 12 : 5), parsed.bytes, KeyBinding::MaxBytes, parsed.length))
+        return false;
+    parsed.kind = parsed.length ? (cancel ? BindingSendCancel : BindingSend) : BindingNone;
+    result = parsed;
     return true;
 }
 
@@ -136,6 +142,59 @@ static bool parseInputAdapter(const char *value, InputAdapter &result) {
     else return false;
     return true;
 }
+static bool parseOutputMode(const char *value, OutputMode &result) {
+    if (!strcmp(value, "ansi")) result = OutputAnsi;
+    else if (!strcmp(value, "vt52")) result = OutputVT52;
+    else return false;
+    return true;
+}
+static bool parseInputPreset(const char *value, InputPreset &result) {
+    if (!strcmp(value, "custom")) result = InputCustom;
+    else if (!strcmp(value, "ansi")) result = InputAnsi;
+    else if (!strcmp(value, "vt52")) result = InputVT52;
+    else if (!strcmp(value, "wordstar")) result = InputWordStar;
+    else return false;
+    return true;
+}
+static void applyInputPreset(HistoryProfile &profile, uint32_t explicitKeys) {
+    if (profile.input == InputCustom)
+        return;
+    auto bind = [&](AppKey key, const char *value) {
+        if (!(explicitKeys & (uint32_t(1) << key)))
+            parseBinding(value, profile.keys[key]);
+    };
+    for (uint8_t key = 0; key < AppKeyCount; ++key)
+        bind(AppKey(key), "none");
+    // Alt+arrows keep history available even when the ordinary cursor keys
+    // belong to a legacy application. Explicit INI bindings can replace them.
+    bind(AppAltUp, "history_previous");
+    bind(AppAltDown, "history_next");
+    if (profile.input == InputVT52) {
+        bind(AppUp, "send:\x1b" "A"); bind(AppDown, "send:\x1b" "B");
+        bind(AppRight, "send:\x1b" "C"); bind(AppLeft, "send:\x1b" "D");
+    } else if (profile.input == InputWordStar) {
+        bind(AppUp, "send:\x05"); bind(AppDown, "send:\x18");
+        bind(AppLeft, "send:\x13"); bind(AppRight, "send:\x04");
+        bind(AppHome, "send:\x11\x13"); bind(AppEnd, "send:\x11\x04");
+        bind(AppPageUp, "send:\x12"); bind(AppPageDown, "send:\x03");
+        bind(AppInsert, "send:\x16"); bind(AppDelete, "send:\x07");
+    } else {
+        bind(AppUp, "send:\x1b[A"); bind(AppDown, "send:\x1b[B");
+        bind(AppLeft, "send:\x1b[D"); bind(AppRight, "send:\x1b[C");
+        bind(AppHome, "send:\x1b[H"); bind(AppEnd, "send:\x1b[F");
+        bind(AppPageUp, "send:\x1b[5~"); bind(AppPageDown, "send:\x1b[6~");
+        bind(AppInsert, "send:\x1b[2~"); bind(AppDelete, "send:\x1b[3~");
+        bind(AppCtrlLeft, "send:\x1b[1;5D"); bind(AppCtrlRight, "send:\x1b[1;5C");
+        bind(AppCtrlUp, "send:\x1b[1;5A"); bind(AppCtrlDown, "send:\x1b[1;5B");
+        bind(AppCtrlHome, "send:\x1b[1;5H"); bind(AppCtrlEnd, "send:\x1b[1;5F");
+        bind(AppCtrlDelete, "send:\x1b[3;5~"); bind(AppCtrlInsert, "send:\x1b[2;5~");
+        bind(AppCtrlPageUp, "send:\x1b[5;5~"); bind(AppCtrlPageDown, "send:\x1b[6;5~");
+        bind(AppAltLeft, "send:\x1b[1;3D"); bind(AppAltRight, "send:\x1b[1;3C");
+        bind(AppAltHome, "send:\x1b[1;3H"); bind(AppAltEnd, "send:\x1b[1;3F");
+        bind(AppAltDelete, "send:\x1b[3;3~"); bind(AppAltInsert, "send:\x1b[2;3~");
+        bind(AppAltPageUp, "send:\x1b[5;3~"); bind(AppAltPageDown, "send:\x1b[6;3~");
+    }
+}
 } // namespace
 
 HistoryProfiles::HistoryProfiles() {
@@ -152,6 +211,23 @@ const GlobalProfile &HistoryProfiles::global() const {
 }
 const DisplayProfile &HistoryProfiles::display() const {
     return sets_[active_.load(std::memory_order_acquire)].display;
+}
+OutputMode HistoryProfiles::modeFor(uint8_t bank) const {
+    const Set &set = sets_[active_.load(std::memory_order_acquire)];
+    const HistoryProfile &profile = set.banks[bank < Banks ? bank : 0];
+    return profile.modeOverride ? profile.mode : set.global.mode;
+}
+Geometry HistoryProfiles::geometryFor(uint8_t bank, uint8_t zoom) const {
+    const Set &set = sets_[active_.load(std::memory_order_acquire)];
+    const unsigned index = zoom >= 1 && zoom <= 4 ? zoom - 1 : 0;
+    const HistoryProfile &profile = set.banks[bank < Banks ? bank : 0];
+    return profile.geometryOverride[index] ? profile.geometry[index] : set.display.geometry[index];
+}
+Geometry HistoryProfiles::geometryFor(uint8_t bank, uint8_t zoom, Geometry displayGeometry) const {
+    const Set &set = sets_[active_.load(std::memory_order_acquire)];
+    const unsigned index = zoom >= 1 && zoom <= 4 ? zoom - 1 : 0;
+    const HistoryProfile &profile = set.banks[bank < Banks ? bank : 0];
+    return profile.geometryOverride[index] ? profile.geometry[index] : displayGeometry;
 }
 
 void HistoryProfiles::defaults(Set &set) {
@@ -283,6 +359,28 @@ void HistoryProfiles::validateDisplay(Set &set) {
     }
 }
 
+void HistoryProfiles::validateBankGeometry(Set &set) {
+    const DisplayHalDefaults &hal = *hal_;
+    for (uint8_t bank = 0; bank < Banks; ++bank)
+        for (int i = 0; i < 4; ++i) {
+            HistoryProfile &profile = set.banks[bank];
+            if (!profile.geometryOverride[i]) continue;
+            Geometry &geometry = profile.geometry[i];
+            const int zoom = i + 1;
+            if (geometry.cols < 2 || geometry.cols > hal.maxCols || geometry.rows < 1 ||
+                geometry.rows > hal.maxRows || geometry.rows * 10 * zoom > hal.physicalHeight) {
+                ++errors_;
+                profile.geometryOverride[i] = false;
+            } else {
+                geometry.cols &= ~1u;
+            }
+        }
+}
+void HistoryProfiles::resolveInputPresets(Set &set) {
+    for (uint8_t bank = 0; bank < Banks; ++bank)
+        applyInputPreset(set.banks[bank], set.explicitKeys[bank]);
+}
+
 void HistoryProfiles::beginLoad(const DisplayHalDefaults &hal) {
     hal_ = &hal;
     loading_ = uint8_t(1 - active_.load(std::memory_order_acquire));
@@ -313,6 +411,8 @@ void HistoryProfiles::feed(uint8_t byte) {
 void HistoryProfiles::finishLoad() {
     if (length_ || overflow_) parseLine();
     validateDisplay(sets_[loading_]);
+    validateBankGeometry(sets_[loading_]);
+    resolveInputPresets(sets_[loading_]);
     active_.store(loading_, std::memory_order_release);
 }
 
@@ -338,7 +438,13 @@ void HistoryProfiles::parseLine() {
     *equals = 0;
     char *keyName = trim(text), *value = trim(equals + 1);
     if (section_ == -2) {
-        if (!strcmp(keyName, "exit_key")) {
+        if (!strcmp(keyName, "mode")) {
+            if (!parseOutputMode(value, sets_[loading_].global.mode)) ++errors_;
+        } else if (!strcmp(keyName, "console_bits")) {
+            if (!strcmp(value, "7")) sets_[loading_].global.consoleBits = 7;
+            else if (!strcmp(value, "8")) sets_[loading_].global.consoleBits = 8;
+            else ++errors_;
+        } else if (!strcmp(keyName, "exit_key")) {
             if (!parseGlobalKey(value, sets_[loading_].global.exitKey)) ++errors_;
         } else if (!strcmp(keyName, "clear_key")) {
             if (!parseGlobalKey(value, sets_[loading_].global.clearKey)) ++errors_;
@@ -394,6 +500,26 @@ void HistoryProfiles::parseLine() {
         return;
     if (section_ < 0) { ++errors_; return; }
     HistoryProfile &profile = sets_[loading_].banks[section_];
+    if (!strcmp(keyName, "mode")) {
+        if (parseOutputMode(value, profile.mode)) profile.modeOverride = true;
+        else ++errors_;
+        return;
+    }
+    if (!strcmp(keyName, "input")) {
+        if (!parseInputPreset(value, profile.input)) ++errors_;
+        return;
+    }
+    if (!strncmp(keyName, "zoom", 4) && keyName[4] >= '1' && keyName[4] <= '4' &&
+        !strcmp(keyName + 5, "_terminal")) {
+        Geometry geometry;
+        if (!parseGeometry(value, geometry)) ++errors_;
+        else {
+            const int zoomIndex = keyName[4] - '1';
+            profile.geometry[zoomIndex] = geometry;
+            profile.geometryOverride[zoomIndex] = true;
+        }
+        return;
+    }
     if (!strcmp(keyName, "name")) {
         strncpy(profile.name, value, HistoryProfile::MaxName);
         profile.name[HistoryProfile::MaxName] = 0;
@@ -475,6 +601,7 @@ void HistoryProfiles::parseLine() {
     for (uint8_t key = 0; key < AppKeyCount; ++key) {
         if (!strcmp(keyName, KeyNames[key])) {
             if (!parseBinding(value, profile.keys[key])) ++errors_;
+            else sets_[loading_].explicitKeys[section_] |= uint32_t(1) << key;
             return;
         }
     }

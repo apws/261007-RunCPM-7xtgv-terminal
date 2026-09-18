@@ -51,7 +51,6 @@
   after a verified host build. Archive replaced stable artifacts alongside it
   as `build/<project>/<target>/YYMMDD-HHMM <note>`; do not mass-rename
   historical experiment folders merely to impose this newer chronology. A
-  device-triggered reflash uploads only that target's `current` artifact; a
   deliberate host build first stages and verifies its own target artifact as
   `new`, then uploads that candidate for hardware test while leaving `current`
   untouched. Device-side `REFLASH` normally uploads `new`, falling back to
@@ -62,6 +61,10 @@
   deployed state. Never let one target reuse another target's build directory
   or manually promote an ad-hoc Arduino build: use the target-aware reflash
   path so HAL build properties are present.
+- Every target-aware firmware rebuild must inject a fresh `YYMMDD-HHMM` boot
+  stamp (as `tools/reflash.py` now does). Never treat the sketch's cached
+  `__DATE__`/`__TIME__` as proof of which image was flashed; check the staged
+  artifact and uploader log when diagnosing a device-side `REFLASH`.
 - Petr performs longer interactive/device tests.  After a relevant build,
   provide a short exact test checklist and wait for his report instead of
   consuming time driving the hardware test.  The shared tmux screen may be
@@ -125,6 +128,10 @@
   one-way with `tools/cpm-transfer/transfer.py put`; use `--verify` only when
   a full device read-back is worthwhile. Never silently import device files;
   use explicit `get` only when Petr requests it.
+- Never overwrite device-side `A0:7XTGVTRM.INI` or `A0:7XTGVTRM.BUF`
+  (terminal history) without Petr's explicit approval for that transfer,
+  even during a rebuild or bulk CP/M mirror deployment. Approval for one
+  file does not authorize overwriting the other.
 - Keep CP/M text source lines at 80 columns or fewer; the installed TE editor
   rejects longer lines. Upload text with `--cpm-text` so it receives CR/LF
   records and a trailing Ctrl-Z.

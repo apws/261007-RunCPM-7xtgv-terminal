@@ -22,6 +22,7 @@ import tty
 PREFIX = 0x1D  # Ctrl+]
 SNAPSHOT_REQUEST = b'\x1b[>62v'  # PC mirror only; does not redraw the TFT.
 SNAPSHOT_RESET = b'\x1b[2J\x1b[H'
+MOUSE_MODES = (1000, 1002, 1003, 1005, 1006, 1007, 1015, 1016)
 # Guest-to-host capability request.  This is deliberately handled by the PC
 # bridge only: the firmware has no knowledge of the host build/upload setup.
 HOST_REFLASH_REQUEST = b'\x1b[>64v'
@@ -41,6 +42,88 @@ COMMANDS = {
     ord('p'): b'\x1b[>10v', ord('n'): b'\x1b[>11v', ord('d'): b'\x1b[>65v',
     ord('['): b'\x1b[>12v', ord(']'): b'\x1b[>13v',
 }
+
+
+def mirror_sanitize_host_modes():
+    """Keep mouse reports and alternate-scroll out of the CP/M keyboard path."""
+    return b''.join(b'\x1b[?' + str(mode).encode('ascii') + b'l'
+                    for mode in MOUSE_MODES)
+
+
+def mirror_init():
+    return (b'\x1b[?1049h' + mirror_sanitize_host_modes()
+            + b'\x1b[?2004l\x1b[?1l\x1b>\x1b[0m\x1b[2J\x1b[H')
+
+
+class MouseReports:
+    """Discard complete X10, SGR, and urxvt reports; preserve other CSI input."""
+    def __init__(self):
+        self.pending = bytearray()
+        self.pending_at = 0.0
+
+    @staticmethod
+    def _decimal_report(data, sgr):
+        digits = fields = 0
+        for index, byte in enumerate(data):
+            if ord('0') <= byte <= ord('9'):
+                digits += 1
+                if digits > 5:
+                    return False
+            elif byte == ord(';') and digits and fields < 2:
+                fields += 1
+                digits = 0
+            elif byte in ((ord('M'), ord('m')) if sgr else (ord('M'),)):
+                return fields == 2 and digits > 0 and index == len(data) - 1
+            else:
+                return False
+        return None
+
+    @classmethod
+    def _status(cls, data):
+        if data[0] != 27:
+            return False
+        if len(data) == 1:
+            return None
+        if data[1] != ord('['):
+            return False
+        if len(data) == 2:
+            return None
+        tail = data[2:]
+        if tail[0] == ord('M'):
+            # X10: CSI M followed by button, column, row (each offset by 32).
+            if any(byte < 32 for byte in tail[1:]) or len(tail) > 4:
+                return False
+            if len(tail) == 4:
+                return tail[2] >= 33 and tail[3] >= 33
+            return None
+        if tail[0] == ord('<'):
+            return cls._decimal_report(tail[1:], sgr=True)
+        if ord('0') <= tail[0] <= ord('9'):
+            return cls._decimal_report(tail, sgr=False)
+        return False
+
+    def feed(self, data):
+        passed = bytearray()
+        for byte in data:
+            self.pending.append(byte)
+            self.pending_at = time.monotonic()
+            while self.pending:
+                status = self._status(self.pending)
+                if status is True:
+                    self.pending.clear()
+                elif status is False or len(self.pending) > 32:
+                    passed.append(self.pending.pop(0))
+                else:
+                    break
+        return bytes(passed)
+
+    def tick(self):
+        # A lone ESC or incomplete report must never trap ordinary keyboard input.
+        if self.pending and time.monotonic() - self.pending_at >= 0.05:
+            passed = bytes(self.pending)
+            self.pending.clear()
+            return passed
+        return b''
 
 class Keys:
     def __init__(self):
@@ -220,6 +303,7 @@ def run(port, mode, reflash_command=None):
     saved_keyboard = termios.tcgetattr(0)
     saved_stdout = fcntl.fcntl(1, fcntl.F_GETFL)
     keys = Keys()
+    mouse_reports = MouseReports()
     host_events = HostEvents()
     incoming, outgoing = bytearray(), bytearray()
     entered = False
@@ -227,7 +311,7 @@ def run(port, mode, reflash_command=None):
         fd, saved_serial = open_serial(port)
         opened_identity = port_identity(port)
         tty.setraw(0, termios.TCSANOW)
-        os.write(1, b'\x1b[?1049h\x1b[?2004l\x1b[?1l\x1b>\x1b[0m\x1b[2J\x1b[H')
+        os.write(1, mirror_init())
         entered = True
         fcntl.fcntl(1, fcntl.F_SETFL, saved_stdout | os.O_NONBLOCK)
         if mode:
@@ -256,6 +340,7 @@ def run(port, mode, reflash_command=None):
                 fd = saved_serial = None
                 reconnect_at = time.monotonic() + 0.25
                 continue
+            outgoing.extend(keys.feed(mouse_reports.tick()))
             outgoing.extend(keys.tick())
             # Konsole/Kitty font changes usually change this PTY's cell
             # geometry.  The device cannot know that newly visible host rows
@@ -284,7 +369,7 @@ def run(port, mode, reflash_command=None):
                 data = os.read(0, 256)
                 if not data:
                     break
-                translated = keys.feed(data)
+                translated = keys.feed(mouse_reports.feed(data))
                 if not keys.quit and len(outgoing) < 8192:
                     outgoing.extend(translated)
             if fd is None and time.monotonic() >= reconnect_at:
@@ -298,6 +383,7 @@ def run(port, mode, reflash_command=None):
                     # The firmware answers this with its complete text buffer.
                     # Do not invalidate the TFT: a completed xterm256 plot stays up.
                     incoming.clear()
+                    incoming.extend(mirror_sanitize_host_modes())
                     snapshot_pending = True
                     snapshot_probe.clear()
                     snapshot_retry_at = time.monotonic()
@@ -341,6 +427,7 @@ def run(port, mode, reflash_command=None):
                                 # the mirror, so retain it in a normal log.
                                 with open('/tmp/7xtgv-reflash.log', 'ab') as log:
                                     log.write(time.strftime('\n%F %T reflash\n').encode())
+                                    log.flush()  # Keep the request ahead of child upload output.
                                     subprocess.run(reflash_command, check=True,
                                                    stdout=log, stderr=subprocess.STDOUT)
                             except (OSError, subprocess.CalledProcessError) as exc:
@@ -363,7 +450,8 @@ def run(port, mode, reflash_command=None):
     finally:
         fcntl.fcntl(1, fcntl.F_SETFL, saved_stdout)
         if entered:
-            os.write(1, b'\x1b[0m\x1b[?7h\x1b[?25h\x1b[?1049l')
+            os.write(1, mirror_sanitize_host_modes()
+                     + b'\x1b[0m\x1b[?7h\x1b[?25h\x1b[?1049l')
         termios.tcsetattr(0, termios.TCSANOW, saved_keyboard)
         close_serial(fd, saved_serial)
 

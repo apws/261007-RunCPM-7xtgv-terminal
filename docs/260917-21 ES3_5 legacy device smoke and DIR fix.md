@@ -1,0 +1,116 @@
+# ES3_5 legacy terminal device smoke and DIR fix
+
+Date: 260917. Scope: short tests on the attached 5-inch ESP32-S3 device and
+its Konsole mirror, after staging the legacy-compatibility firmware. The
+expanded `A0:7XTGVTRM.INI` was uploaded with full read-back verification;
+its active settings remained identical to the device copy, while omitted
+per-bank defaults were added only as whole-line comments.
+
+## Device checks
+
+- The 260917-1853 candidate flashed with verified image hashes. Boot reached
+  `A0>`, mounted the SD card, and reported terminal profile/history `OK`.
+- `DIR` listed A0 files, including `VT52.COM` and `VT100.COM`.
+- `VT52` returned to CCP. With a directory listing left on screen, `CLS`
+  did **not** clear it in VT52 mode, as intended: `CLS.COM` emits ANSI clear
+  controls. `VT100` returned to ANSI; `CLS` then cleared the mirror to `A0>`.
+- Under `CONSOLE8`, MBASIC's
+  `PRINT CHR$(155);"2J";CHR$(155);"H";"C1-OK"` cleared the mirror and placed
+  `C1-OK` at its first row. `SYSTEM` returned to CCP and `CONSOLE7` reported
+  the console back at 7 bits. This tests C1 CSI end-to-end, not FAND's own
+  output.
+- Under `CONSOLE7`, the same MBASIC C1 probe did not clear the screen; the
+  BASIC banner remained and a printable `J` preceded the test marker. This
+  is consistent with bit 7 being masked before output decoding.
+- In VT52 mode, MBASIC output `ESC H`, `ESC J`, `ESC Y`, row byte 37 and column
+  byte 42. The mirror cleared and showed `VT52-OK` at zero-based row 5,
+  column 10. The first attempt used `ESC E` as a clear; that was a test
+  assumption error, not a device failure. This VT52 subset uses home plus
+  erase-to-end for a full clear.
+- After a transient `VT52.COM` switch, explicitly selecting profile #9
+  restored its inherited ANSI output default: the next `CLS` cleared the
+  mirror. A CCP prompt alone was not used to reset the output mode.
+
+## Reproduced issue and correction
+
+Immediately after ANSI `CLS`, `DIR` printed `>:` rather than `A:` at the
+start of every listing row. `CLS` deliberately requests a compact next CCP
+prompt (`A0>` rather than `CR/LF A0>`). `_ccp_dir()` used `prompt[2]` as the
+drive letter; in the compact form, byte 2 is `>`.
+
+Changed only the default drive-letter expression in `ccp.h` to use
+`'A' + currentDrive`, retaining the explicit FCB-drive case. The target-aware
+ES3_5 build succeeded (580164 program bytes, 181056 static RAM bytes). It
+was flashed with verified hashes as build `260917-2107`. On that firmware,
+`CLS` followed by `DIR` produced `A:` on every listing row and a normal CCP
+prompt afterward. No other CCP commands were changed.
+
+The preceding 260917-1853 candidate remains archived under
+`build/7xtgv-vt100-runcpm/jc8048w550/260917-2107 unverified`;
+`new` is the tested 260917-2107 candidate. `current` was not promoted.
+The user-visible Konsole mirror was restored after each upload. Reflashing
+lost the previous active CP/M session. Test commands used reserved bank #9.
+
+## Observations and untested boundaries
+
+- Just after the first bank-#9 selection, the mirror briefly showed no CCP
+  prompt, then showed two prompts following the next `DIR`. This was not
+  reproduced after the second flash and has no isolated cause yet; treat it
+  as an observation, not a confirmed firmware bug.
+- These checks used the mirror. TFT appearance, FAND's actual output and
+  input, per-bank input presets, per-bank geometry overrides, and mixed app
+  workflows still require separate acceptance. No FAND files or settings were
+  touched in this smoke test.
+- The first Console8/VT52 `ESC Y` trial used `0x9B` as its second address
+  byte. That addresses zero-based column 123, beyond the then-current
+  95-column Konsole pane, so that first visual check was inconclusive. The
+  later wider-pane repeat below resolved it.
+- Intermittent sandbox access to the shared tmux socket required an approved
+  escalated command path for some keystrokes. The serial connection itself
+  was otherwise usable during the first two passes; this is a host-tool
+  permission observation, not a device fault.
+
+## Wider-pane follow-up: VT52 `0x9B` address byte
+
+The third pass tested the possible collision between single-byte C1 CSI and
+the opaque second byte of VT52 `ESC Y`. No firmware or `.TOK` files changed.
+
+1. Started at ANSI/Console7 in reserved profile #9. Enabled `CONSOLE8` and
+   used MBASIC `PRINT CHR$(27);"[>68;2v"` to request zoom 2. At this point
+   `PRINT STRING$(90,"X")` split 80+10, but that alone did **not** establish
+   terminal geometry: MBASIC defaults to an 80-column PRINT width.
+2. Entered VT52 via `VT52.COM`. MBASIC emitted `ESC H`, `ESC J`, `ESC Y`, row
+   byte 37, column byte 155 (`0x9B`), and `X`. In the 80-column zoom-2 grid,
+   the mirror showed `X` at zero-based row 5, column 79, the clamped right
+   edge. The private zoom-1 command was then sent while VT52 was active.
+3. Returned to ANSI and sent the zoom-1 command again for certainty. After
+   MBASIC `WIDTH 132`, `PRINT STRING$(120,"W")` stayed on one row. This
+   establishes the 132-column view; earlier 80+10 wraps were MBASIC output
+   formatting, not evidence that zoom restoration failed. `WIDTH` changes
+   MBASIC's own PRINT layout, not the terminal's logical geometry.
+4. Petr enlarged the Konsole profile; the tmux pane measured 134x44 instead
+   of 95x38. At zoom 1, with Console8 and VT52 selected, MBASIC emitted
+   `PRINT CHR$(27);"H";CHR$(27);"J";CHR$(27);"Y";CHR$(37);CHR$(155);"X"`.
+   The mirror showed exactly one `X` at zero-based row 5, column 123. Thus
+   `0x9B` was consumed as the VT52 column address, not as a new CSI. This is
+   a **pass** for the collision case in the output decoder.
+5. Exited MBASIC, ran `VT100.COM`, restored `CONSOLE7`, and ran `CLS`. The
+   attached mirror ended at `A0>`. The view was back at 132 columns before
+   the final test. No device-side INI read-back was done afterward.
+
+During the final MBASIC launch, its banner paused after `[CP/M Version]`.
+One read-only check briefly found no `/dev/ttyUSB0`; a later check found the
+node again and the mirror caught up to MBASIC `OK` without a new RunCPM boot
+banner. A final read-only check saw one more brief absence/reappearance of
+the same serial node; the mirror session remained attached. These are
+transient USB/bridge observations of unknown cause, not confirmed firmware
+crashes or parser failures. The agent did not initiate a reset/reflash during
+this follow-up, and did not send further device commands after the final
+serial check.
+
+`A1:BBCBASIC.TOK` was neither read from nor written to the device in these
+tests. It remains the editable token corpus described in
+`docs/260915-21 history tokens and editing surfaces.md`; firmware does not
+yet load `.TOK` files for completion. Future BBC application tests for Petr's
+workflow should use `BBCLOWER` with lowercase syntax, with uppercase
+`BBCBASIC.COM` only as a deliberate comparison.

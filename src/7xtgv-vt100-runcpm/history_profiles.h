@@ -17,6 +17,7 @@ enum AppKey : uint8_t {
     AppAltDelete, AppAltInsert, AppAltPageUp, AppAltPageDown,
     AppKeyCount
 };
+static_assert(AppKeyCount <= 32, "explicit key overrides use a 32-bit mask");
 
 enum BindingKind : uint8_t {
     BindingNone, BindingSend, BindingSendCancel, BindingHistoryPrevious, BindingHistoryNext
@@ -36,6 +37,8 @@ enum InputAdapter : uint8_t { InputAdapterNone, InputAdapterMbasicNative, InputA
 // Line editors accept a whole-line redraw; screen editors need insertion at
 // their own cursor. The latter transport is a separate future implementation.
 enum EditingSurface : uint8_t { EditingSurfaceLine, EditingSurfaceScreen };
+enum OutputMode : uint8_t { OutputAnsi, OutputVT52 };
+enum InputPreset : uint8_t { InputCustom, InputAnsi, InputVT52, InputWordStar };
 
 struct HistoryProfile {
     static constexpr uint8_t MaxName = 20, MaxSelectBytes = 64, MaxCommandBytes = 64,
@@ -63,10 +66,17 @@ struct HistoryProfile {
          commandNewLine = false, activateNumberedLine = false;
     InputAdapter inputAdapter = InputAdapterNone;
     EditingSurface editingSurface = EditingSurfaceLine;
+    OutputMode mode = OutputAnsi;
+    bool modeOverride = false;
+    InputPreset input = InputCustom;
+    Geometry geometry[4] = {};
+    bool geometryOverride[4] = {};
 };
 
 enum GlobalKey : uint8_t { GlobalKeyNone, GlobalKeyDualAltEscape, GlobalKeyDualAltDelete };
 struct GlobalProfile {
+    OutputMode mode = OutputAnsi;
+    uint8_t consoleBits = 7;
     GlobalKey exitKey = GlobalKeyDualAltEscape;
     GlobalKey clearKey = GlobalKeyDualAltDelete;
     uint16_t cursorBlinkMs = 500;
@@ -97,13 +107,21 @@ class HistoryProfiles {
     const HistoryProfile &get(uint8_t bank) const;
     const GlobalProfile &global() const;
     const DisplayProfile &display() const;
+    OutputMode modeFor(uint8_t bank) const;
+    Geometry geometryFor(uint8_t bank, uint8_t zoom) const;
+    Geometry geometryFor(uint8_t bank, uint8_t zoom, Geometry displayGeometry) const;
     void beginLoad(const DisplayHalDefaults &hal = displayHalDefaults());
     void feed(uint8_t byte);
     void finishLoad();
     unsigned errors() const { return errors_; }
 
   private:
-    struct Set { GlobalProfile global; DisplayProfile display; HistoryProfile banks[Banks]; } sets_[2];
+    struct Set {
+        GlobalProfile global;
+        DisplayProfile display;
+        HistoryProfile banks[Banks];
+        uint32_t explicitKeys[Banks] = {};
+    } sets_[2];
     std::atomic<uint8_t> active_{0};
     uint8_t loading_ = 1;
     int section_ = -1;
@@ -115,6 +133,8 @@ class HistoryProfiles {
     void defaults(Set &set);
     void displayDefaults(Set &set);
     void validateDisplay(Set &set);
+    void validateBankGeometry(Set &set);
+    void resolveInputPresets(Set &set);
     void parseLine();
 };
 
