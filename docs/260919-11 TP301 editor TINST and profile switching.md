@@ -4,6 +4,7 @@ This records Petr's interactive TP301 investigation on 260919, the native
 RunCPM comparison, and the terminal change confirmed afterward on the device.
 It extends the earlier [TINST capability reference](260911-14%20Turbo%20Pascal%203.01%20keyboard%20and%20terminal%20installation%20reference.md),
 the [ANSI insert/delete-line plan](260918-22%20terminal%20insert-delete%20lines%20plan.md),
+the [TP301 input-profile notes](260918-23%20TP301%20input%20profiles%20and%20ANSI%20attribute%20marker%20notes.md),
 and the [focused prefix diagnosis](260919-09%20TP301%20insert-line%20prefix%20diagnosis.md).
 The exact live TINST key table below is Petr's reported configuration, not a
 fresh read-back of `A2:TINST.DTA` or a list of Borland defaults.
