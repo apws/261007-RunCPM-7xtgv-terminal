@@ -83,13 +83,14 @@ static char historyLoadText[vt::LineHistory::MaxLine] = {};
 // Keep this independent scratch storage at the compiled terminal maximum.
 static char screenRowCapture[vt::MaxCols] = {};
 static bool historyNoticeActive = false;
-static bool historyNoticePeek = false;
+static bool historyNoticeSendOnSelect = false;
 static bool historyNoticeRaw = false;
 static uint8_t historyNoticeBank = 0, historyNoticeRow = 0;
 static uint32_t historyNoticeUntil = 0;
 static uint8_t historyNoticePaper[vt::MaxCols], historyNoticeChars[vt::MaxCols];
 static uint8_t historyNoticeAttrs[vt::MaxCols], historyNoticeFlags[vt::MaxCols];
 static void showHistoryBank(uint8_t bank, bool peek = false);
+static void restoreHistoryNotice();
 static void setRawInputMode(bool enabled);
 static void redrawLocalCompose();
 static void finishLocalCompose(bool submit);
@@ -749,10 +750,20 @@ static void requestZoomLevel(uint8_t zoom) {
 static void applySelectedProfile() {
     // This is an explicit user action, unlike the temporary effective-bank
     // change inferred from a CCP prompt. In-band mode commands stay transient.
+    restoreHistoryNotice();
     terminal.setMode(profiles.modeFor(selectedBank) == vt::OutputAnsi);
     const vt::Geometry geometry = profiles.geometryFor(selectedBank, activeDisplayProfile.viewZoom);
     if (terminal.cols != geometry.cols || terminal.rows != geometry.rows)
         applyDisplayProfile(activeDisplayProfile);
+}
+static void discardCurrentForProfileSwitch() {
+    // The history model can contain text from a screen editor. Only the CCP
+    // owns an editable command line that we may erase with guest backspaces.
+    restoreHistoryNotice();
+    const bool atCcp = ccpPromptLive && cpmPromptEndColumn() >= 0;
+    uint8_t erase = history->discardCurrent();
+    if (atCcp)
+        while (erase--) input.push(8);
 }
 static void keyboardAction(void *, vt::Keyboard::Action action) {
     // Recall waits until the transient label is gone, but bank changes remain
@@ -809,8 +820,7 @@ static void keyboardAction(void *, vt::Keyboard::Action action) {
     }
     if (action == vt::Keyboard::HistoryBankPrevious) {
         if (history) {
-            uint8_t erase = history->discardCurrent();
-            while (erase--) input.push(8);
+            discardCurrentForProfileSwitch();
             selectedBank = uint8_t((int(selectedBank) + vt::HistoryProfiles::Banks - 1) %
                                    vt::HistoryProfiles::Banks);
             history->select(selectedBank);
@@ -822,8 +832,7 @@ static void keyboardAction(void *, vt::Keyboard::Action action) {
     }
     if (action == vt::Keyboard::HistoryBankNext) {
         if (history) {
-            uint8_t erase = history->discardCurrent();
-            while (erase--) input.push(8);
+            discardCurrentForProfileSwitch();
             selectedBank = uint8_t((selectedBank + 1) % vt::HistoryProfiles::Banks);
             history->select(selectedBank);
             resetLineSession();
@@ -871,8 +880,7 @@ static void keyboardAction(void *, vt::Keyboard::Action action) {
     if (action >= vt::Keyboard::HistoryBank0 && action <= vt::Keyboard::HistoryBank9) {
         if (history) {
             rawInputMode = false;
-            uint8_t erase = history->discardCurrent();
-            while (erase--) input.push(8);
+            discardCurrentForProfileSwitch();
             selectedBank = uint8_t(action - vt::Keyboard::HistoryBank0);
             history->select(selectedBank);
             resetLineSession();
@@ -1402,43 +1410,27 @@ static void drawCell(int i) {
     gfx->draw16bitRGBBitmap(origin + column * width + GFX_OFS_X,
                              row * height + GFX_OFS_Y, scaledPixels, width, height);
 }
-static void writeHistoryNotice(bool label) {
-    if (historyNoticePeek) {
-        int first = terminal.index(0, historyNoticeRow);
-        for (int col = 0; col < terminal.cols; ++col) {
-            terminal.paperRAM[first + col] = ' ';
-            terminal.charRAM[first + col] = ' ';
-            terminal.attrRAM[first + col] = 1;
-            terminal.flags[first + col] = 0;
-            terminal.dirty[first + col] = true;
-        }
-        char text[vt::HistoryProfile::MaxName + 16];
-        if (historyNoticeRaw)
-            snprintf(text, sizeof(text), "[## RAW / #%u]", unsigned(historyNoticeBank));
-        else
-            snprintf(text, sizeof(text), "[#%u %s]", unsigned(historyNoticeBank),
-                     profiles.get(historyNoticeBank).name);
-        for (int col = 0; text[col] && col < terminal.cols; ++col)
-            terminal.charRAM[first + col] = uint8_t(text[col]);
-        terminal.mirrorDirty[historyNoticeRow] = true;
-        return;
+static void writeHistoryNotice() {
+    int first = terminal.index(0, historyNoticeRow);
+    for (int col = 0; col < terminal.cols; ++col) {
+        terminal.paperRAM[first + col] = ' ';
+        terminal.charRAM[first + col] = ' ';
+        terminal.attrRAM[first + col] = 1;
+        terminal.flags[first + col] = 0;
+        terminal.dirty[first + col] = true;
     }
-    char sequence[24];
-    snprintf(sequence, sizeof(sequence), "\033[%u;1H\033[2K", unsigned(historyNoticeRow + 1));
-    for (const char *p = sequence; *p; ++p)
-        terminal.feed(uint8_t(*p));
-    if (label) {
-        terminal.feed('[');
-        terminal.feed('#');
-        terminal.feed(uint8_t('0' + historyNoticeBank));
-        terminal.feed(' ');
-        const char *name = profiles.get(historyNoticeBank).name;
-        while (*name) terminal.feed(uint8_t(*name++));
-        terminal.feed(']');
-    }
+    char text[vt::HistoryProfile::MaxName + 16];
+    if (historyNoticeRaw)
+        snprintf(text, sizeof(text), "[## RAW / #%u]", unsigned(historyNoticeBank));
+    else
+        snprintf(text, sizeof(text), "[#%u %s]", unsigned(historyNoticeBank),
+                 profiles.get(historyNoticeBank).name);
+    for (int col = 0; text[col] && col < terminal.cols; ++col)
+        terminal.charRAM[first + col] = uint8_t(text[col]);
+    terminal.mirrorDirty[historyNoticeRow] = true;
 }
-static void restoreHistoryPeek() {
-    if (!historyNoticePeek)
+static void restoreHistoryNotice() {
+    if (!historyNoticeActive)
         return;
     int first = terminal.index(0, historyNoticeRow);
     memcpy(terminal.paperRAM + first, historyNoticePaper, terminal.cols);
@@ -1448,28 +1440,28 @@ static void restoreHistoryPeek() {
     std::fill(terminal.dirty + first, terminal.dirty + first + terminal.cols, true);
     terminal.mirrorDirty[historyNoticeRow] = true;
     terminal.mirrorCursorDirty = true;
-    historyNoticePeek = false;
+    historyNoticeActive = false;
+    historyNoticeSendOnSelect = false;
 }
 static void showHistoryBank(uint8_t bank, bool peek) {
     // Repeated Alt+Space refreshes the same overlay from its original row.
-    // A profile change first restores a pending non-destructive peek.
-    restoreHistoryPeek();
+    // A profile change first restores the previous label and cursor row.
+    restoreHistoryNotice();
     historyNoticeBank = bank;
     historyNoticeRow = uint8_t(terminal.y);
-    // Without an on_select command there is no app/CCP redraw after the
-    // notice expires. Preserve the existing row, including its prompt.
-    historyNoticePeek = peek || profiles.get(bank).selectLength == 0;
+    // Never inject on_select into an application. A painted but stale CCP
+    // prompt is insufficient; the prompt must still be accepting input.
+    historyNoticeSendOnSelect = !peek && profiles.get(bank).selectLength &&
+                                ccpPromptLive && cpmPromptEndColumn() >= 0;
     historyNoticeRaw = rawInputMode;
-    if (historyNoticePeek) {
-        int first = terminal.index(0, historyNoticeRow);
-        memcpy(historyNoticePaper, terminal.paperRAM + first, terminal.cols);
-        memcpy(historyNoticeChars, terminal.charRAM + first, terminal.cols);
-        memcpy(historyNoticeAttrs, terminal.attrRAM + first, terminal.cols);
-        memcpy(historyNoticeFlags, terminal.flags + first, terminal.cols);
-    }
+    int first = terminal.index(0, historyNoticeRow);
+    memcpy(historyNoticePaper, terminal.paperRAM + first, terminal.cols);
+    memcpy(historyNoticeChars, terminal.charRAM + first, terminal.cols);
+    memcpy(historyNoticeAttrs, terminal.attrRAM + first, terminal.cols);
+    memcpy(historyNoticeFlags, terminal.flags + first, terminal.cols);
     historyNoticeUntil = millis() + 1000;
     historyNoticeActive = true;
-    writeHistoryNotice(true);
+    writeHistoryNotice();
 }
 static void setRawInputMode(bool enabled) {
     rawControlLength = 0;
@@ -1481,12 +1473,10 @@ static void historyNoticePoll() {
     if (!historyNoticeActive)
         return;
     if (int32_t(millis() - historyNoticeUntil) >= 0) {
-        historyNoticeActive = false;
-        if (historyNoticePeek) {
-            restoreHistoryPeek();
+        const bool sendOnSelect = historyNoticeSendOnSelect;
+        restoreHistoryNotice();
+        if (!sendOnSelect)
             return;
-        }
-        writeHistoryNotice(false);
         const vt::HistoryProfile &profile = profiles.get(historyNoticeBank);
         for (uint8_t i = 0; i < profile.selectLength; ++i) {
             input.push(profile.selectBytes[i]);
@@ -1500,7 +1490,7 @@ static void historyNoticePoll() {
                   terminal.charRAM[first + 2] ==
                       uint8_t(historyNoticeRaw ? '#' : '0' + historyNoticeBank);
     if (!intact)
-        writeHistoryNotice(true);
+        writeHistoryNotice();
 }
 static void drawIndicator() {
     // A GCLS/xterm pixel canvas owns the entire physical surface. The gutter
@@ -2122,10 +2112,8 @@ void terminalLoop() {
         }
     }
     // Do not overwrite new CP/M output when restoring a temporary bank overlay.
-    if (historyNoticePeek && output.available()) {
-        historyNoticeActive = false;
-        restoreHistoryPeek();
-    }
+    if (historyNoticeActive && output.available())
+        restoreHistoryNotice();
     // Always consume CP/M output, even when its input queue is full.
     for (int n = 0; n < 512 && output.pop(c); n++) {
         if (localComposeRedrawPending) {

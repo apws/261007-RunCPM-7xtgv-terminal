@@ -11,6 +11,10 @@
   menu and its independently callable tests.
 - Preserve Z80 behavior when changing RunCPM. Measure before keeping emulator
   optimizations, and record relevant results in `docs/`.
+- Native `src/linux_RunCPM` does not run the 7xtgv terminal/parser/renderer.
+  Use its ordinary ANSI terminal for application-output comparisons, not as
+  proof that 7xtgv display behavior works; verify terminal fixes in the host
+  terminal tests and, when needed, on the real device.
 - For hardware work, check serial-port ownership first, avoid unnecessary
   reboots, and release the port after testing. ESP32 flashing recreates
   `/dev/ttyACM0`; restore the temporary user ACL afterward with approved sudo.
@@ -29,10 +33,19 @@
   A relaunch is complete only after the user-visible Konsole/Kitty attachment
   is started; do not leave only a detached tmux serial bridge.
   Briefly report that active CP/M program state was lost.
-- Petr's chat instruction `reflash` means upload the current verified firmware
-  for the connected target, then restore the user-visible mirror; do not treat
-  it as build-only preparation. A literal `reflash` typed inside CP/M is not a
-  host instruction unless an explicit future opt-in command-monitor is enabled.
+- Petr's chat instruction `reflash` means upload the connected target's staged
+  `new` candidate, falling back to `current` if none exists, then restore the
+  user-visible mirror; do not treat it as build-only preparation. A literal
+  `reflash` typed inside CP/M is not a host instruction unless an explicit
+  future opt-in command-monitor is enabled.
+  This chat instruction authorizes the complete in-scope device and mirror
+  workflow without additional conversational permission questions: check port
+  ownership, stop the shared mirror, use the configured target uploader, handle
+  its reset and any required serial-port ACL, relaunch Konsole/Kitty, and verify
+  the booted build. Obtain any execution-environment approval still required
+  for privileged or outside-sandbox commands. `reflash` alone does not authorize
+  a rebuild, image promotion, target change, CP/M file overwrite, or unrelated
+  device tests.
   The opt-in monitor protocol is now reserved as guest output `CSI > 64 v`
   (`ESC[>64v`), emitted by `A0:REFLASH.COM`; it must only invoke an explicitly
   configured target-specific host uploader. The common host dispatcher is

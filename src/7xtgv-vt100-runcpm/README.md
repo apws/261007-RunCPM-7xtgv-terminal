@@ -180,6 +180,7 @@ ESC). Remove conflicting mappings in that profile if necessary.
 - CSI A/B/C/D, E/F, G, H/f, d: cursor movement/positioning; CSI J/K modes 0/1/2:
   erase. CSI 3 J scrollback clearing is ignored because there is no scrollback.
 - ESC D/M/E: index, reverse index, next line. CSI top;bottom r: scroll margins.
+  CSI n L/M inserts/deletes lines from the cursor through the bottom margin.
 - CSI ?6 h/l: origin mode; CSI ?7 h/l: delayed autowrap; CSI ?25 h/l: cursor.
 - ESC 7/8 and CSI s/u: cursor/rendition/charset save and restore.
 - ESC ( B / ESC ) B: ASCII G0/G1; ESC ( 0 / ESC ) 0: DEC graphics; SI/SO select
@@ -208,8 +209,9 @@ Enter maps to CR, Backspace/DEL to BS. Incomplete keyboard escapes flush after
 ### Deliberate limits
 
 This is a documented subset, not a complete certified VT100. No scrollback,
-alternate screen, 132 columns, double-sized lines, UTF-8 input, 8-bit C1 controls,
-mouse, automatic pan, application function-key remapping, or binary transfer.
+alternate screen, 132 columns, double-sized lines, UTF-8 input, 8-bit C1 controls
+other than CSI, mouse, automatic pan, application function-key remapping, or
+binary transfer.
 Unsupported CSI commands are ignored as units. OSC/DCS/PM/APC payloads are
 consumed without storage through BEL or ESC-backslash. CAN/SUB cancel partial
 control sequences. Parameter storage is capped at 16, with values capped at
@@ -293,8 +295,9 @@ g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g -pthread -I
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-Tests exercise fragmented/malformed escapes, erase/wrap/margins, colors,
-charsets, replies, VT52, manual pan, keyboard timeouts, 200,000 hostile bytes,
+Tests exercise fragmented/malformed escapes, erase/wrap/margins, line
+insertion/deletion, colors, charsets, replies, VT52, manual pan, keyboard
+timeouts, 200,000 hostile bytes,
 and one million ordered bytes through the actual inter-core ring implementation
 while the other direction is full. The runtime tests use fake USB/GFX peripherals with the actual firmware code
 to exercise slow/disconnected mirrors, saturation, reconnect snapshots, and

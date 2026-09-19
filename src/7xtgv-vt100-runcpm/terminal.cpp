@@ -190,30 +190,38 @@ void Terminal::eraseDisplay(bool beforeCursor, bool afterCursor) {
     if (afterCursor)
         erase(y, x, rows - 1, cols - 1);
 }
-void Terminal::scroll(int delta) {
-    if (delta > 0) {
-        for (int row = top; row < bottom; ++row)
-            for (int col = 0; col < cols; ++col) {
-                const int dst = index(col, row), src = index(col, row + 1);
-                paperRAM[dst] = paperRAM[src]; charRAM[dst] = charRAM[src];
-                attrRAM[dst] = attrRAM[src]; flags[dst] = flags[src];
-            }
-        erase(bottom, 0, bottom, cols - 1);
+void Terminal::shiftLines(int firstRow, int count, bool insert) {
+    if (firstRow < top || firstRow > bottom || count <= 0)
+        return;
+    count = std::min(count, bottom - firstRow + 1);
+    if (insert) {
+        for (int row = bottom; row >= firstRow + count; --row) {
+            const int dst = index(0, row), src = index(0, row - count);
+            memcpy(paperRAM + dst, paperRAM + src, cols);
+            memcpy(charRAM + dst, charRAM + src, cols);
+            memcpy(attrRAM + dst, attrRAM + src, cols);
+            memcpy(flags + dst, flags + src, cols);
+        }
+        erase(firstRow, 0, firstRow + count - 1, cols - 1);
     } else {
-        for (int row = bottom; row > top; --row)
-            for (int col = 0; col < cols; ++col) {
-                const int dst = index(col, row), src = index(col, row - 1);
-                paperRAM[dst] = paperRAM[src]; charRAM[dst] = charRAM[src];
-                attrRAM[dst] = attrRAM[src]; flags[dst] = flags[src];
-            }
-        erase(top, 0, top, cols - 1);
+        for (int row = firstRow; row <= bottom - count; ++row) {
+            const int dst = index(0, row), src = index(0, row + count);
+            memcpy(paperRAM + dst, paperRAM + src, cols);
+            memcpy(charRAM + dst, charRAM + src, cols);
+            memcpy(attrRAM + dst, attrRAM + src, cols);
+            memcpy(flags + dst, flags + src, cols);
+        }
+        erase(bottom - count + 1, 0, bottom, cols - 1);
     }
-    for (int row = top; row <= bottom; ++row)
+    for (int row = firstRow; row <= bottom; ++row)
         for (int col = 0; col < cols; ++col)
             changed(index(col, row));
     // A completed local plot is no longer retained once ordinary terminal
     // scrolling repaints its cells. Let the display restore its gutter once.
     plot(PlotScroll);
+}
+void Terminal::scroll(int delta) {
+    shiftLines(top, 1, delta < 0);
 }
 void Terminal::index(bool reverse) {
     if (reverse) {
@@ -475,6 +483,13 @@ void Terminal::dispatch(uint8_t f) {
         else if (params[0] == 2)
             erase(y, 0, y, cols - 1);
         wrapPending = false;
+        break;
+    case 'L':
+    case 'M':
+        if (y >= top && y <= bottom) {
+            shiftLines(y, n, f == 'L');
+            move(0, y);
+        }
         break;
     case 'm':
         sgr();

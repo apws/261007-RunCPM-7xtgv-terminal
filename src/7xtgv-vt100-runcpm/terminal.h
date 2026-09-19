@@ -101,6 +101,7 @@ class Terminal {
     void blank(int i);
     void erase(int firstRow, int firstCol, int lastRow, int lastCol);
     void eraseDisplay(bool beforeCursor, bool afterCursor);
+    void shiftLines(int firstRow, int count, bool insert);
     void scroll(int delta);
     void index(bool reverse = false);
     void put(uint8_t c);

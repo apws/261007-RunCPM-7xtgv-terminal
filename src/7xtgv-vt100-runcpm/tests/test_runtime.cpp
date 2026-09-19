@@ -470,12 +470,74 @@ int main() {
     terminal.reset();
     for (uint8_t c : std::string("A0>")) terminal.feed(c);
     keyboardAction(nullptr, vt::Keyboard::Action(vt::Keyboard::HistoryBank0 + 2));
-    assert(selectedBank == 2 && historyNoticeActive && historyNoticePeek);
+    assert(selectedBank == 2 && historyNoticeActive && !historyNoticeSendOnSelect);
     fakeTime += 1000;
     historyNoticePoll();
     assert(!historyNoticeActive && terminal.x == 3);
     assert(std::string(reinterpret_cast<char *>(terminal.charRAM), 3) == "A0>");
     assert(!input.pop(testByte));
+    // A profile with on_select may still be chosen while editing inside an
+    // application. Neither its command nor history-model backspaces may reach
+    // the guest, and the notice must restore the exact row and cursor.
+    terminalConfigBegin();
+    for (uint8_t c : std::string("[bank3]\non_select=A2:\\r\n")) terminalConfigFeed(c);
+    assert(terminalConfigEnd() == 0);
+    terminal.reset();
+    ccpPromptLive = false;
+    for (uint8_t c : std::string("\033[4;6Hsource line")) terminal.feed(c);
+    const int appX = terminal.x, appY = terminal.y;
+    const int appFirst = terminal.index(0, appY);
+    const std::vector<uint8_t> appChars(terminal.charRAM + appFirst,
+                                        terminal.charRAM + appFirst + terminal.cols);
+    const std::vector<uint8_t> appPaper(terminal.paperRAM + appFirst,
+                                        terminal.paperRAM + appFirst + terminal.cols);
+    const std::vector<uint8_t> appAttrs(terminal.attrRAM + appFirst,
+                                        terminal.attrRAM + appFirst + terminal.cols);
+    const std::vector<uint8_t> appFlags(terminal.flags + appFirst,
+                                        terminal.flags + appFirst + terminal.cols);
+    history->input('x'); // a tracked editor line must not become guest BS
+    keyboardAction(nullptr, vt::Keyboard::Action(vt::Keyboard::HistoryBank0 + 3));
+    assert(selectedBank == 3 && historyNoticeActive && !historyNoticeSendOnSelect);
+    assert(terminal.x == appX && terminal.y == appY);
+    assert(!input.pop(testByte));
+    fakeTime += 1000;
+    historyNoticePoll();
+    assert(!historyNoticeActive && terminal.x == appX && terminal.y == appY);
+    assert(std::equal(appChars.begin(), appChars.end(), terminal.charRAM + appFirst));
+    assert(std::equal(appPaper.begin(), appPaper.end(), terminal.paperRAM + appFirst));
+    assert(std::equal(appAttrs.begin(), appAttrs.end(), terminal.attrRAM + appFirst));
+    assert(std::equal(appFlags.begin(), appFlags.end(), terminal.flags + appFirst));
+    assert(!input.pop(testByte));
+    // A stale launcher prompt can remain painted after the app has begun.
+    // Its shape alone must not authorize on_select.
+    terminal.reset();
+    for (uint8_t c : std::string("A0>")) terminal.feed(c);
+    ccpPromptLive = false;
+    keyboardAction(nullptr, vt::Keyboard::Action(vt::Keyboard::HistoryBank0 + 3));
+    assert(!historyNoticeSendOnSelect);
+    fakeTime += 1000;
+    historyNoticePoll();
+    assert(std::string(reinterpret_cast<char *>(terminal.charRAM), 3) == "A0>");
+    assert(terminal.x == 3 && terminal.y == 0 && !input.pop(testByte));
+    // At a freshly emitted CCP prompt, the same profile still runs on_select
+    // after restoring its notice; quick profile cycling must not hide CCP.
+    terminal.reset();
+    emit("A0>");
+    while (output.available()) terminalLoop();
+    assert(ccpPromptLive);
+    keyboardAction(nullptr, vt::Keyboard::Action(vt::Keyboard::HistoryBank0 + 3));
+    assert(historyNoticeSendOnSelect && terminal.x == 3 && terminal.y == 0);
+    keyboardAction(nullptr, vt::Keyboard::Action(vt::Keyboard::HistoryBank0 + 2));
+    keyboardAction(nullptr, vt::Keyboard::Action(vt::Keyboard::HistoryBank0 + 3));
+    assert(historyNoticeSendOnSelect && terminal.x == 3 && terminal.y == 0);
+    fakeTime += 1000;
+    historyNoticePoll();
+    assert(std::string(reinterpret_cast<char *>(terminal.charRAM), 3) == "A0>");
+    std::string selectedCommand;
+    while (input.pop(testByte)) selectedCommand.push_back(char(testByte));
+    assert(selectedCommand == "A2:\r");
+    terminalConfigBegin();
+    assert(terminalConfigEnd() == 0);
     selectedBank = 0;
     history->select(0);
     resetLineSession();
@@ -614,6 +676,18 @@ int main() {
     assert(displayProfileApplied.load());
     assert(terminal.zoom == 2 && terminal.cols == 40 && terminal.rows == 12 &&
            terminal.visibleCols == 26 && terminal.viewport == 0);
+    // Shift a line that begins outside the 2x viewport. Its text, paper and
+    // framebuffer pixels must all appear at the panned destination row.
+    terminal.reset();
+    terminal.pan(10);
+    for (uint8_t byte : std::string("\033[2J\033[3;11H\033[41m P\033[0m\033[3;11H\033[L"))
+        terminal.feed(byte);
+    for (int i = 0; i < 100; ++i) terminalLoop();
+    assert(terminal.x == 0 && terminal.y == 2 && terminal.viewport == 10);
+    assert(terminal.charRAM[terminal.index(11, 3)] == 'P');
+    assert((terminal.attrRAM[terminal.index(10, 3)] >> 4) == 1);
+    assert(gfx->framebuffer[(GFX_OFS_Y + 3 * 20 + 5) * 320 + GFX_OFS_X + 5] ==
+           rgb565(vt::Paper[1]));
     // Rapid zoom keys advance from the pending view but compose only once.
     requestZoom(1);
     requestZoom(1);

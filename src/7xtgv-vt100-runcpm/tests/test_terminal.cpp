@@ -2,6 +2,7 @@
 #include "../history_profiles.h"
 #include "../line_history.h"
 #include "../terminal.h"
+#include <algorithm>
 #include <assert.h>
 #include <iostream>
 #include <random>
@@ -34,7 +35,89 @@ static void control(void *, vt::Terminal::ControlEvent event, uint8_t value) {
     if (event == vt::Terminal::Backlight) lastBacklight = value;
     if (event == vt::Terminal::Zoom) lastZoom = value;
 }
+static void testLineEditing() {
+    vt::Terminal t;
+    std::vector<PlotRecord> plots;
+    t.setPlotSink(collectPlot, &plots);
+    assert(t.setGeometry(8, 6, 4, 2));
+    t.pan(3);
+    feed(t, "\033[2;5r"); // the first and last screen rows stay outside the margins
+    auto clean = [&]() {
+        std::fill(t.dirty, t.dirty + vt::MaxCells, false);
+        std::fill(t.mirrorDirty, t.mirrorDirty + vt::MaxRows, false);
+        plots.clear();
+    };
+    auto seed = [&]() {
+        for (int row = 0; row < t.rows; ++row)
+            for (int col = 0; col < t.cols; ++col) {
+                const int i = t.index(col, row);
+                t.paperRAM[i] = uint8_t('a' + row);
+                t.charRAM[i] = uint8_t('A' + row);
+                t.attrRAM[i] = uint8_t(0x10 + row);
+                t.flags[i] = row & 1 ? vt::Underline : vt::Reverse;
+            }
+        clean();
+    };
+    auto expectRow = [&](int row, uint8_t ch) {
+        for (int col = 0; col < t.cols; ++col)
+            assert(t.charRAM[t.index(col, row)] == ch);
+    };
+
+    feed(t, "\033[3;4H");
+    seed();
+    feed(t, "\033[L"); // omitted count inserts one line at the cursor
+    assert(t.x == 0 && t.y == 2 && t.viewport == 3 && t.zoom == 2);
+    expectRow(0, 'A'); expectRow(1, 'B'); expectRow(2, ' ');
+    expectRow(3, 'C'); expectRow(4, 'D'); expectRow(5, 'F');
+    for (int col = 0; col < t.cols; ++col) {
+        const int blank = t.index(col, 2), moved = t.index(col, 3);
+        assert(t.paperRAM[blank] == ' ' && t.attrRAM[blank] == 0 && t.flags[blank] == 0);
+        assert(t.paperRAM[moved] == 'c' && t.attrRAM[moved] == 0x12 &&
+               t.flags[moved] == vt::Reverse);
+    }
+    for (int row = 0; row < t.rows; ++row) {
+        assert(t.mirrorDirty[row] == (row >= 2 && row <= 4));
+        for (int col = 0; col < t.cols; ++col)
+            assert(t.dirty[t.index(col, row)] == (row >= 2 && row <= 4));
+    }
+    assert(plots.size() == 1 && plots[0].event == vt::Terminal::PlotScroll);
+
+    feed(t, "\033[1;4H"); // outside the scroll region: both commands are inert
+    clean();
+    feed(t, "\033[1L\033[1M");
+    assert(t.x == 3 && t.y == 0 && plots.empty());
+    for (int row = 0; row < t.rows; ++row) {
+        assert(!t.mirrorDirty[row]);
+        for (int col = 0; col < t.cols; ++col)
+            assert(!t.dirty[t.index(col, row)]);
+    }
+
+    feed(t, "\033[3;7H");
+    clean();
+    t.feed(0x9b); // 8-bit CSI uses the same delete-line handler
+    feed(t, "M");
+    assert(t.x == 0 && t.y == 2);
+    expectRow(2, 'C'); expectRow(3, 'D'); expectRow(4, ' ');
+    assert(plots.size() == 1 && plots[0].event == vt::Terminal::PlotScroll);
+
+    feed(t, "\033[3;8H");
+    seed();
+    feed(t, "\033[2M");
+    expectRow(1, 'B'); expectRow(2, 'E'); expectRow(3, ' ');
+    expectRow(4, ' '); expectRow(5, 'F');
+    feed(t, "\033[2L");
+    expectRow(2, ' '); expectRow(3, ' '); expectRow(4, 'E');
+
+    feed(t, "\033[4;8H");
+    seed();
+    feed(t, "\033[0L"); // zero also means one
+    expectRow(3, ' '); expectRow(4, 'D');
+    feed(t, "\033[4;8H\033[99M"); // clamp to rows before the bottom margin
+    expectRow(2, 'C'); expectRow(3, ' '); expectRow(4, ' ');
+    expectRow(5, 'F');
+}
 int main() {
+    testLineEditing();
     std::string replies;
     vt::Terminal t(collect, &replies);
     t.setControlSink(control, nullptr);
