@@ -1,7 +1,7 @@
-#include "../byte_queue.h"
-#include "../history_profiles.h"
-#include "../line_history.h"
-#include "../terminal.h"
+#include "../src/terminal/byte_queue.h"
+#include "../src/terminal/history_profiles.h"
+#include "../src/terminal/line_history.h"
+#include "../src/terminal/terminal.h"
 #include <algorithm>
 #include <assert.h>
 #include <iostream>

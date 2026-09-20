@@ -3,7 +3,7 @@
 #define GFX_DEFERRED_FLUSH 1
 bool terminalHistoryStoragePoll() { return true; }
 bool terminalConfigStoragePoll() { return true; }
-#include "../terminal_runtime.cpp"
+#include "../src/terminal/terminal_runtime.cpp"
 #include <iostream>
 #include <string>
 

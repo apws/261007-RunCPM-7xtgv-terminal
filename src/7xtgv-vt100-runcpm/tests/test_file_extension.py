@@ -6,7 +6,7 @@ import unittest
 
 class FileExtensionTest(unittest.TestCase):
     def test_zero_fill_bounds_and_failures(self):
-        source = (Path(__file__).parents[1] / 'abstraction_arduino.h').read_text()
+        source = (Path(__file__).parents[1] / 'abstraction_arduino_7xtgv.h').read_text()
         function = source[source.index('bool _sys_extendfile('):source.index('\nuint8 _sys_readseq')]
         harness = r'''
 #include <algorithm>

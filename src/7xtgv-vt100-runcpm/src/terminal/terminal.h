@@ -1,7 +1,7 @@
 #pragma once
 #include <stddef.h>
 #include <stdint.h>
-#include "runcpm-config.h"
+#include "../../runcpm-config.h"
 #include "7xtgv-palette.h"
 
 namespace vt {

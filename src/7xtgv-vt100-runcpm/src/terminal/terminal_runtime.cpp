@@ -1,4 +1,4 @@
-#include "runcpm-config.h"
+#include "../../runcpm-config.h"
 #if !defined(RUNCPM_HEADLESS)
 #include "terminal_runtime.h"
 #include "7xtgv-QL-font.h"
@@ -7,8 +7,8 @@
 #include "history_profiles.h"
 #include "line_history.h"
 #include "terminal.h"
-#include "hal/backlight.h"
-#include "hal/reboot.h"
+#include "../../hardware/arduino_7xtgv/backlight.h"
+#include "../../hardware/arduino_7xtgv/reboot.h"
 #include <Arduino.h>
 #include <algorithm>
 #include <atomic>

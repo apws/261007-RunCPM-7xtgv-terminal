@@ -4,10 +4,21 @@ An isolated RP2350-Touch-LCD-2 sketch: CP/M on core 1, USB keyboard input and
 an ANSI/VT52 screen on core 0. The TFT displays a manually panned 52×24 viewport
 of an 80×24 terminal. The PC displays the complete interpreted 80×24 screen.
 
-The original demos are separate. This project retains the original 7xtgv fonts,
-three packed screen planes (paper glyph, ink glyph, GGPPIIII attributes), and
-four original white/pastel paper colors. Sidecar flags supply underline,
+The original demos are separate. This terminal uses the 6x10 QL font and
+7xtgv's four paper and sixteen ink colors, but its visible-cell arrays are
+not yet the native four-plane 7xtgv design. Sidecar flags supply underline,
 reverse, and DEC graphic selection. It does not run the cheers animation.
+
+## Source layout
+
+The Arduino sketch and RunCPM-derived implementation headers stay at the
+sketch root for upstream comparison. Compiled terminal parser, profiles,
+history, runtime renderer, QL font, graphics setup, shared-palette symlink,
+and terminal-only helpers live in `src/terminal/`; Arduino compiles
+that `src/` tree recursively. The board storage, backlight, and reboot
+headers are under `hardware/arduino_7xtgv/`. The palette's single shared
+definition remains in `../7xtgv-palette.h`. Native quad-plane 7xtgv is not
+implemented here yet; the current Arduino_GFX painter belongs to the terminal.
 
 ## Build and flash
 
@@ -288,10 +299,12 @@ diagnostic framing separate from CP/M and the normal screen mirror.
 ## Tests
 
 ```sh
-g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g -pthread terminal.cpp history_profiles.cpp tests/test_terminal.cpp -o /tmp/7xtgv-terminal-tests
+g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g -pthread src/terminal/terminal.cpp src/terminal/history_profiles.cpp tests/test_terminal.cpp -o /tmp/7xtgv-terminal-tests
 /tmp/7xtgv-terminal-tests
-g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g -pthread -Itests/stubs terminal.cpp history_profiles.cpp tests/test_runtime.cpp -o /tmp/7xtgv-runtime-tests
+g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g -pthread -Itests/stubs src/terminal/terminal.cpp src/terminal/history_profiles.cpp tests/test_runtime.cpp -o /tmp/7xtgv-runtime-tests
 /tmp/7xtgv-runtime-tests
+g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g -pthread -Itests/stubs src/terminal/terminal.cpp src/terminal/history_profiles.cpp tests/test_plot_position.cpp -o /tmp/7xtgv-plot-position-tests
+/tmp/7xtgv-plot-position-tests
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 

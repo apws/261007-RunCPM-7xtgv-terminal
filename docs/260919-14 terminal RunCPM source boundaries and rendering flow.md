@@ -1,0 +1,156 @@
+# Terminal, RunCPM, and display boundaries — 260919
+
+Status: repo-grounded analysis with the bounded file moves applied.
+Terminal files live under `sketch/src/terminal/`, board headers under
+`sketch/hardware/arduino_7xtgv/`, and the root Arduino abstraction is
+renamed for this 7xtgv port. No native 7xtgv implementation is implied.
+
+## What the current terminal stores
+
+`src/7xtgv-vt100-runcpm/src/terminal/terminal.h` declares `paperRAM`, `charRAM`,
+`attrRAM`, `flags`, and dirty-cell arrays. These are the current terminal's
+visible-screen model, **not** the four native `CHAR_A/CHAR_B/ATTR/EXTA`
+planes in the 260910 native 7xtgv specification. In particular,
+`Terminal::put()` writes a blank to `paperRAM`, the displayed character
+(limited to ASCII here) to `charRAM`, packed paper/ink to `attrRAM`, and
+ANSI/DEC rendering flags to `flags`. The current renderer reads `charRAM`,
+`attrRAM`, and `flags`; it does not render a second character plane.
+
+The current 6x10 QL font and 4-paper/16-ink palette are used by this
+terminal renderer. The native quad-plane implementation and its demos
+remain future work. A profile-enabled token highlighter can initially
+annotate visible terminal cells for repaint without modifying CP/M output
+or pretending that the existing arrays implement native 7xtgv semantics.
+
+## Actual output and graphics route
+
+```
+RunCPM _putch() -> virtualWrite() -> output ByteQueue
+    -> terminalLoop() -> Terminal::feed() -> visible cells + dirty flags
+    -> renderBatch() -> drawCell() -> gfx->draw16bitRGBBitmap()
+    -> target-selected Arduino_GFX surface/controller
+```
+
+`drawCell()` converts the character bitmap and resolved colors to a
+temporary 6x10 RGB565 array (scaled for zoom), then calls Arduino_GFX.
+It does **not** paint into a second software 7xtgv cell buffer.
+
+The final Arduino_GFX destination differs by module:
+
+- JC8048W550 RGB panel: `Arduino_RGB_Display`; its RGB scanout has a
+  PSRAM framebuffer and a deferred `gfx->flush()`. The low-level driver
+  uses internal-RAM DMA bounce buffers for scanout.
+- JC8048W535 QSPI panel: `Arduino_Canvas` over `Arduino_AXS15231B` for the
+  tested software rotation; terminal writes are buffered and flushed to
+  the panel. Do not infer its exact allocation site solely from the
+  `Arduino_Canvas` constructor in our sketch.
+- RP2350 2-inch SPI panel: direct Arduino_GFX controller path, without
+  the terminal's full-screen buffered-canvas/deferred-flush mode.
+
+The xterm-256 plot also uses Arduino_GFX: a temporary logical scanline
+is expanded into `gfx->draw16bitRGBBitmap()`. GCLS arms its parser; it is
+not an implementation of native SEMI/WIND/INST cells. There is no
+terminal-owned direct SPI/TFT driver path in `terminal_runtime.cpp`.
+
+## What “FreeRTOS/graphics/queues in terminal_runtime.cpp” meant
+
+This was shorthand for mixed **responsibilities**, not a
+`FreeRTOS/graphics/` directory or a graphics library supplied by FreeRTOS.
+On ESP32-S3, Arduino's `setup()`/`loop()` task owns terminal input,
+Arduino_GFX calls, cursor/rendering, and the USB serial mirror. The
+sketch creates a RunCPM task pinned to the other core; that task owns
+RunCPM and SD storage. `ByteQueue` objects move input/output/replies
+between the two tasks. Atomics publish pause, save, zoom, disk-activity,
+and similar requests. SD-driven terminal INI/history writes are performed
+on the RunCPM/storage-owner core, not the display core. An idle-window
+FreeRTOS task gives the core-0 idle/watchdog task time to run.
+
+This is an ESP32 scheduling arrangement, **not** a requirement of the
+terminal parser or native 7xtgv design. The RP2350 build uses the
+Arduino-Pico `setup1()`/`loop1()` multicore convention, not FreeRTOS.
+The coupling point worth extracting later is the host/runtime adapter
+for queues, scheduling, persistence, and graphics initialization.
+
+## Source placement and upstream relationship
+
+Arduino automatically compiles `.cpp` files in the sketch root and
+recursively inside its `src/` subfolder. Arbitrary root sibling folders
+such as `hardware/` do not provide recursive compilation; the board
+headers there work because the `.ino` or terminal runtime explicitly
+includes them.
+Keeping upstream-derived RunCPM implementation headers at the sketch
+root preserves their existing include order and easy comparison.
+Compiled terminal `.cpp` files, the existing graphics setup, and a
+symlink to the shared palette now live in `sketch/src/terminal/`.
+Native software 7xtgv, when implemented, should be a sibling
+`sketch/src/sw7xtgv/`, not a subdirectory of terminal: the terminal
+will use it, not own it. Current terminal-specific drawing need not be
+relabeled as native 7xtgv.
+
+Upstream `RunCPM/hardware/{arduino,esp32,pico,stm32,teensy}` contains
+board-definition headers selected by upstream `RunCPM.ino`, which itself
+uses `abstraction_arduino.h`. Those folder names do not imply separate
+non-Arduino terminal or display ports. Our local
+`hardware/arduino_7xtgv/` now groups the previously flat `hal/`
+target storage, backlight, and reboot headers. A future upstream PR should follow
+upstream's board-header location/conventions, while our product-local
+MCU/TFT/SD/backlight package may be organized differently.
+
+The root abstraction is now `abstraction_arduino_7xtgv.h`: it was renamed,
+not duplicated. The `.ino` include and source-extracting file-extension
+test were updated, but the `ABSTRACT_H` include guard, contents, and
+RunCPM's `globals.h`/CPU/BDOS inclusion sequence remain unchanged. It
+already implements storage, virtual console, disk activity, private benchmarks,
+and reboot hooks. It cannot contain all local changes: the `.ino` owns
+boot and cross-core scheduling plus terminal INI/history SD transactions,
+and CPU/BDOS/CCP behavior has changes in their own files. Putting those
+into the abstraction merely to centralize them would enlarge its
+responsibility and make upstream comparison harder.
+
+There is no build-system switch that selects an abstraction by filename:
+`sketch.yaml` selects an Arduino core/board profile, while
+`runcpm-config.h` and (for W550) the target-aware build flags select
+the board macros. The `.ino` explicitly includes the chosen abstraction.
+The board adapter must still be included first so its `SD`,
+`File`, and `DirFat_t` definitions are available when the abstraction is
+parsed; `globals.h` must likewise precede it. The abstraction is a header
+compiled as part of the sketch, not a separately linked Arduino source
+file. The rename was one atomic edit, not a second copy of the header.
+The standalone `src/linux_RunCPM` POSIX abstraction and the older
+`src/7xtgv_RunCPM` sketch are unaffected.
+
+After the file moves, the host terminal/parser, runtime/mirror, and
+positioned-plot sanitizer tests passed, as did all 18 Python tests.
+The initial JC8048W550 build failed because an ordinary forwarding header
+could not reach outside Arduino's copied sketch tree. Restoring the former
+shared-palette symlink at its new `src/terminal/` location fixed that.
+The target-aware JC8048W550 build then passed and staged a `new` candidate;
+no device flash was performed.
+
+Some local RunCPM changes can be isolated in its Arduino abstraction or
+board adapter (storage calls, virtual console, activity signal). Others
+affect CCP/BDOS/CPU semantics or the sketch's startup/task ownership and
+are not merely board initialization. Audit and isolate one generic fix
+at a time before proposing upstream changes. The existing upstream
+comparison/licensing note records likely candidates.
+
+## Desktop/Windows proof boundary
+
+`src/linux_RunCPM` is a headless POSIX application using the current
+RunCPM core. It does not compile our terminal or Arduino_GFX. Upstream
+also has a Windows abstraction and MinGW/MSYS2 build files, but those
+Windows-specific sources are not yet in this local POSIX directory.
+This Linux machine currently has Wine and `winegcc`, but no
+`x86_64-w64-mingw32-gcc` or `i686-w64-mingw32-gcc` command on PATH.
+A small isolated Windows build/run proof is feasible as a separate
+checkpoint after choosing an upstream snapshot and a PE cross-toolchain;
+it does not validate the future SDL2/7xtgv desktop application.
+
+## References
+
+- `docs/260910-13 7xtgv v0.1 native specification and implementation plan.md`
+- `docs/260911-19 RunCPM upstream comparison and licensing plan.md`
+- `docs/260914-00 7xtgv Windows SDL2 desktop emulator plan.md`
+- [Arduino sketch specification](https://docs.arduino.cc/arduino-cli/sketch-specification/)
+- [Upstream RunCPM sketch](https://github.com/MockbaTheBorg/RunCPM/blob/master/RunCPM/RunCPM.ino)
+- [Upstream hardware directory](https://github.com/MockbaTheBorg/RunCPM/tree/master/RunCPM/hardware)

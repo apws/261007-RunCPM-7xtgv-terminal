@@ -69,7 +69,8 @@ still need a host adapter for that code, followed by a device benchmark.
 ## Terminal code boundary
 
 The files are physically together today, but the core split is already useful:
-`terminal.cpp` and `history_profiles.cpp` are host-buildable C++ models, while
+`../7xtgv-vt100-runcpm/src/terminal/terminal.cpp` and
+`history_profiles.cpp` are host-buildable C++ models, while the adjacent
 `terminal_runtime.cpp` owns the Arduino_GFX drawing, queues, USB input,
 FreeRTOS coordination, and display-specific state. An SDL2 desktop terminal
 could reuse the former. A substitute Arduino_GFX surface alone would not port

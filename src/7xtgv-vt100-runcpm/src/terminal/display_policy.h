@@ -1,6 +1,6 @@
 #pragma once
 #include <stdint.h>
-#include "runcpm-config.h"
+#include "../../runcpm-config.h"
 
 namespace vt {
 

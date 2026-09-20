@@ -4,7 +4,7 @@
 // storage; this runtime-only test supplies the owner poll as a no-op.
 bool terminalHistoryStoragePoll() { return true; }
 bool terminalConfigStoragePoll() { return true; }
-#include "../terminal_runtime.cpp"
+#include "../src/terminal/terminal_runtime.cpp"
 #include <fstream>
 #include <iostream>
 #include <vector>

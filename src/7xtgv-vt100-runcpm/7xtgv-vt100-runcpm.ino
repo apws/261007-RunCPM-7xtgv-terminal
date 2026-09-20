@@ -4,28 +4,28 @@
 #define BUILD  "7xtgv-runcpm-v2"
 
 #if !defined(RUNCPM_HEADLESS)
-#include "terminal_runtime.h"
-#include "display_policy.h"
+#include "src/terminal/terminal_runtime.h"
+#include "src/terminal/display_policy.h"
 #endif
 
 //TODO MIXWORX
-// - make FLAT HAL (arduino) instead of foldered "hardware" - to place there SINGLE include per board containing ALL HAL declarations
+// - make FLAT HAL (arduino) under hardware/arduino_7xtgv - to place there SINGLE include per board containing ALL HAL declarations
 // - till now, RunCPM.ino contains still some weirdness related to SPI abstraction
 // - till now RunCPM doesnt report SPI init status - its EASY to misinterpret JUST MISSING SDCARD as SPI init failure !!!
 // - so add separate SPI INIT confirmation and separate SDCARD access OK on terminal, it HELPS a lot !!!
-// - also FLAT placement of "file per board" under hal folder simplifies overview of all supported boards
+// - also FLAT placement of "file per board" under hardware/arduino_7xtgv simplifies overview of all supported boards
 // - these HAL declarations were intentionally moved ON TOP as first include
 
 //#include "hardware/pico/pico_sd_spi.h"                 // Raspberry Pi Pico - normal (LED = GPIO25)
 //#include "hardware/pico/pico_w_sd_spi.h"               // Raspberry Pi Pico W(iFi)   (LED = GPIO64)
 #if defined(RUNCPM_TARGET_JC8048W535)
-#include "hal/jc8048w535_sdmmc.h"
+#include "hardware/arduino_7xtgv/jc8048w535_sdmmc.h"
 #elif defined(RUNCPM_TARGET_JC8048W550)
-#include "hal/jc8048w550_sd_spi.h"
+#include "hardware/arduino_7xtgv/jc8048w550_sd_spi.h"
 #else
-#include "hal/pico_rp2350_touch_lcd_2_sd_spi.h"        // WAVESHARE-rp2350-touch-lcd-2
+#include "hardware/arduino_7xtgv/pico_rp2350_touch_lcd_2_sd_spi.h" // WAVESHARE-rp2350-touch-lcd-2
 #endif
-//#include "hal/pico_rp2350_lcd_1_47_sd_spi.h"           // WAVESHARE-rp2350-lcd-1-47
+//#include "hardware/arduino_7xtgv/pico_rp2350_lcd_1_47_sd_spi.h" // WAVESHARE-rp2350-lcd-1-47
 
 
 
@@ -335,7 +335,7 @@ bool terminalConfigStoragePoll() {
 #define sDELAY  50
 #define DELAY  100
 
-#include "abstraction_arduino.h"
+#include "abstraction_arduino_7xtgv.h"
 
 // =========================================================================================
 // Serial port speed

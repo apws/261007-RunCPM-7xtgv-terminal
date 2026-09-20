@@ -1,4 +1,5 @@
-// Reconstructed from the intact recovered gfxsetup.h; see ../../docs/260906-12 RECOVERY.md.
+// Reconstructed from the intact recovered gfxsetup.h; see
+// ../../../../docs/260906-12 RECOVERY.md.
 
 
 // MIXWORX gfxsetup style - modified from basic examples
