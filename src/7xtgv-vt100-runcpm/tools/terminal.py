@@ -18,8 +18,10 @@ import termios
 import time
 import traceback
 import tty
+from pathlib import Path
 
 PREFIX = 0x1D  # Ctrl+]
+SOH, EOT, ACK, NAK, CAN, CRC_REQUEST = 0x01, 0x04, 0x06, 0x15, 0x18, 0x43
 SNAPSHOT_REQUEST = b'\x1b[>62v'  # PC mirror only; does not redraw the TFT.
 SNAPSHOT_RESET = b'\x1b[2J\x1b[H'
 MOUSE_MODES = (1000, 1002, 1003, 1005, 1006, 1007, 1015, 1016)
@@ -130,6 +132,7 @@ class Keys:
         self.prefix = False
         self.brightness = False
         self.quit = False
+        self.xmodem = False
         keys = os.environ.get('XTGV_BANK_KEYS', '+ěščřžýáíé')
         numbers = os.environ.get('XTGV_BANK_NUMBERS', '1234567890')
         self.bank_keys = dict(zip(keys, numbers))
@@ -182,6 +185,9 @@ class Keys:
                 if c == ord('q'):
                     self.quit = True
                     break
+                if c == ord('m'):
+                    self.xmodem = True
+                    continue
                 if c == ord('b'):
                     self.brightness = True
                     continue
@@ -196,6 +202,207 @@ class Keys:
             else:
                 result.append(c)
         return result
+
+
+def xmodem_crc(data):
+    """XMODEM's CRC-16/CCITT, initial value zero."""
+    crc = 0
+    for byte in data:
+        crc ^= byte << 8
+        for _ in range(8):
+            crc = ((crc << 1) ^ 0x1021) & 0xffff if crc & 0x8000 else (crc << 1) & 0xffff
+    return crc
+
+
+def xmodem_packet(number, payload):
+    if len(payload) != 128:
+        raise ValueError('XMODEM packet payload must be 128 bytes')
+    crc = xmodem_crc(payload)
+    return bytes((SOH, number & 0xff, (~number) & 0xff)) + payload + bytes((crc >> 8, crc & 0xff))
+
+
+class XmodemPrompt:
+    """Small host-only UI; the CP/M screen is reconstructed on leaving it."""
+    def __init__(self):
+        self.direction = None
+        self.path = bytearray()
+
+    def screen(self, note=''):
+        cursor = b''
+        if self.direction is None:
+            body = (
+                'XMODEM — host transfer\r\n\r\n'
+                'S  local file  -> CP/M    (CP/M: XMODEM DEST /R /X0)\r\n'
+                'R  CP/M file   -> local   (CP/M: XMODEM SOURCE /S /X0)\r\n\r\n'
+                'Start XMODEM in CP/M first; then choose S or R here.\r\n'
+                'Esc cancels.'
+            )
+        else:
+            action = 'Local file to send' if self.direction == 'send' else 'New local destination'
+            body = f'XMODEM — {action}\r\n\r\nPath: {self.path.decode("utf-8", "replace")}\r\n\r\nEnter starts transfer; Esc cancels.'
+            # The prompt starts at column 7 on row 3. Paths are normally
+            # ASCII; use the decoded character count for sensible UTF-8 too.
+            if not note:
+                column = 7 + len(self.path.decode('utf-8', 'replace'))
+                cursor = f'\x1b[3;{column}H'.encode('ascii')
+        return (b'\x1b[2J\x1b[H\x1b[30;46m' + body.encode('utf-8') + b'\x1b[0m'
+                + (note.encode() if note else b'') + cursor)
+
+    def feed(self, data):
+        """Return (direction, path), 'cancel', or None."""
+        for byte in data:
+            if byte == 27:
+                return 'cancel'
+            if self.direction is None:
+                if byte in (ord('s'), ord('S')):
+                    self.direction = 'send'
+                elif byte in (ord('r'), ord('R')):
+                    self.direction = 'receive'
+                continue
+            if byte in (10, 13):
+                if self.path:
+                    return self.direction, self.path.decode('utf-8', 'surrogateescape')
+            elif byte in (8, 127):
+                if self.path:
+                    self.path.pop()
+            elif 32 <= byte < 127 or byte >= 128:
+                self.path.append(byte)
+        return None
+
+
+class Xmodem:
+    """Minimal, binary-clean CRC XMODEM over the already open mirror fd."""
+    Retries = 10
+
+    def __init__(self, fd, status):
+        self.fd = fd
+        self.status = status
+        self.pending = bytearray()
+
+    def write(self, data):
+        view = memoryview(data)
+        while view:
+            if not select.select([], [self.fd], [], 5)[1]:
+                raise TimeoutError('serial write timed out')
+            view = view[os.write(self.fd, view):]
+
+    def read(self, timeout):
+        if self.pending:
+            return self.pending.pop(0)
+        if not select.select([self.fd], [], [], timeout)[0]:
+            return None
+        data = os.read(self.fd, 4096)
+        if not data:
+            raise RuntimeError('serial disconnected')
+        self.pending.extend(data)
+        return self.pending.pop(0)
+
+    def abort(self):
+        self.write(bytes((CAN, CAN)))
+
+    def wait_for(self, accepted, timeout=10):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            byte = self.read(min(1.0, deadline - time.monotonic()))
+            if byte in accepted:
+                return byte
+        return None
+
+    def send(self, path):
+        data = path.read_bytes()
+        self.status(f'Waiting for CP/M receiver — {path.name} ({len(data)} bytes)')
+        start = self.wait_for((CRC_REQUEST, NAK, CAN), 60)
+        if start == CAN:
+            raise RuntimeError('CP/M cancelled transfer')
+        if start not in (CRC_REQUEST, NAK):
+            raise TimeoutError('CP/M receiver did not start XMODEM')
+        crc = start == CRC_REQUEST
+        blocks = max(1, (len(data) + 127) // 128)
+        for index in range(blocks):
+            payload = data[index * 128:(index + 1) * 128].ljust(128, b'\x1a')
+            packet = xmodem_packet(index + 1, payload) if crc else (
+                bytes((SOH, (index + 1) & 0xff, (~(index + 1)) & 0xff)) + payload
+                + bytes((sum(payload) & 0xff,)))
+            for attempt in range(self.Retries):
+                self.status(f'Sending {path.name}: block {index + 1}/{blocks}' +
+                            (f' (retry {attempt})' if attempt else ''))
+                self.write(packet)
+                reply = self.wait_for((ACK, NAK, CAN), 10)
+                if reply == ACK:
+                    break
+                if reply == CAN:
+                    raise RuntimeError('CP/M cancelled transfer')
+            else:
+                raise TimeoutError(f'CP/M did not acknowledge block {index + 1}')
+        for attempt in range(self.Retries):
+            self.write(bytes((EOT,)))
+            reply = self.wait_for((ACK, CAN), 10)
+            if reply == ACK:
+                return len(data)
+            if reply == CAN:
+                raise RuntimeError('CP/M cancelled transfer')
+        raise TimeoutError('CP/M did not acknowledge end of transfer')
+
+    def receive(self, path):
+        if path.exists():
+            raise FileExistsError(f'Refusing to overwrite {path}')
+        temporary = path.with_name(path.name + '.part')
+        if temporary.exists():
+            raise FileExistsError(f'Refusing to overwrite unfinished {temporary}')
+        path.parent.mkdir(parents=True, exist_ok=True)
+        expected = 1
+        received = 0
+        with temporary.open('xb') as output:
+            try:
+                for attempt in range(self.Retries):
+                    self.status(f'Waiting for CP/M sender — {path.name}')
+                    self.write(bytes((CRC_REQUEST,)))
+                    first = self.wait_for((SOH, EOT, CAN), 1.5)
+                    if first is not None:
+                        break
+                else:
+                    raise TimeoutError('CP/M sender did not start XMODEM')
+                while True:
+                    if first == EOT:
+                        self.write(bytes((ACK,)))
+                        break
+                    if first == CAN:
+                        raise RuntimeError('CP/M cancelled transfer')
+                    header = bytearray()
+                    while len(header) < 132:
+                        byte = self.read(10)
+                        if byte is None:
+                            break
+                        header.append(byte)
+                    if len(header) != 132:
+                        self.write(bytes((NAK,)))
+                    else:
+                        number, complement = header[0], header[1]
+                        payload, given_crc = header[2:130], (header[130] << 8) | header[131]
+                        if (number ^ complement) != 0xff or xmodem_crc(payload) != given_crc:
+                            self.write(bytes((NAK,)))
+                        elif number == expected:
+                            output.write(payload)
+                            received += len(payload)
+                            expected = (expected + 1) & 0xff
+                            self.status(f'Receiving {path.name}: {received} bytes')
+                            self.write(bytes((ACK,)))
+                        elif number == ((expected - 1) & 0xff):
+                            self.write(bytes((ACK,)))
+                        else:
+                            self.write(bytes((CAN, CAN)))
+                            raise RuntimeError('unexpected XMODEM block number')
+                    first = self.wait_for((SOH, EOT, CAN), 10)
+                    if first is None:
+                        self.write(bytes((NAK,)))
+                        first = self.wait_for((SOH, EOT, CAN), 10)
+                        if first is None:
+                            raise TimeoutError('CP/M sender stalled')
+            except BaseException:
+                # Preserve a recoverable partial file rather than silently discarding evidence.
+                raise
+        temporary.rename(path)
+        return received
 
 
 class HostEvents:
@@ -306,6 +513,7 @@ def run(port, mode, reflash_command=None):
     mouse_reports = MouseReports()
     host_events = HostEvents()
     incoming, outgoing = bytearray(), bytearray()
+    xmodem_prompt = None
     entered = False
     try:
         fd, saved_serial = open_serial(port)
@@ -369,9 +577,48 @@ def run(port, mode, reflash_command=None):
                 data = os.read(0, 256)
                 if not data:
                     break
-                translated = keys.feed(mouse_reports.feed(data))
-                if not keys.quit and len(outgoing) < 8192:
-                    outgoing.extend(translated)
+                if xmodem_prompt is not None:
+                    answer = xmodem_prompt.feed(data)
+                    if answer == 'cancel':
+                        xmodem_prompt = None
+                        incoming.clear()
+                        snapshot_pending = True
+                        snapshot_retry_at = time.monotonic()
+                    elif answer is not None:
+                        direction, raw_path = answer
+                        chosen_path = Path(os.path.expanduser(raw_path))
+
+                        def xmodem_status(message):
+                            os.write(1, xmodem_prompt.screen('\r\n' + message))
+
+                        try:
+                            xmodem_status('Preparing transfer…')
+                            protocol = Xmodem(fd, xmodem_status)
+                            if direction == 'send':
+                                size = protocol.send(chosen_path)
+                                result = f'Complete: sent {size} bytes from {chosen_path.name}'
+                            else:
+                                size = protocol.receive(chosen_path)
+                                result = f'Complete: received {size} bytes into {chosen_path.name}'
+                        except (OSError, RuntimeError, TimeoutError, ValueError) as exc:
+                            result = f'XMODEM failed: {exc}'
+                        os.write(1, xmodem_prompt.screen('\r\n' + result + '\r\nReturning to CP/M screen…'))
+                        xmodem_prompt = None
+                        incoming.clear()
+                        snapshot_pending = True
+                        snapshot_probe.clear()
+                        snapshot_retry_at = time.monotonic()
+                    else:
+                        os.write(1, xmodem_prompt.screen())
+                else:
+                    translated = keys.feed(mouse_reports.feed(data))
+                    if keys.xmodem:
+                        keys.xmodem = False
+                        xmodem_prompt = XmodemPrompt()
+                        incoming.clear()
+                        os.write(1, xmodem_prompt.screen())
+                    if not keys.quit and len(outgoing) < 8192:
+                        outgoing.extend(translated)
             if fd is None and time.monotonic() >= reconnect_at:
                 reconnect_at = time.monotonic() + 0.25
                 try:
@@ -401,6 +648,11 @@ def run(port, mode, reflash_command=None):
                     reconnect_at = time.monotonic() + 0.25
                 if data:
                     data, reflash_requested = host_events.feed(data)
+                    if xmodem_prompt is not None:
+                        # XMODEM control bytes and its initial CP/M banner are
+                        # deliberately host-private.  The post-transfer snapshot
+                        # restores all normal terminal text afterwards.
+                        continue
                     if snapshot_pending:
                         snapshot_probe.extend(data)
                         if SNAPSHOT_RESET in snapshot_probe:
@@ -460,7 +712,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, epilog=(
         'Ctrl+] then q: exit; 1: ANSI; 2: VT52; a/e: left/right edge; '
         'r: redraw; g: xterm256 GCLS; p/n: history; [/]: history bank; '
-        '#: toggle RAW; x: profile exit; c: profile clear; Ctrl+] again: literal Ctrl+]. '
+        '#: toggle RAW; x: profile exit; c: profile clear; m: XMODEM panel; Ctrl+] again: literal Ctrl+]. '
         'Ctrl+Shift+Home/End jump to viewport edges; Ctrl+Alt+Shift+PgUp/PgDn changes glyph zoom.'))
     parser.add_argument('--port', help='Serial device; defaults to the unique RP2350 by-id path')
     parser.add_argument('--mode', choices=('ansi', 'vt52'), help='Select mode on connection; otherwise preserve it')

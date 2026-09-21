@@ -415,6 +415,21 @@ int main() {
     assert(std::string(savedAppLine, savedAppLength) == "print 7");
     history->select(0);
     selectedBank = 0;
+    // All three internal-CCP prompt formats must activate the CCP history
+    // bank. A drive-only prompt has no user digit, unlike the old detector.
+    for (const char *ccpPrompt : {"A15>", "AF>", "A>"}) {
+        terminal.reset();
+        ccpPromptLive = false;
+        emit(ccpPrompt);
+        while (output.available()) terminalLoop();
+        assert(ccpPromptLive && cpmPromptEndColumn() == int(strlen(ccpPrompt) - 1));
+        assert(history->activeBank() == 0);
+    }
+    terminal.reset();
+    ccpPromptLive = false;
+    emit("AG>");
+    while (output.available()) terminalLoop();
+    assert(!ccpPromptLive && cpmPromptEndColumn() < 0);
     terminal.reset();
     emit("  A0>");
     while (output.available()) terminalLoop();
@@ -551,6 +566,12 @@ int main() {
     uint8_t rawByte;
     while (input.pop(rawByte)) received.push_back(char(rawByte));
     assert(received == exact);
+    // RAW bypasses profile remapping, but the host's private key envelope
+    // must not leak into a CP/M transfer; send its original byte instead.
+    const std::string rawKey = "\033[>70;1;" + std::to_string(vt::KeyNum1) + ";0;043v";
+    for (uint8_t c : rawKey) rawFeed(c, fakeTime);
+    assert(input.pop(rawByte) && rawByte == '+' && !input.pop(rawByte));
+    assert(rawInputMode);
     for (uint8_t c : std::string("\033[>17v")) rawFeed(c, fakeTime);
     assert(!rawInputMode && history->activeBank() == 0);
     vt::LineHistory::Recall rawRecall;
@@ -751,9 +772,10 @@ int main() {
     history->select(0);
     terminalConfigBegin();
     const std::string legacyConfig =
-        "[global]\nmode=vt52\nconsole_bits=8\n"
+        "[global]\nmode=vt52\nconsole_bits=8\nnum1=send:9\n"
         "[display:RP2_2]\nview_zoom=1\n"
         "[bank2]\nmode=ansi\ninput=wordstar\nzoom1_terminal=40x12\n"
+        "num1=send:7\nkp_decimal=send:,\n"
         "[bank3]\nmode=vt52\ninput=vt52\nzoom1_terminal=20x12\n";
     for (uint8_t c : legacyConfig) terminalConfigFeed(c);
     assert(terminalConfigEnd() == 0 && terminalConfiguredConsoleBits() == 8);
@@ -763,8 +785,18 @@ int main() {
     assert(terminal.ansi && selectedBank == 2 && terminal.cols == 40 &&
            terminal.rows == 12 && terminal.visibleCols == 40 &&
            presentationGutter == 8);
+    fakeTime += 1100;
+    terminalLoop();
     uint8_t presetByte;
     while (input.pop(presetByte)) {}
+    for (uint8_t c : std::string("\033[>70;1;28;0;043v")) keyboard.feed(c, fakeTime++);
+    assert(input.pop(presetByte) && presetByte == '7' && !input.pop(presetByte));
+    keyboardKeyEvent(nullptr, {vt::KeyNum2, 0}, reinterpret_cast<const uint8_t *>("ě"), 2);
+    assert(input.pop(presetByte) && presetByte == '2' && !input.pop(presetByte));
+    keyboardKeyEvent(nullptr, {vt::KeyKpDecimal, 0}, reinterpret_cast<const uint8_t *>(","), 1);
+    assert(input.pop(presetByte) && presetByte == ',' && !input.pop(presetByte));
+    keyboardKeyEvent(nullptr, {vt::KeyKpDelete, 0}, reinterpret_cast<const uint8_t *>("\033[3~"), 4);
+    assert(input.pop(presetByte) && presetByte == 0x07 && !input.pop(presetByte));
     profileKey(vt::AppUp);
     assert(input.pop(presetByte) && presetByte == 0x05 && !input.pop(presetByte));
     for (int i = 0; i < 1000; ++i) terminalLoop();
@@ -777,6 +809,12 @@ int main() {
     keyboardAction(nullptr, vt::Keyboard::Action(vt::Keyboard::HistoryBank0 + 3));
     assert(!terminal.ansi && selectedBank == 3 && terminal.cols == 20 &&
            terminal.rows == 12 && presentationGutter == 8);
+    fakeTime += 1100;
+    terminalLoop();
+    keyboardKeyEvent(nullptr, {vt::KeyNum1, 0}, reinterpret_cast<const uint8_t *>("+"), 1);
+    assert(input.pop(presetByte) && presetByte == '9' && !input.pop(presetByte));
+    keyboardKeyEvent(nullptr, {vt::KeyKpDecimal, 0}, reinterpret_cast<const uint8_t *>(","), 1);
+    assert(input.pop(presetByte) && presetByte == '.' && !input.pop(presetByte));
     profileKey(vt::AppLeft);
     assert(input.pop(presetByte) && presetByte == 27);
     assert(input.pop(presetByte) && presetByte == 'D' && !input.pop(presetByte));

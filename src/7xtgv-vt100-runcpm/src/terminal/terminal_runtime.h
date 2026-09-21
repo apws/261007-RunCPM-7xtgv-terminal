@@ -7,6 +7,10 @@ void terminalConfigBegin();
 void terminalConfigFeed(uint8_t byte);
 unsigned terminalConfigEnd();
 uint8_t terminalConfiguredConsoleBits();
+unsigned terminalConfigErrorCount();
+uint8_t terminalConfigErrorLineCount();
+bool terminalConfigErrorLine(uint8_t index, uint16_t &number, const char *&section, const char *&text);
+bool terminalConfigUsesAnsi();
 // History lives beside 7XTGVTRM.INI on the CP/M SD card.  Storage itself stays
 // board-specific; these functions only parse and serialise the text format.
 void terminalHistoryLoadBegin();

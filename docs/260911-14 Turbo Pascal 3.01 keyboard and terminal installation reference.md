@@ -6,6 +6,11 @@ describes the command slots that **this exact installer** can define.  It is
 not yet a record of the definition installed on the device; that needs a
 careful interactive `TINST` session after MBASIC is retested.
 
+The later [private 8-bit control proof](260922-00%207xtgv%20private%208-bit%20core%20key%20codes%20and%20TP3%20proof.md)
+clarifies that TINST installs the active command table into `TURBO.COM`, not
+merely `TINST.DTA`, and demonstrates a working `81 01` editor command under
+Linux RunCPM.
+
 Turbo keeps the two necessary pieces separate:
 
 ```text

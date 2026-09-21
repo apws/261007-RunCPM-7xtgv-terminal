@@ -159,6 +159,15 @@ profiles contain the translated CP/M/WordStar-style keyboard mappings plus the
 profile-selection controls. Launch them with `tools/kit.sh` and
 `tools/kon.sh` as shown above.
 
+Explicit keyboard bindings may be placed in `[global]` or `[bankN]` in
+`7XTGVTRM.INI`; the bank entry wins. For example, `num1=send:1`,
+`kp_decimal=send:.`, or `ctrl_shift_alt_f5=send:\eQ`. Modifier names always
+appear in `ctrl_shift_alt_` order. `none` suppresses a key. The host keymap
+converts recognized physical keys to private input events before their
+identity is lost in the PTY; the ordinary host bytes are retained for
+unbound keys. See [the implementation note](../../docs/260920-16%20terminal%20keyboard%20override%20implementation.md)
+for supported names, host limitations, and test status.
+
 The launchers resolve their own directory and pass arguments to the first
 `terminal.py` instance. Arguments supplied by later attaching clients are
 ignored because the serial owner is already running. With no arguments they

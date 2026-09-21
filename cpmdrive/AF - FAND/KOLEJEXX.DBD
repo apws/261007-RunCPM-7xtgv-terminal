@@ -1,0 +1,105 @@
+
+
+$FILE_ZACI
+      Mesto:A,25;
+      Cizinec:A,1;
+      Rezervace:A,1;
+      Prijmeni:A,30;
+      Jmeno:A,15;
+      CP:A,3;
+
+#K @ CP
+#L   CP > '000' : 'To bude spat na WC ???????????!'
+
+
+
+$MERG_PREVOD
+#I1_ZACI
+#O1_KLIC CP:=I1.CP;Prijmeni:=I1.Prijmeni;Jmeno:=I1.Jmeno;Mesto:=I1.Mesto
+
+$FILE_KLIC
+      CP      :A,3;
+      Prijmeni:A,30;
+      Jmeno   :A,15;
+      Mesto   :A,20
+#K @  Prijmeni
+
+
+
+$RPRT_POKOJE1
+#I_ZACI
+#RH TODAY;
+                                SEZNAM CIZINCU                                          dne:__.__.__
+#DH;
+ CIS.POK     JMENO           PRIJMENI                     MESTO
+#DE CP,Jmeno,Prijmeni,Mesto;
+___  _______________  ______________________________ ____________________
+#RF page;
+  Personal Computer SHARP MZ-800  &  Charon Software Ltd.,1989  strana:__
+
+
+
+$RPRT_POKOJE
+#I_ZACI
+#RH TODAY;
+                                SEZNAM LIDI                                             dne:__.__.__
+#DH;
+ CIS.POK.    JMENO           PRIJMENI                     MESTO
+#DE CP,Jmeno,Prijmeni,Mesto;
+___  _______________  ______________________________ ____________________
+
+#RF page;
+                 SHARP MZ-800                                   strana:__
+
+$PROC_TISK
+%MenuLoop("*******************************************"
+          "***************-------------***************"
+          "***************|  VSICHNI  |***************"
+          "************--------------------***********"
+          "************|  NABIDKA TISKU   |***********"
+          "************--------------------***********"
+          "*******************************************"
+          " " " " " "
+          '      TISK NA OBRAZOVKU ':R POKOJE O %,
+          '      TISK NA TISKARNU  ':R POKOJE T %,
+          '      ZPET              ':P MENU %)
+
+$PROC_TISK2
+%MenuLoop("*******************************************"
+          "*              ------------               *"
+          "*              |  CIZINCI |               *"
+          "*           ------------------            *"
+          "*           |  NABIDKA TISKU  |           *"
+          "*           -------------------           *"
+          "*******************************************"
+          " " " " " "
+          '       TISK NA OBRAZOVKU ':R POKOJE1 O %,
+          '       TISK NA TISKARNU  ':R POKOJE1 T %,
+          '       ZPET DO MENU      ':P MENU      %)
+
+$PROC_TISK1
+%MenuLoop("*****************************************"
+          "**************               ************"
+          "************** PREHLED TISKU ************"
+          "**************               ************"
+          "*****************************************"
+          " " " " " "
+          '        VSECHY     ':P TISK  %,
+          '        JEN CIZINCE':P TISK2 %,
+          '        ZPET       ':P MENU  %)
+
+$PROC_MENU
+%MenuLoop("******************************************"
+          "*                                        *"
+          "*           EVIDENCE     UBYTOVANI       *"
+          "*                                        *"
+          "******************************************"
+           " " " " " "
+           "        (C) by KAREL SIMECEK ,1989       "
+           " " " " " "
+          '      ZAPIS ':E ZACI S @ @           %,
+          '      VYPIS ':P TISK1                %,
+          '      KOPIE ':M PREVOD              E%,
+          '      VYBER SI PODLE PRANI ': P MENU %)
+.
+

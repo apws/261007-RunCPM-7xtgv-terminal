@@ -42,18 +42,47 @@ def main() -> None:
         try:
             read_until(master, transcript, b"A0>", 10)
             transcript.clear()
-            os.write(master, b"DIR\r")
+            os.write(master, b"CCPP\r")
             read_until(master, transcript, b"A0>", 10)
+            assert b"CCP prompt: DD" in transcript, transcript[-800:]
+            transcript.clear()
+            os.write(master, b"CCPP D\r")
+            read_until(master, transcript, b"A>", 10)
+            transcript.clear()
+            os.write(master, b"USER 15\r")
+            read_until(master, transcript, b"A>", 10)
+            transcript.clear()
+            os.write(master, b"CCPP DH\r")
+            read_until(master, transcript, b"AF>", 10)
+            transcript.clear()
+            os.write(master, b"CCPP DD\r")
+            read_until(master, transcript, b"A15>", 10)
+            transcript.clear()
+            os.write(master, b"USER 0\r")
+            read_until(master, transcript, b"A0>", 10)
+            transcript.clear()
+            os.write(master, b"CCPP D EXTRA\r")
+            read_until(master, transcript, b"A0>", 10)
+            assert b"Usage: CCPP DD|DH|D" in transcript, transcript[-800:]
+            transcript.clear()
+            os.write(master, b"CCPP D\r")
+            read_until(master, transcript, b"A>", 10)
+            transcript.clear()
+            os.write(master, b"DIR\r")
+            read_until(master, transcript, b"A>", 10)
             assert b"VTDRV" in transcript, transcript[-800:]
             transcript.clear()
             os.write(master, b"VTDRV RW\r")
-            read_until(master, transcript, b"A0>", 30)
+            read_until(master, transcript, b"A>", 30)
             assert b"VTDRV verify: PASS" in transcript, transcript[-1200:]
             assert b"VTDRV write:" in transcript, transcript[-1200:]
             assert b"VTDRV read" in transcript, transcript[-1200:]
             fixture = drive / "VTDRV.$$$"
             before = fixture.read_bytes()
             assert len(before) == 32768
+            transcript.clear()
+            os.write(master, b"CCPP DD\r")
+            read_until(master, transcript, b"A0>", 10)
             transcript.clear()
             os.write(master, b"VTDRV\r")
             read_until(master, transcript, b"A0>", 30)
@@ -66,7 +95,7 @@ def main() -> None:
                 process.kill()
                 process.wait(timeout=10)
             os.close(master)
-    print("Linux RunCPM: DIR, VTDRV RW/read-only verify, EXIT passed in disposable filesystem")
+    print("Linux RunCPM: CCPP modes, DIR, VTDRV RW/read-only verify, EXIT passed in disposable filesystem")
 
 
 if __name__ == "__main__":

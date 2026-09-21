@@ -54,6 +54,7 @@ static constexpr const char *TerminalHistoryBackupPath = "A/0/7XTGVTRM.BAK";
 static constexpr const char *TerminalConfigPath = "A/0/7XTGVTRM.INI";
 static constexpr const char *TerminalConfigNewPath = "A/0/7XTCFG.NEW";
 static constexpr const char *TerminalConfigBackupPath = "A/0/7XTCFG.BAK";
+static constexpr const char *TerminalConfigErrorPath = "A/0/7XTGVTRM.ERR";
 static constexpr const char *TerminalHistoryV1Header = "# 7xtgv terminal history v1\n";
 static constexpr const char *TerminalHistoryV2Header = "# 7xtgv terminal history v2\n";
 static constexpr size_t TerminalHistoryV2FooterLength = 17; // # crc32=XXXXXXXX\n
@@ -285,6 +286,41 @@ static bool writeConfigSettings(File &source, File &target, uint8_t level,
     return valid && target.write(uint8_t(0x1a)) == 1;
 }
 
+static bool writeTerminalConfigErrorReport() {
+    // A stale report is worse than none: remove it after a clean parse too.
+    if (SD.exists(TerminalConfigErrorPath))
+        SD.remove(TerminalConfigErrorPath);
+    const unsigned total = terminalConfigErrorCount();
+    const uint8_t count = terminalConfigErrorLineCount();
+    if (!total)
+        return true;
+    File report = SD.open(TerminalConfigErrorPath, O_CREAT | O_WRITE);
+    if (!report)
+        return false;
+    char line[256];
+    int length = total == count
+        ? snprintf(line, sizeof(line), "7XTGVTRM.INI parse errors (%u)\r\n", total)
+        : snprintf(line, sizeof(line), "7XTGVTRM.INI parse errors (%u; first %u shown)\r\n",
+                   total, unsigned(count));
+    bool written = length > 0 && size_t(length) < sizeof(line) &&
+                   report.write(reinterpret_cast<const uint8_t *>(line), size_t(length)) == size_t(length);
+    for (uint8_t index = 0; written && index < count; ++index) {
+        uint16_t number = 0;
+        const char *section = nullptr, *text = nullptr;
+        if (!terminalConfigErrorLine(index, number, section, text)) {
+            written = false;
+            break;
+        }
+        length = snprintf(line, sizeof(line), "%4u: %s: %s\r\n", unsigned(number), section, text);
+        written = length > 0 && size_t(length) < sizeof(line) &&
+                  report.write(reinterpret_cast<const uint8_t *>(line), size_t(length)) == size_t(length);
+    }
+    written = written && report.write(uint8_t(0x1a)) == 1;
+    report.flush();
+    report.close();
+    return written;
+}
+
 bool terminalConfigStoragePoll() {
     uint8_t level = 0, zoom = 0;
     if (!terminalConfigSaveDue(level, zoom))
@@ -504,6 +540,7 @@ static void runCPM() {
             profileFile.close();
             profileErrors = terminalConfigEnd();
             mask8bit = terminalConfiguredConsoleBits() == 8 ? 0xff : 0x7f;
+            writeTerminalConfigErrorReport();
         }
         File historyFile = openTerminalHistory();
         if (historyFile) {
@@ -553,7 +590,29 @@ static void runCPM() {
 #if !defined(RUNCPM_HEADLESS)
         _puts("Terminal profile .....");
         if (profileLoaded) {
-            _puts(profileErrors ? "LOADED WITH ERRORS\r\n" : "OK\r\n");
+            if (profileErrors) {
+                char status[48];
+                snprintf(status, sizeof(status), "LOADED WITH ERRORS (%u)\r\n", profileErrors);
+                _puts(status);
+                for (uint8_t index = 0; index < terminalConfigErrorLineCount(); ++index) {
+                    uint16_t number = 0;
+                    const char *section = nullptr, *text = nullptr;
+                    if (!terminalConfigErrorLine(index, number, section, text))
+                        continue;
+                    char detail[256];
+                    snprintf(detail, sizeof(detail), "%4u: %s: %s", unsigned(number), section, text);
+                    if (terminalConfigUsesAnsi()) {
+                        // Our light palette maps ANSI red paper to the pale error field.
+                        _puts("\033[30;41m");
+                        _puts(detail);
+                        _puts("\033[K\033[0m\r\n");
+                    } else {
+                        _puts("*** "); _puts(detail); _puts("\r\n");
+                    }
+                }
+            } else {
+                _puts("OK\r\n");
+            }
         } else {
             _puts("COMPILED DEFAULTS\r\n");
         }

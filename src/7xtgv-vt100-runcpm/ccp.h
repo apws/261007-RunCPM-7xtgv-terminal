@@ -25,6 +25,13 @@
 #define SEC_SIZE          128
 #define MAX_USER          15
 
+// Prompt presentation only; the current CP/M user area remains unchanged.
+typedef enum {
+    CCP_PROMPT_DECIMAL, // A15> (default)
+    CCP_PROMPT_HEX,     // AF>
+    CCP_PROMPT_DRIVE    // A>
+} CCPPromptMode;
+
 // CCP global variables
 uint8 pageSize = DEFAULT_PAGE_SIZE;     // for TYPE
 uint8 currentDrive = 0;                 // 0 -> 15 = A -> P (Current drive for the CCP)
@@ -34,6 +41,7 @@ bool submitFlag = FALSE;                // Submit Flag
 uint8 submitRecords = 0;                // Number of records on the Submit file
 bool ccpSuppressNextPromptNewline = FALSE; // CLS owns the next prompt row
 uint8 prompt[PROMPT_SIZE] = "\r\n  >";  // Command prompt
+CCPPromptMode ccpPromptMode = CCP_PROMPT_DECIMAL;
 uint16 cmdBufferPtr, errorPtr;          // Pointer to the command buffer, and error position
 uint8 bufferLen = 0;                    // Actual size of the typed command line
 
@@ -493,6 +501,43 @@ uint8 _ccp_user(void) {
     return (error);
 } // _ccp_user
 
+// CCPP command - choose how the internal CCP displays drive and user.
+// This changes neither the selected user area nor command-line syntax.
+uint8 _ccp_promptMode(void) {
+    const uint8 first = _RamRead(ParFCB + 1);
+    const uint8 second = _RamRead(ParFCB + 2);
+    const uint8 third = _RamRead(ParFCB + 3);
+
+    if (first == ' ' && _RamRead(SecFCB + 1) == ' ') {
+        _puts("\r\nCCP prompt: ");
+        _puts(ccpPromptMode == CCP_PROMPT_DECIMAL ? "DD" :
+              ccpPromptMode == CCP_PROMPT_HEX ? "DH" : "D");
+        return FALSE;
+    }
+
+    // The first FCB holds the mode. Reject extensions, drive qualifiers,
+    // longer names and extra arguments instead of silently accepting them.
+    if (!_RamRead(ParFCB) && _RamRead(ParFCB + 9) == ' ' &&
+        !_RamRead(SecFCB) && _RamRead(SecFCB + 1) == ' ') {
+        CCPPromptMode requested;
+        if (first == 'D' && second == 'D' && third == ' ')
+            requested = CCP_PROMPT_DECIMAL;
+        else if (first == 'D' && second == 'H' && third == ' ')
+            requested = CCP_PROMPT_HEX;
+        else if (first == 'D' && second == ' ')
+            requested = CCP_PROMPT_DRIVE;
+        else {
+            _puts("\r\nUsage: CCPP DD|DH|D");
+            return FALSE;
+        }
+        ccpPromptMode = requested;
+        return FALSE;
+    }
+
+    _puts("\r\nUsage: CCPP DD|DH|D");
+    return FALSE;
+} // _ccp_promptMode
+
 // CLS command - clears the screen
 uint8 _ccp_cls(void) {
     _clrscr();
@@ -807,6 +852,7 @@ uint8 _ccp_poke(void) {
 uint8 _ccp_hlp(void) {
     _puts("\r\nCCP Commands:\r\n");
     _puts(" ?                  - Shows this list of commands\r\n");
+    _puts(" CCPP [DD|DH|D]     - Sets CCP prompt: decimal, hex, drive only\r\n");
     _puts(" CLS                - Clears the screen\r\n");
     _puts(" COPY <src> <dst>   - Copies a file\r\n");
     _puts(" DEL [<patt>]       - Alias to ERA\r\n");
@@ -843,6 +889,7 @@ static const Command Commands[] = {
 
     // Extra CCP commands
     {"CLS", _ccp_cls},
+    {"CCPP", _ccp_promptMode},
     {"COPY", _ccp_copy},
     {"LDIR", _ccp_ldir},
     {"DEL", _ccp_era},
@@ -1226,8 +1273,13 @@ void _ccp(void) {
         // the normal interactive prompt prefix again creates an empty row
         // between every pair of SUB commands.
         const bool compactPrompt = submitFlag || ccpSuppressNextPromptNewline;
-        sprintf((char *)prompt, compactPrompt ? "%c%u%c" : "\r\n%c%u%c",
-                'A' + currentDrive, currentUser, submitFlag ? '$' : '>');
+        char userText[4] = "";
+        if (ccpPromptMode == CCP_PROMPT_DECIMAL)
+            sprintf(userText, "%u", (unsigned int)currentUser);
+        else if (ccpPromptMode == CCP_PROMPT_HEX)
+            sprintf(userText, "%X", (unsigned int)currentUser);
+        sprintf((char *)prompt, compactPrompt ? "%c%s%c" : "\r\n%c%s%c",
+                'A' + currentDrive, userText, submitFlag ? '$' : '>');
         ccpSuppressNextPromptNewline = FALSE;
         if (!bufferLen) {
             _puts((char *)prompt);

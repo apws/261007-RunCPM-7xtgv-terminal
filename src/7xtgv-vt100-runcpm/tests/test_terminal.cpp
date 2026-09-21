@@ -22,6 +22,163 @@ static void keys(vt::Keyboard &k, const std::string &s, uint32_t now = 0) {
 }
 static int lastAction = -1;
 static void action(void *, vt::Keyboard::Action value) { lastAction = value; }
+struct KeyEventCapture {
+    vt::KeyChord chord;
+    std::string sent, fallback;
+    unsigned events = 0;
+};
+static void collectKeyBytes(void *p, const uint8_t *s, size_t n) {
+    static_cast<KeyEventCapture *>(p)->sent.append(reinterpret_cast<const char *>(s), n);
+}
+static void collectKeyEvent(void *p, vt::KeyChord chord, const uint8_t *s, size_t n) {
+    auto &capture = *static_cast<KeyEventCapture *>(p);
+    capture.chord = chord;
+    capture.fallback.assign(reinterpret_cast<const char *>(s), n);
+    ++capture.events;
+}
+static void testKeyboardOverrides() {
+    vt::Terminal terminal;
+    KeyEventCapture capture;
+    vt::Keyboard keyboard(terminal, collectKeyBytes, &capture, nullptr, collectKeyEvent);
+    const std::string num1 = "\033[>70;1;" + std::to_string(vt::KeyNum1) + ";0;043v";
+    keys(keyboard, num1);
+    assert(capture.events == 1 && capture.chord == (vt::KeyChord{vt::KeyNum1, 0}));
+    assert(capture.fallback == "+" && capture.sent.empty());
+    const std::string shiftedA = "\033[>70;1;" + std::to_string(vt::KeyA) + ";3;001v";
+    keys(keyboard, shiftedA);
+    assert(capture.events == 2 && capture.chord == (vt::KeyChord{vt::KeyA, 3}));
+    assert(capture.fallback == std::string(1, '\x01'));
+    const std::string invalid = "\033[>70;1;" + std::to_string(vt::KeyA) + ";0;097v";
+    keys(keyboard, invalid);
+    assert(capture.events == 2 && capture.sent == invalid);
+    capture.sent.clear();
+    keys(keyboard, "\033[>70;1;28;0;999v");
+    assert(capture.sent == "\033[>70;1;28;0;999v");
+    capture.sent.clear();
+    keys(keyboard, "\033[Av");
+    assert(capture.sent == "\033[Av");
+
+    vt::KeyChord chord;
+    assert(vt::parseKeyChordName("ctrl_shift_alt_f5", chord) &&
+           chord == (vt::KeyChord{vt::KeyF5, 7}));
+    assert(vt::parseKeyChordName("ALT_BS1", chord) &&
+           chord == (vt::KeyChord{vt::KeyBs1, vt::KeyAlt}));
+    assert(!vt::parseKeyChordName("a", chord));
+    assert(!vt::parseKeyChordName("shift_a", chord));
+    assert(!vt::parseKeyChordName("bs1", chord));
+    assert(!vt::parseKeyChordName("shift_l3", chord));
+    assert(!vt::parseKeyChordName("shift_ctrl_a", chord));
+    assert(!vt::parseKeyChordName("ctrl_ctrl_a", chord));
+
+    vt::HistoryProfiles profiles;
+    const std::string ini =
+        "[global]\nleft=send:G\nnum1=send:9\nctrl_shift_a=send:X\n"
+        "kp_decimal=send:,\n"
+        "[bank2]\ninput=wordstar\nleft=send:B\nnum1=none\n"
+        "ctrl_shift_alt_f5=send:\\eQ\n"
+        "[bank3]\ninput=wordstar\n";
+    profiles.beginLoad();
+    for (uint8_t c : ini) profiles.feed(c);
+    profiles.finishLoad();
+    assert(profiles.errors() == 0);
+    auto binding = [&](uint8_t bank, vt::KeyChord event) {
+        return profiles.bindingFor(bank, event);
+    };
+    assert(binding(2, {vt::KeyLeft, 0})->bytes[0] == 'B');
+    assert(binding(3, {vt::KeyLeft, 0})->bytes[0] == 'G');
+    assert(binding(2, {vt::KeyNum1, 0})->kind == vt::BindingNone);
+    assert(binding(3, {vt::KeyNum1, 0})->bytes[0] == '9');
+    assert(binding(2, {vt::KeyA, 3})->bytes[0] == 'X');
+    assert(binding(2, {vt::KeyKpDecimal, 0})->bytes[0] == ',');
+    assert(binding(2, {vt::KeyF5, 7})->bytes[0] == 27);
+    assert(binding(2, {vt::KeyF5, 7})->bytes[1] == 'Q');
+    assert(binding(2, {vt::KeyNum2, 0}) == nullptr);
+
+    const std::string duplicate = "[global]\nnum1=send:7\nnum1=send:8\n"
+                                  "[bank1]\nup=send:A\nup=send:B\n";
+    profiles.beginLoad();
+    for (uint8_t c : duplicate) profiles.feed(c);
+    profiles.finishLoad();
+    assert(profiles.errors() == 2);
+    assert(binding(0, {vt::KeyNum1, 0})->bytes[0] == '7');
+    assert(binding(1, {vt::KeyUp, 0})->bytes[0] == 'A');
+
+    std::string overfull = "[global]\n";
+    const char *mods[] = {"ctrl_", "alt_", "ctrl_alt_", "ctrl_shift_", "ctrl_shift_alt_"};
+    for (const char *mod : mods)
+        for (char letter = 'a'; letter <= 'z'; ++letter)
+            overfull += std::string(mod) + letter + "=send:Z\n";
+    profiles.beginLoad();
+    for (uint8_t c : overfull) profiles.feed(c);
+    profiles.finishLoad();
+    assert(profiles.errors() == 2); // 130 unique chords, 128 slots.
+    assert(binding(0, {vt::KeyZ, uint8_t(vt::KeyCtrl | vt::KeyShift | vt::KeyAlt)}) == nullptr);
+}
+static void testCaretControlNotation() {
+    vt::HistoryProfiles profiles;
+    const char *ini = R"ini([bank2]
+left=send:\^K^D
+right=send:\^K\^D
+f5=send:\^@\^A\^Z\^[\^\\^]\^^\^_\^?
+f6=send:\^a
+exit_command=\^K\^D\r
+)ini";
+    profiles.beginLoad();
+    for (const char *p = ini; *p; ++p) profiles.feed(uint8_t(*p));
+    profiles.finishLoad();
+    assert(profiles.errors() == 0);
+    const vt::KeyBinding &left = profiles.get(2).keys[vt::AppLeft];
+    assert(left.length == 3 && left.bytes[0] == 11 && left.bytes[1] == '^' &&
+           left.bytes[2] == 'D');
+    const vt::KeyBinding &right = profiles.get(2).keys[vt::AppRight];
+    assert(right.length == 2 && right.bytes[0] == 11 && right.bytes[1] == 4);
+    const vt::KeyBinding *f5 = profiles.bindingFor(2, {vt::KeyF5, 0});
+    const uint8_t expected[] = {0, 1, 26, 27, 28, 29, 30, 31, 127};
+    assert(f5 && f5->length == sizeof(expected));
+    assert(!memcmp(f5->bytes, expected, sizeof(expected)));
+    const vt::KeyBinding *f6 = profiles.bindingFor(2, {vt::KeyF6, 0});
+    assert(f6 && f6->length == 1 && f6->bytes[0] == 1);
+    assert(profiles.get(2).exitLength == 3 && profiles.get(2).exitBytes[0] == 11 &&
+           profiles.get(2).exitBytes[1] == 4 && profiles.get(2).exitBytes[2] == 13);
+
+    const char *invalid = "[bank2]\nf5=send:\\^5\nf6=send:\\^\n";
+    profiles.beginLoad();
+    for (const char *p = invalid; *p; ++p) profiles.feed(uint8_t(*p));
+    profiles.finishLoad();
+    assert(profiles.errors() == 2);
+    assert(profiles.bindingFor(2, {vt::KeyF5, 0}) == nullptr);
+    assert(profiles.bindingFor(2, {vt::KeyF6, 0}) == nullptr);
+}
+static void testProfileParseDiagnostics() {
+    vt::HistoryProfiles profiles;
+    const char *ini = "[bank2]\r\n"
+                      "not_a_setting\r\n"
+                      "f5=send:\\^5\r\n"
+                      "[bank99]\r\n";
+    profiles.beginLoad();
+    for (const char *p = ini; *p; ++p) profiles.feed(uint8_t(*p));
+    profiles.finishLoad();
+    assert(profiles.errors() == 3);
+    assert(profiles.errorLineCount() == 3);
+    const auto &first = profiles.errorLine(0);
+    assert(first.number == 2 && !strcmp(first.section, "[bank2]") &&
+           !strcmp(first.text, "not_a_setting"));
+    const auto &second = profiles.errorLine(1);
+    assert(second.number == 3 && !strcmp(second.section, "[bank2]") &&
+           !strcmp(second.text, "f5=send:\\^5"));
+    const auto &third = profiles.errorLine(2);
+    assert(third.number == 4 && !strcmp(third.section, "[invalid]") &&
+           !strcmp(third.text, "[bank99]"));
+
+    std::string many = "[bank0]\n";
+    for (unsigned i = 0; i < 12; ++i)
+        many += "bad" + std::to_string(i) + "\n";
+    profiles.beginLoad();
+    for (uint8_t c : many) profiles.feed(c);
+    profiles.finishLoad();
+    assert(profiles.errors() == 12 && profiles.errorLineCount() == 10);
+    assert(profiles.errorLine(9).number == 11 && !strcmp(profiles.errorLine(9).text, "bad9"));
+}
 struct PlotRecord {
     vt::Terminal::PlotEvent event;
     uint16_t color;
@@ -117,6 +274,9 @@ static void testLineEditing() {
     expectRow(5, 'F');
 }
 int main() {
+    testKeyboardOverrides();
+    testCaretControlNotation();
+    testProfileParseDiagnostics();
     testLineEditing();
     std::string replies;
     vt::Terminal t(collect, &replies);

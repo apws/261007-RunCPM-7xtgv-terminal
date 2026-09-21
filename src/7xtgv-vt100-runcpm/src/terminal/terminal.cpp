@@ -778,10 +778,54 @@ void Keyboard::flush() {
         send_(context_, buffer_, size_);
     size_ = 0;
 }
+// Versioned host-only event: CSI >70;1;<base>;<modifiers>;<fallback-DDD...>v.
+// The original host bytes travel with the event so an unbound key is safe.
+// Three decimal digits per byte keep the CSI body below 0x40 until final 'v'.
+bool decodePrivateKeyEvent(const uint8_t *s, size_t size, KeyChord &chord,
+                           uint8_t fallback[16], size_t &fallbackLength) {
+    if (size < 13 || memcmp(s, "\033[>70;1;", 8) || s[size - 1] != 'v')
+        return false;
+    size_t pos = 8;
+    auto decimal = [&](unsigned &value) {
+        value = 0;
+        size_t digits = 0;
+        while (pos < size && s[pos] >= '0' && s[pos] <= '9') {
+            value = value * 10 + s[pos++] - '0';
+            if (++digits > 3 || value > 255) return false;
+        }
+        if (!digits || pos >= size || s[pos++] != ';') return false;
+        return true;
+    };
+    unsigned base = 0, modifiers = 0;
+    if (!decimal(base) || !decimal(modifiers)) return false;
+    chord = {uint8_t(base), uint8_t(modifiers)};
+    if (!validKeyChord(chord)) return false;
+    const size_t digitsLength = size - 1 - pos;
+    if (digitsLength > 48 || digitsLength % 3) return false;
+    fallbackLength = digitsLength / 3;
+    for (size_t i = 0; i < fallbackLength; ++i) {
+        unsigned value = 0;
+        for (size_t digit = 0; digit < 3; ++digit) {
+            const uint8_t c = s[pos + 3 * i + digit];
+            if (c < '0' || c > '9') return false;
+            value = value * 10 + c - '0';
+        }
+        if (value > 255) return false;
+        fallback[i] = uint8_t(value);
+    }
+    return true;
+}
 void Keyboard::finish() {
     buffer_[size_] = 0;
     const char *s = reinterpret_cast<const char *>(buffer_);
-    if (!strcmp(s, "\033[1;3H") || !strcmp(s, "\033[1;3~") || !strcmp(s, "\033[7;3~") ||
+    KeyChord chord;
+    uint8_t fallback[16];
+    size_t fallbackLength = 0;
+    if (decodePrivateKeyEvent(buffer_, size_, chord, fallback, fallbackLength)) {
+        if (keyEvent_) keyEvent_(context_, chord, fallback, fallbackLength);
+        else if (fallbackLength) send_(context_, fallback, fallbackLength);
+    }
+    else if (!strcmp(s, "\033[1;3H") || !strcmp(s, "\033[1;3~") || !strcmp(s, "\033[7;3~") ||
         !strcmp(s, "\033\033[H"))
         t_.pan(0);
     else if (!strcmp(s, "\033[1;3F") || !strcmp(s, "\033[4;3~") || !strcmp(s, "\033[8;3~") ||

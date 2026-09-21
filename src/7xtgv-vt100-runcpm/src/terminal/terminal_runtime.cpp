@@ -184,7 +184,7 @@ static int cpmPromptEndColumn() {
             break;
         ++col; ++digits;
     }
-    return digits >= 1 && col < terminal.x && terminal.charRAM[first + col] == '>' ? col : -1;
+    return col < terminal.x && terminal.charRAM[first + col] == '>' ? col : -1;
 }
 // Bank 0 is temporarily effective while an app profile's on_select command
 // reaches its CP/M launcher prompt (for example A7>).  That is not a general
@@ -556,7 +556,10 @@ static void recallPoll() {
 static void profileKey(vt::AppKey key) {
     if (!history)
         return;
-    const vt::KeyBinding &binding = profiles.get(history->activeBank()).keys[key];
+    const vt::KeyBinding *resolved = profiles.bindingFor(history->activeBank(),
+                                                         vt::chordForAppKey(key));
+    if (!resolved) return;
+    const vt::KeyBinding &binding = *resolved;
     const vt::HistoryProfile &profile = profiles.get(history->activeBank());
     const bool mbasicEditKeyAction = key == vt::AppLeft || key == vt::AppRight ||
                                      key == vt::AppHome || key == vt::AppEnd ||
@@ -896,8 +899,54 @@ static void keyboardAction(void *, vt::Keyboard::Action action) {
     }
     historyRecall(action == vt::Keyboard::HistoryPrevious);
 }
-static vt::Keyboard keyboard(terminal, keyboardSend, nullptr, keyboardAction);
-static uint8_t rawControl[9];
+static void keyboardKeyEvent(void *, vt::KeyChord chord, const uint8_t *fallback,
+                             size_t fallbackLength) {
+    if (historyNoticeActive) return;
+    const int legacy = vt::appKeyForChord(chord);
+    if (legacy >= 0) {
+        profileKey(vt::AppKey(legacy));
+        return;
+    }
+    const uint8_t bank = history ? history->activeBank() : 0;
+    const vt::KeyBinding *binding = profiles.bindingFor(bank, chord);
+    if (binding) {
+        if (binding->kind == vt::BindingHistoryPrevious) historyRecall(true);
+        else if (binding->kind == vt::BindingHistoryNext) historyRecall(false);
+        else if (binding->kind == vt::BindingSend ||
+                 binding->kind == vt::BindingSendCancel) {
+            keyboardSend(nullptr, binding->bytes, binding->length);
+            if (binding->kind == vt::BindingSendCancel && history) {
+                history->discardCurrent();
+                lineModelAuthoritative = false;
+            }
+        }
+        return; // BindingNone explicitly suppresses the host fallback.
+    }
+    if (chord.base == vt::KeyBackspace && chord.modifiers == 0) {
+        keyboardAction(nullptr, vt::Keyboard::ProfileBackspace);
+        return;
+    }
+    if (chord.base == vt::KeyKpDelete && chord.modifiers == 0) {
+        profileKey(vt::AppDelete);
+        return;
+    }
+    if (chord.modifiers == 0 || chord.modifiers == vt::KeyShift) {
+        if (chord.base >= vt::KeyNum0 && chord.base <= vt::KeyNum9) {
+            const uint8_t digit = uint8_t('0' + chord.base - vt::KeyNum0);
+            keyboardSend(nullptr, &digit, 1);
+            return;
+        }
+    }
+    if (chord.base == vt::KeyKpDecimal && chord.modifiers == 0) {
+        const uint8_t dot = '.';
+        keyboardSend(nullptr, &dot, 1);
+        return;
+    }
+    keyboardSend(nullptr, fallback, fallbackLength);
+}
+static vt::Keyboard keyboard(terminal, keyboardSend, nullptr, keyboardAction,
+                             keyboardKeyEvent);
+static uint8_t rawControl[64];
 static uint8_t rawControlLength = 0;
 static uint32_t rawControlAt = 0;
 
@@ -910,7 +959,18 @@ static bool rawControlPrefix() {
     if (rawControlLength >= 1 && rawControl[0] != 0x1b) return false;
     if (rawControlLength >= 2 && rawControl[1] != '[') return false;
     if (rawControlLength >= 3 && rawControl[2] != '>') return false;
-    if (rawControlLength >= 4 && rawControl[3] != '1' && rawControl[3] != '2' && rawControl[3] != '6') return false;
+    if (rawControlLength >= 4 && rawControl[3] != '1' && rawControl[3] != '2' &&
+        rawControl[3] != '6' && rawControl[3] != '7') return false;
+    if (rawControlLength >= 4 && rawControl[3] == '7') {
+        if (rawControlLength >= 5 && rawControl[4] != '0') return false;
+        if (rawControlLength >= 6 && rawControl[5] != ';') return false;
+        for (uint8_t i = 6; i < rawControlLength; ++i) {
+            const uint8_t c = rawControl[i];
+            if (c == 'v') return i == rawControlLength - 1;
+            if (c != ';' && (c < '0' || c > '9')) return false;
+        }
+        return rawControlLength < sizeof(rawControl);
+    }
     if (rawControlLength >= 5) {
         if (rawControl[3] == '1' && (rawControl[4] < '4' || rawControl[4] > '7')) return false;
         if (rawControl[3] == '2' && (rawControl[4] < '0' || rawControl[4] > '9')) return false;
@@ -948,6 +1008,23 @@ static void rawFeed(uint8_t c, uint32_t now) {
     rawControlAt = now;
     if (!rawControlPrefix()) {
         rawFlush();
+        return;
+    }
+    if (rawControlLength >= 6 && rawControl[3] == '7') {
+        if (c != 'v') return;
+        vt::KeyChord chord;
+        uint8_t fallback[16];
+        size_t fallbackLength = 0;
+        if (vt::decodePrivateKeyEvent(rawControl, rawControlLength, chord,
+                                      fallback, fallbackLength)) {
+            rawControlLength = 0;
+            for (size_t i = 0; i < fallbackLength; ++i) {
+                input.push(fallback[i]);
+                if (fallback[i] == 13) ccpPromptLive = false;
+            }
+        } else {
+            rawFlush();
+        }
         return;
     }
     int brightness = rawBacklightValue();
@@ -1918,6 +1995,18 @@ unsigned terminalConfigEnd() {
     return profiles.errors();
 }
 uint8_t terminalConfiguredConsoleBits() { return profiles.global().consoleBits; }
+unsigned terminalConfigErrorCount() { return profiles.errors(); }
+uint8_t terminalConfigErrorLineCount() { return profiles.errorLineCount(); }
+bool terminalConfigErrorLine(uint8_t index, uint16_t &number, const char *&section, const char *&text) {
+    if (index >= profiles.errorLineCount())
+        return false;
+    const vt::HistoryProfiles::ErrorLine &entry = profiles.errorLine(index);
+    number = entry.number;
+    section = entry.section;
+    text = entry.text;
+    return true;
+}
+bool terminalConfigUsesAnsi() { return profiles.global().mode == vt::OutputAnsi; }
 void terminalConfigForceSave() {
     if (configSavePending.load(std::memory_order_acquire))
         configForceSaveRequested.store(true, std::memory_order_release);

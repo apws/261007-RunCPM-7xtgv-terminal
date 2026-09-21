@@ -56,9 +56,12 @@
   transfer, and always relaunch `tools/kon.sh` or `tools/kit.sh` afterwards.
   Do not first attempt a transfer against the live port merely to discover its
   lock owner.
-- Treat the physical USB-serial device as outside-sandbox state: request
-  escalation when it is needed rather than retrying inside the sandbox. Every
-  device flash or direct serial operation must finish by relaunching the
+- Treat the physical USB-serial device as outside-sandbox state: the sandbox
+  may hide `/dev/ttyUSB*` and `/dev/ttyACM*` even while the device is healthy.
+  If a normal serial-node check or transfer says the configured port is
+  absent, repeat that narrowly scoped discovery/transfer with escalation
+  before diagnosing the cable or device. This does not itself require sudo.
+  Every device flash or direct serial operation must finish by relaunching the
   user-visible `kon.sh`/`kit.sh` mirror, even if the upload itself succeeded.
 - Keep target firmware artifacts under `build/<project>/<target>/current` only
   after a verified host build. Archive replaced stable artifacts alongside it
@@ -107,12 +110,16 @@
   user briefly what is needed and ask whether to search here or let them handle
   it in ChatGPT/Lyra and bring the result back. Proceed immediately when the
   user explicitly requests browsing or current external information.
-- At the start of substantial analysis/planning/design, remind Petr that his
-  preferred resource-saving workflow is to complete it in ChatGPT/Lyra and
-  bring the resulting Markdown here for repo-grounded implementation. If the
-  design must be done here, remind him of `/model`: SOL for analysis/design,
-  TERRA for implementation, and LUNA for quick testing. Do not claim a billing
-  or infrastructure saving that is not established for his account.
+- For any complex, lengthy, or open-ended investigation—especially binary
+  reverse engineering, Ghidra/decompilation work, historical research, or
+  broad architecture/design analysis—tell Petr **before beginning** that
+  ChatGPT/Lyra is the preferred place to do that analysis, and ask him to
+  bring its Markdown findings here for repo-grounded verification and
+  implementation. Do not substitute shallow local probes for that deeper
+  analysis unless Petr expressly asks to proceed here. If analysis must be
+  done here, remind him of `/model`: SOL for analysis/design, TERRA for
+  implementation, and LUNA for quick testing. Do not claim a billing or
+  infrastructure saving that is not established for his account.
 - Keep this file short. Put detailed history, inventories and experiments in
   linked documentation under `docs/`.
 - Treat the local repository as the default documentation source of truth;
@@ -130,6 +137,11 @@
   `YYMMDD-HH ` so extension sorting also preserves their timeline.  Keep
   stable readmes, recovered material, and vendor resources in their existing
   names.
+- Treat files with uppercase `MIXWORX` in their filename as local/private:
+  keep them under the root `.gitignore` rule, and never force-add, commit, or
+  push them. Keep all CP/M FAND 1.0 test observations in the `MIXWORX`-tagged
+  log under `docs/260912-23 7xtgv terminal manual/`, not in separate test
+  reports under `docs/`.
 - Before an agent-triggered context compaction during active work, write a
   dated Markdown handoff in `docs/`: current implementation state, relevant
   tests/hardware observations, pending work, and exact recovery/build details.
@@ -141,6 +153,11 @@
   one-way with `tools/cpm-transfer/transfer.py put`; use `--verify` only when
   a full device read-back is worthwhile. Never silently import device files;
   use explicit `get` only when Petr requests it.
+- `tools/fetch-7xtgvtrm-ini.sh` is the explicit live-config import path. It
+  archives the preceding local mirror under the ignored
+  `cpmdrive/.7xtgvtrm-ini-history/MMDDHHMM.INI`, then replaces the local
+  mirror after a successful `get`; those snapshots are strictly host-local and
+  must never be deployed to CP/M.
 - Never overwrite device-side `A0:7XTGVTRM.INI` or `A0:7XTGVTRM.BUF`
   (terminal history) without Petr's explicit approval for that transfer,
   even during a rebuild or bulk CP/M mirror deployment. Approval for one

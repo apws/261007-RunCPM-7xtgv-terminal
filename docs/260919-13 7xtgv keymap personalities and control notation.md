@@ -3,6 +3,12 @@
 **Status:** design / implementation follow-up  
 **Context:** starts from the 2026-09-19 TP301/TINST test where Ctrl-modified six-pack mappings were entered into `7XTGVTRM.INI` and appeared as literal characters instead of TP editor control sequences.
 
+**Later verification:** [260922-00 7xtgv private 8-bit core key codes and TP3
+proof](260922-00%207xtgv%20private%208-bit%20core%20key%20codes%20and%20TP3%20proof.md)
+proves that TP3 accepts a two-byte command containing `0x81`, explains that
+TINST patches the active `TURBO.COM`, and records the proposed compact
+Ctrl/Shift/Alt plus sixteen-core-key encoding.
+
 ## 1. Immediate TP301 INI correction
 
 The attempted mappings used human caret notation such as:

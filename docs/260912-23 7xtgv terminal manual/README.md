@@ -23,6 +23,25 @@ remains usable throughout.
 `Ctrl+] q` leaves the host bridge.  `Ctrl+]` followed by `Ctrl+]` sends a real
 literal Ctrl+] to CP/M.
 
+### XMODEM over the mirror
+
+`A0:XMODEM.COM` v2.7 transfers binary files over the same USB console. Run
+`CONSOLE8` first: XMODEM needs all eight bits preserved. Then start the CP/M
+side and open the host panel with `Ctrl+Shift+X` (or the portable fallback
+`Ctrl+] m`). The panel accepts a typed host path and owns the serial stream
+until completion; protocol bytes are never rendered as CP/M text.
+
+| Direction | Start in CP/M first | Choose in panel |
+| --- | --- | --- |
+| Host file to CP/M | `XMODEM DEST.BIN /R /X0` | `S`, then source pathname |
+| CP/M file to host | `XMODEM SOURCE.BIN /S /X0` | `R`, then new destination pathname |
+
+The host receiver writes to `name.part` first and refuses to overwrite either
+that partial file or an existing destination. On success the file is renamed;
+after either outcome the mirror reconstructs its normal CP/M screen. The panel
+uses CRC XMODEM with 128-byte blocks and retry/ACK handling. `Esc` cancels
+before the transfer begins.
+
 ## Global terminal keys
 
 The keys below are intercepted by the 7xtgv terminal.  They do not become CP/M
@@ -40,6 +59,7 @@ input unless a profile deliberately maps them that way.
 | `Ctrl+] #` | Toggle `## RAW` direct-input mode. |
 | `Ctrl+] x` | Send the selected profile's configured exit command. |
 | `Ctrl+] c` | Send the selected profile's configured clear command. |
+| `Ctrl+] m` | Open the host-only XMODEM transfer panel. |
 | `Ctrl+] b 0` … `9` | Backlight off, then coarse 20% … 100%. |
 | `Ctrl+] b +` / `-` | Raise / lower one of 32 backlight levels. |
 
@@ -70,7 +90,7 @@ The PC key tables provide the more natural shortcuts:
 | `Alt+Backspace` | Configured profile clear. |
 | `Alt+Shift+Backspace` | Arm GCLS / xterm256 plotting without clearing the screen. |
 | `Alt+Shift+3` | Toggle `## RAW` mode. |
-| `Ctrl+Shift` or `Alt+Shift` + `0` … `9` | Backlight off, then coarse 20% … 100%. |
+| `Ctrl+Shift+0` … `9` | Backlight off, then coarse 20% … 100%. |
 | `Ctrl+Shift` or `Alt+Shift` + `PgUp` / `PgDn` | Raise / lower one of 32 backlight levels. |
 | `LAlt+Ctrl+Shift+PgUp` / `PgDn` | Increase / decrease glyph zoom. |
 | `LAlt+Ctrl+Shift+1` / `2` | Select ANSI/VT100 / VT52 terminal output interpretation. |
@@ -84,7 +104,7 @@ persisted in the INI file after input settles.
 
 ## Histories, banks, and the active line
 
-There are ten named FIFO histories, each retaining at most 100 entered lines.
+There are ten named FIFO histories, each retaining at most 255 entered lines.
 Single-character submissions are ignored. Up and Down normally recall entries
 directly; each profile can instead give those keys to the target application and
 put history on Alt+Up/Alt+Down. If there is a token immediately before the
@@ -104,7 +124,7 @@ therefore survives normal resets without cross-core filesystem access. It can
 be inspected or repaired from CP/M if required.
 
 Profile selection is explicit and persistent, but the RunCPM CCP prompt
-(`A0>`, `AF>`, and similar) silently uses effective bank `#0` so shell commands
+(`A0>`, `AF>`, `A>`, and similar) silently uses effective bank `#0` so shell commands
 do not pollute an application history.  The selected bank is restored when the
 application prompt returns.  The cursor row is rendered with a pale-green
 background; its cursor is a mid-green block whose character ink remains the
@@ -157,6 +177,15 @@ not repeat ordinary CP/M programs and imported language packages; use `?` at
 the CCP prompt for the internal CCP command list. An A0 command is found from
 other user areas by this RunCPM CCP, while files it creates normally belong to
 the current DU (for example `A6>`).
+
+The internal `CCPP` command changes only the displayed prompt: `CCPP DD`
+(default) shows decimal user numbers (`A15>`), `CCPP DH` shows hexadecimal
+digits (`AF>`), and `CCPP D` shows only the drive (`A>`), as on a conventional
+CP/M 2.2 prompt. Bare `CCPP` reports the mode. `USER` and drive/user commands
+still select the same actual areas; prompt formatting does not change their
+syntax. The setting survives ordinary program returns but resets on a full
+RunCPM restart. This requires firmware containing the new internal command;
+there is no `CCPP.COM` file to install.
 
 | DU | 7xtgv additions or adapted launchers |
 | --- | --- |
@@ -264,8 +293,108 @@ editing options such as `screen_line`, `line_prefix`, `activate_prefix`,
 `input_adapter`, and `history_retype_delay_ms`.
 
 Binding values are `none`, `history_previous`, `history_next`, `send:<bytes>`,
-or `send_cancel:<bytes>`.  Escape notation accepts `\e`, `\r`, `\n`, `\t`, `\\`,
-and `\xNN`.
+or `send_cancel:<bytes>`. Escape notation accepts `\e`, `\r`, `\n`, `\t`, `\\`,
+`\xNN`, and `\^X` for an ASCII control character.
+
+### Keyboard overrides in `7XTGVTRM.INI`
+
+Put a binding under `[global]` to make it available in every profile, or under
+`[bank0]` … `[bank9]` for one selected application profile. A bank-specific
+binding wins over the global one; otherwise the profile's `input=` preset or
+the terminal's default applies. These banks are terminal profiles, **not**
+CP/M drives or user areas. Keep the section spelling `[bankN]` lowercase.
+
+`input=` selects one of these keyboard-input presets. It is independent from
+`mode=ansi|vt52`, which selects the **output** interpretation:
+
+| `input=` value | Preset bindings |
+| --- | --- |
+| `custom` | Retains the normal/default bindings of the selected profile; add or replace individual bindings explicitly. |
+| `ansi` | ANSI cursor/navigation sequences for arrows, Home/End, PgUp/PgDn, Insert/Delete, and their implemented Ctrl/Alt variants. |
+| `vt52` | Arrows only: `Esc A`, `Esc B`, `Esc C`, `Esc D`. Other navigation keys are unbound unless explicitly configured. |
+| `wordstar` | WordStar-style arrows `^E/^X/^S/^D`; Home/End `^Q^S/^Q^D`; PgUp/PgDn `^R/^C`; Insert `^V`; Delete `^G`. |
+
+For every non-`custom` preset, `Alt+Up` and `Alt+Down` default to the
+profile history previous/next actions. An explicit profile or global key
+binding always wins. There are currently no `input=adm3a`, `input=mz821`, or
+`input=fand` presets: configure such applications with `input=custom` and
+specific bindings after their required input bytes are known.
+
+`input_adapter=none|mbasic_native|local_compose` is separate again: it
+selects narrowly scoped local line-edit handling, not a terminal protocol.
+Likewise, `## RAW` is a temporary bypass of profile key translation rather
+than an `input=` preset.
+
+```ini
+[global]
+kp_decimal=send:.
+ctrl_shift_f5=send:\eQ
+
+[bank3]
+ctrl_shift_f5=none
+shift_num1=send:1
+```
+
+The left side is `[ctrl_][shift_][alt_]<key>`, with modifier words in exactly
+that order and joined by underscores. Use `ctrl_shift_alt_f5`, not
+`alt_ctrl_shift_f5`; names are case-insensitive. `alt_` is intended for LAlt.
+RAlt/AltGr is reserved for the Czech layout's symbol entry, and is not a
+separate INI modifier.
+
+| Key group | Available base names |
+| --- | --- |
+| Cursor and editing | `left`, `right`, `up`, `down`, `home`, `end`, `insert`, `delete`, `page_up`, `page_down` |
+| Common keys | `backspace`, `escape`, `enter`, `space`, `f1` … `f12` |
+| Main number row | `num0` … `num9` (separate from the keypad) |
+| Numeric keypad | `kp_decimal`, `kp_delete` (the latter is NumLock-off Delete) |
+| Czech physical positions | `bs2`, `bs1` before Backspace; `p1`, `p2` after P; `l1`, `l2`, `l3` after L; `z1` before Z; `m1`, `m2`, `m3` after M |
+| Letters | `a` … `z`, only with Ctrl or Alt; plain and Shift-only letters remain normal typing |
+
+Any subset of the three modifier words is syntactically accepted for the
+non-letter names. Plain and Shift-only `bs1` and `l3` are deliberately excluded
+because these are dead-accent positions on the current Czech keyboard: their
+normal composition must continue to work. `num1` … `num0` send ASCII digits
+by default even when the unshifted Czech keycap produces `+ěščřžýáíé`;
+`kp_decimal` sends `.` by default even when the host emits `,`. Shifted
+main-row digits are separate names such as `shift_num1`.
+
+The right side has five forms:
+
+| Value | Effect |
+| --- | --- |
+| `send:<bytes>` | Send the specified bytes to CP/M. |
+| `send_cancel:<bytes>` | Send bytes and discard the current terminal history line. |
+| `history_previous` / `history_next` | Browse the effective history bank. |
+| `none` | Explicitly suppress that key. |
+
+`<bytes>` may contain up to 16 decoded bytes; `\e` is Escape, `\r` is Return,
+and `\xNN` inserts a byte in hexadecimal. `\^K` sends Ctrl-K (0B); the
+backslash-caret consumes exactly one character. Thus `\^K\^D` sends two
+control bytes, while `\^K^D` sends Ctrl-K followed by printable `^D`.
+Bare `^K` stays printable. The full convention is `\^@` = NUL, `\^A` …
+`\^Z` = 01 … 1A (lowercase letters also accepted), `\^[` = Escape,
+`\^\` = 1C, `\^]` = 1D, `\^^` = 1E, `\^_` = 1F, and `\^?` = DEL.
+Invalid forms such as `\^5` are rejected; `\e` remains the clearer spelling
+for Escape in terminal sequences. Write comments on their own lines
+beginning with `;` or `#`—not after a binding value, where they would be read
+as part of that value. A duplicate key or an excess over 128 sparse overrides
+across the whole configuration reports a load error; the first accepted
+binding remains in effect.
+
+The device image stamped `260920-1628` predates `\^` support. The corrected
+`260920-1816` image is staged but not yet flashed; continue using `\xNN` in
+the device-side INI until that reflash.
+
+INI recognition and host delivery are distinct. The supplied Konsole/Kitty
+keymaps translate only physical combinations with a safe known fallback;
+terminal-owned shortcuts (for example Alt+number profile selection and
+Ctrl+Shift+number backlight), ambiguous AltGr combinations, unmodified dead
+accents, and some less-tested punctuation combinations are left to the host.
+Konsole's key table does not encode left-versus-right Alt explicitly, and a
+desktop shortcut can consume a chord before this terminal sees it. In
+particular, a correctly spelled INI binding does not guarantee that every
+host keyboard will deliver that physical combination. Ordinary unbound keys
+retain their host output; pasted text is not remapped.
 
 `7XTGVTRM.INI` is deliberately CP/M-text friendly: its loader accepts CR, LF,
 or CR/LF line endings and treats a CP/M Ctrl+Z (`1Ah`) as logical end of file.
@@ -291,6 +420,6 @@ changing the device. Assemble `REFLASH.ASM` to install `REFLASH.COM`.
 The mirror selects an explicit `XTGV_TARGET` in `tools/terminal.conf` and
 uses `tools/reflash.py` to load that target's profile, default port and upload
 method from `tools/targets/<target>.json`. Override a changed USB node with
-`XTGV_PORT`. The current development target is `jc8048w535`; change it before
+`XTGV_PORT`. The current development target is `jc8048w550`; change it before
 moving to another module. A `bootsel-uf2` target intentionally refuses this
 automatic host event until its BOOTSEL/UF2 flow is explicitly configured.

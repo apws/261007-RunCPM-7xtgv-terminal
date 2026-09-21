@@ -17,3 +17,9 @@ cpmcard/
 docs/tft-ips-modules/
 *.o
 *.swp
+# Local/private MIXWORX working notes, at any depth.
+*MIXWORX*
+cpmdrive/.7xtgvtrm-ini-history/
+# Imported third-party CP/M material and the raw card backup stay local.
+ext/
+260914 backup - cpmcard.zip

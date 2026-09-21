@@ -31,6 +31,34 @@ static const char *KeyNames[AppKeyCount] = {
     "alt_page_up", "alt_page_down"
 };
 
+static const char *BaseKeyNames[] = {
+    nullptr,
+    "left", "right", "home", "end", "delete", "insert", "up", "down",
+    "page_up", "page_down", "backspace", "escape", "enter", "space",
+    "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12",
+    "num0", "num1", "num2", "num3", "num4", "num5", "num6", "num7", "num8", "num9",
+    "bs2", "bs1", "p1", "p2", "l1", "l2", "l3", "z1", "m1", "m2", "m3",
+    "kp_decimal", "kp_delete",
+    "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
+    "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"
+};
+static_assert(sizeof(BaseKeyNames) / sizeof(BaseKeyNames[0]) == KeyZ + 1,
+              "key names must match the private keyboard protocol IDs");
+
+static const KeyChord LegacyChords[AppKeyCount] = {
+    {KeyLeft, 0}, {KeyRight, 0}, {KeyHome, 0}, {KeyEnd, 0},
+    {KeyDelete, 0}, {KeyInsert, 0}, {KeyUp, 0}, {KeyDown, 0},
+    {KeyUp, KeyAlt}, {KeyDown, KeyAlt},
+    {KeyPageUp, 0}, {KeyPageDown, 0},
+    {KeyLeft, KeyCtrl}, {KeyRight, KeyCtrl}, {KeyUp, KeyCtrl}, {KeyDown, KeyCtrl},
+    {KeyHome, KeyCtrl}, {KeyEnd, KeyCtrl}, {KeyDelete, KeyCtrl}, {KeyInsert, KeyCtrl},
+    {KeyPageUp, KeyCtrl}, {KeyPageDown, KeyCtrl},
+    {KeyLeft, KeyAlt}, {KeyRight, KeyAlt}, {KeyHome, KeyAlt}, {KeyEnd, KeyAlt},
+    {KeyDelete, KeyAlt}, {KeyInsert, KeyAlt}, {KeyPageUp, KeyAlt}, {KeyPageDown, KeyAlt}
+};
+static_assert(sizeof(LegacyChords) / sizeof(LegacyChords[0]) == AppKeyCount,
+              "all existing profile keys need a chord");
+
 static char *trim(char *s) {
     while (isspace(static_cast<unsigned char>(*s))) ++s;
     char *end = s + strlen(s);
@@ -53,12 +81,48 @@ static bool startsNoCase(const char *text, const char *prefix) {
     }
     return true;
 }
+} // namespace
+
+KeyChord chordForAppKey(AppKey key) {
+    return key < AppKeyCount ? LegacyChords[key] : KeyChord{};
+}
+
+int appKeyForChord(KeyChord chord) {
+    for (uint8_t i = 0; i < AppKeyCount; ++i)
+        if (LegacyChords[i] == chord)
+            return i;
+    return -1;
+}
+
+bool parseKeyChordName(const char *name, KeyChord &result) {
+    KeyChord parsed{};
+    if (startsNoCase(name, "ctrl_")) { parsed.modifiers |= KeyCtrl; name += 5; }
+    if (startsNoCase(name, "shift_")) { parsed.modifiers |= KeyShift; name += 6; }
+    if (startsNoCase(name, "alt_")) { parsed.modifiers |= KeyAlt; name += 4; }
+    for (uint8_t i = KeyLeft; i <= KeyZ; ++i) {
+        if (equalNoCase(name, BaseKeyNames[i])) {
+            parsed.base = i;
+            if (!validKeyChord(parsed)) return false;
+            result = parsed;
+            return true;
+        }
+    }
+    return false;
+}
+
+namespace {
 static bool parseGeometry(const char *value, Geometry &result) {
     unsigned cols = 0, rows = 0; char tail = 0;
     if (sscanf(value, "%ux%u%c", &cols, &rows, &tail) != 2 || cols > 65535 || rows > 65535)
         return false;
     result = {uint16_t(cols), uint16_t(rows)};
     return true;
+}
+
+static bool geometryFitsDisplay(const Geometry &geometry, uint8_t zoom,
+                                const DisplayHalDefaults &hal) {
+    return geometry.cols >= 2 && geometry.rows >= 1 && geometry.cols <= hal.maxCols &&
+           geometry.rows <= hal.maxRows && geometry.rows * 10u * zoom <= hal.physicalHeight;
 }
 
 static bool hexDigit(char c, uint8_t &value) {
@@ -81,6 +145,13 @@ static bool decode(const char *source, uint8_t *target, uint8_t capacity, uint8_
             else if (escape == 't') value = 9;
             else if (escape == 'e') value = 27;
             else if (escape == '\\') value = '\\';
+            else if (escape == '^') {
+                const char control = *source++;
+                if (control >= '@' && control <= '_') value = uint8_t(control & 0x1f);
+                else if (control >= 'a' && control <= 'z') value = uint8_t(control - 'a' + 1);
+                else if (control == '?') value = 127;
+                else return false;
+            }
             else if (escape == 'x') {
                 uint8_t high, low;
                 if (!hexDigit(source[0], high) || !hexDigit(source[1], low)) return false;
@@ -230,6 +301,35 @@ Geometry HistoryProfiles::geometryFor(uint8_t bank, uint8_t zoom, Geometry displ
     return profile.geometryOverride[index] ? profile.geometry[index] : displayGeometry;
 }
 
+const KeyBinding *HistoryProfiles::bindingFor(uint8_t bank, KeyChord chord) const {
+    if (!validKeyChord(chord)) return nullptr;
+    const Set &set = sets_[active_.load(std::memory_order_acquire)];
+    if (bank >= Banks) bank = 0;
+    const int legacy = appKeyForChord(chord);
+    if (legacy >= 0 && (set.explicitKeys[bank] & (uint32_t(1) << legacy)))
+        return &set.banks[bank].keys[legacy];
+    for (uint8_t i = 0; i < set.overrideCount; ++i)
+        if (set.overrides[i].bank == bank && set.overrides[i].chord == chord)
+            return &set.overrides[i].binding;
+    for (uint8_t i = 0; i < set.overrideCount; ++i)
+        if (set.overrides[i].bank == Banks && set.overrides[i].chord == chord)
+            return &set.overrides[i].binding;
+    return legacy >= 0 ? &set.banks[bank].keys[legacy] : nullptr;
+}
+
+bool HistoryProfiles::addOverride(Set &set, uint8_t bank, KeyChord chord,
+                                  const KeyBinding &binding) {
+    for (uint8_t i = 0; i < set.overrideCount; ++i)
+        if (set.overrides[i].bank == bank && set.overrides[i].chord == chord)
+            return false;
+    if (set.overrideCount >= MaxOverrides) return false;
+    ScopedBinding &entry = set.overrides[set.overrideCount++];
+    entry.bank = bank;
+    entry.chord = chord;
+    entry.binding = binding;
+    return true;
+}
+
 void HistoryProfiles::defaults(Set &set) {
     set = Set{};
     for (uint8_t bank = 0; bank < Banks; ++bank) {
@@ -341,8 +441,7 @@ void HistoryProfiles::validateDisplay(Set &set) {
     for (int i = 0; i < 4; ++i) {
         Geometry &geometry = set.display.geometry[i];
         const int zoom = i + 1;
-        bool valid = geometry.cols >= 2 && geometry.rows >= 1 && geometry.cols <= hal.maxCols &&
-                     geometry.rows <= hal.maxRows && geometry.rows * 10 * zoom <= hal.physicalHeight;
+        bool valid = geometryFitsDisplay(geometry, zoom, hal);
         if (!valid) {
             ++errors_;
             geometry = hal.zoomGeometry[i];
@@ -367,8 +466,7 @@ void HistoryProfiles::validateBankGeometry(Set &set) {
             if (!profile.geometryOverride[i]) continue;
             Geometry &geometry = profile.geometry[i];
             const int zoom = i + 1;
-            if (geometry.cols < 2 || geometry.cols > hal.maxCols || geometry.rows < 1 ||
-                geometry.rows > hal.maxRows || geometry.rows * 10 * zoom > hal.physicalHeight) {
+            if (!geometryFitsDisplay(geometry, zoom, hal)) {
                 ++errors_;
                 profile.geometryOverride[i] = false;
             } else {
@@ -386,7 +484,9 @@ void HistoryProfiles::beginLoad(const DisplayHalDefaults &hal) {
     loading_ = uint8_t(1 - active_.load(std::memory_order_acquire));
     defaults(sets_[loading_]);
     displayDefaults(sets_[loading_]);
-    section_ = -1; errors_ = 0; length_ = 0; overflow_ = false; eof_ = false;
+    section_ = -1; errors_ = 0; errorLineCount_ = 0; lineNumber_ = 1;
+    length_ = 0; overflow_ = false; eof_ = false; previousWasCR_ = false;
+    strcpy(sectionLabel_, "[none]");
 }
 
 void HistoryProfiles::feed(uint8_t byte) {
@@ -399,13 +499,42 @@ void HistoryProfiles::feed(uint8_t byte) {
         eof_ = true;
         return;
     }
-    if (byte == '\n' || byte == '\r') {
+    if (byte == '\r') {
         if (length_ || overflow_) parseLine();
+        ++lineNumber_;
+        previousWasCR_ = true;
         return;
     }
+    if (byte == '\n') {
+        if (previousWasCR_) {
+            previousWasCR_ = false;
+            return;
+        }
+        if (length_ || overflow_) parseLine();
+        ++lineNumber_;
+        return;
+    }
+    previousWasCR_ = false;
     if (overflow_) return;
     if (length_ + 1 >= sizeof(line_)) { overflow_ = true; return; }
     line_[length_++] = char(byte);
+}
+
+void HistoryProfiles::setSectionLabel(const char *text) {
+    strncpy(sectionLabel_, text, sizeof(sectionLabel_) - 1);
+    sectionLabel_[sizeof(sectionLabel_) - 1] = 0;
+}
+
+void HistoryProfiles::recordError(const char *text) {
+    ++errors_;
+    if (errorLineCount_ >= MaxErrorLines)
+        return;
+    ErrorLine &entry = errorLines_[errorLineCount_++];
+    entry.number = lineNumber_;
+    strncpy(entry.section, sectionLabel_, sizeof(entry.section) - 1);
+    entry.section[sizeof(entry.section) - 1] = 0;
+    strncpy(entry.text, text, MaxErrorText);
+    entry.text[MaxErrorText] = 0;
 }
 
 void HistoryProfiles::finishLoad() {
@@ -417,104 +546,128 @@ void HistoryProfiles::finishLoad() {
 }
 
 void HistoryProfiles::parseLine() {
-    if (overflow_) { ++errors_; overflow_ = false; length_ = 0; return; }
+    if (overflow_) {
+        line_[length_] = 0;
+        recordError(line_);
+        overflow_ = false;
+        length_ = 0;
+        return;
+    }
     line_[length_] = 0; length_ = 0;
+    char raw[sizeof(line_)];
+    strncpy(raw, line_, sizeof(raw));
+    raw[sizeof(raw) - 1] = 0;
+    const auto fail = [&] { recordError(raw); };
     char *text = trim(line_);
     if (!*text || *text == '#' || *text == ';') return;
-    if (equalNoCase(text, "[global]")) { section_ = -2; return; }
+    if (equalNoCase(text, "[global]")) { section_ = -2; setSectionLabel("[global]"); return; }
     if (startsNoCase(text, "[display:") && text[strlen(text) - 1] == ']') {
         text[strlen(text) - 1] = 0;
         section_ = equalNoCase(text + 9, hal_->id) ? -3 : -4;
+        setSectionLabel(raw);
         return;
     }
     int bank = -1; char tail = 0;
     if (sscanf(text, "[bank%d]%c", &bank, &tail) == 1) {
-        if (bank >= 0 && bank < Banks) section_ = bank;
-        else { section_ = -1; ++errors_; }
+        if (bank >= 0 && bank < Banks) { section_ = bank; setSectionLabel(raw); }
+        else { section_ = -1; setSectionLabel("[invalid]"); fail(); }
         return;
     }
     char *equals = strchr(text, '=');
-    if (!equals) { ++errors_; return; }
+    if (!equals) { fail(); return; }
     *equals = 0;
     char *keyName = trim(text), *value = trim(equals + 1);
     if (section_ == -2) {
         if (!strcmp(keyName, "mode")) {
-            if (!parseOutputMode(value, sets_[loading_].global.mode)) ++errors_;
+            if (!parseOutputMode(value, sets_[loading_].global.mode)) fail();
         } else if (!strcmp(keyName, "console_bits")) {
             if (!strcmp(value, "7")) sets_[loading_].global.consoleBits = 7;
             else if (!strcmp(value, "8")) sets_[loading_].global.consoleBits = 8;
-            else ++errors_;
+            else fail();
         } else if (!strcmp(keyName, "exit_key")) {
-            if (!parseGlobalKey(value, sets_[loading_].global.exitKey)) ++errors_;
+            if (!parseGlobalKey(value, sets_[loading_].global.exitKey)) fail();
         } else if (!strcmp(keyName, "clear_key")) {
-            if (!parseGlobalKey(value, sets_[loading_].global.clearKey)) ++errors_;
+            if (!parseGlobalKey(value, sets_[loading_].global.clearKey)) fail();
         } else if (!strcmp(keyName, "cursor_blink_ms")) {
             char tail = 0;
             unsigned period = 0;
             if (sscanf(value, "%u%c", &period, &tail) != 1 || period < 1 || period > 5000)
-                ++errors_;
+                fail();
             else
                 sets_[loading_].global.cursorBlinkMs = uint16_t(period);
         } else if (!strcmp(keyName, "backlight_level")) {
             char tail = 0;
             unsigned level = 0;
             if (sscanf(value, "%u%c", &level, &tail) != 1 || level < 1 || level > 32)
-                ++errors_;
+                fail();
             else
                 sets_[loading_].global.backlightLevel = uint8_t(level);
         } else if (!strcmp(keyName, "viewport_gutter_rgb")) {
-            if (!parseRGB(value, sets_[loading_].global.viewportGutterRGB)) ++errors_;
+            if (!parseRGB(value, sets_[loading_].global.viewportGutterRGB)) fail();
         } else if (!strcmp(keyName, "viewport_active_gutter_rgb")) {
             if (!strcmp(value, "active_line")) {
                 sets_[loading_].global.viewportActiveGutterFollowsLine = true;
             } else if (parseRGB(value, sets_[loading_].global.viewportActiveGutterRGB)) {
                 sets_[loading_].global.viewportActiveGutterFollowsLine = false;
             } else {
-                ++errors_;
+                fail();
             }
-        } else ++errors_;
+        } else {
+            KeyChord chord;
+            KeyBinding binding;
+            if (!parseKeyChordName(keyName, chord) || !parseBinding(value, binding) ||
+                !addOverride(sets_[loading_], Banks, chord, binding))
+                fail();
+        }
         return;
     }
     if (section_ == -3) {
         DisplayProfile &display = sets_[loading_].display;
         if (!strcmp(keyName, "view_zoom")) {
             unsigned parsed = 0; char tail = 0;
-            if (sscanf(value, "%u%c", &parsed, &tail) != 1 || parsed < 1 || parsed > 4) ++errors_;
+            if (sscanf(value, "%u%c", &parsed, &tail) != 1 || parsed < 1 || parsed > 4) fail();
             else display.viewZoom = uint8_t(parsed);
         } else if (!strncmp(keyName, "zoom", 4) && keyName[4] >= '1' && keyName[4] <= '4' &&
                    !strcmp(keyName + 5, "_terminal")) {
             Geometry geometry;
-            if (!parseGeometry(value, geometry)) ++errors_;
-            else display.geometry[keyName[4] - '1'] = geometry;
+            const uint8_t index = keyName[4] - '1';
+            if (!parseGeometry(value, geometry) || !geometryFitsDisplay(geometry, index + 1, *hal_)) fail();
+            else {
+                geometry.cols &= ~1u;
+                if (geometry.cols < 2) fail();
+                else display.geometry[index] = geometry;
+            }
         } else if (!strcmp(keyName, "render_flush_hz")) {
             unsigned parsed = 0; char tail = 0;
-            if (sscanf(value, "%u%c", &parsed, &tail) != 1 || parsed > 60) ++errors_;
+            if (sscanf(value, "%u%c", &parsed, &tail) != 1 || parsed > 60) fail();
             else display.renderFlushHz = uint16_t(parsed);
         } else if (!strcmp(keyName, "rgb_refresh_hz")) {
             // Saved for forward-compatible shared cards.  Physical RGB timing
             // is intentionally compile-time until its SD/display boot order is redesigned.
-        } else ++errors_;
+        } else fail();
         return;
     }
     if (section_ == -4)
         return;
-    if (section_ < 0) { ++errors_; return; }
+    if (section_ < 0) { fail(); return; }
     HistoryProfile &profile = sets_[loading_].banks[section_];
     if (!strcmp(keyName, "mode")) {
         if (parseOutputMode(value, profile.mode)) profile.modeOverride = true;
-        else ++errors_;
+        else fail();
         return;
     }
     if (!strcmp(keyName, "input")) {
-        if (!parseInputPreset(value, profile.input)) ++errors_;
+        if (!parseInputPreset(value, profile.input)) fail();
         return;
     }
     if (!strncmp(keyName, "zoom", 4) && keyName[4] >= '1' && keyName[4] <= '4' &&
         !strcmp(keyName + 5, "_terminal")) {
         Geometry geometry;
-        if (!parseGeometry(value, geometry)) ++errors_;
+        const int zoomIndex = keyName[4] - '1';
+        if (!parseGeometry(value, geometry) || !geometryFitsDisplay(geometry, zoomIndex + 1, *hal_)) fail();
         else {
-            const int zoomIndex = keyName[4] - '1';
+            geometry.cols &= ~1u;
+            if (geometry.cols < 2) { fail(); return; }
             profile.geometry[zoomIndex] = geometry;
             profile.geometryOverride[zoomIndex] = true;
         }
@@ -526,86 +679,96 @@ void HistoryProfiles::parseLine() {
         return;
     }
     if (!strcmp(keyName, "on_select")) {
-        if (!decode(value, profile.selectBytes, HistoryProfile::MaxSelectBytes, profile.selectLength)) ++errors_;
+        if (!decode(value, profile.selectBytes, HistoryProfile::MaxSelectBytes, profile.selectLength)) fail();
         return;
     }
     if (!strcmp(keyName, "history_clear")) {
         if (!decode(value, profile.historyClearBytes, KeyBinding::MaxBytes,
-                    profile.historyClearLength)) ++errors_;
+                    profile.historyClearLength)) fail();
         return;
     }
     if (!strcmp(keyName, "history_retype_delay_ms")) {
         char tail = 0;
         unsigned delay = 0;
         if (sscanf(value, "%u%c", &delay, &tail) != 1 || delay > 1000)
-            ++errors_;
+            fail();
         else
             profile.historyRetypeDelayMs = uint16_t(delay);
         return;
     }
     if (!strcmp(keyName, "line_prefix")) {
         if (!decode(value, profile.linePrefixBytes, HistoryProfile::MaxPrefixBytes,
-                    profile.linePrefixLength)) ++errors_;
+                    profile.linePrefixLength)) fail();
         return;
     }
     if (!strcmp(keyName, "activate_prefix")) {
         if (!decode(value, profile.activatePrefixBytes, HistoryProfile::MaxPrefixBytes,
-                    profile.activatePrefixLength)) ++errors_;
+                    profile.activatePrefixLength)) fail();
         return;
     }
     if (!strcmp(keyName, "exit_command") || !strcmp(keyName, "clear_command")) {
         uint8_t *bytes = !strcmp(keyName, "exit_command") ? profile.exitBytes : profile.clearBytes;
         uint8_t &length = !strcmp(keyName, "exit_command") ? profile.exitLength : profile.clearLength;
-        if (!decode(value, bytes, HistoryProfile::MaxCommandBytes, length)) ++errors_;
+        if (!decode(value, bytes, HistoryProfile::MaxCommandBytes, length)) fail();
         return;
     }
     if (!strcmp(keyName, "screen_line")) {
-        if (!parseBool(value, profile.screenLine)) ++errors_;
+        if (!parseBool(value, profile.screenLine)) fail();
         return;
     }
     if (!strcmp(keyName, "editing_surface")) {
         if (!strcmp(value, "line")) profile.editingSurface = EditingSurfaceLine;
         else if (!strcmp(value, "screen")) profile.editingSurface = EditingSurfaceScreen;
-        else ++errors_;
+        else fail();
         return;
     }
     if (!strcmp(keyName, "activate_numbered_line")) {
-        if (!parseBool(value, profile.activateNumberedLine)) ++errors_;
+        if (!parseBool(value, profile.activateNumberedLine)) fail();
         return;
     }
     if (!strcmp(keyName, "input_adapter")) {
-        if (!parseInputAdapter(value, profile.inputAdapter)) ++errors_;
+        if (!parseInputAdapter(value, profile.inputAdapter)) fail();
         return;
     }
     if (!strcmp(keyName, "command_new_line")) {
-        if (!parseBool(value, profile.commandNewLine)) ++errors_;
+        if (!parseBool(value, profile.commandNewLine)) fail();
         return;
     }
     if (!strcmp(keyName, "trim_left")) {
-        if (!parseBool(value, profile.trimLeft)) ++errors_;
+        if (!parseBool(value, profile.trimLeft)) fail();
         return;
     }
     if (!strcmp(keyName, "escape_cancels")) {
-        if (!parseBool(value, profile.escapeCancels)) ++errors_;
+        if (!parseBool(value, profile.escapeCancels)) fail();
         return;
     }
     if (!strcmp(keyName, "active_line")) {
-        if (!parseBool(value, profile.activeLine)) ++errors_;
+        if (!parseBool(value, profile.activeLine)) fail();
         return;
     }
     if (!strcmp(keyName, "active_line_rgb") || !strcmp(keyName, "cursor_rgb")) {
         if (!parseRGB(value, !strcmp(keyName, "active_line_rgb") ? profile.activeLineRGB
-                                                                  : profile.cursorRGB)) ++errors_;
+                                                                  : profile.cursorRGB)) fail();
         return;
     }
     for (uint8_t key = 0; key < AppKeyCount; ++key) {
-        if (!strcmp(keyName, KeyNames[key])) {
-            if (!parseBinding(value, profile.keys[key])) ++errors_;
-            else sets_[loading_].explicitKeys[section_] |= uint32_t(1) << key;
+        if (equalNoCase(keyName, KeyNames[key])) {
+            const uint32_t bit = uint32_t(1) << key;
+            KeyBinding binding;
+            if ((sets_[loading_].explicitKeys[section_] & bit) ||
+                !parseBinding(value, binding)) fail();
+            else {
+                profile.keys[key] = binding;
+                sets_[loading_].explicitKeys[section_] |= bit;
+            }
             return;
         }
     }
-    ++errors_;
+    KeyChord chord;
+    KeyBinding binding;
+    if (!parseKeyChordName(keyName, chord) || !parseBinding(value, binding) ||
+        !addOverride(sets_[loading_], uint8_t(section_), chord, binding))
+        fail();
 }
 
 } // namespace vt

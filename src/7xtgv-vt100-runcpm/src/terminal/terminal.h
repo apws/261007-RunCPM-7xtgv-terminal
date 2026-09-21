@@ -3,8 +3,13 @@
 #include <stdint.h>
 #include "../../runcpm-config.h"
 #include "7xtgv-palette.h"
+#include "key_chords.h"
 
 namespace vt {
+// Host-only, versioned private keyboard event. Unknown/malformed events must
+// remain ordinary input bytes rather than disappearing from a CP/M program.
+bool decodePrivateKeyEvent(const uint8_t *bytes, size_t length, KeyChord &chord,
+                           uint8_t fallback[16], size_t &fallbackLength);
 // CP/M's conventional output width is 80 columns, but larger panels expose a
 // correspondingly wider terminal plane.  Small panels retain the 80-column
 // plane and use viewport panning; the 800px W550 owns 133 six-pixel cells.
@@ -123,6 +128,7 @@ class Terminal {
 class Keyboard {
   public:
     using Send = void (*)(void *, const uint8_t *, size_t);
+    using KeyEvent = void (*)(void *, KeyChord, const uint8_t *, size_t);
     enum Action : uint8_t {
         HistoryPrevious,
         HistoryNext,
@@ -147,8 +153,9 @@ class Keyboard {
         ZoomOut
     };
     using Act = void (*)(void *, Action);
-    Keyboard(Terminal &t, Send send, void *context, Act act = nullptr)
-        : t_(t), send_(send), context_(context), act_(act) {}
+    Keyboard(Terminal &t, Send send, void *context, Act act = nullptr,
+             KeyEvent keyEvent = nullptr)
+        : t_(t), send_(send), context_(context), act_(act), keyEvent_(keyEvent) {}
     void feed(uint8_t c, uint32_t now);
     void tick(uint32_t now);
 
@@ -157,6 +164,7 @@ class Keyboard {
     Send send_;
     void *context_;
     Act act_;
+    KeyEvent keyEvent_;
     uint8_t buffer_[64];
     size_t size_ = 0;
     uint32_t last_ = 0;

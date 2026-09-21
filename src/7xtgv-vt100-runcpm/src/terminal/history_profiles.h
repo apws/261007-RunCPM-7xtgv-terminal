@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "display_policy.h"
+#include "key_chords.h"
 
 namespace vt {
 
@@ -18,6 +19,9 @@ enum AppKey : uint8_t {
     AppKeyCount
 };
 static_assert(AppKeyCount <= 32, "explicit key overrides use a 32-bit mask");
+KeyChord chordForAppKey(AppKey key);
+int appKeyForChord(KeyChord chord);
+bool parseKeyChordName(const char *name, KeyChord &result);
 
 enum BindingKind : uint8_t {
     BindingNone, BindingSend, BindingSendCancel, BindingHistoryPrevious, BindingHistoryNext
@@ -103,6 +107,14 @@ struct DisplayProfile {
 class HistoryProfiles {
   public:
     static constexpr uint8_t Banks = 10;
+    static constexpr uint8_t MaxOverrides = 128;
+    static constexpr uint8_t MaxErrorLines = 10;
+    static constexpr size_t MaxErrorText = 191;
+    struct ErrorLine {
+        uint16_t number = 0;
+        char section[32] = {};
+        char text[MaxErrorText + 1] = {};
+    };
     HistoryProfiles();
     const HistoryProfile &get(uint8_t bank) const;
     const GlobalProfile &global() const;
@@ -110,31 +122,50 @@ class HistoryProfiles {
     OutputMode modeFor(uint8_t bank) const;
     Geometry geometryFor(uint8_t bank, uint8_t zoom) const;
     Geometry geometryFor(uint8_t bank, uint8_t zoom, Geometry displayGeometry) const;
+    // Null means no INI/preset binding; the caller may use the host fallback
+    // or the built-in number-row/keypad-decimal default.
+    const KeyBinding *bindingFor(uint8_t bank, KeyChord chord) const;
     void beginLoad(const DisplayHalDefaults &hal = displayHalDefaults());
     void feed(uint8_t byte);
     void finishLoad();
     unsigned errors() const { return errors_; }
+    uint8_t errorLineCount() const { return errorLineCount_; }
+    const ErrorLine &errorLine(uint8_t index) const { return errorLines_[index]; }
 
   private:
+    struct ScopedBinding {
+        KeyChord chord;
+        uint8_t bank = 0; // Banks means [global]
+        KeyBinding binding;
+    };
     struct Set {
         GlobalProfile global;
         DisplayProfile display;
         HistoryProfile banks[Banks];
         uint32_t explicitKeys[Banks] = {};
+        ScopedBinding overrides[MaxOverrides] = {};
+        uint8_t overrideCount = 0;
     } sets_[2];
     std::atomic<uint8_t> active_{0};
     uint8_t loading_ = 1;
     int section_ = -1;
     unsigned errors_ = 0;
+    ErrorLine errorLines_[MaxErrorLines] = {};
+    uint8_t errorLineCount_ = 0;
+    uint16_t lineNumber_ = 1;
+    char sectionLabel_[32] = "[none]";
     char line_[192] = {};
     size_t length_ = 0;
-    bool overflow_ = false, eof_ = false;
+    bool overflow_ = false, eof_ = false, previousWasCR_ = false;
     const DisplayHalDefaults *hal_ = nullptr;
     void defaults(Set &set);
     void displayDefaults(Set &set);
     void validateDisplay(Set &set);
     void validateBankGeometry(Set &set);
     void resolveInputPresets(Set &set);
+    bool addOverride(Set &set, uint8_t bank, KeyChord chord, const KeyBinding &binding);
+    void recordError(const char *text);
+    void setSectionLabel(const char *text);
     void parseLine();
 };
 
