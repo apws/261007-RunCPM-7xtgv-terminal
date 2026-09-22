@@ -129,6 +129,12 @@
   Put later repo-grounded discussion and signed implementation decisions in a
   new chronological `YYMMDD-HH ` design document that links or names its source;
   do not rewrite the earlier plan unless Petr explicitly requests consolidation.
+- Track non-trivial ideas and delivery state in canonical ASCII
+  `docs/features.tsv`. Never edit the marked generated tables in
+  `docs/FEATURES.md` directly; validate and regenerate them with
+  `python3 src/feature_registry.py check` and
+  `python3 src/feature_registry.py update-ledger` after changing the TSV. Leave
+  unknown milestone dates empty rather than inventing chronology.
 - Petr uses a Czech keyboard layout (`XTGV_BANK_KEYS` in `tools/terminal.conf`)
   and XKB `shift:breaks_caps,caps:none`: Shift clears CapsLock. Do not rely on
   CapsLock state or alter ordinary Czech punctuation/Shift input in terminal

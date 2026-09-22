@@ -1,5 +1,9 @@
 # Terminal keyboard physical keys and sparse overrides — draft
 
+> INI syntax note (260922): modifier-first chord names in this historical
+> document are superseded by the signed key-first grammar
+> `<key>[_ctrl][_shift][_alt]`. See the [refactoring plan](260922-13%20key-first%20INI%20chord%20names%20signed%20implementation%20plan.md).
+
 Status: **review draft, not signed off**. No firmware, host keymap, or device INI
 change is authorized by this document alone. Petr's `260919-18` keyboard photo
 is the visual reference for the location IDs below. The existing keyboard and

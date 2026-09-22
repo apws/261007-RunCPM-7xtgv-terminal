@@ -59,23 +59,53 @@ static void testKeyboardOverrides() {
     assert(capture.sent == "\033[Av");
 
     vt::KeyChord chord;
-    assert(vt::parseKeyChordName("ctrl_shift_alt_f5", chord) &&
+    assert(vt::parseKeyChordName("f5_ctrl_shift_alt", chord) &&
            chord == (vt::KeyChord{vt::KeyF5, 7}));
-    assert(vt::parseKeyChordName("ALT_BS1", chord) &&
+    assert(vt::parseKeyChordName("BS1_ALT", chord) &&
            chord == (vt::KeyChord{vt::KeyBs1, vt::KeyAlt}));
+    assert(vt::parseKeyChordName("page_up_ctrl_shift", chord) &&
+           chord == (vt::KeyChord{vt::KeyPageUp, vt::KeyCtrl | vt::KeyShift}));
+    assert(vt::parseKeyChordName("kp_decimal_ctrl_alt", chord) &&
+           chord == (vt::KeyChord{vt::KeyKpDecimal, vt::KeyCtrl | vt::KeyAlt}));
+    const char *canonicalSuffixes[] = {
+        "", "_ctrl", "_shift", "_ctrl_shift",
+        "_alt", "_ctrl_alt", "_shift_alt", "_ctrl_shift_alt"
+    };
+    const char *allBaseNames[] = {
+        nullptr,
+        "left", "right", "home", "end", "delete", "insert", "up", "down",
+        "page_up", "page_down", "backspace", "escape", "enter", "space",
+        "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12",
+        "num0", "num1", "num2", "num3", "num4", "num5", "num6", "num7", "num8", "num9",
+        "bs2", "bs1", "p1", "p2", "l1", "l2", "l3", "z1", "m1", "m2", "m3",
+        "kp_decimal", "kp_delete",
+        "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
+        "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"
+    };
+    static_assert(sizeof(allBaseNames) / sizeof(allBaseNames[0]) == vt::KeyZ + 1);
+    for (uint8_t base = vt::KeyLeft; base <= vt::KeyZ; ++base)
+        for (uint8_t modifiers = 0; modifiers < 8; ++modifiers) {
+            const std::string name = std::string(allBaseNames[base]) + canonicalSuffixes[modifiers];
+            const bool valid = vt::validKeyChord({base, modifiers});
+            assert(vt::parseKeyChordName(name.c_str(), chord) == valid);
+            if (valid) assert(chord == (vt::KeyChord{base, modifiers}));
+        }
     assert(!vt::parseKeyChordName("a", chord));
-    assert(!vt::parseKeyChordName("shift_a", chord));
+    assert(!vt::parseKeyChordName("a_shift", chord));
     assert(!vt::parseKeyChordName("bs1", chord));
-    assert(!vt::parseKeyChordName("shift_l3", chord));
+    assert(!vt::parseKeyChordName("l3_shift", chord));
+    assert(!vt::parseKeyChordName("ctrl_left", chord));
     assert(!vt::parseKeyChordName("shift_ctrl_a", chord));
-    assert(!vt::parseKeyChordName("ctrl_ctrl_a", chord));
+    assert(!vt::parseKeyChordName("a_shift_ctrl", chord));
+    assert(!vt::parseKeyChordName("a_ctrl_ctrl", chord));
+    assert(!vt::parseKeyChordName("left_alt_shift", chord));
 
     vt::HistoryProfiles profiles;
     const std::string ini =
-        "[global]\nleft=send:G\nnum1=send:9\nctrl_shift_a=send:X\n"
-        "kp_decimal=send:,\n"
-        "[bank2]\ninput=wordstar\nleft=send:B\nnum1=none\n"
-        "ctrl_shift_alt_f5=send:\\eQ\n"
+        "[global]\nleft=send:G\nnum1=send:9\na_ctrl_shift=send:X\n"
+        "kp_decimal=send:,\nleft_ctrl=send:C\n"
+        "[bank2]\ninput=wordstar\nleft=send:B\nleft_ctrl=send:D\nnum1=none\n"
+        "f5_ctrl_shift_alt=send:\\eQ\n"
         "[bank3]\ninput=wordstar\n";
     profiles.beginLoad();
     for (uint8_t c : ini) profiles.feed(c);
@@ -88,6 +118,8 @@ static void testKeyboardOverrides() {
     assert(binding(3, {vt::KeyLeft, 0})->bytes[0] == 'G');
     assert(binding(2, {vt::KeyNum1, 0})->kind == vt::BindingNone);
     assert(binding(3, {vt::KeyNum1, 0})->bytes[0] == '9');
+    assert(binding(2, {vt::KeyLeft, vt::KeyCtrl})->bytes[0] == 'D');
+    assert(binding(3, {vt::KeyLeft, vt::KeyCtrl})->bytes[0] == 'C');
     assert(binding(2, {vt::KeyA, 3})->bytes[0] == 'X');
     assert(binding(2, {vt::KeyKpDecimal, 0})->bytes[0] == ',');
     assert(binding(2, {vt::KeyF5, 7})->bytes[0] == 27);
@@ -95,19 +127,20 @@ static void testKeyboardOverrides() {
     assert(binding(2, {vt::KeyNum2, 0}) == nullptr);
 
     const std::string duplicate = "[global]\nnum1=send:7\nnum1=send:8\n"
-                                  "[bank1]\nup=send:A\nup=send:B\n";
+                                  "[bank1]\nup=send:A\nup=send:B\n"
+                                  "left_ctrl=send:C\nleft_ctrl=send:D\n";
     profiles.beginLoad();
     for (uint8_t c : duplicate) profiles.feed(c);
     profiles.finishLoad();
-    assert(profiles.errors() == 2);
+    assert(profiles.errors() == 3);
     assert(binding(0, {vt::KeyNum1, 0})->bytes[0] == '7');
     assert(binding(1, {vt::KeyUp, 0})->bytes[0] == 'A');
 
     std::string overfull = "[global]\n";
-    const char *mods[] = {"ctrl_", "alt_", "ctrl_alt_", "ctrl_shift_", "ctrl_shift_alt_"};
+    const char *mods[] = {"_ctrl", "_alt", "_ctrl_alt", "_ctrl_shift", "_ctrl_shift_alt"};
     for (const char *mod : mods)
         for (char letter = 'a'; letter <= 'z'; ++letter)
-            overfull += std::string(mod) + letter + "=send:Z\n";
+            overfull += std::string(1, letter) + mod + "=send:Z\n";
     profiles.beginLoad();
     for (uint8_t c : overfull) profiles.feed(c);
     profiles.finishLoad();
@@ -584,7 +617,7 @@ int main() {
         "[global]\r\nexit_key=lalt+ralt+delete\r\nclear_key=lalt+ralt+escape\r\ncursor_blink_ms=250\r\n"
         "viewport_gutter_rgb=128,129,130\r\nviewport_active_gutter_rgb=active_line\r\n"
         "[bank2]\r\nname=EDITOR\r\nup=send:\\x05\r\n"
-        "alt_up=history_previous\r\non_select=A4:\\r\n"
+        "up_alt=history_previous\r\non_select=A4:\\r\n"
         "page_up=send_cancel:\\e\r\nactive_line_rgb=210,255,210\r\n"
         "cursor_rgb=0,255,64\r\nscreen_line=true\r\ntrim_left=true\r\nline_prefix=>\r\n"
         "activate_numbered_line=true\r\n"

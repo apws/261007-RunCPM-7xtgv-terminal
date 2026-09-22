@@ -1,5 +1,9 @@
 # 260919-13 7xtgv keymap personalities and control notation
 
+> INI syntax note (260922): modifier-first chord names in this historical
+> document are superseded by the signed key-first grammar
+> `<key>[_ctrl][_shift][_alt]`. See the [refactoring plan](260922-13%20key-first%20INI%20chord%20names%20signed%20implementation%20plan.md).
+
 **Status:** design / implementation follow-up  
 **Context:** starts from the 2026-09-19 TP301/TINST test where Ctrl-modified six-pack mappings were entered into `7XTGVTRM.INI` and appeared as literal characters instead of TP editor control sequences.
 

@@ -22,15 +22,6 @@ static const DefaultProfile Defaults[HistoryProfiles::Banks] = {
     {"GENERAL",   {"send:\x01", "send:\x06", "send:\x02", "send:\x17", "send:\x07", "send:\x16", "history_previous", "history_next", "send:\x1b[A", "send:\x1b[B"}},
 };
 
-static const char *KeyNames[AppKeyCount] = {
-    "left", "right", "home", "end", "delete", "insert", "up", "down", "alt_up", "alt_down",
-    "page_up", "page_down",
-    "ctrl_left", "ctrl_right", "ctrl_up", "ctrl_down", "ctrl_home", "ctrl_end",
-    "ctrl_delete", "ctrl_insert", "ctrl_page_up", "ctrl_page_down",
-    "alt_left", "alt_right", "alt_home", "alt_end", "alt_delete", "alt_insert",
-    "alt_page_up", "alt_page_down"
-};
-
 static const char *BaseKeyNames[] = {
     nullptr,
     "left", "right", "home", "end", "delete", "insert", "up", "down",
@@ -95,17 +86,33 @@ int appKeyForChord(KeyChord chord) {
 }
 
 bool parseKeyChordName(const char *name, KeyChord &result) {
-    KeyChord parsed{};
-    if (startsNoCase(name, "ctrl_")) { parsed.modifiers |= KeyCtrl; name += 5; }
-    if (startsNoCase(name, "shift_")) { parsed.modifiers |= KeyShift; name += 6; }
-    if (startsNoCase(name, "alt_")) { parsed.modifiers |= KeyAlt; name += 4; }
     for (uint8_t i = KeyLeft; i <= KeyZ; ++i) {
-        if (equalNoCase(name, BaseKeyNames[i])) {
-            parsed.base = i;
-            if (!validKeyChord(parsed)) return false;
-            result = parsed;
-            return true;
+        const char *suffix = name;
+        const char *base = BaseKeyNames[i];
+        while (*base && *suffix &&
+               tolower(static_cast<unsigned char>(*base)) ==
+                   tolower(static_cast<unsigned char>(*suffix))) {
+            ++base;
+            ++suffix;
         }
+        if (*base) continue;
+
+        KeyChord parsed{i, 0};
+        if (startsNoCase(suffix, "_ctrl")) {
+            parsed.modifiers |= KeyCtrl;
+            suffix += 5;
+        }
+        if (startsNoCase(suffix, "_shift")) {
+            parsed.modifiers |= KeyShift;
+            suffix += 6;
+        }
+        if (startsNoCase(suffix, "_alt")) {
+            parsed.modifiers |= KeyAlt;
+            suffix += 4;
+        }
+        if (*suffix || !validKeyChord(parsed)) continue;
+        result = parsed;
+        return true;
     }
     return false;
 }
@@ -751,24 +758,23 @@ void HistoryProfiles::parseLine() {
                                                                   : profile.cursorRGB)) fail();
         return;
     }
-    for (uint8_t key = 0; key < AppKeyCount; ++key) {
-        if (equalNoCase(keyName, KeyNames[key])) {
-            const uint32_t bit = uint32_t(1) << key;
-            KeyBinding binding;
-            if ((sets_[loading_].explicitKeys[section_] & bit) ||
-                !parseBinding(value, binding)) fail();
-            else {
-                profile.keys[key] = binding;
-                sets_[loading_].explicitKeys[section_] |= bit;
-            }
-            return;
-        }
-    }
     KeyChord chord;
     KeyBinding binding;
-    if (!parseKeyChordName(keyName, chord) || !parseBinding(value, binding) ||
-        !addOverride(sets_[loading_], uint8_t(section_), chord, binding))
+    if (!parseKeyChordName(keyName, chord) || !parseBinding(value, binding)) {
         fail();
+        return;
+    }
+    const int key = appKeyForChord(chord);
+    if (key >= 0) {
+        const uint32_t bit = uint32_t(1) << key;
+        if (sets_[loading_].explicitKeys[section_] & bit) fail();
+        else {
+            profile.keys[key] = binding;
+            sets_[loading_].explicitKeys[section_] |= bit;
+        }
+    } else if (!addOverride(sets_[loading_], uint8_t(section_), chord, binding)) {
+        fail();
+    }
 }
 
 } // namespace vt

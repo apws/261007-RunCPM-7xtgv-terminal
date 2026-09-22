@@ -161,9 +161,9 @@ profile-selection controls. Launch them with `tools/kit.sh` and
 
 Explicit keyboard bindings may be placed in `[global]` or `[bankN]` in
 `7XTGVTRM.INI`; the bank entry wins. For example, `num1=send:1`,
-`kp_decimal=send:.`, or `ctrl_shift_alt_f5=send:\eQ`. Modifier names always
-appear in `ctrl_shift_alt_` order. `none` suppresses a key. The host keymap
-converts recognized physical keys to private input events before their
+`kp_decimal=send:.`, or `f5_ctrl_shift_alt=send:\eQ`. The base key comes first;
+modifier suffixes always appear in `_ctrl_shift_alt` order. `none` suppresses
+a key. The host keymap converts recognized physical keys to private input events before their
 identity is lost in the PTY; the ordinary host bytes are retained for
 unbound keys. See [the implementation note](../../docs/260920-16%20terminal%20keyboard%20override%20implementation.md)
 for supported names, host limitations, and test status.

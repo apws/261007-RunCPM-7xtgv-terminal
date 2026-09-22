@@ -1,5 +1,9 @@
 # Main-row digits and keypad decimal — corrected keyboard plan
 
+> INI syntax note (260922): modifier-first chord names in this historical
+> document are superseded by the signed key-first grammar
+> `<key>[_ctrl][_shift][_alt]`. See the [refactoring plan](260922-13%20key-first%20INI%20chord%20names%20signed%20implementation%20plan.md).
+
 Status: **draft for implementation sign-off**. This refines the earlier
 character-alias proposal in
 [`260920-00 terminal numkeys aliases and key-event plan.md`](260920-00%20terminal%20numkeys%20aliases%20and%20key-event%20plan.md).

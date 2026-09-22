@@ -1,5 +1,10 @@
 # Terminal keyboard override implementation — 260920
 
+> Syntax update (260922): ordinary INI chord names now use the sole canonical
+> key-first grammar `<key>[_ctrl][_shift][_alt]`. The modifier-first examples
+> below describe the original implementation and are retained as historical
+> context. See the [signed key-first refactoring plan](260922-13%20key-first%20INI%20chord%20names%20signed%20implementation%20plan.md).
+
 Implements the signed scope in `260920-15 terminal keyboard override signed
 implementation scope.md`. The jc8048w550 candidate was rebuilt and reflashed
 on 260920. Interactive keyboard acceptance is still pending. No device INI or

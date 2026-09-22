@@ -1,5 +1,10 @@
 # 7xtgv private 8-bit core key codes and TP3 proof — 260922
 
+> INI syntax update (260922): the modifier bits and byte table in this document
+> are unchanged, but ordinary binding names now use
+> `<key>[_ctrl][_shift][_alt]`. The former prefix spelling below is retained as
+> historical context. See the [signed key-first refactoring plan](260922-13%20key-first%20INI%20chord%20names%20signed%20implementation%20plan.md).
+
 **Status:** TP3 capability verified; generic 7xtgv encoding is a design record,
 not yet a completed implementation.
 

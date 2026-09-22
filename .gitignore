@@ -17,6 +17,8 @@ cpmcard/
 docs/tft-ips-modules/
 *.o
 *.swp
+**/__pycache__/
+*.pyc
 # Local/private MIXWORX working notes, at any depth.
 *MIXWORX*
 cpmdrive/.7xtgvtrm-ini-history/

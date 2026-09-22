@@ -1,5 +1,9 @@
 # 260918-23 TP301 input profiles and ANSI attribute marker notes
 
+> INI syntax note (260922): modifier-first chord names in this historical
+> document are superseded by the signed key-first grammar
+> `<key>[_ctrl][_shift][_alt]`. See the [refactoring plan](260922-13%20key-first%20INI%20chord%20names%20signed%20implementation%20plan.md).
+
 **Status:** design / implementation note  
 **Context:** follows the 2026-09-18 TP 3.01 / TINST testing session on the 7xtgv RunCPM terminal.
 

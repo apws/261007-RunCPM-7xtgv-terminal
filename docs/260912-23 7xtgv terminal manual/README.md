@@ -328,16 +328,16 @@ than an `input=` preset.
 ```ini
 [global]
 kp_decimal=send:.
-ctrl_shift_f5=send:\eQ
+f5_ctrl_shift=send:\eQ
 
 [bank3]
-ctrl_shift_f5=none
-shift_num1=send:1
+f5_ctrl_shift=none
+num1_shift=send:1
 ```
 
-The left side is `[ctrl_][shift_][alt_]<key>`, with modifier words in exactly
-that order and joined by underscores. Use `ctrl_shift_alt_f5`, not
-`alt_ctrl_shift_f5`; names are case-insensitive. `alt_` is intended for LAlt.
+The left side is `<key>[_ctrl][_shift][_alt]`, with the base key first and
+modifier suffixes in exactly that order. Use `f5_ctrl_shift_alt`, not
+`f5_alt_ctrl_shift`; names are case-insensitive. `_alt` is intended for LAlt.
 RAlt/AltGr is reserved for the Czech layout's symbol entry, and is not a
 separate INI modifier.
 
@@ -356,7 +356,7 @@ because these are dead-accent positions on the current Czech keyboard: their
 normal composition must continue to work. `num1` … `num0` send ASCII digits
 by default even when the unshifted Czech keycap produces `+ěščřžýáíé`;
 `kp_decimal` sends `.` by default even when the host emits `,`. Shifted
-main-row digits are separate names such as `shift_num1`.
+main-row digits are separate names such as `num1_shift`.
 
 The right side has five forms:
 

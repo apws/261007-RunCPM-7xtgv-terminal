@@ -1,5 +1,9 @@
 # Terminal keyboard overrides — signed implementation scope
 
+> INI syntax note (260922): modifier-first chord names in this historical
+> document are superseded by the signed key-first grammar
+> `<key>[_ctrl][_shift][_alt]`. See the [refactoring plan](260922-13%20key-first%20INI%20chord%20names%20signed%20implementation%20plan.md).
+
 Status: **signed off by Petr on 260920**. This is the implementation decision
 after the [original key plan](260919-19%20terminal%20keyboard%20physical%20keys%20and%20sparse%20overrides%20plan.md),
 the [character-alias investigation](260920-00%20terminal%20numkeys%20aliases%20and%20key-event%20plan.md),
