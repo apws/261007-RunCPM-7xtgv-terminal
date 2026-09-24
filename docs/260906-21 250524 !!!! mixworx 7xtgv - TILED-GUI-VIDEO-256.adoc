@@ -1,0 +1,174 @@
+= Original mixworx 7xtgv / TILED-GUI-VIDEO-256 concept
+:source-highlighter: highlight.js
+
+== Historical context
+
+[verse]
+____
+260906-2154
+!!! this doc describes ORIGINS of design of 7xtgv, with more detailed hardware-related implementation,
+!!! our current 7xtgv-demos are based on brainstorming which resulted in 2 planes and it is not the same as encoding described here
+!!! it is question to which to steer it ... the vibe-coded demo from february 2026 was made just to test readability
+    of 6x10 fonts on very tiny 1.47" dsplay and some similars ...
+!!! this doc is here to maintain original design, to which we MAY return also ...
+    (some notes about SAA7105 aren of course in sw implementation on ESP32/RP2350/arduino modules with TFT IPS necessary)
+____
+
+== Inspiration and initial direction
+
+[verse]
+____
+nice example (found AFTER my initial specs): Zeal 8bit computer VIDEO !!!
+https://www.tindie.com/products/zeal8bit/zeal-8-bit-video-board-homebrew-vga-board/
+!!! Text mode "0" https://www.youtube.com/watch?v=SyC16Mb6Bm4
+____
+
+[verse]
+____
+??? ADD MY Text mode 1 (simpler glyphed GUI and syntax color editors?)
+    - I want to implement only THIS simpler graphic version accros MANY 8bits/16/32 test on 7xsys/7xmod/7xmem dev boards with 7xbus decoupled interface
+    - primary objective is 256color SinclairQL-like "ED" editor/fonts (6x8 !!!) but with pallete driven color text and tile-based windowing/glyphs
+      with FAST processing of small text-framebuffer having 8 tilesets (each 128 8x8 tiles - WHERE will be encoded 6x8 bitmap only and 2 bits on each
+      tile line will SWITCH ink/paper color to BRIGHT/DARK by 50% ?? - we will have tilesets with font modified to have for example DARKER/BRIGHTER
+      background or winding glyphs tilesets with some DARKER/BRIGHTER variants of selected colors - for LEDs OFF/ON, some "emphasis" of info etc) support
+      - BTW, my initial nonsense idea of BOLD fonts CAN be simulated by "quite very dark grey" regular text and "deep black" one as BOLD ... okok
+    - ARE YOU WILLING TO JUMP INTO THIS ????????
+____
+
+== TILED-GUI-VIDEO-256
+
+[verse]
+____
+our closest example: plasmo / BillShen VGARC 64x48 VGA
+https://www.retrobrewcomputers.org/doku.php?id=builderpages:plasmo:vgarc1:vgarc1home
+(our graphics is NOT devoted to be used solely from Z80 but over 7xbus MIPI16 also targeting LCDs directly by 16bit RGB565 streams)
+____
+
+[verse]
+____
+!!! he has 64x48 so 512x348 resolution and renders 8x8 fonts - BUT, we can modify this to 6x8 tile/font bitmaps only, while tilesets definitions
+    will stay aligned to 8x8 bits, BUT, 2 bits per each line will define BRIGHTNESS of BACKGROUND/PAPER and FOREGROUND/INK ...
+    ... this is only quick brainstorming idea HOW TO USE THESE 2 bits - as we have already defined paper/ink colors in attributes, there will be
+    8 colors from 256byte pallete selectable, but we can extend this to use MORE BRIGHTNESS LEVELS to support EMPHASISING OF INK/PAPER by slightly
+    different PAPER or slightly DIFFERENT INK ... THIS WAY, we are actually able ALSO SO SIMULATE BOLD !!! - having BOLD as TRUE BLAKC, and normal font
+    using only very dark GRAY ... so DEEP BLACK WILL BE UNDERSTOOD as BOLD ... the same for other ink color in fact ... so by combining ASCII character
+    by used TILESET (one of 8 - and for TEXTMODE APPS we can even FORCE FREE TIELSETS 5,6,7,8 to be redefined this way, EVEN if the bitmaps MAY be shared
+    by OTHER APPS / WINDOWS (at that time rendering nonsense in custom bitmap panes - they CAN to be refilled by graphics only when APP WILL GOO TO
+    FOREGROUND on desktop ....)
+____
+
+[verse]
+____
+!!! this also means that our 7xtgv can render 80 characters per line (80x6 =480, so 80x46 chars) at this pixelclock !!!
+    (actually it MIGHT be 85, but will be good to STAY at some "digitally rounded" numbers, so 80=5x16 ... ??????????????????)
+    using full VGA resolution, this means final:   96x60 chars/glyphs display to define TILED-GUI-VIDEO (so "7xtgv")))
+    (BUT this already REQUIRES large DUAL-PORT SRAM - 32kB !!!!!!!!)
+____
+
+[verse]
+____
+!!! BTW, 256 colors pallete will not be defined by something like RGB332 or something more specific as on SinclairQL Aurora 256color card (no pals !!!)
+    - our pallete can be prepared by HSV as 16 basic colors (HUEs) with some pre-defined saturation and 16 variable BRIGHTNESS LEVELS !!!
+    - OR this can be changed to 32 basic colors (HUEs), each having only 8 variable brightness levels ...
+    - sure this 256 colors palatte is MANDATORY requirement for "7xtgv" (ya France train name) so our TILESET BRIGHNESS MODIFIERS can can control
+      affecting of this 256 items pallete access to lower/higher color brightness ....
+    - OR ... the TILESET 2bits modifiers can peek into 2+2 alternative PALLETES on TILESET ??? this MAY be confusing as we select by INK/PAPER ... ???
+____
+
+== Hardware motivation
+
+[verse]
+____
+motivated by CPLD, Dual-Port SRAM + (randomly) SAA7105H video encoder with BYTE per pixel input and true-color RGB LUT (allowing also PAL/NTSC output)
+ - SAA7105H behavior may be later reimpleemted in bigger CPLD/FPGA too - btw, NOT SURE if this chip can output 27.125MHz RAW RGB VGA in fact !!!???
+    - in VGA RGB pass-through mode with indexed pallete (input "format 5") it in fact follows the data stream pixel clock ... at least as understood...
+   (it was designed to target PAL/NTSC TV outputs... in large CPLD, the final BYTE RGB LUT and output of 24bits/RGB565 to 3 R2R DACS is possible)
+ - we need SW implementation of this to emulate design => Zeal8bit WEB EMU hacking ??????? !!!!!!!!!
+____
+
+== Objectives and display behavior
+
+[verse]
+____
+!!! primary objective is FASTEST POSSIBLE SIMPLE WINDOWING GUI + SYNTAX COLORING TEXT EDITOR - NOT GAMES/SPRITES !!!
+(fact is, having full hi-res HW vertical AND horizontal scroll support, tilesets CAN be used also for some gaming as simple sprites
+ in case we define also some "background transparent color" say by index 0 in COLOR BYTE PALLETE ? and animating the tiles?
+ BUT - it is perfectly okay to LEAVE Zeal8bit SPRITED GAMES VIDEO as-is for games... this is note if the "7xtgv" may fit into Zeal8bit videocard FPGA)
+____
+
+[verse]
+____
+- QL-like 6x8bit chars on screen, like Sinclair-QL default font - quite beautiful, compact, readable !!!
+ - primary is WHITE "paper" background (positive view), with option to "repallete" (at the final SAA7105H stage) down to "night mode darkness"
+   (and each tileset has its own ink/paper palletes)
+ - 256 color means BYTE-index into FINAL rendering LUT (in case of SAA7105H video encoder (also PAL/NTSC), this 24bit RGB pallete is redefinable by I2C
+   or from CPLD video data stream)
+ - allow BOLD font variant for "black bold keywords" (this is bit7 on "chars/tiles") - used also for switching 2 STATES of windowing glyphs / LEDs
+   (actually, IMPOSIBLE to draw bold fonts in already small 6x8 (nor 8x8) - se we will SIMULATE this by colors BRIGHTNESS (bolds are DARKER)
+ - hi-res graphics can be rendered using tilesets4567 linearly placed as small "graphic panes" into GUI -  simple charts/graphs + legends (colors)
+   (slightly complicated now as tilesets are not 8x8 but only 6x8 - but okay, here realtime drawing is up to application to handle that in case of REALLY
+    custom graphic pane - FAR more often can be used ready made glyphs with defined "PER-LINE BRIGHTNESS modifiable TILES" (needs more brainstorming...)
+ - it needs at least vertical hardware scroll for text console/window (may be "fine hi-res" later, simple is far than enough now)
+   (ummm, is this really so much needed in simples implementation?? in case of scrolling inside "windows", this MUST be done by copying chars/attrs !!!
+ - some tiny support for blinking HW cursor using special pallete/chars, XY cords (plus SAA7105H handles native/hi-res 32x32 GRAPHIC cursor/arrow !!!)
+   (again, nice to have, but if it complicates implementation ... WHY?? using tilesets with freely colorized variants, with support of brightness,
+    we can simply switch the attribs on say 4 ASCII tilesets - regular, bold, DARKER PAPER (so blinking CURSOR ???!!!)
+ - simply put, to show (mixworx) semantic syntax coloring on default white paper background, allowing BOLDs for "ALWAYS BLACK BOLD KEYWORDS" (on white)
+   (GREEN comments, RED literals (both numeric/string), BLUE operators/punctuation, ... THE SAME "semantic coloring" for ANY language)
+   !!! plus, having controlled BRIGHTNESS on TILESETS, we can have even some SPECIFIC CHARACTERS emphasized by default
+   (typically operators/delimiters as BOLD too - in fact, WHY NOT use these specific characters EVERYWHERE as "color emphasized" - even in TEXTS ...)
+ - allowing to write simple SMSQ/E-like ED screen code editor, enhanced with auto-indentation and fast live syntax coloring
+ - allowing to write simple "QL-Commander-like" (aka my QLC convert to my LSB "linenumber stripped basic" S*Basic variant - reference for VMEX/ASLIX
+   (QL SBasic (that from SMSQ/E much faster and enhanced version) has VERY SIMPLE concept, procedures, structures - so doesn't need goto ...
+   its in fact "the shell" of QL and as it is SO POWEERFULL, its simply makes whole system quite SEXY!
+     ( - I have experience only with VERY FAST 256 color QPC2/Qemulator  )
+ - emulating 256color Aurora of GoldCard (but they DONT HAVE FONT/TILE video, they render it on demandinto framebuffer ... for 8bit = SLOW...)
+ - I REALLY like the speed and look/feel of embedded "ED" code editing, only if it will/can be properly colored and SLIGHTLY smarter)
+____
+
+== DUAL-.PORT VIDEO SRAM layout
+
+[source,text]
+----
+16kBx8 (32kBx8 ?)  dual-port sram video memory
+ - 16kBseems to be enough for 64x48 VGA, chars MUST be large/visible!
+ - in case of larger text resolution, there must be support for 2x scalling at window level at least
+
+
+(???!!! possible LARGE 2x SCALLING having only 40x24 chars screen ???)
+
+"TILES" - (syntax colored text is provided by editing this 4kB area together with "ATRIBUTES" 4kB area, sure)
+4096 = 3840 = 80x48 chars tiles (actually emulates 256 tiles this way too)
+       bit 7   = tileset0 (0=normal-font/glypg OR 1=alternate-font/glyph (bold) / bitmap tileset even/odd switch) ... also "blinking" feature, somewhere
+       bit 6-0 = ASCII char
+
+     = 256 ??? reorganize everything "top down" (tilesets, tilesets-palletes, colors/tileset attr, ?????, chars tiles)
+
+
+"ATRIBUTES"
+4096 = 3840 = 80x48 colors and tilesets "attributes" (zx spectrum term, AFAIK little about them in fact, never had spectrum)
+       bit7   = tileset2  0=fonts/windowing OR 1=bitmaps
+       bit6   = tileset1  0=fonts OR 1=windowing / 0=bitmaps45 OR 1=bitmaps67
+       bit543 = paper     (tileset palette index 0-7) - colors enough for syntactic coloring
+       bit210 = ink       (tileset palette index 0-7) - we preffer "white positive" background but this way we can have MORE background options
+
+     = 256  - tileset palletes - each of 8 tilesets has 2 local palettes for ink/paper, where is stored single BYTE INDEX into final color LUT (saa7105h)
+            - it must be somewhere stored and we have now 2 free 1024B region in videoram ... (placement may be optimized for implementation)
+            - its probably ENOUGH space fo all 8 tilesets palletes = 8*16 byte = 128 !!!
+
+"TILESETS"
+8192 = 8x 128*8 tilesets 0-7 definitions, each char is defined as 8bytes (6x8 px + 2bit BOLD/DARKER INK / EMPHASIZED/LIGHTER PAPER ??? )
+         - we want to use SinclairQL compatible textmode 6x8 TILES
+
+       tileset0   = BASE ASCII font
+       tileset1   = BOLD ASCII font (actually, just DARKER ... by brighness bits for ink and paper)
+       tileset2   = windowing glyphs - 64 standard + 64 custom
+       tileset3   = windowing glyphs - (glyphs alternate states - for switching 2 visual states and indicators/LEDs)
+
+       tileset4   = BITMAPS - this LINEAR BITMAP AREA can be used to create MORE LINEAR HI-RES GRAPHICS PANES (as of char tiles 0-127 placement)
+       tileset5   = BITMAPS
+       tileset6   = BITMAPS
+       tileset7   = BITMAPS
+
+       (sure all tilesets can be redefined in totally custom situation - game ?? - but we DONT HAVE freely moving sprites ... using this 16kB SRAM)
+----

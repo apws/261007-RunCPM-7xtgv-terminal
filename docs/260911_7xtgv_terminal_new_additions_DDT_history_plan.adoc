@@ -1,0 +1,895 @@
+[id="7xtgv-smart-terminal-new-historyinput-additions-and-ddt-plan"]
+= 7xtgv smart-terminal: new history/input additions and DDT plan
+:source-highlighter: highlight.js
+
+*Date:* 2026-09-11 +
+*Purpose:* decision document for Petr {plus} Codex. +
+*Scope:* only *new or newly clarified additions* from the recent Termite/DDT discussion. It intentionally does *not* re-specify features that are already implemented or already covered in earlier 7xtgv plans (per-bank history, prompt-driven CCP/++#++0 override, BBC BASIC fixes, per-bank key delays, unified Exit/Clear actions, `+#9+` test discipline, `+##+` raw mode, etc.).
+
+The goal is to distinguish what is worth adding soon from what is merely attractive, and to keep the terminal architecture small.
+
+'''''
+
+[id="1-main-idea-clarified-by-compuphase-termite"]
+== 1. Main idea clarified by CompuPhase Termite
+
+CompuPhase *Termite* is a useful conceptual reference because it deliberately separates:
+
+* a large *receive/output view*;
+* a separate *transmit edit line*;
+* a circular history of transmitted commands;
+* Up/Down history browsing;
+* prefix-based history auto-completion;
+* clipboard-friendly text entry;
+* optional plug-ins/macros.
+
+The remote target does not need to implement any of this. It only receives the resulting text.
+
+This is exactly the interesting boundary for 7xtgv:
+
+____
+Ancient applications may remain completely unaware of modern history/editing conveniences when those conveniences can safely be implemented in the terminal.
+____
+
+However, 7xtgv is more ambitious than Termite because it also has to support native character-at-a-time applications and full-screen TUIs. Therefore a Termite-style local line editor must be *optional per application/profile*, not a global behaviour.
+
+Reference: CompuPhase, _Termite: a simple RS232 terminal_ +
+https://www.compuphase.com/software_termite.htm
+
+'''''
+
+[id="2-historical-precedent-cpm-itself-only-went-a-little-way"]
+== 2. Historical precedent: CP/M itself only went a little way
+
+CP/M 2.2 had current-line editing controls but no general multi-entry command history.
+
+CP/M 3 / CP/M Plus added a useful precedent: *Ctrl-W recalls the previously entered command line* when used as the first character after a prompt. The CP/M 3 User's Guide explicitly says this works at the operating-system level and also inside executing programs that use the relevant console-input mechanism.
+
+This is useful historical confirmation that terminal/system-side recall is not conceptually alien to CP/M, but CP/M 3 still provided only a single previous line rather than persistent, per-application history.
+
+*No implementation work is required from this fact.* It is documentation/background only.
+
+Reference: Digital Research, _CP/M Plus User's Guide_, Console Line Editing / Ctrl-W.
+
+'''''
+
+[id="3-recommended-new-addition-make-ddt-a-first-class-history-demonstration"]
+== 3. Recommended new addition: make DDT a first-class history demonstration
+
+*Priority:* Recommended +
+*Complexity:* Low +
+*Risk:* Low
+
+DDT is almost ideal for demonstrating why terminal-side persistent history matters.
+
+Original CP/M 2.2 DDT has a `+-+` prompt and only very primitive line editing:
+
+* Rubout: remove previous character;
+* `+Ctrl-U+`: discard the entire input line;
+* `+Ctrl-C+`: reboot/exit to the system;
+* commands are at most 32 characters.
+
+There is no native multi-entry DDT history.
+
+A dedicated DDT bank/profile therefore gains a lot from the existing 7xtgv history with almost no special implementation.
+
+[id="31-ddt-command-set-worth-documenting-in-the-profiledocs"]
+=== 3.1 DDT command set worth documenting in the profile/docs
+
+[cols=",,",options="header",]
+|===
+|Command |Purpose |Main forms / notes
+|`+A+` |Assemble into memory |`+As+` where `+s+` is start address
+|`+D+` |Display memory |`+D+`, `+Ds+`, `+Ds,f+`
+|`+F+` |Fill memory |`+Fs,f,c+`
+|`+G+` |Go/run with optional breakpoints |`+G+`, `+Gs+`, `+Gs,b+`, `+Gs,b,c+`, `+G,b+`, `+G,b,c+`
+|`+I+` |Set filename/default FCB |`+Ifilename+` or `+Ifilename.typ+`
+|`+L+` |Disassemble/list |`+L+`, `+Ls+`, `+Ls,f+`
+|`+M+` |Move memory block |`+Ms,f,d+`
+|`+R+` |Read/load file named by `+I+` |`+R+` or `+Rb+` with load bias
+|`+S+` |Substitute/examine bytes |`+Ss+`
+|`+T+` |Trace execution |`+T+` or `+Tn+`
+|`+U+` |Untraced monitored execution |`+U+` or `+Un+`
+|`+X+` |Examine/change CPU state |`+X+` or `+Xr+`
+|===
+
+All DDT numeric arguments are hexadecimal.
+
+Reference: Digital Research, _CP/M 2.2 Dynamic Debugging Tool_, section 4. +
+https://www.gaby.de/cpm/manuals/archive/cpm22htm/ch4.htm
+
+[id="32-why-history-is-unusually-useful-in-ddt"]
+=== 3.2 Why history is unusually useful in DDT
+
+Typical commands differ only in an address/range:
+
+[source,text]
+----
+D100,1FF
+D200,2FF
+D300,37F
+
+L100,140
+L180,1C0
+
+G100,217
+G100,23A
+----
+
+With 7xtgv persistent history the workflow becomes:
+
+[arabic]
+. recall a previous command;
+. edit one address/range;
+. execute it again.
+
+Persistent history additionally acts as a crude work log. Returning days later to a history containing:
+
+[source,text]
+----
+I7XTGV.COM
+R
+D100,180
+L100,140
+X
+G100,12F
+----
+
+immediately reminds the user how the program was previously inspected.
+
+==== Proposed first implementation
+
+Nothing clever is required initially:
+
+[source,ini]
+----
+profile = DDT
+history = on
+----
+
+plus whatever normal key mappings are already supported.
+
+Do *not* add DDT parsing just to get this benefit.
+
+'''''
+
+[id="4-optional-ddt-subcontexts"]
+== 4. Optional DDT subcontexts
+
+*Priority:* Optional +
+*Complexity:* Medium +
+*Risk:* Medium: prompt/state recognition can become brittle
+
+One bank may eventually contain multiple conversational contexts.
+
+DDT provides concrete examples.
+
+[id="41-a-assembly-mode"]
+=== 4.1 `+A+` assembly mode
+
+`+As+` enters the tiny built-in assembler.
+
+Example:
+
+[source,text]
+----
+-A100
+0100 MVI A,41
+0102 CALL 0005
+...
+----
+
+DDT prints the address for each successive instruction and waits for another assembler line. An *empty line terminates assembly mode*.
+
+This is semantically different from the top-level `+-+` command prompt.
+
+Possible future treatment:
+
+[source,text]
+----
+DDT bank
+ ├── top-level "-"       -> DDT command history
+ └── A-mode address      -> assembly-line history (or ordinary history disabled)
+----
+
+This is optional. A single DDT history is perfectly adequate initially.
+
+[id="42-s-byte-substitution-mode"]
+=== 4.2 `+S+` byte-substitution mode
+
+`+Ss+` enters another mini-dialogue. DDT repeatedly shows an address/current value and allows a replacement byte. It continues until a period or invalid input terminates the operation.
+
+This is again not really the same command context as the top-level `+-+` prompt.
+
+Potential future distinction:
+
+[source,text]
+----
+top-level DDT commands
+assembly input
+byte-substitution input
+----
+
+Do not implement these subcontexts unless actual use shows that mixed history is annoying.
+
+[id="43-general-architectural-lesson"]
+=== 4.3 General architectural lesson
+
+The useful abstraction may eventually be:
+
+[source,text]
+----
+BANK
+ └── optional CONTEXT
+----
+
+rather than consuming another bank for every little REPL/submode.
+
+This may later matter much more for VMEX/ASLIX than for DDT.
+
+'''''
+
+[id="5-recommended-new-addition-tag-input-by-origin"]
+== 5. Recommended new addition: tag input by origin
+
+*Priority:* Recommended +
+*Complexity:* Medium +
+*Risk:* Low if added internally without changing user behaviour
+
+The terminal should know whether an input event originated from:
+
+[source,text]
+----
+HUMAN
+HOST/CODEX
+INTERNAL
+----
+
+Reason: automated `+vtput+`/test traffic should not accidentally pollute or erase useful human command history.
+
+Recommended default policy:
+
+[source,text]
+----
+HUMAN       -> eligible for history
+HOST/CODEX  -> ignored by human history
+INTERNAL    -> ignored by human history
+----
+
+A test may explicitly request capture if history itself is under test.
+
+This should be an *orthogonal event property*, not another app bank.
+
+Conceptually:
+
+[source,c]
+----
+input_event {
+    source;
+    payload/key;
+}
+----
+
+This is more robust than relying only on the convention that Codex uses `+#9+`.
+
+[id="why-still-keep-9"]
+=== Why still keep `+#9+`
+
+`+#9+` remains useful as a deterministic test profile.
+
+Source tagging and `+#9+` solve different problems:
+
+* `+#9+` controls terminal/profile behaviour;
+* source tagging controls whether injected traffic is treated as human input.
+
+'''''
+
+[id="6-optional-addition-termite-like-prefix-history-search"]
+== 6. Optional addition: Termite-like prefix history search
+
+*Priority:* Optional but attractive +
+*Complexity:* Low–Medium +
+*Risk:* Low
+
+Termite does more than simple Up/Down recall.
+
+If the user types a prefix, its history navigation is restricted to matching entries.
+
+Example history:
+
+[source,text]
+----
+D100,1FF
+D200,2FF
+L100,140
+L200,240
+G100,217
+----
+
+If the user has already typed:
+
+[source,text]
+----
+L
+----
+
+then history navigation could cycle only through:
+
+[source,text]
+----
+L100,140
+L200,240
+----
+
+This would be extremely useful for command-oriented applications such as:
+
+* DDT;
+* monitors;
+* BASIC immediate commands;
+* VMEX/ASLIX CLI;
+* assemblers;
+* database/query REPLs.
+
+=== Possible UI
+
+No new key is strictly required.
+
+A simple rule can be:
+
+[source,text]
+----
+Alt+Up / Alt+Down
+----
+
+with an empty current line:
+
+____
+browse complete history.
+____
+
+With a non-empty current line:
+
+____
+browse only history entries beginning with that prefix.
+____
+
+This mirrors Termite's useful behaviour without adding a new UI concept.
+
+==== Decision point
+
+This is worthwhile only if it can be added without complicating the already-working history editor. It is a quality-of-life feature, not a prerequisite.
+
+'''''
+
+[id="7-optional-addition-local-composetransmit-line-mode"]
+== 7. Optional addition: local "compose/transmit line" mode
+
+*Priority:* Optional +
+*Complexity:* Medium +
+*Risk:* Medium if enabled for the wrong application
+
+Termite's strongest architectural trick is that the line being edited locally is *outside the remote application's screen state*.
+
+7xtgv could optionally offer a similar mode for simple command-oriented targets:
+
+[source,text]
+----
+application output
+------------------------------
+
+[local compose line: D100,1FF_]
+----
+
+The user edits the local line with completely modern semantics. Only on Enter does 7xtgv transmit the finished line to CP/M.
+
+=== Excellent candidates
+
+* TinyBasic-like interpreters;
+* DDT top-level prompt;
+* simple monitors;
+* simple command REPLs;
+* VMEX/ASLIX command shells where line-at-a-time semantics are known.
+
+=== Bad candidates
+
+* BBC BASIC while using its native line editor;
+* MBASIC modal editing unless deliberately bypassed;
+* WordStar;
+* Turbo Pascal editor;
+* spreadsheets;
+* any full-screen TUI;
+* programs reading individual keystrokes immediately.
+
+Therefore this must be explicitly enabled per bank/context:
+
+[source,ini]
+----
+local_compose = off
+----
+
+or:
+
+[source,ini]
+----
+local_compose = line
+----
+
+==== Benefit
+
+This gives perfect modern:
+
+* Left/Right/Home/End;
+* Insert/Delete;
+* clipboard editing;
+* history;
+* prefix search;
+
+without needing to synthesize an old application's internal editor operations.
+
+==== Cost
+
+The application does not receive keystrokes until Enter, so it fundamentally changes interaction timing. That is why it cannot become a general default.
+
+==== Recommendation
+
+Do not implement this now unless a concrete program proves that it would materially improve use. Keep the idea documented because it is a clean solution for future line-oriented tools.
+
+'''''
+
+[id="8-recommended-refinement-for-paste-distinguish-typing-delay-from-paste-pacing"]
+== 8. Recommended refinement for paste: distinguish typing delay from paste pacing
+
+*Priority:* Recommended if large/multiline paste becomes routine +
+*Complexity:* Low +
+*Risk:* Low
+
+BBC BASIC already demonstrated that some old software requires deliberate timing.
+
+If the current profile has only one general delay, consider eventually separating:
+
+[source,ini]
+----
+key_delay_ms=
+paste_char_delay_ms=
+paste_line_delay_ms=
+----
+
+Exact names are not important.
+
+Why separate them:
+
+* ordinary keyboard interaction should remain responsive;
+* a pasted BASIC program may need slower characters;
+* some interpreters mainly need a pause after CR/LF before the next line;
+* automated `+vtput+` bulk transfer may want no artificial delay at all, especially in `+##+` RAW.
+
+Example:
+
+[source,text]
+----
+10 PRINT "HELLO"
+20 FOR I=1 TO 10
+30 PRINT I
+40 NEXT I
+RUN
+----
+
+A terminal can "manually type" this into a primitive interpreter without the interpreter needing any file-transfer support.
+
+This is directly inspired by the pleasant Termite/TinyBasic workflow.
+
+'''''
+
+[id="9-optional-addition-pinnedfavourite-commands"]
+== 9. Optional addition: pinned/favourite commands
+
+*Priority:* Optional +
+*Complexity:* Low–Medium +
+*Risk:* Low, but easy to clutter UI
+
+Persistent history naturally becomes informal documentation, but frequently used commands may eventually deserve deliberate pinning.
+
+Keep two concepts distinct:
+
+[source,text]
+----
+history
+    chronological lines actually entered
+
+favorites/macros
+    deliberately retained commands/templates
+----
+
+Examples for DDT:
+
+[source,text]
+----
+D0100,01FF
+L0100,017F
+X
+G0100
+----
+
+Examples for BASIC:
+
+[source,text]
+----
+LIST
+RUN
+SAVE "..."
+----
+
+Potential uses in VMEX/ASLIX may be much richer.
+
+=== Important recommendation
+
+Do *not* implement this yet.
+
+First use persistent history for a while. If repeated manual hunting for the same lines becomes annoying, then add pinning.
+
+A minimal later implementation could simply let the user mark a history entry as "pinned" rather than creating a separate macro language.
+
+'''''
+
+[id="10-optional-addition-history-as-lightweight-work-log"]
+== 10. Optional addition: history as lightweight work log
+
+*Priority:* Optional / mostly documentation +
+*Complexity:* Low if persistence already exists
+
+Because histories are persistent per application, they naturally serve as a lightweight record of prior work.
+
+Potential future presentation:
+
+[source,text]
+----
+Recent DDT
+-----------
+I7XTGV.COM
+R
+L100,140
+G100,12F
+----
+
+This may be more useful than adding a formal notebook.
+
+Possible later conveniences:
+
+* show history without injecting an entry;
+* copy an old entry to clipboard;
+* search old history;
+* pin an entry;
+* clear only current session vs all persistent history.
+
+Again, avoid implementing a large "history manager" until usage proves it necessary.
+
+'''''
+
+[id="11-optional-addition-history-metadata"]
+== 11. Optional addition: history metadata
+
+*Priority:* Optional +
+*Complexity:* Medium depending on storage format migration
+
+If future needs justify it, a history item could carry small metadata:
+
+[source,text]
+----
+text
+timestamp
+source = HUMAN/HOST/INTERNAL
+bank
+context
+----
+
+Potential advantages:
+
+* clean filtering;
+* source-aware debugging;
+* chronological review;
+* context-specific recall;
+* easier migration toward pinned items.
+
+Potential disadvantages:
+
+* file format becomes more complicated;
+* more flash/drive writes;
+* unnecessary if plain text rings already solve the real problem.
+
+=== Recommendation
+
+Do not migrate existing history storage merely to obtain metadata. Add this only when another feature actually requires it.
+
+'''''
+
+[id="12-ddt-profile-useful-concrete-test-script"]
+== 12. DDT profile: useful concrete test script
+
+A compact manual/automated smoke test can demonstrate the value of history without needing a complex test suite.
+
+[id="121-start-ddt-and-confirm-top-level-prompt"]
+=== 12.1 Start DDT and confirm top-level prompt
+
+[source,text]
+----
+A>DDT
+DDT VER ...
+-
+----
+
+[id="122-load-a-com-file"]
+=== 12.2 Load a COM file
+
+Equivalent forms documented by DDT:
+
+[source,text]
+----
+DDT TEST.COM
+----
+
+or from inside DDT:
+
+[source,text]
+----
+ITEST.COM
+R
+----
+
+Then inspect it:
+
+[source,text]
+----
+D100,17F
+L100,140
+X
+----
+
+[id="123-exercise-history"]
+=== 12.3 Exercise history
+
+Enter:
+
+[source,text]
+----
+D100,17F
+D180,1FF
+L100,140
+L140,180
+----
+
+Then use 7xtgv history to recall a `+D...+` or `+L...+` command and edit only the address.
+
+If prefix filtering is implemented later:
+
+[source,text]
+----
+type "L"
+Alt+Up
+----
+
+should recall only `+L...+` entries.
+
+[id="124-exercise-assembler-submode-only-if-needed"]
+=== 12.4 Exercise assembler submode only if needed
+
+[source,text]
+----
+A100
+----
+
+DDT should then print successive addresses and accept 8080 mnemonics. An empty line returns from assembler input.
+
+No context-specific history behaviour is required initially; simply ensure history does not break normal DDT operation.
+
+[id="125-exercise-byte-substitution-mode-only-if-needed"]
+=== 12.5 Exercise byte substitution mode only if needed
+
+[source,text]
+----
+S100
+----
+
+DDT repeatedly shows current address/value and accepts a replacement byte. A period terminates.
+
+Again, no special history handling is necessary initially.
+
+'''''
+
+[id="13-what-not-to-build-yet"]
+== 13. What not to build yet
+
+The following are tempting but would probably create complexity faster than value.
+
+[id="131-no-universal-cpm-command-parser"]
+=== 13.1 No universal CP/M command parser
+
+Do not try to understand every application's command grammar.
+
+History mostly works without semantic parsing.
+
+[id="132-no-universal-automatic-appcontext-recognizer"]
+=== 13.2 No universal automatic app/context recognizer
+
+Prompt recognition is useful where patterns are stable, but do not build an elaborate inference engine that guesses which program is running from arbitrary screen text.
+
+Prefer explicit bank selection plus a few proven prompt/context recognizers.
+
+[id="133-no-general-programmable-fsm-language-yet"]
+=== 13.3 No general programmable FSM language yet
+
+MBASIC may justify one dedicated adapter.
+
+That does *not* yet justify exposing a generic user-programmable FSM grammar in the INI file.
+
+Wait until a second or third genuinely stateful application shows common requirements.
+
+[id="134-no-large-macro-language"]
+=== 13.4 No large macro language
+
+If favourites become useful, start with pinned literal strings.
+
+Do not immediately create variables, conditionals, waits, screen matching, etc.
+
+[id="135-no-global-smart-syntaxcommand-inference"]
+=== 13.5 No global "smart" syntax/command inference
+
+Terminal-side smart rendering and syntax colouring should remain explicitly enabled by app bank/context. Do not infer programming language or UI semantics globally.
+
+'''''
+
+[id="14-suggested-decision-matrix"]
+== 14. Suggested decision matrix
+
+[cols=",>,>,",options="header",]
+|===
+|Addition |Value |Complexity |Suggested decision
+|*DDT bank {plus} existing persistent history* |High |Low |*Do soon*
+|*Input-origin tagging HUMAN/HOST/INTERNAL* |High |Medium |*Recommended*
+|*Paste-specific char/line pacing* |High if pasting source |Low |*Recommended when needed*
+|*Prefix-filtered history (Termite style)* |Medium–High |Low–Medium |*Good optional addition*
+|*DDT subcontexts (`+-+`, `+A+`, `+S+`)* |Medium |Medium |*Wait for real annoyance*
+|*Local compose/transmit line* |High for simple REPLs |Medium |*Optional per-profile experiment*
+|*Pinned/favourite history entries* |Medium |Low–Medium |*Later*
+|*History metadata* |Medium |Medium |*Only if required by another feature*
+|*History browser/work-log UI* |Medium |Medium |*Later*
+|*Generic configurable FSM engine* |Unknown |High |*Do not build yet*
+|*Universal app/context detection* |Low/uncertain |High |*Avoid*
+|*Full macro/scripting language* |Unknown |High |*Avoid until proven necessary*
+|===
+
+'''''
+
+[id="15-recommended-near-term-sequence"]
+== 15. Recommended near-term sequence
+
+This document is about additions, not already-completed work.
+
+A conservative sequence is:
+
+[source,text]
+----
+1. Add/use a DDT profile with ordinary persistent history.
+   No DDT-specific parser.
+
+2. Document DDT commands in project docs so history tests are meaningful.
+
+3. Add input-origin tagging when convenient, primarily to protect
+   human histories from Codex/vtput/internal traffic.
+
+4. Use DDT/BASIC/VMEX for a while and observe actual history habits.
+
+5. If repeated command families become annoying:
+      add Termite-style prefix-filtered history.
+
+6. If multiline paste becomes frequent:
+      separate paste char delay and paste line delay.
+
+7. Only if DDT A/S submodes noticeably pollute recall:
+      add bank-local conversational contexts.
+
+8. Only if a genuinely line-oriented program would benefit strongly:
+      experiment with optional local compose/transmit-line mode.
+
+9. Only after real usage demonstrates need:
+      pinned commands / history browser / metadata.
+----
+
+'''''
+
+[id="16-architectural-takeaway"]
+== 16. Architectural takeaway
+
+The most useful distinction is:
+
+[source,text]
+----
+terminal conveniences that are safe outside the application
+                 vs
+features that require knowledge of application state
+----
+
+=== Usually safe and cheap
+
+[source,text]
+----
+persistent history
+source tagging
+prefix-filtered recall
+clipboard/paste pacing
+pinned literal commands
+----
+
+=== Needs application/context knowledge
+
+[source,text]
+----
+local compose mode
+subcontext-specific histories
+MBASIC-style state machines
+screen-semantic features
+----
+
+The project should strongly prefer the first category and add the second only where a real application proves it worthwhile.
+
+This keeps the 7xtgv terminal powerful without turning it into an application-specific emulator framework.
+
+'''''
+
+[id="17-source-notes"]
+== 17. Source notes
+
+=== CompuPhase Termite
+
+The Termite documentation confirms:
+
+* separate receive view and transmit line;
+* circular command history;
+* Up/Down history browsing;
+* prefix matching/auto-completion;
+* clipboard-related text handling;
+* plug-in support including function-key macros.
+
+Source: +
+https://www.compuphase.com/software_termite.htm
+
+[id="cpm-22-ddt"]
+=== CP/M 2.2 DDT
+
+The Digital Research DDT documentation confirms:
+
+* `+-+` top-level prompt;
+* 32-character command lines;
+* Rubout / Ctrl-U / Ctrl-C line controls;
+* commands `+A D F G I L M R S T U X+`;
+* `+A+` assembler mode terminating on an empty line;
+* `+S+` successive memory substitution;
+* exact command forms summarized above.
+
+Source mirror: +
+https://www.gaby.de/cpm/manuals/archive/cpm22htm/ch4.htm
+
+[id="cpm-3--cpm-plus-recall"]
+=== CP/M 3 / CP/M Plus recall
+
+The CP/M Plus User's Guide documents Ctrl-W recall of the previously entered command line when Ctrl-W is the first character entered after the prompt, including use within executing programs that use the applicable console line-input mechanism.
+
+Primary-manual mirror: +
+https://bitsavers.org/pdf/digitalResearch/cpm_plus/CPM-Plus_Users_Guide_Prelim_Nov82.pdf
+
+'''''
+
+=== Final recommendation
+
+The genuinely attractive *new* features are not a large new subsystem.
+
+The best candidates are:
+
+[source,text]
+----
+DDT + existing persistent history        -> immediate, almost free
+input-origin tagging                     -> robust infrastructure
+Termite-style prefix history             -> small ergonomic win
+paste-specific pacing                    -> practical for BASIC/source entry
+----
+
+Everything else should remain optional until actual CP/M/VMEX/ASLIX use demonstrates a problem that it solves.

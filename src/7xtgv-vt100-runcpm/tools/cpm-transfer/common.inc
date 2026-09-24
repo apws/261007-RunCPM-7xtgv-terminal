@@ -74,6 +74,10 @@ putext:
  ret
 clear:
  db 27,'(B',15,27,'[0m',27,'[2J',27,'[H','$'
+pagehome:
+ db 27,'[H','$'
+eraseline:
+ db 27,'[2K','$'
 newline:
  db 13,10,'$'
 error:

@@ -106,20 +106,20 @@ enum : uint8_t
 
   // Ink colors (16)
   PAL_INK_GRAY        = 16,
-  PAL_INK_DARKGRAY    = 17,
-  PAL_INK_RED         = 18,
-  PAL_INK_DARKRED     = 19,
-  PAL_INK_GREEN       = 20,
-  PAL_INK_DARKGREEN   = 21,
-  PAL_INK_BLUE        = 22,
-  PAL_INK_DARKBLUE    = 23,
-  PAL_INK_SILVER      = 24,
-  PAL_INK_DARKSILVER  = 25,
-  PAL_INK_CYAN        = 26,
-  PAL_INK_DARKCYAN    = 27,
-  PAL_INK_MAGENTA     = 28,
-  PAL_INK_DARKMAGENTA = 29,
-  PAL_INK_YELLOW      = 30,
+  PAL_INK_DARKGRAY    = 24,
+  PAL_INK_RED         = 17,
+  PAL_INK_DARKRED     = 25,
+  PAL_INK_GREEN       = 18,
+  PAL_INK_DARKGREEN   = 26,
+  PAL_INK_BLUE        = 19,
+  PAL_INK_DARKBLUE    = 27,
+  PAL_INK_SILVER      = 20,
+  PAL_INK_DARKSILVER  = 28,
+  PAL_INK_CYAN        = 21,
+  PAL_INK_DARKCYAN    = 29,
+  PAL_INK_MAGENTA     = 22,
+  PAL_INK_DARKMAGENTA = 30,
+  PAL_INK_YELLOW      = 23,
   PAL_INK_DARKYELLOW  = 31,
 };
 
@@ -188,20 +188,20 @@ static inline uint8_t inkPalIndexFrom4(uint8_t i4)
   switch (i4 & 0x0F) {
     default:
     case  0: return PAL_INK_GRAY;
-    case  1: return PAL_INK_DARKGRAY;
-    case  2: return PAL_INK_RED;
-    case  3: return PAL_INK_DARKRED;
-    case  4: return PAL_INK_GREEN;
-    case  5: return PAL_INK_DARKGREEN;
-    case  6: return PAL_INK_BLUE;
-    case  7: return PAL_INK_DARKBLUE;
-    case  8: return PAL_INK_SILVER;
-    case  9: return PAL_INK_DARKSILVER;
-    case 10: return PAL_INK_CYAN;
-    case 11: return PAL_INK_DARKCYAN;
-    case 12: return PAL_INK_MAGENTA;
-    case 13: return PAL_INK_DARKMAGENTA;
-    case 14: return PAL_INK_YELLOW;
+    case  8: return PAL_INK_DARKGRAY;
+    case  1: return PAL_INK_RED;
+    case  9: return PAL_INK_DARKRED;
+    case  2: return PAL_INK_GREEN;
+    case  10: return PAL_INK_DARKGREEN;
+    case  3: return PAL_INK_BLUE;
+    case  11: return PAL_INK_DARKBLUE;
+    case  4: return PAL_INK_SILVER;
+    case  12: return PAL_INK_DARKSILVER;
+    case 5: return PAL_INK_CYAN;
+    case 13: return PAL_INK_DARKCYAN;
+    case 6: return PAL_INK_MAGENTA;
+    case 14: return PAL_INK_DARKMAGENTA;
+    case 7: return PAL_INK_YELLOW;
     case 15: return PAL_INK_DARKYELLOW;
 
   }
@@ -324,7 +324,7 @@ static void initScreenRAM()
   {
     paperRAM[i] = 0x20;  // paper glyph (inverted) - if your real font makes space empty, inversion will paint all paper.
     charRAM[i]  = 0x20;  // ink glyph
-    attrRAM[i]  = 0;     // ink GRAY, paper WHITE, gs 0   //(uint8_t)((0 << 6) | (0 << 4) | 1); // glyphset0, paper0, ink=DARKGRAY (index 1)
+    attrRAM[i]  = 0;     // ink GRAY, paper WHITE, gs 0   //(uint8_t)((0 << 6) | (0 << 4) | 1); // glyphset0, paper0, ink=DARKGRAY (index 8)
   }
 
 //   // Fill the rest with varying attributes to prove mapping
@@ -431,27 +431,27 @@ enum PaperColor {
 
 enum InkColor {
     I_T  = 0,   // Text Grey - (visibly lighter)
-    I_TB = 1,   // Text Bold - Dark Grey (actually DEEP BLACK)
+    I_TB = 8,   // Text Bold - Dark Grey (actually DEEP BLACK)
 
-    I_R  = 2,   // Red
-    I_RB = 3,   // Dark/Bold Red
+    I_R  = 1,   // Red
+    I_RB = 9,   // Dark/Bold Red
 
-    I_G  = 4,  // Green
-    I_GB = 5,  // Dark/Bold Green
+    I_G  = 2,  // Green
+    I_GB = 10,  // Dark/Bold Green
 
-    I_B  = 6,   // Blue
-    I_BB = 7,   // Dark/Bold Blue
+    I_B  = 3,   // Blue
+    I_BB = 11,   // Dark/Bold Blue
 
-    I_S  = 8,   // Silver Grey (very light)
-    I_SB  = 9,  // Dark/Bold Silver
+    I_S  = 4,   // Silver Grey (very light)
+    I_SB  = 12,  // Dark/Bold Silver
 
-    I_C  = 10,  // Cyan
-    I_CB = 11,  // Dark/Bold Cyan
+    I_C  = 5,  // Cyan
+    I_CB = 13,  // Dark/Bold Cyan
 
-    I_M  = 12,  // Magenta
-    I_MB = 13,  // Dark/Bold Magenta
+    I_M  = 6,  // Magenta
+    I_MB = 14,  // Dark/Bold Magenta
 
-    I_Y  = 14,  // Yellow
+    I_Y  = 7,  // Yellow
     I_YB = 15   // Dark/Bold Yellow
 };
 
@@ -596,7 +596,7 @@ void loop() {
   char buf[32];
   snprintf(buf, sizeof(buf), "#%lu", (unsigned long)frameNo);
   ql.paper(0);
-  ql.ink((uint8_t)(frameNo & 0x0F | 0x01));
+  ql.ink((uint8_t)(((frameNo >> 1) & 7) | 8));
   ql.at((uint8_t)((TXT_COLS > 8) ? (TXT_COLS - 8) : 0), 0);
   ql.print("        "); // clear old
   ql.at((uint8_t)((TXT_COLS > 8) ? (TXT_COLS - 8) : 0), 0);

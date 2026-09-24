@@ -1,0 +1,65 @@
+= Transfer dialog: local DU, separate target, and overwrite confirmation
+:source-highlighter: highlight.js
+
+== Correction after Petr's hardware test
+
+Petr confirmed Send worked. Receive refused an existing local filename, and
+selecting local A3 to receive the INI from device A0 incorrectly switched the
+device to A3. VTGET then reported XFER ERROR because that source was absent.
+The Python dialog introduced that switch; VTPUT/VTGET themselves already use
+the current CP/M drive/user for unqualified filenames.
+
+This supersedes the shared local/remote DU behavior in
+link:260923-20%20VTPUT%20VTGET%20mirror%20integration%20and%20redraw%20reduction.adoc[the preceding implementation record].
+
+== Current workflow
+
+Leave the device idle at the desired CCP drive/user. Open Ctrl+Shift+X or
+Ctrl+] m, then choose S or R, local DU, Source, and Target. Target is prefilled
+from Source; use the same editor controls to change it. All filenames are 8.3.
+
+[cols="1,2,2",options="header"]
+|===
+|Direction |Source |Target
+|S / VTPUT |File in selected local cpmdrive folder |Device current DU
+|R / VTGET |File in device current DU |Selected local cpmdrive folder
+|===
+
+Example: device `A0>`, R, local `A3:`, Source `7XTGVTRM.INI`, Target
+`TRM-COPY.INI` reads device A0 and writes the differently named local A3 copy.
+No device drive/user switch is sent. The separate CLI retains its explicit
+--user device-selection behavior; it must not be confused with the dialog DU.
+
+Send always asks before writing because no remote existence probe is added.
+Receive asks when its local target exists. Y proceeds; N edits Target; C/Esc
+cancels. Enter alone never authorizes overwrite. Confirmation also applies
+after choosing a different existing target, not just when names match.
+
+A confirmed local overwrite preserves the previous file until the download
+and temporary-file write complete, then replaces it atomically. Target identity,
+size and modification time are rechecked so changed files require fresh consent.
+Local symlink/directory overwrite is refused. New files retain exclusive creation.
+No INI, history, device file or firmware is changed by installing this host fix.
+
+== Error presentation
+
+The panel inherited raw stdout and disabled autowrap from the mirror. Dumping
+an LF-only, mostly blank screen snapshot in an exception produced staggered
+text and clipped long paths. Error snapshots now discard blank lines; panel
+text is explicitly wrapped and emitted with CRLF. The initial background clear
+uses reset attributes. Reset advice distinguishes idle CCP from a stuck helper.
+The CCP preflight ignores historical XFER ERROR text when a fresh snapshot
+shows an idle prompt, allowing a clean retry without unnecessary reboot.
+
+== Verification
+
+Tests cover independent source/target names in both directions, no call to
+device DU switching, prefilled/editable Target, Y/N/C, confirmed replacement,
+preservation on a failed download, stale approval rejection, error wrapping,
+CRLF output and retry after a historical error. Existing CP/M helper binary
+round-trip tests remain included. No helper binary or firmware rebuild is needed.
+
+All 44 Python tests pass. Restarted the visible Konsole mirror with these host
+changes; no device reset or file transfer was performed. Petr independently
+confirmed Send works and transfers are now fast and smooth. The revised
+Receive/target/overwrite interaction still awaits his hardware UI check.

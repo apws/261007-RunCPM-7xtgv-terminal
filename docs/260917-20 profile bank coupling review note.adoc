@@ -1,0 +1,15 @@
+[id="profile-bank-coupling-review-later"]
+= Profile-bank coupling: review later
+:source-highlighter: highlight.js
+
+*Date:* 260917. This is an audit note, not an implementation request.
+
+No terminal algorithm found in this audit compares a profile's editable `+name=+` string. Changing the labels in `+7XTGVTRM.INI+` is therefore only a presentation change. Numeric bank identities, however, do matter in the current implementation and should be reviewed before profiles are freely reordered or expanded:
+
+* `+HistoryProfiles::defaults()+` assigns initial key tables and app behavior by numeric bank: 0/9 RunCPM-style Ctrl motions, 1/7 MBASIC behavior, 2 TE, 3 Turbo Pascal, 5 BBC BASIC, and ANSI modifier fallbacks on 3/4/5/8. The INI can override these values, but an omitted field retains the numeric-bank fallback.
+* `+terminal_runtime.cpp+` uses bank 0 as the temporary effective history/input bank when a CCP prompt is recognized. Its special in-place `+^A+`/`+^G+` recall transport requires both effective and selected bank 0. The 125th printable-character CCP auto-submit boundary also tests effective bank 0. These are protocol assumptions, not consequences of `+name=A0: CCP+`.
+* History storage, recall, filtering, and deletion are generic per-bank mechanisms. Clearing the _application's visible input line_ differs: selected CCP uses native cursor/delete motions, the local MBASIC composer redraws its line, BBC BASIC uses its profile's `+history_clear=\x06\x18+`, and the remaining fallback emits Backspace. Thus deleting a stored history entry is not a guarantee that every application editor redraws identically. `+history_retype_delay_ms=100+` is BBC line-transport timing, not a global history setting.
+
+Later review: separate bank identity from behavior capabilities where useful, without disturbing the currently intentional bank-0 CCP heuristic. Test renamed/reassigned profiles and in-app line editors before removing numeric special cases. Avoid interpreting editable labels as app detection.
+
+The expanded `+A0:7XTGVTRM.INI+` now lists omitted parser-supported defaults as whole-line `+;+` comments in every bank. They remain inactive: active INI assignments and inheritance are unchanged. App-specific BBC history-clear settings are deliberately not duplicated in unrelated banks.

@@ -1,0 +1,160 @@
+= Progress since last push and feature tracking review
+:source-highlighter: highlight.js
+
+== Baseline and scope
+
+Read-only remote refresh completed on 260924. HEAD and origin/main both point
+to `1be7630`, dated 260922 19:46 +02:00, "terminal: adopt key-first chords and
+feature registry". Ahead/behind is 0/0. This is the remote commit timestamp,
+not proof of the actual push time. All subsequent local work is uncommitted;
+nothing was staged at the audit checkpoint. No commit or push is requested.
+
+Before this review's own edits the inventory was 95 modified tracked paths,
+84 deleted tracked paths and 164 untracked paths. Counts are a snapshot, not
+a clean-tree claim: Petr is also adding material. There were 46 changed tracked
+source paths, plus untracked source/tests not shown by ordinary git diff.
+The feature registry grew from 116 records at HEAD to 140 before this review;
+24 were new and 57 existing records differed. It occupied 44,573 bytes.
+
+== Work present since the baseline
+
+[cols="2,5,4",options="header"]
+|===
+|Area |Delivered/local work |Limits or remaining work
+|Documentation and editor support
+|Chronological Markdown/text to AsciiDoc, image relocation, manual conversion
+and source audit, feature-ledger/report AsciiDoc output, shared presentation
+CSS and Kate embedded INI syntax helper. See 260923-09 through -13 notes.
+|Many deletions are format moves, not lost work: every deleted docs path in
+the audit had a same-stem .adoc replacement. Review pairs before staging.
+Historical notes deliberately retain old decisions; use dated corrections.
+|Palette model and presets
+|Bit-3 normal/ALT layout, shared palette model, INI parser, ANSI translation,
+renderer/UI items and demo-index updates; VTPAL.COM/source and BASIC matrix.
+Six current presets: PAPER, GREEN, AMBER, BW, PLASMA, VFD. Extensive user tuning
+of marker papers, inks and themed special UI colors, including blue correction.
+|Petr's latest W535 photos/acceptance establish visual checks, not exhaustive
+all-target regression. Old VTPAL text still advertises optional presets 3..6
+and INK/SILVER naming; record cleanup separately, do not reassign palette slots.
+|Backlight and startup
+|HAL-specific 32-state tables, 0 OFF / 31 ON, usable minimum, boot-off until
+themed frame, configurable CRT ramp and W535 gamma-2.2 curve. W550 and W535
+have user observations; the W535 minimum/curve is explicitly accepted.
+|Legacy 32 input aliases 31. Per-target electrical and perceptual curves differ.
+RP2_2 current-state regression is pending; ESP32-P4/all-module testing later.
+Double-ramp observation around reflash is separate from normal reboot acceptance.
+|Identity and build/upload safety
+|Firmware target query, mismatch refusal, shared host target metadata/short
+display IDs, selection/persistence audit, preserved Arduino platform flags and
+W535 USB recovery. New guard/config/build tests and module headers accompany it.
+|No universal physical module autodetection or MAC registry. RP2350 manual
+BOOTSEL is not yet part of the guarded dispatcher. Neutral fresh-clone defaults
+and build-provenance record are documented proposals, not implemented features.
+|Transfers and host mirror
+|Editable DU/source/target dialog, local DU resolution, remote current DU,
+overwrite choices, VTPUT/VTGET integration, tagged pages, reduced repeated CLS,
+profile/RAW restoration. Helpers and their source changed together.
+|The XMODEM dialog experiment was superseded, not made reliable by relabeling.
+Automatic compression is NOT implemented. Standalone protocol tests do not
+prove the mirrored byte stream is transparent. Renderer optimization is separate.
+|CP/M files and source workflow
+|Native CP/M text convention, MBASIC ASCII fetch/save workflow, tested BBC
+SPOOL/LIST/EXEC procedure, A7 tests and compact pages, INI revisions, deployed
+UNZIP157 with host extraction checks. Mirror files and utility binaries changed.
+|Do not retokenize BASIC or convert binary/backup data by extension. Preserve
+CRLF/Ctrl-Z; no automatic transfer conversion. Existing untracked COMAL ZIPs
+and backups are user data, not automatically authored deliverables.
+|Operational guidance and tests
+|AGENTS/readmes now describe explicit staging vs flashing, identity refusal,
+safe serial ownership, profile restoration and no routine upload read-back.
+New tests cover palette, backlight, identity, build flags, metadata, transfer
+and BASIC/config behavior; prior notes retain their actual run results.
+|This audit did not rerun every firmware/host suite or revalidate every board.
+No current-image promotion is implied by H, by a staged candidate, or by this report.
+|===
+
+This review additionally prepares the expanded DEC TEST 4 and its host checks;
+see link:260924-20%20DEC%20graphics%20review%20and%20expanded%20VTESTS.adoc[DEC review].
+It is local only, not transferred or physically tested yet.
+
+== Publishing risks and a small pre-push checkpoint
+
+Do not use a blind git add of the whole tree. Untracked root files include
+`260923-0923 backup docs.zip` (949,674,532 bytes) and
+`260924 backup - cpmcard.zip` (5,896,929 bytes). Other ZIPs exist in cpmdrive.
+Their inclusion, licensing and private contents have not been audited. Preserve
+them locally; do not assume they belong in Git. Uppercase MIXWORX filenames
+remain private/ignored. An archive can contain private data even if its outer
+name does not match that rule.
+
+There are also old `_VTPAL.BAS` / `_VTPAL.INI` optional-level artifacts in A7.
+Their old preset numbering conflicts with today's BW/plasma/VFD slots. Do not
+deploy them accidentally. No archive or obsolete artifact was removed here.
+
+There is no mandatory pre-push report gate in the current repository guidance.
+There ARE many good dated implementation reports plus a feature index; their
+presence is not equivalent to a reviewed release summary. Recommendation:
+
+. Before a requested commit/push, write one compact checkpoint like this one:
+  baseline commit, selected change groups, actual checks/targets, known limits,
+  manual gaps, and files intentionally excluded.
+. Compare feature rows against the baseline with git, not only last_reviewed:
+  review date is not implementation date and not a publication marker.
+. Check registry, regenerate the ledger, review changed manual sections, then
+  stage explicit paths and inspect the staged diff. Commit/push only when asked.
+
+This is a proposed lightweight practice, not a new automatic publishing hook.
+
+== H and manual completion are different dimensions
+
+The ledger is useful: it finds old ideas and prevents repetition. Its weakness
+is stale or overly broad evidence, not its 45 KB size. DEC's old H meant only a
+simple smoke test, as Petr clarified. Future H evidence should say target,
+what was actually exercised, and what was not. A new test page needs its own
+pending hardware gate; it must not inherit acceptance from old DEC support.
+
+Several rows still said "not deployed" after later user acceptance. This pass
+updates the clear palette/ramp evidence and qualifies DEC, without pretending
+to re-audit every historical H claim. Unknown historical test dates stay empty.
+
+Do NOT replace H with a single higher M state: a manual may be current before
+hardware testing, and a hardware-tested feature's manual can become stale.
+Recommended future addition: independent manual_ref plus manual_reviewed date,
+with pending/current/not-applicable interpretation if needed. For now use
+boundary/next_gate and linked documents; no registry schema change is made.
+
+Specific documentation gap: the current manual describes ANSI/VT52 modes but
+does not give a scoped DEC glyph inventory and the TFT/mirror approximation
+differences. This review is the source for a later concise manual section.
+VTPAL's help and ink labels also need alignment with the six actual presets.
+
+== Small CP/M / FAND export idea
+
+This already exists as feature `dev-cp-m-fand-feature-registry-demonstration`.
+Keep TSV authoritative. A generated read-only ASCII fixed-width import listing
+could retain short identifier, group, state, selected dates and short title,
+with full descriptions left on the host. Roughly 128-byte records would make
+140 rows about 18 KB; this is a size illustration, not a signed field layout.
+Long canonical IDs must not be silently truncated into collisions: preserve a
+separate mapping if compact stable IDs are chosen. Widths, character policy,
+CRLF/Ctrl-Z and FAND import details need agreement before implementation.
+
+An import listing is not itself a native FAND database. No database engine,
+reverse synchronization or new storage schema is warranted for this demo.
+Keep any live FAND application test observations in the existing private log.
+
+== RP2_2 retest requested, not yet executed
+
+After Petr selects/connects RP2_2 and requests its build/flash workflow:
+
+* Confirm target-specific build/HAL and shared-card RP2_2 display selection.
+  Observe the separate manual BOOTSEL safety boundary; no ESP32 image reuse.
+* Boot/reboot with a dark preset: no bright first frame, correct saved level
+  and CRT ramp. Check OFF, minimum usable 1, intermediate curve and full ON 31.
+* Exercise geometry/zoom/pan, cursor/line/gutter colors, all six palettes and
+  the extended DEC pages on TFT and mirror.
+* Check keyboard/profile/history, smooth send/receive and profile/RAW restore.
+  Do not overwrite the user's device INI/history without explicit approval.
+
+No RP2_2 firmware candidate, device state or persistent target setting changed
+in this task. W535 observations cannot substitute for these checks.

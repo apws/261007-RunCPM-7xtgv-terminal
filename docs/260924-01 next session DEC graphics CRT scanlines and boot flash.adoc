@@ -1,0 +1,43 @@
+= Next session: DEC graphics, CRT scanlines and boot flash
+:source-highlighter: highlight.js
+
+== Petr's checkpoint
+
+The GREEN/AMBER CRT themes now look very good to Petr. He reports the dark-mode
+papers are balanced and inks improved after visual tuning. Preserve this
+baseline; do not start another palette reordering or unsolicited color change.
+The latest backlight candidate is 260924-0111; Petr's follow-up was "its good".
+
+== Next-session agenda
+
+. *Review DEC Special Graphics.* Existing G0/G1 and SI/SO support is already
+  implemented; this is a review/test task, not an assumption that it is missing
+  or broken. Start with VTESTS's DEC graphics page and the existing notes.
+  Check glyph appearance, joined line drawing, font/zoom behavior and charset
+  reset behavior on the current display.
+. *Consider a CRT scanline experiment.* Optional visual treatment for the dark
+  themes, independent of terminal attributes. Agree on the appearance first;
+  preserve legibility and existing palette behavior. No scanline implementation
+  is approved or performed by this note.
+. *Investigate the boot/reboot brightness flash.* Petr sees the TFT "shining"
+  at apparently full backlight for roughly half a second during startup in dark
+  modes. Treat duration/full brightness as an observation, not a measurement.
+  Trace backlight pin/PWM initialization, initial framebuffer clearing, palette
+  loading and saved-level restoration. Distinguish a bright initial screen
+  from an actual full-duty backlight pulse before choosing a fix. No cause is
+  established yet. Preserve level 1's usable floor and level 32's full-on state.
+
+This note records tomorrow's agenda only. No firmware, INI, device or startup
+behavior was changed in this turn.
+
+== References
+
+260924 evening follow-up:
+link:260924-20%20DEC%20graphics%20review%20and%20expanded%20VTESTS.adoc[current DEC inventory and expanded test].
+The old hardware status was only a simple smoke test. The earlier agenda above
+is historical: boot hold and CRT ramp were subsequently implemented, and the
+current backlight endpoints are 0 OFF / 31 ON. RP2_2 retesting is pending.
+
+* link:260918-13%20terminal%20profiles%20DEC%20graphics%20and%20native%207xtgv%20design%20notes.adoc[DEC graphics and native design notes]
+* link:260923-16%20palette%20presets%20manual%20and%20test%20notes.adoc[Palette presets and testing]
+* link:260924-01%20backlight%20full-on%20endpoint%20separation.adoc[Backlight endpoint adjustment]

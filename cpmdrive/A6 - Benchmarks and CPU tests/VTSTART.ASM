@@ -55,3 +55,4 @@ fcb:    db      0,'VTIME   ','DAT'
 okmsg:  db      'VTSTART: stamp saved',13,10,'$'
 errmsg: db      'VTSTART: cannot write VTIME.DAT',13,10,'$'
         end     start
+

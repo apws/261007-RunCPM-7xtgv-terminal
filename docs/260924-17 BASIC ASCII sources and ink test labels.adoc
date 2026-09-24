@@ -1,0 +1,135 @@
+= BASIC ASCII sources and ink test labels
+:source-highlighter: highlight.js
+
+== Decision and scope
+
+Petr approved ASCII MBASIC source storage and the ink naming/order below on
+260924. He cleaned the device's A7 programs with ASCII SAVE and explicitly
+requested fetching all A7 `.BAS` files before further edits.
+
+The device listing contained exactly `VTESTS.BAS`, `PROG.BAS`, `VTPAL.BAS`,
+`VTDEMO.BAS`, and `VTDEMO2.BAS`. All five were fetched into
+`cpmdrive/A7 - MBASIC and VT tests/` (9088, 128, 2944, 1152, 1152 bytes respectively).
+Previous local BASIC files and byte-exact fetched copies are retained in the
+ignored host-only `build/basic-source-backups/260924-1710/` directories
+`local-before/` and `device-as-fetched/`. Do not deploy those backups.
+
+No device files were overwritten. The W535 Konsole mirror was restored at A7,
+with the original profile/RAW state restored by the transfer helper. The device
+was already idle at CCP; no running application state was lost.
+
+== MBASIC source workflow
+
+Always use ASCII SAVE for maintained programs:
+
+[source,basic]
+----
+LOAD "VTESTS"
+SAVE "VTESTS",A
+----
+
+Both ASCII and tokenized programs default to `.BAS`. For a separate export,
+use `SAVE "VTASCII",A`. Ordinary `LOAD "VTASCII"` or `RUN "VTASCII"` reads it.
+Without `,A`, SAVE produces tokenized output. MBASIC still tokenizes ASCII
+on loading; this is a source-storage choice, not a different runtime mode.
+
+Guest text uses CRLF and Ctrl-Z. Bytes after the first Ctrl-Z are not source:
+CP/M record tails can contain stale text, not just zeroes or more Ctrl-Zs.
+Transfers preserve those bytes. The untouched fetched snapshots retain them;
+the edited VTESTS source ends at a single Ctrl-Z without record padding.
+Existing long VTDEMO/VTDEMO2 lines are preserved, not silently reformatted.
+New VTESTS edits remain within the 80-column source convention.
+
+== BBC BASIC and BBCLOWER
+
+Local checks used our BBC BASIC (Z80) 5.00 and patched BBCLOWER in isolated
+Linux RunCPM. For an already-loaded program, BBC BASIC exports a listing with:
+
+[source,text]
+----
+*SPOOL VTASCII.TXT
+LIST
+*SPOOL
+----
+
+In BBCLOWER use lowercase `list`; lowercase `*spool` also works. This is
+console spooling: the file includes the prompt/command lines `>LIST` and
+`>*SPOOL` (or their lowercase equivalents). For a maintained ASCII source,
+remove those wrapper lines, retain the numbered program lines with their
+keyword case, and use CRLF plus a trailing Ctrl-Z. Do not reuse a filename
+containing the only copy of a tokenized program.
+
+To replace the current in-memory program with that listing:
+
+[source,text]
+----
+NEW
+*EXEC VTASCII.TXT
+RUN
+----
+
+Use `new`, `*exec VTASCII.TXT`, `run` in BBCLOWER. NEW is deliberate: EXEC
+feeds lines like keyboard input and otherwise merges into the existing program.
+The uncleaned spool also imported our one-line test, but printed Syntax error
+for each wrapper. The cleaned listing imported and ran without those errors
+in both interpreters. This is a tested small round-trip, not a bulk conversion
+of our BBC library. No A1 device files were fetched or changed.
+
+Use an explicit `.TXT` extension here: BBC star commands default to `.BBC`,
+per the https://www.bbcbasic.co.uk/bbcbasic/mancpm/opsys0.html[BBC BASIC Z80
+operating-system interface manual]. SPOOL/EXEC listing transport is also
+described in the https://www.bbcbasic.uk/bbcbasic/manual/bbcfile1.html[BBC BASIC
+86 file manual]; the applicability above was checked against our Z80 binaries,
+not assumed from the other edition. Ordinary BBC SAVE remains tokenized.
+
+== Ink roles and VTESTS TEST 1
+
+Names describe editable palette roles, not fixed RGB565 values. Implicit is
+the default/theme ink; shade is the neutral grey/silver role. ALT is alternate,
+not necessarily brighter or darker. Lowercase letters name normal roles;
+uppercase letters name alternate roles. They are documentation notation, not
+new protocol commands or INI aliases.
+
+[cols="1,1,2,1,1,1",options="header"]
+|===
+|Index |Letter |Name |ALT index/letter |ANSI SGR |ALT SGR
+|0 |i |implicit |8 / I |30 |90
+|1 |r |red |9 / R |31 |91
+|2 |g |green |10 / G |32 |92
+|3 |b |blue |11 / B |34 |94
+|4 |s |shade |12 / S |37 |97
+|5 |c |cyan |13 / C |36 |96
+|6 |m |magenta |14 / M |35 |95
+|7 |y |yellow |15 / Y |33 |93
+|===
+
+VTESTS TEST 1 now follows this internal order, as VTPAL already does.
+Example row: `0 i implicit (30)` and `8 I ALT IMPLICIT (90)`.
+The page explicitly labels the parenthesized numbers as ANSI SGR codes.
+There is no new remapping: output still uses the existing ANSI escape codes.
+No palette values, INI, renderer, firmware, or other VTESTS pages were changed.
+Older pages still have their historical DARK wording; VTPAL's existing INK and
+SILVER labels have not been renamed in this change.
+
+The maintained deployment source is the freshly fetched and edited A7 file.
+`src/7xtgv-vt100-runcpm/tests/VTESTS.BAS` remains a historical fixture, not the
+source from which to overwrite A7.
+
+== Verification and next gate
+
+`tools/test_vtests_basic.py` checks all five ASCII sources load, exercises
+MBASIC SAVE/NEW/LOAD with ASCII, checks all eight VTESTS pages, and asserts every
+ink row's internal index, case, position, and ANSI SGR pair. Passed locally.
+The existing `tools/test_vtpal_basic.py` also passes with the fetched VTPAL;
+its source check now respects the first Ctrl-Z instead of rejecting guest
+record tails. These validate guest bytes, not TFT rendering.
+
+The new VTESTS is local only. Deployment and visual hardware confirmation
+remain the next step on Petr's request. No firmware rebuild is necessary.
+
+=== Deployment follow-up
+
+On Petr's subsequent request, uploaded only `VTESTS.BAS` to device A7.
+VTPUT reported SAVED (9249 source bytes, 9344 bytes with CP/M record padding).
+The original profile/RAW state and visible W535 Konsole mirror were restored.
+No full read-back was requested; visual ink-page confirmation remains pending.

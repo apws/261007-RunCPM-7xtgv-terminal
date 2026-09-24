@@ -1,0 +1,91 @@
+= Short display IDs and shared host target data
+:source-highlighter: highlight.js
+
+== Naming roles and Petr's convention
+
+Petr clarified that short IDs are locally meaningful display-profile/group labels,
+mostly expressing processor family and display size. They are at most eight ASCII
+characters, with optional letter variants, for example `ES3_5A` or `RP2_2B`.
+They are not universal product IDs or unique serial numbers.
+
+[cols="1,2,1,2",options="header"]
+|===
+|Display-profile ID |Canonical firmware/build target |Pixels |Current hardware
+|ES3_5 |jc8048w550 |800x480 |ESP32-S3, 5-inch ST7262 RGB
+|ES3_35 |jc8048w535 |480x320 |ESP32-S3, 3.5-inch AXS15231B, oriented by HAL
+|RP2_2 |rp2350-touch-lcd-2 |320x240 |RP2350, Waveshare Touch-LCD 2-inch
+|===
+
+The three mappings are consistent today, but originally appeared in disconnected
+places. Short IDs in firmware `display_policy.h` select `[display:ID]` INI sections
+and identify the section updated by the settings writer. Exact target names select
+JSON definitions, Arduino profiles, artifact directories and firmware identity replies.
+Macros, GPIOs and controller construction remain hardware/HAL details.
+
+Recommendation: retain these two roles. Show the short ID prominently for people,
+with the exact target beside it when building/flashing. Never authorize flashing
+based only on processor family, inches, pixel resolution or the short group label.
+Two targets sharing a short ID also share that INI display section. That is useful
+only when their settings should be shared; choose a suffix when independent settings
+are needed. The short ID is therefore not required to uniquely identify every board.
+
+Petr explicitly confirmed this sharing is intentional: compatible HALs share the
+display-profile ID and settings; a different pixel resolution gets a new short ID
+(possibly a letter-suffixed variant). Do not enforce one unique profile ID per
+hardware target or treat deliberate profile sharing as a collision.
+
+Current short IDs are compiled selectors, not a runtime per-user alias mechanism.
+Changing a JSON label alone does not change what the firmware loads from the INI.
+No ID migration or alias-based firmware selection was introduced in this cleanup.
+
+== Host cleanup implemented
+
+`tools/target_config.py` now supplies one common loader and selection policy:
+
+* `tools/targets/<canonical-target>.json` holds method, Arduino profile, build flags,
+  default port or discovery patterns, display-profile ID and description.
+* `display_id` is checked for 1..8 ASCII letters, digits or underscores. It is a
+  label/INI-profile reference, not a unique hardware key or CLI target alias.
+* Port priority is explicit `--port`, then `XTGV_PORT`, then selected target data.
+  Data-driven discovery accepts one distinct device, deduplicates symlink aliases,
+  and refuses ambiguous matches. It never guesses the model from a generic port.
+* RP2350's USB by-id pattern moved from Python code into its JSON record.
+* Reflash, mirror, direct VTPUT/VTGET, session launcher and INI-fetch launcher use
+  that common selection policy instead of separate ACM0/RP2350 fallbacks.
+* Without an explicit port or selected target, direct Python tools fail with an
+  explanation. Launchers still source `terminal.conf`; Python does not execute that
+  shell file implicitly. Direct use supplies CLI options or exported environment.
+* Arduino CLI lookup uses `ARDUINO_CLI`, then PATH, then the current user's
+  `~/.local/bin/arduino-cli`; no particular username is embedded.
+* The explicitly board-named W535 compatibility wrapper still names its intended
+  target, but no longer hardcodes its port; it delegates to the common dispatcher.
+* Mirror CLI target/port overrides propagate to its device-triggered uploader,
+  avoiding stale inherited upload selection. Existing shared sessions still retain
+  their original process environment until restarted.
+
+`terminal.conf` retains the selected canonical target. Its explicit USB0 setting
+was replaced with a commented example; the identical default now comes from the
+W550 target JSON. A deliberately exported `XTGV_PORT` still overrides that data.
+
+The host JSON and firmware HAL currently both contain their respective ID/name
+mapping. This is deliberate small-scale metadata duplication, not generated firmware
+configuration. Keep them aligned when adding a HAL; generation can be considered
+later if the target inventory makes that worthwhile. No controller-specific logic
+was added to generic terminal code by this cleanup.
+
+== Verification and state
+
+Follow-up: link:260924-13%20display%20profile%20selection%20and%20identity%20audit.adoc[complete selection, persistence and identity audit]
+records when each ID is used, sharing boundaries, legacy build assumptions and the
+small malformed-section isolation fix. Metadata consistency is now host-tested
+against the compiled selectors for all three targets.
+
+Python tests cover port precedence, unique/ambiguous/absent discovery, symlink
+deduplication, missing targets, path-like invalid target names, schema validation,
+eight-character/suffix IDs, CLI lookup and all previous upload safeguards.
+Shell syntax checks and a W550 reflash dry-run pass. The dry-run reports
+`ES3_5 (jc8048w550)` and the existing W550 artifact directory and USB0 port.
+
+No device access, target firmware build, flash, CP/M INI edit or transfer was made.
+This host cleanup does not remove the first-upgrade requirement for the separately
+implemented firmware identity guard.

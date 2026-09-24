@@ -1,0 +1,116 @@
+= Boot backlight hold until the themed frame is ready
+:source-highlighter: highlight.js
+
+== Request and finding
+
+Petr approved implementation on 260924 after reporting a brief bright TFT flash
+during dark-theme boot/reboot. Source inspection found that terminal setup enabled
+the backlight at default level 16 (PWM 145/255) before SD/INI loading, while the
+renderer could paint the compiled white-paper palette. Loading the configuration
+also applied saved brightness before the selected palette had actually been drawn.
+This explains a software exposure path; the physical flash has not been measured.
+
+Previous agenda: link:260924-01%20next%20session%20DEC%20graphics%20CRT%20scanlines%20and%20boot%20flash.adoc[next-session notes].
+
+== Implementation
+
+* The shared backlight HAL accepts an optional startup hold. The terminal enables
+  it before allocation or graphics initialization, setting the inactive GPIO latch
+  before output mode and applying OFF PWM.
+* The hold gates physical output only. Logical and remembered brightness remain
+  intact; INI loading and brightness commands cannot illuminate the panel early.
+* After storage/configuration processing, the RunCPM owner notifies the display
+  core, including missing INI and failed SD paths. A RunCPM task creation failure
+  also notifies it so the fallback error screen can become visible.
+* The display core waits for pending display-profile application, full composition
+  repaint, and all visible dirty cells. Buffered/deferred backends then receive an
+  explicit flush. A non-blocking 33 ms scanout guard follows before illumination
+  at the configured level. This guard is one-time and does not stall USB/rendering.
+* Failed graphics initialization keeps the TFT backlight off; the PC mirror remains
+  usable. Ordinary missing/bad INI and SD errors use the existing fallback display.
+* No configuration autosave is triggered by startup blanking. OFF, remembered level,
+  the 32 lit levels, minimum duty, full-on endpoint and frequency are unchanged.
+
+== HAL and scope
+
+Backlight GPIO and polarity remain selected by the existing module definitions
+(`GFX_BL` and `GFX_BL_INVERTED`). No W550 GPIO number is embedded in the new code.
+Direct and buffered/deferred rendering use their existing backend paths. Callers
+of the shared HAL that do not request startup blanking retain immediate illumination.
+Headless startup is unchanged.
+
+This controls the period after application firmware begins terminal setup. It cannot
+guarantee darkness during reset/bootloader execution or a hardware power-on transient.
+It does not add an SD-operation timeout; if mounting never returns, configuration
+completion cannot be announced. No firmware rebuild or hardware operation was done.
+
+== Verification
+
+Passed local checks:
+
+* Standalone shared-HAL gate tests with ordinary and inverted polarity, all 32 lit
+  levels, saved-level preservation, OFF restoration and legacy default initialization.
+* Production runtime against peripheral stubs: dark configuration, malformed INI
+  with valid palette/brightness, compiled-default fallback, and failed TFT startup.
+  Slow pre-configuration rendering remains dark. The first complete frame and
+  scanout guard precede illumination; no startup INI rewrite occurs.
+* The same four startup cases with deferred framebuffer flushing enabled.
+* Existing runtime/render/mirror tests and terminal/parser/keyboard/fuzz/queue tests
+  with AddressSanitizer and UndefinedBehaviorSanitizer.
+
+The stub runtime does not execute the sketch's real SD library or FreeRTOS task
+creation. Their completion/failure notification call sites were source-reviewed;
+actual timing and appearance across modules remain hardware checks.
+
+New test entry points are `tests/test_backlight.cpp` (also compile with
+`-DGFX_BL_INVERTED=1`) and `tests/test_runtime.cpp` arguments `dark`, `ini-errors`,
+`fallback`, `display-failure`. Compile the latter with `-DGFX_DEFERRED_FLUSH=1`
+to exercise buffered flush ordering as well.
+
+== Next gate
+
+Pending Petr's explicit rebuild/reflash requests, then check:
+
+. Cold boot and reboot with GREEN/AMBER selected: no exposed white-paper interval.
+. The first visible screen uses the saved theme and brightness.
+. Brightness controls still reach the 20 percent floor, full-on and remembered OFF.
+. When convenient, absent INI/SD must show defaults/errors rather than remain dark.
+
+Palette values, device files and current/new firmware artifacts were not changed.
+
+== P4 and all-module follow-up
+
+Petr notes that the upcoming ESP32-P4 port provides an opportunity to retest every
+available board/display. Hardware may require distinct OFF and full-ON handling,
+PWM ranges/resolution/frequency, polarity, and intermediate duty ladders. Keep
+such electrical policy in the HAL, separate from the terminal's startup hold and
+user-facing logical brightness. The current shared duty ladder is not proof of
+universal electrical or perceptual suitability.
+
+Current numbering is OFF=0 plus 32 lit levels (1..31 intermediate, 32 full ON).
+The suggested future OFF + 30 intermediate + ON model would instead have 32
+states total. No renumbering is approved here: any later change must explicitly
+consider INI values, keyboard presets, remembered brightness and command semantics.
+
+Future checks should cover cold start/reset electrical behavior before application
+startup, inverted outputs, PWM attachment/detachment, actual duty endpoints,
+minimum useful brightness, highest-PWM versus continuous-ON distinction, audible
+whine, and the first-frame scanout guard on each display. The present 33 ms guard
+must also be reviewed if a future panel's scanout/flush timing requires longer.
+Module-specific profiles are a future design item, not implemented by this change.
+
+== Requested rebuild
+
+Petr requested a rebuild after implementation. Target-aware W550 build
+`260924-1231` succeeded and was staged under
+`build/7xtgv-vt100-runcpm/jc8048w550/new`; the stamp was verified in the binary.
+Program storage: 586872 bytes (18 percent). Static RAM: 190400 bytes (58 percent),
+leaving 137280 bytes. No flashing, palette/INI transfer or promotion to `current`
+was performed. Hardware verification remains pending.
+
+== Hardware confirmation and follow-up
+
+Petr subsequently confirmed candidate `260924-1231`: "it works, perfect".
+Boot-flash prevention is now user-confirmed on W550; other modules remain to be
+checked. See link:260924-12%20CRT%20boot%20ramp%20and%20module%20backlight%20tables.adoc[the approved CRT ramp follow-up]
+for the later change to OFF=0 / full ON=31 and independent module tables.

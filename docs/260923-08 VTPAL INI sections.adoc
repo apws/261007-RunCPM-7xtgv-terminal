@@ -1,0 +1,105 @@
+== VTPAL INI sections
+:source-highlighter: highlight.js
+
+
+===== Simple solution
+
+ * lets place for now the pallete definitions in our 7xtgvtrm.ini for editing on single place and put mode_pallete= selection in [global] section
+ * pallete0 as current code fixed settings
+ * use mode_pallete=
+ * use mode_attr= ansi|markers behavior - to maintain current ANSI-like and optional new 7xtgv-native style
+ * in 7xtgv-native mode:
+   ** brightness attribute as now in ANSI (we emphasise on white background as BOLD, using our darker colors)
+   ** underline and reverse form 2 bits to select the background (here is question how to interpret/ignore background colors at all)
+      **** may be possible to include mappings for ANSI backgrounds here in palletes too, later, 7xtgv has limit "just 4 papers and 16 inks"
+          (this is not much for some too colorized backgrounds/papers)
+
+
+
+
+
+[source,ini]
+----
+[palette0]
+
+;default - white or crtblack/crtpgrey
+paper0 = RGB565
+
+;default our "pale" RGB markers or "dawn" RGB markers on black/darkgrey
+paper1 = RGB565 R
+paper2 = RGB565 G
+paper3 = RGB565 B
+
+;normal font colors
+; on WHITE paper: ink0=darkgrey, ink7=lightsilver
+; on BLACK CRT GREEN: ink0=crtgreen, ink7=darksilver
+; on BLACK CRT AMBER: ink0=crtamber, ink7=darksilver
+ink00 = RGB565 GREY | CRTG | CRTA
+ink01 = RGB565 R
+ink02 = RGB565 G
+ink03 = RGB565 B
+ink04 = RGB565 C
+ink05 = RGB565 M
+ink06 = RGB565 Y
+ink07 = RGB565 S
+
+;bold/bright(light) font colors
+; on WHITE paper actually DARKER colors: ink8=deep black, ink15=darksilver
+; on BLACK CRT GREEN: ink8=lightgreen, ink15=lightsilver
+; on BLACK CRT AMBER: ink8=lightamber, ink15=lightsilver
+ink08 = RGB565 BLACK | CRTGL | CRTAL
+ink09 = RGB565 R
+ink10 = RGB565 G
+ink11 = RGB565 B
+ink12 = RGB565 C
+ink13 = RGB565 M
+ink14 = RGB565 Y
+ink15 = RGB565 S
+
+;additional terminal UI colors belong to each palette too
+;compiled RGB888 defaults below; RGB565 equivalents are reference only
+;proposed palette-section entries, NOT supported by the current parser yet
+active_line_rgb = 205,255,205
+cursor_rgb = 0,150,40
+viewport_gutter_rgb = 128,128,128
+
+;existing panning-gutter policy: follows active-line color by default
+;this is a reference, not a fourth independently required color
+viewport_active_gutter_rgb = active_line
+----
+
+=== Palette review addition (260923)
+
+Petr requested that palettes also contain the active-line, cursor and gutter
+colors. The values above are the compiled defaults from
+`src/7xtgv-vt100-runcpm/src/terminal/history_profiles.h`, not values fetched
+from the device. Their RGB565 equivalents are respectively `0xCFF9`,
+`0x04A5` and `0x8410`. The current configuration stores RGB888 triplets and
+the display runtime converts them to RGB565; final palette-file value syntax
+remains to be agreed. The earlier `RGB565 ...` entries are placeholders.
+
+The current active/panning gutter normally follows the active-line color.
+An explicit `viewport_active_gutter_rgb` override also exists today. Moving
+UI defaults into palettes must account for that policy and existing profile
+overrides; no existing user INI is to be silently rewritten.
+
+Petr clarified the intended ink encoding: indices 0..7 are the normal colors,
+and 8..15 are their emphasis companions. Bit 3 (`0x08`) selects emphasis.
+The current shared palette and terminal instead interleave normal/emphasis
+pairs. Preserve the tuned RGB values while correcting the encoding; do not
+treat the historical implementation's even/odd ordering as the desired spec.
+
+Recommended implementation split, pending approval:
+
+. Correct ink encoding in the shared palette, ANSI mapping, emphasis selection,
+  direct terminal attributes, demo mappings/constants and tests. Preserve all
+  visible colors. Merely moving the emphasis bit preserves the existing base
+  hue order: grey, red, green, blue, silver, cyan, magenta, yellow. A different
+  hue order is a separate choice; the raw labels above remain provisional.
+. Externalize presets into the terminal INI, including the three UI colors,
+  global palette selection, validation/fallback and shared TFT/mirror repaint.
+  Define override precedence explicitly. Add runtime selection and persistence
+  through the existing settings path once loading works.
+
+Keep attribute-marker interpretation as a separate follow-up. Palette loading
+does not require the four-plane native renderer or any xterm256 palette change.

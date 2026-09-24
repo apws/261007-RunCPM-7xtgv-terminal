@@ -1,0 +1,64 @@
+= Backlight full-on endpoint separation
+:source-highlighter: highlight.js
+
+== Observation and scope
+
+Petr reports that the W550 needs two downward presses from maximum before a
+visible/audible transition from full-on to PWM. Coil whine becomes audible at
+high PWM levels but not at full-on, and is no longer heard at low levels.
+This is a user observation, not an electrical measurement or a confirmed
+diagnosis of the backlight driver.
+
+Keep the useful approximately 20% minimum when holding PgDn, full-on when
+holding PgUp, and OFF as an explicit separate selection. No frequency change,
+palette change or full brightness-curve redesign is included.
+
+== Existing behavior
+
+The public range is 0 plus 32 live levels: 0 is OFF, 1 is duty 51, and 32 is
+duty 255. It is not a 32-entry range ending at 31. The nonlinear table already
+requests 255 only at level 32; level 31 previously requested 254.
+
+W550 uses GPIO2 through analogWrite. The locally installed Arduino-ESP32 3.1.0
+implementation defaults to 8-bit, 1 kHz LEDC. Its maximum request 255 is
+promoted to 256 duty ticks, giving continuous ON. Request 254 still generates
+PWM nominally (254/256, with a short off interval), even if the board's optical
+or acoustic response makes it appear fully on. This table edit does not prove
+that the board actually stopped PWM before.
+
+== Small correction
+
+[cols="1,1,1",options="header"]
+|===
+|Level |Previous duty |New duty
+|0 |0 |0
+|1 |51 |51
+|28 |250 |250
+|29 |252 |251
+|30 |253 |252
+|31 |254 |253
+|32 |255 (full-on) |255 (full-on)
+|===
+
+Levels 2..27 are also unchanged. The final PWM level now uses the duty reached
+on the second downward press in the old table. All 32 live duties remain
+strictly increasing. This shared HAL table affects all supported boards;
+the same endpoint contract and level numbering are retained.
+
+== Verification and deployment
+
+Host runtime regression covers all levels, only-last-level full-on, the first
+downward step, repeated-key clamping at both limits, explicit OFF and remembered
+minimum restoration. Hardware perceptibility and coil noise still require
+Petr's check after rebuild and reflash; neither is asserted by host tests.
+The complete runtime regression passed with address/undefined sanitizers;
+feature-registry validation also passed.
+
+On Petr's rebuild request, JC8048W550 candidate 260924-0111 was built and staged
+under `build/7xtgv-vt100-runcpm/jc8048w550/new`. Both the fresh stamp and the
+corrected 33-entry duty table were verified in its application binary.
+Program use: 586556 bytes (18%); static RAM: 190392 bytes (58%). The previous
+candidate was archived by the target-aware builder; current remains untouched.
+
+Reflash and physical verification remain pending. No device or INI changes
+were made for this adjustment.

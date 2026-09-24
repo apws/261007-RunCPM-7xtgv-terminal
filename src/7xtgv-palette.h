@@ -13,23 +13,23 @@ static constexpr RGB Paper[4] = {
   {255, 255, 255}, {255, 230, 235}, {205, 255, 205}, {240, 240, 255},
 };
 
-// Even entries are normal inks; odd entries are their darker/bold companions.
+// Low three bits select hue; bit 3 selects the emphasis companion.
 static constexpr RGB Ink[16] = {
     {100, 100, 100}, // normal gray
-    {0, 0, 0},       // dark gray / black
     {255, 0, 0},     // normal red
-    {231, 37, 37},   // dark red
     {0, 242, 0},     // normal green
-    {21, 200, 47},   // dark green
     {0, 0, 255},     // normal blue
-    {37, 89, 221},   // dark blue
     {230, 230, 230}, // normal silver
-    {215, 215, 215}, // dark silver
     {76, 242, 242},  // normal cyan
-    {0, 184, 194},   // dark cyan
     {255, 80, 255},  // normal magenta
-    {205, 47, 189},  // dark magenta
     {230, 230, 50},  // normal yellow
+    {0, 0, 0},       // dark gray / black
+    {231, 37, 37},   // dark red
+    {21, 200, 47},   // dark green
+    {37, 89, 221},   // dark blue
+    {215, 215, 215}, // dark silver
+    {0, 184, 194},   // dark cyan
+    {205, 47, 189},  // dark magenta
     {200, 194, 0},   // dark yellow
 };
 } // namespace mixworx

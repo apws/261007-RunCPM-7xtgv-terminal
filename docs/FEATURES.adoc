@@ -1,0 +1,329 @@
+= 7xtgv feature ledger
+:source-highlighter: highlight.js
+
+Latest scoped review: 260924 23h against `+1be7630+` plus the working tree.
+See link:260924-23%20uncommitted%20work%20and%20documentation%20checkpoint.adoc[working-tree and documentation checkpoint],
+following the link:260924-20%20progress%20since%20last%20push%20and%20feature%20tracking%20review.adoc[20h progress and evidence audit].
+This is not a new all-feature hardware certification; historical notes below
+retain their original scope.
+
+This is the central index of implemented features, signed work, designs and
+small ideas. It does not replace the dated source documents. Those remain
+the historical record of Petr/Lyra consultation, Petr/Ari design discussion,
+implementation decisions, tests and later corrections.
+
+Format migrated to AsciiDoc: 260923. Individual record review dates are kept in
+`+features.tsv+`; the historical review notes below retain their original scope.
+
+== Status codes
+
+[cols="1,6",options="header"]
+|===
+|Code |Meaning
+|*B* |Brainstorm or useful idea; no settled design.
+|*D* |Designed or investigated; not necessarily approved for implementation.
+|*P* |Signed/approved implementation plan; implementation is still pending.
+|*I* |Implemented in the source tree and covered by host tests.
+|*H* |Implemented and exercised on real target hardware.
+|*X* |Deliberately deferred, rejected, retired or superseded.
+|*R* |Reference, test evidence or operational knowledge rather than a feature.
+|===
+
+`+partial+` means that the linked document contains a larger idea than the part
+already delivered. Hardware status describes the feature, not firmware-image
+promotion: a running `+new+` candidate may be hardware-tested while deliberately
+remaining unpromoted.
+
+H also needs a scope: name the module and distinguish a smoke test from complete
+coverage in qualifier/boundary. Manual completeness is independent of H; a
+separate manual-review milestone is proposed, not added to the schema yet.
+
+Entries use the timestamp of their principal source document. Older files
+without a minute timestamp keep their existing identifier; this ledger does
+not invent false chronology.
+
+== Historical gate at 260922
+
+[cols="2,1,6",options="header"]
+|===
+|Feature |State |Exact position
+|`+260922-13+` key-first INI chord names |*H*, deeper test |Firmware `+260922-1515+` and converted `+A0:7XTGVTRM.INI+` boot with `+Terminal profile .....OK+`; TP301/Turbo editing was smoke-tested. Candidate remains `+new+` until Petr requests promotion.
+|===
+
+// feature-registry:begin
+
+Generated from `docs/features.tsv` by `src/feature_registry.py`; do not edit these tables directly.
+
+== RunCPM, targets and host tooling
+
+[cols="1,3,1,5,3",options="header"]
+|===
+| Introduced | Feature | State | Summary and remaining boundary | Documents
+
+| 260906 | pass:[Recovered Arduino/7xtgv workspace and demos] | *H* | pass:[Recovery workspace; recovered material is evidence, not a normative current design.] | link:260906-12%20RECOVERY.adoc[pass:[260906-12 RECOVERY.adoc]]
+| 260907 | pass:[Z80/RunCPM optimization pass] | *X*, pass:[until-measured-need] | pass:[Optimization notes and interpreter memory study. Existing broad guesses are not authorization for intrusive caching.] | link:260907-23%20runcpm-optimization-plan.adoc[pass:[260907-23 runcpm-optimization-plan.adoc]], link:260909-13%20interpreter-porting-memory.adoc[pass:[260909-13 interpreter-porting-memory.adoc]]
+| 260908 | pass:[ESP32-S3 headless RunCPM baseline] | *H* | pass:[Headless validation.] | link:260908-22%20runcpm-s3-headless-validation.adoc[pass:[260908-22 runcpm-s3-headless-validation.adoc]]
+| 260908 | pass:[JC8012P4A1C 10-inch display demo] | *H*, pass:[terminal-port-pending] | pass:[Port notes. Display proof exists; complete current terminal/RunCPM integration remains future work.] | link:260908-09%20jc8012p4a1c-runcpm-port-notes.adoc[pass:[260908-09 jc8012p4a1c-runcpm-port-notes.adoc]]
+| 260908 | pass:[JC8048W550 RGB-panel RunCPM target and SD SPI] | *H* | pass:[Vendor baseline, SD validation, and later hardware checkpoints.] | link:260908-17%20jc8048w550-vendor-test.adoc[pass:[260908-17 jc8048w550-vendor-test.adoc]], link:260914-17%20jc8048w550%20SD%20SPI%20validation.adoc[pass:[260914-17 jc8048w550 SD SPI validation.adoc]]
+| 260908 | pass:[RP2350 two-core RunCPM + terminal] | *H*, pass:[historical-hardware-current-retest-pending] | pass:[Multiplatform plan, port addendum, and firmware validation records. Boundary: Historical H does not certify subsequent palette, backlight, boot-ramp and tooling changes on RP2_2. Next: Petr requests current-state retest; await explicit target/build/flash workflow and use progress-review checklist.] | link:260909-07%20runcpm-multiplatform-plan.adoc[pass:[260909-07 runcpm-multiplatform-plan.adoc]], link:260908-18%20runcpm-port-addendum.adoc[pass:[260908-18 runcpm-port-addendum.adoc]], link:260924-20%20progress%20since%20last%20push%20and%20feature%20tracking%20review.adoc[pass:[260924-20 progress since last push and feature tracking review.adoc]]
+| 260909 | pass:[ESP32-S3 pinned RunCPM/terminal tasks and IRAM dispatcher] | *H* | pass:[Dual-task implementation.] | link:260909-13%20runcpm-s3-dual-task.adoc[pass:[260909-13 runcpm-s3-dual-task.adoc]]
+| 260909 | pass:[Selected-file virtual drive/cache] | *B* | pass:[Interpreter memory study; intentionally not part of ordinary RunCPM semantics yet.] | link:260909-13%20interpreter-porting-memory.adoc[pass:[260909-13 interpreter-porting-memory.adoc]]
+| 260911 | pass:[RunCPM upstream comparison, licensing split and PR candidates] | *D* | pass:[Upstream/licensing plan.] | link:260911-19%20RunCPM%20upstream%20comparison%20and%20licensing%20plan.adoc[pass:[260911-19 RunCPM upstream comparison and licensing plan.adoc]]
+| 260912 | pass:[JC8048W535 rotated PSRAM framebuffer workaround] | *H* | pass:[Rotation/framebuffer implementation.] | link:260912-12%20JC8048W535%20software%20rotation%20and%20framebuffer%20implementation.adoc[pass:[260912-12 JC8048W535 software rotation and framebuffer implementation.adoc]]
+| 260913 | pass:[Device-drive hash manifest synchronization] | *D* | pass:[Manifest option; explicitly not implemented.] | link:260913-22%20RunCPM%20device-drive%20hash%20manifest%20sync%20option.adoc[pass:[260913-22 RunCPM device-drive hash manifest sync option.adoc]]
+| 260914 | pass:[Windows/SDL2 desktop 7xtgv emulator] | *D* | pass:[Desktop emulator plan: framebuffer shim, deterministic replay, headless hashes, keyboard and static Windows package all remain pending.] | link:260914-00%207xtgv%20Windows%20SDL2%20desktop%20emulator%20plan.adoc[pass:[260914-00 7xtgv Windows SDL2 desktop emulator plan.adoc]]
+| 260919 | pass:[Linux/POSIX RunCPM comparison environment] | *H*, pass:[as-comparison-tool] | pass:[Linux RunCPM handoff. It does not execute the 7xtgv terminal/renderer.] | link:260919-01%20Linux%20RunCPM%20POSIX%20target%20and%20Konsole%20handoff.adoc[pass:[260919-01 Linux RunCPM POSIX target and Konsole handoff.adoc]]
+| 260919 | pass:[Terminal/RunCPM/HAL source separation] | *I* | pass:[Source-boundary audit. Native 7xtgv remains intentionally separate and not yet implemented.] | link:260919-14%20terminal%20RunCPM%20source%20boundaries%20and%20rendering%20flow.adoc[pass:[260919-14 terminal RunCPM source boundaries and rendering flow.adoc]]
+| 260923 | pass:[Optional compressed file transfer] | *I*, pass:[manual-path-host-tested] | pass:[Separate UNZIP157.COM downloaded, deployed to device A0 and read-back verified; native CP/M tests extract Linux ZIP Stored and Deflate levels 1/9 exactly. Existing UNZIP 1.8 rejects Deflate. Boundary: No automatic compression, no hardware extraction timing or ARC/LZH comparison. Next: Test extraction on device and measure transfer plus unpack time if desired.] | link:260923-20%20CP-M%20UNZIP%20compatibility%20and%20download.adoc[pass:[260923-20 CP-M UNZIP compatibility and download.adoc]]
+| 260923 | pass:[Restore selected profile after VTPUT and VTGET] | *I*, pass:[host-tested] | pass:[Alt-Space notice captures original profile; cleanup restores profile and RAW state without on_select side effects in mirror and CLI. Boundary: No live hardware test yet; restoration failures are reported. No firmware change. Next: Petr checks original profile and unchanged DU after send and receive.] | link:260923-21%20VTPUT%20VTGET%20profile%20restoration.adoc[pass:[260923-21 VTPUT VTGET profile restoration.adoc]]
+| 260923 | pass:[VTPUT/VTGET mirror dialog and reduced redraw] | *I*, pass:[send-smooth-hardware-tested] | pass:[Petr confirms Send and fast smooth transfer. Follow-up fixes make DU local-only, retain device current DU, add prefilled editable Target and Y/N/C overwrite handling; 44 local tests pass. Boundary: No automatic ZIP or general renderer change. New VTGET requires updated host. Next: Petr to validate revised Receive/rename/overwrite workflow.] | link:260923-20%20VTPUT%20VTGET%20mirror%20integration%20and%20redraw%20reduction.adoc[pass:[260923-20 VTPUT VTGET mirror integration and redraw reduction.adoc]], link:260923-20%20transfer%20local%20DU%20target%20names%20and%20overwrite%20confirmation.adoc[pass:[260923-20 transfer local DU target names and overwrite confirmation.adoc]]
+| 260924 | pass:[Fresh firmware target query before reflash] | *H*, pass:[identity-and-mismatch-smoke] | pass:[Fresh identities verified on W550 260924-1421 and W535 260924-1456. Real dispatcher rejected W550 selection against responding W535 with zero uploader calls; missing-identity refusal also hardware tested. Boundary: No MAC registry or physical board detection. RP2350 manual BOOTSEL not integrated. Negative hardware test additionally disabled uploader as safety net. Candidates remain new. Next: Use normal guarded reflash with correct session target; no INI update or persistent override needed for these upgraded devices.] | link:260924-13%20firmware%20target%20query%20and%20reflash%20safeguard.adoc[pass:[260924-13 firmware target query and reflash safeguard.adoc]], link:260924-14%20preserve%20Arduino%20build%20flags%20and%20W535%20USB%20recovery.adoc[pass:[260924-14 preserve Arduino build flags and W535 USB recovery.adoc]]
+| 260924 | pass:[Fresh live INI before edits and narrow-screen transfer limitation] | *D*, pass:[ini-update-deployed-width-limitation-open] | pass:[Live INI fetched at wide zoom; only ES3_35 zoom2_terminal changed from 40x16 to 80x16 and uploaded to A0. Explicit W535 fetch/relaunch works; fresh-fetch rule recorded. Boundary: W535 corrected 80x16 geometry pans successfully. Transfer limitation concerns logical width, not physical visible width: 80 logical columns can transfer through a narrow viewport. Next: Keep fresh-fetch workflow and wide logical transfer geometry; narrow logical-row support remains separate.] | link:260924-21%20live%20INI%20preservation%20and%20narrow%20transfer%20limitation.adoc[pass:[260924-21 live INI preservation and narrow transfer limitation.adoc]], link:260924-22%20zoom%20shortcut%20direction%20and%20narrow%20viewport%20follow-up.adoc[pass:[260924-22 zoom shortcut direction and narrow viewport follow-up.adoc]]
+| 260924 | pass:[Neutral clone defaults and explicit host target selection] | *D*, pass:[documentation-only] | pass:[Remove shared W550 selection later; support explicit target commands and optional ignored local defaults. Plan consistent precedence, target-scoped local ports and visible existing-session conflicts. Boundary: Not implemented or authorized for coding. No wizard or elaborate autodetection; retain upload identity guard and portable CP-M INI. Build provenance and RP2350 upload integration are separate. Next: Approve the small launcher/defaults cleanup when useful; then test fresh-clone, overrides and session conflicts.] | link:260924-15%20neutral%20host%20defaults%20and%20explicit%20target%20selection%20plan.adoc[pass:[260924-15 neutral host defaults and explicit target selection plan.adoc]]
+| 260924 | pass:[Per-artifact Arduino and toolchain build provenance] | *B*, pass:[host-record-first] | pass:[Record target, stamp, effective board flags and Arduino CLI/core/compiler/library versions with staged firmware; optional later firmware diagnostics. Boundary: Idea only; existing build stamp and console output do not form a complete retained provenance record. No firmware strings added. Next: Agree minimal record and preserve platform build flags before further W535 deployment.] | link:260924-14%20W535%20shared-card%20rebuild%20checkpoint.adoc[pass:[260924-14 W535 shared-card rebuild checkpoint.adoc]]
+| 260924 | pass:[Preserve Arduino platform flags during stamped builds] | *H*, pass:[w535-usb-recovered] | pass:[Resolve expanded Arduino defaults before appending project/stamp flags. W535 260924-1456 built/flashed; USB mirror, identity and explicit wrong-target refusal verified. W550 UART selection made explicit in board profile. Boundary: 73 host tests pass; W550 expanded flags checked but no new W550 image/hardware test in this repair. Build provenance manifest remains separate. No INI changes; no promotion. Next: Petr to exercise W535 display/input/ramp; check W550 at its next requested rebuild.] | link:260924-14%20preserve%20Arduino%20build%20flags%20and%20W535%20USB%20recovery.adoc[pass:[260924-14 preserve Arduino build flags and W535 USB recovery.adoc]]
+| 260924 | pass:[Shared host target data and short display-profile labels] | *I*, pass:[host-tested] | pass:[Common target loader drives host tools; JSON holds ports and &lt;=8-character display groups. Audited selection, geometry and persistence; compiled metadata consistency tests added. Malformed INI headings no longer leak settings into the preceding section. Boundary: Exact targets guard uploads, not shareable display IDs. Global settings and bank geometry travel with the card; inactive display sections are not fully validated. Parser isolation fix built in W550 candidate 260924-1421, awaiting flash. Next: Use updated launchers; retest candidate on hardware. Keep host metadata and compiled selectors aligned for new HALs.] | link:260924-13%20short%20display%20IDs%20and%20host%20target%20data%20cleanup.adoc[pass:[260924-13 short display IDs and host target data cleanup.adoc]], link:260924-13%20display%20profile%20selection%20and%20identity%20audit.adoc[pass:[260924-13 display profile selection and identity audit.adoc]]
+| - | pass:[CP/M interpreted-screen file transfer] | *H* | pass:[tools/cpm-transfer/transfer.py, VTGET and VTPUT; one-way mirror policy is in AGENTS.md.] |
+| - | pass:[Cross-platform desktop packaging through Wine/Windows builds] | *B* | pass:[A possible later consequence of the SDL2 plan, not a current deliverable.] |
+| - | pass:[Internal CCP prompt styles DD, DH, D (CCPP)] | *I* | pass:[Implemented in src/7xtgv-vt100-runcpm/ccp.h; still a local RunCPM extension and a possible upstream-sized change.] |
+| - | pass:[RunCPM SD/FAT open-file cache, read buffer and lazy-write experiments] | *D* | pass:[Discussed in the interpreter/storage study; require device benchmarks and power-loss tests before retention.] |
+| - | pass:[Target-aware new/current build, reflash and recovery workflow] | *H* | pass:[Defined operationally in AGENTS.md and implemented by tools/reflash.py; promotion remains explicit.] |
+| - | pass:[XMODEM interaction from the mirror UI] | *I*, pass:[disabled-hardware-failure] | pass:[Host protocol tests pass but hardware exposed a missing binary-safe firmware transport. The UI no longer invokes XMODEM. Boundary: Reconstructed screen output is not raw guest output; RAW input and CONSOLE8 alone are insufficient. Next: Deferred: explicit firmware binary channel and real-device validation before re-enabling.] | link:260923-20%20VTPUT%20VTGET%20mirror%20integration%20and%20redraw%20reduction.adoc[pass:[260923-20 VTPUT VTGET mirror integration and redraw reduction.adoc]], link:260923-19%20XMODEM%20host%20path%20editor%20fix.adoc[pass:[260923-19 XMODEM host path editor fix.adoc]]
+|===
+
+== Terminal output, display and graphics
+
+[cols="1,3,1,5,3",options="header"]
+|===
+| Introduced | Feature | State | Summary and remaining boundary | Documents
+
+| 260910 | pass:[Full VT100 text-terminal compatibility target] | *I*, pass:[partial] | pass:[The original terminal-extension roadmap is broader than the documented current subset. Do not call the terminal fully VT100-certified merely because the implemented applications work.] | link:260910-01%20terminal-extension-plans.adoc[pass:[260910-01 terminal-extension-plans.adoc]]
+| 260912 | pass:[Bird's-eye reduced/summary views below 1x] | *D* | pass:[The earlier viewport/bird's-eye specification remains a separate later renderer. Current zoom deliberately stops at real 1x glyphs.] | link:260912-10_7xtgv_terminal_viewport_birdseye_xterm256_spec.adoc[pass:[260912-10_7xtgv_terminal_viewport_birdseye_xterm256_spec.adoc]]
+| 260912 | pass:[Generic .X256 image converter/viewer] | *D* | pass:[CP/M image-demo plan. Basic format, converter and viewer are not implemented.] | link:260912-20_7xtgv_xterm-256_cpm_image_demo_plan.adoc[pass:[260912-20_7xtgv_xterm-256_cpm_image_demo_plan.adoc]]
+| 260912 | pass:[Mandelbrot BROT-BS / BROT-PS compatibility] | *H* | pass:[Initial plan and GCLS implementation record.] | link:260912-01_7xtgv_xterm256_brot_plan.adoc[pass:[260912-01_7xtgv_xterm256_brot_plan.adoc]]
+| 260912 | pass:[xterm-256 indexed-color plot transaction (GCLS)] | *H* | pass:[Implementation plan/status; absolute physical origin, zoom, gutter restoration and non-clearing arming behavior were hardware-tested.] | link:260912-12%207xtgv%20ANSI%20xterm256%20GCLS%20implementation%20plan.adoc[pass:[260912-12 7xtgv ANSI xterm256 GCLS implementation plan.adoc]]
+| 260913 | pass:[Backlight HAL, private CSI, keyboard control and persistence] | *H* | pass:[Original plan and signed plan.] | link:260913-16%207xtgv%20backlight%20brightness%20control%20plan.adoc[pass:[260913-16 7xtgv backlight brightness control plan.adoc]], link:260914-11%207xtgv%20signed%20backlight%20and%20CSI%20keyboard%20implementation%20plan.adoc[pass:[260914-11 7xtgv signed backlight and CSI keyboard implementation plan.adoc]]
+| 260914 | pass:[Integer terminal zoom 1x-4x and runtime geometry] | *H* | pass:[Generic design, signed plan, and hardware corrections.] | link:260914-23_7xtgv_generic_zoom_in_display_geometry_plan.adoc[pass:[260914-23_7xtgv_generic_zoom_in_display_geometry_plan.adoc]], link:260915-01%207xtgv%20signed%20zoom-in%20implementation%20plan.adoc[pass:[260915-01 7xtgv signed zoom-in implementation plan.adoc]], link:260915-11%20Zoom%20hardware%20test%20corrections.adoc[pass:[260915-11 Zoom hardware test corrections.adoc]]
+| 260917 | pass:[Default grey ink, darker/bold companion inks and pale papers] | *H* | pass:[Legacy implementation review records the ANSI/VGA comparison and project-specific palette decision.] | link:260917-10%20terminal%20legacy%20compatibility%20implementation%20review.adoc[pass:[260917-10 terminal legacy compatibility implementation review.adoc]]
+| 260917 | pass:[Output modes ANSI and VT52, including runtime DECANM switching] | *H* | pass:[Signed compatibility review, checkpoint, and device smoke.] | link:260917-10%20terminal%20legacy%20compatibility%20implementation%20review.adoc[pass:[260917-10 terminal legacy compatibility implementation review.adoc]], link:260917-18%20terminal%20legacy%20compatibility%20implementation%20checkpoint.adoc[pass:[260917-18 terminal legacy compatibility implementation checkpoint.adoc]], link:260917-21%20ES3_5%20legacy%20device%20smoke%20and%20DIR%20fix.adoc[pass:[260917-21 ES3_5 legacy device smoke and DIR fix.adoc]]
+| 260918 | pass:[ANSI insert/delete line (CSI n L/M)] | *H* | pass:[Signed plan, TP301 diagnosis. TP3's configured Ctrl+L i status-row loss was an application command-prefix collision, not the terminal implementation.] | link:260918-22%20terminal%20insert-delete%20lines%20plan.adoc[pass:[260918-22 terminal insert-delete lines plan.adoc]], link:260919-09%20TP301%20insert-line%20prefix%20diagnosis.adoc[pass:[260919-09 TP301 insert-line prefix diagnosis.adoc]]
+| 260918 | pass:[DEC Special Graphics with G0/G1 and SI/SO] | *H*, pass:[partial-hardware-smoke-only] | pass:[Implemented G0/G1 and SI/SO with dedicated 6x10 masks. Earlier H was a simple smoke example; expanded A7 TEST 4 was later deployed and accepted as a W535 visual smoke test on 260924. Boundary: Six control pictures are missing; TFT pi/pound approximate p/L while mirror uses Unicode. Expanded fixture fixes empty side-bar rows, not missing renderer glyphs or full protocol conformance. Next: Retest RP2_2; compare complete QL font before changing masks and deepen glyph/protocol checks separately.] | link:260918-13%20terminal%20profiles%20DEC%20graphics%20and%20native%207xtgv%20design%20notes.adoc[pass:[260918-13 terminal profiles DEC graphics and native 7xtgv design notes.adoc]], link:260924-01%20next%20session%20DEC%20graphics%20CRT%20scanlines%20and%20boot%20flash.adoc[pass:[260924-01 next session DEC graphics CRT scanlines and boot flash.adoc]], link:260924-20%20DEC%20graphics%20review%20and%20expanded%20VTESTS.adoc[pass:[260924-20 DEC graphics review and expanded VTESTS.adoc]]
+| 260918 | pass:[Palette/theme loader (VTPAL, PAPER/green/amber)] | *H*, pass:[w535-six-preset-visual-smoke] | pass:[Ten editable INI slots, private CSI 69, VTPAL.COM and persistence implemented. Six current presets deployed and exercised visually by Petr on W535. Boundary: Selection/appearance smoke evidence, not exhaustive persistence or cross-target regression. Attribute markers and scanlines remain separate. Next: Retest current palette behavior on RP2_2 when requested.] | link:260918-17%20vtpal_com%20command%20to%20load%20one%20of%20basic%2010%20pallete%20sets%20fromt%20vtpal_ini%20file.adoc[pass:[260918-17 vtpal_com command to load one of basic 10 pallete sets fromt vtpal_ini file.adoc]], link:260923-16%20palette%20indexing%20and%20editable%20presets%20signed%20plan.adoc[pass:[260923-16 palette indexing and editable presets signed plan.adoc]], link:260923-16%20palette%20presets%20manual%20and%20test%20notes.adoc[pass:[260923-16 palette presets manual and test notes.adoc]], link:260924-20%20progress%20since%20last%20push%20and%20feature%20tracking%20review.adoc[pass:[260924-20 progress since last push and feature tracking review.adoc]]
+| 260921 | pass:[Optional boot_ansi=on&#124;off startup styling] | *D* | pass:[Explicitly excluded from the INI diagnostics plan; no implementation exists.] | link:260921-01%20terminal%20INI%20parse%20diagnostics%20implementation%20plan.adoc[pass:[260921-01 terminal INI parse diagnostics implementation plan.adoc]]
+| 260923 | pass:[MBASIC palette matrix and normal-ALT comparisons] | *H*, pass:[w535-matrix-visual-smoke] | pass:[Deployed VTPAL.BAS matrix used to tune 16 inks against four papers across six presets; W535 screenshots and acceptance supplied on 260924. Boundary: No live RGB editing. Help advertises obsolete optional levels and INK/SILVER labels; old optional slot data conflicts with today's BW/plasma/VFD. Next: Align labels with implicit/shade and six current presets; keep internal indices and ANSI mapping.] | link:260923-18%20VTPAL%20BASIC%20palette%20comparison.adoc[pass:[260923-18 VTPAL BASIC palette comparison.adoc]], link:260924-20%20progress%20since%20last%20push%20and%20feature%20tracking%20review.adoc[pass:[260924-20 progress since last push and feature tracking review.adoc]]
+| 260923 | pass:[Normal inks 0-7 and emphasis inks 8-15] | *I*, pass:[host-tested] | pass:[Shared palette, ANSI translation, direct attributes and demo indices use bit 3 for emphasis; exact existing ANSI RGB values preserved. Boundary: No native four-plane or attribute-marker implementation implied. Next: Rebuild and verify unchanged PAPER appearance on hardware.] | link:260923-16%20palette%20indexing%20and%20editable%20presets%20signed%20plan.adoc[pass:[260923-16 palette indexing and editable presets signed plan.adoc]], link:260923-16%20palette%20presets%20manual%20and%20test%20notes.adoc[pass:[260923-16 palette presets manual and test notes.adoc]]
+| 260924 | pass:[BW phosphor, red plasma and cyan VFD palette trials] | *H*, pass:[w535-visual-acceptance] | pass:[Six presets deployed and visually accepted by Petr on W535. BW/plasma/VFD include themed paper0 and cursor/line/gutter; final dark blue inks are 40,60,255 and 60,110,255. Boundary: Visual tuning acceptance, not instrumented calibration or all-target verification. Palette0 blue marker separately corrected to pale blue. INI tuning did not change firmware. Next: Preserve colors; retest RP2_2 and correct stale VTPAL help.] | link:260924-17%20dark%20phosphor%20plasma%20and%20VFD%20palette%20trials.adoc[pass:[260924-17 dark phosphor plasma and VFD palette trials.adoc]], link:260924-18%20themed%20UI%20colors%20and%20compact%20VTESTS%20pages.adoc[pass:[260924-18 themed UI colors and compact VTESTS pages.adoc]], link:260924-20%20progress%20since%20last%20push%20and%20feature%20tracking%20review.adoc[pass:[260924-20 progress since last push and feature tracking review.adoc]]
+| 260924 | pass:[Compact DEC frame and complete glyph chart in VTESTS] | *H*, pass:[w535-positive-visual-smoke] | pass:[Two 40x16 TEST 4 pages: continuous grid, corners/tees/crossings, G1 SO/SI, patterns and all 32 hex/ASCII/glyph positions. Local MBASIC checks pass; sent to device A7 on request, SAVED 10368 bytes including record padding. Boundary: Petr reports DEC test quite good on W535. Positive visual smoke, not all-glyph/protocol conformance; known missing/approximate entries remain. Next: Compare complete QL font and identify specific glyph improvements; retest RP2_2.] | link:260924-20%20DEC%20graphics%20review%20and%20expanded%20VTESTS.adoc[pass:[260924-20 DEC graphics review and expanded VTESTS.adoc]]
+| 260924 | pass:[Configurable CRT boot backlight ramp] | *H*, pass:[w550-user-visual-acceptance] | pass:[Global crt_rampup_ms ramps OFF to saved brightness after themed frame; controls cancel and transient levels do not persist. Petr accepted deployed 1500 ms normal boot ramp on W550. Boundary: OFF=0, PWM=1..30, full ON=31; legacy 32 aliases 31. Normal boot acceptance does not cover every cancel timing. Reflash double-ramp observation remains separate. Next: Retest current RP2_2 state and later P4, preserving module-specific policy.] | link:260924-12%20CRT%20boot%20ramp%20and%20module%20backlight%20tables.adoc[pass:[260924-12 CRT boot ramp and module backlight tables.adoc]], link:260924-20%20progress%20since%20last%20push%20and%20feature%20tracking%20review.adoc[pass:[260924-20 progress since last push and feature tracking review.adoc]]
+| 260924 | pass:[Hold boot backlight off until themed frame is ready] | *H*, pass:[w550-user-confirmed] | pass:[Shared HAL holds physical backlight off through configuration and first themed repaint/flush. Petr confirms W550 candidate 260924-1231 works perfectly. Boundary: Hardware confirmation is W550 only; other modules and pre-firmware reset transients remain separate checks. No promotion to current requested. Next: Retest with the optional CRT ramp and during all-module/P4 validation.] | link:260924-01%20next%20session%20DEC%20graphics%20CRT%20scanlines%20and%20boot%20flash.adoc[pass:[260924-01 next session DEC graphics CRT scanlines and boot flash.adoc]], link:260924-12%20boot%20backlight%20hold%20until%20themed%20frame.adoc[pass:[260924-12 boot backlight hold until themed frame.adoc]]
+| 260924 | pass:[Internal ink roles and explicit VTESTS ANSI labels] | *I*, pass:[compact-host-tested-deployed] | pass:[Petr accepted deployed index/name page. Follow-up fits tests 1/2 and pause prompts in 40x16; paper names IMPLICIT and RED/GREEN/BLUE MARKER. Internal irgbscmy order and ANSI codes retained. Eight MBASIC pages and compact output-bound checks pass; compact source uploaded to A7. Boundary: VTPUT reported SAVED; compact revision not yet hardware-confirmed. Other pages and VTPAL labels unchanged. No firmware changes. Next: Confirm first two pages on 40x16 hardware.] | link:260924-17%20BASIC%20ASCII%20sources%20and%20ink%20test%20labels.adoc[pass:[260924-17 BASIC ASCII sources and ink test labels.adoc]], link:260924-18%20themed%20UI%20colors%20and%20compact%20VTESTS%20pages.adoc[pass:[260924-18 themed UI colors and compact VTESTS pages.adoc]]
+| 260924 | pass:[Per-module backlight electrical policy and P4 retest] | *I*, pass:[partial-host-tested] | pass:[Independent 32-entry HAL tables for W550, W535 and RP2350; common logical control and physical apply path. All three tables tested with both polarities. Boundary: Tables initially identical, not physically calibrated. Frequency/resolution unchanged. P4 HAL and all-module electrical/boot validation remain future work. Next: Review module measurements during P4/all-display validation; specialize HAL endpoint handling only where required.] | link:260924-12%20boot%20backlight%20hold%20until%20themed%20frame.adoc[pass:[260924-12 boot backlight hold until themed frame.adoc]], link:260924-12%20CRT%20boot%20ramp%20and%20module%20backlight%20tables.adoc[pass:[260924-12 CRT boot ramp and module backlight tables.adoc]]
+| 260924 | pass:[Separate highest PWM step from full-on] | *I*, pass:[built-pending-hardware] | pass:[Keep OFF plus 32 live levels and 20 percent floor; duties 29-31 are 251/252/253, retaining 255 only at 32. W550 candidate 260924-0111 built and verified. Boundary: Shared HAL change; no PWM-frequency change. Physical effect and coil whine not yet verified. Next: Reflash on request; Petr checks one PgDn from full-on and both hold-key endpoints.] | link:260924-01%20backlight%20full-on%20endpoint%20separation.adoc[pass:[260924-01 backlight full-on endpoint separation.adoc]]
+| 260924 | pass:[Stepped horizontal panning and optional gutter cue] | *B*, pass:[narrow-viewport-follow-up] | pass:[Consider page-step offsets when logical width needs more than two views, and optional paper-colored gutter instead of indicator. Boundary: Current modified Home/End still jump only to edges; 26-of-80 leaves middle columns inaccessible. No key or renderer changes; preserve application Home/End. Next: Agree step/overlap policy and keys separately from optional gutter appearance.] | link:260924-22%20zoom%20shortcut%20direction%20and%20narrow%20viewport%20follow-up.adoc[pass:[260924-22 zoom shortcut direction and narrow viewport follow-up.adoc]]
+| 260924 | pass:[W535 minimum usable backlight calibration] | *H*, pass:[w535-user-confirmed] | pass:[Petr accepts W535 gamma-2.2 curve after candidate 260924-1549: minimum duty 1 usable in darkness, distinct steps with finer low-end control, full ON 255. Boundary: W550/RP2350 tables unchanged. Six HAL/polarity variants pass. Visual hardware acceptance, not instrumented perceptual calibration. No INI update or candidate promotion. Next: Keep accepted W535 curve; promote firmware only on separate request.] | link:260924-15%20W535%20backlight%20minimum%20calibration.adoc[pass:[260924-15 W535 backlight minimum calibration.adoc]]
+| - | pass:[256-glyph/codepage output and Czech characters] | *D* | pass:[Requires a new glyph/codepage design and an explicit printable-0x9B versus C1 policy. Console8 alone does not provide it.] |
+| - | pass:[Additional Hazeltine/Soroc/Televideo/etc. decoders] | *X* | pass:[Explicit non-goal; use declarative application installation or add only evidence-driven personalities.] |
+| - | pass:[ADM-3A/Kaypro output decoder] | *X*, pass:[deferred] | pass:[Historical design source exists, but the signed review defers it until a concrete application requires it.] |
+| - | pass:[ANSI C1 0x9B CSI under Console8] | *H* | pass:[Implemented with VT52 address-byte protection; FAND as a whole is not yet accepted.] |
+| - | pass:[Buffered ANSI/VT100-style terminal and PC mirror] | *H* | pass:[Current behavior is summarized in the firmware README and manual.] | link:../src/7xtgv-vt100-runcpm/README.md[pass:[README.md]], link:260912-23%207xtgv%20terminal%20manual/README.adoc[pass:[README.adoc]]
+| - | pass:[Debug-only deterministic RGB screen capture] | *B* | pass:[Mentioned in the firmware README; must use diagnostic framing rather than CP/M console bytes.] |
+| - | pass:[DEC double-width/double-height per-line modes] | *X*, pass:[brainstorm] | pass:[Kept separate in the DEC notes; not implemented until a real application justifies the screen-model cost.] |
+| - | pass:[Display publish-rate/dirty-region tuning] | *D* | pass:[Later phases of the zoom/display plan; current correctness-first redraw remains authoritative.] |
+| - | pass:[General compact graphics protocol beyond xterm-SGR samples] | *B* | pass:[GCLS is deliberately a narrow compatibility mechanism, not the future native graphics API.] |
+| - | pass:[Optional .X256 RLE, dithering and benchmark mode] | *B* | pass:[Later phases of the image-demo plan; do not pull into the minimum viewer silently.] |
+| - | pass:[Optional CRT scanline visual effect] | *B* | pass:[Optional visual effect independent from semantic terminal attributes and native 7xtgv; Petr wants to consider a dark-theme experiment next session. Boundary: Not implemented or approved for immediate coding. Next: Agree on a legible visual treatment while preserving the tuned palettes.] | link:260924-01%20next%20session%20DEC%20graphics%20CRT%20scanlines%20and%20boot%20flash.adoc[pass:[260924-01 next session DEC graphics CRT scanlines and boot flash.adoc]]
+| - | pass:[Optional text-only VT340 and WYSE color personalities] | *X*, pass:[brainstorm] | pass:[Preserved from the terminal-extension roadmap; require original specifications and a concrete application before implementation.] |
+| - | pass:[Per-display and per-profile logical geometry overrides] | *H* | pass:[Implemented through [display:HAL&#93; and zoomN_terminal; unused physical area remains background rather than gutter.] |
+| - | pass:[Persistent zoom setting] | *H* | pass:[Lazy INI rewrite shares the settings transaction with backlight persistence.] |
+| - | pass:[Private backlight query/reply] | *B* | pass:[Optional future extension from the backlight plan; no query is implemented.] |
+| - | pass:[QL 6x10 font and 4-paper/16-ink 7xtgv palette] | *H* | pass:[Current terminal uses terminal cell/sidecar arrays, not native four-plane 7xtgv memory.] |
+| - | pass:[Smooth sub-cell/pixel scrolling] | *X*, pass:[brainstorm] | pass:[Kept outside the current cell terminal and native v0.1 format; future compositor/controller work only.] |
+| - | pass:[Viewport edge jumps, grey hidden-content gutter and plot-safe redraw] | *H* | pass:[Hardware-tested during zoom/GCLS work. Automatic cursor-following pan remains deliberately absent. Boundary: Edge jumps only: narrow viewports needing more than two views leave middle columns inaccessible. Gutter exists only when residual physical pixels are available. Next: Discuss stepped panning and optional paper-colored gutter; no implementation authorized.] | link:260924-22%20zoom%20shortcut%20direction%20and%20narrow%20viewport%20follow-up.adoc[pass:[260924-22 zoom shortcut direction and narrow viewport follow-up.adoc]]
+| - | pass:[VT52.COM / VT100.COM transient mode helpers] | *H* | pass:[Included in the compatibility checkpoint and device smoke.] |
+|===
+
+== Input, profiles, history and smart-terminal work
+
+[cols="1,3,1,5,3",options="header"]
+|===
+| Introduced | Feature | State | Summary and remaining boundary | Documents
+
+| 260910 | pass:[## RAW temporary bypass] | *H* | pass:[RAW-mode design/test.] | link:260910-15%207xtgv%20%60%23%23%60%20RAW%20Input%20Mode.adoc[pass:[260910-15 7xtgv `##` RAW Input Mode.adoc]]
+| 260910 | pass:[MBASIC EDIT n adapter stage A] | *H*, pass:[partial] | pass:[MBASIC editing. Local current-line movement is implemented; broader resynchronization remains open.] | link:260910-13%20mbasic-terminal-editing.adoc[pass:[260910-13 mbasic-terminal-editing.adoc]]
+| 260910 | pass:[Per-application syntax coloring over legacy editors] | *D* | pass:[Multi-application plan. Depends on a stable smart-render boundary; no production highlighter exists.] | link:260910-17%207xtgv_CPM_terminal_app_profiles_MBASIC_BBCBASIC_TP301_plan.adoc[pass:[260910-17 7xtgv_CPM_terminal_app_profiles_MBASIC_BBCBASIC_TP301_plan.adoc]]
+| 260910 | pass:[Ten application/history profiles and explicit selection] | *H* | pass:[Application profiles; bank #9 remains reserved for automated work.] | link:260910-01%20terminal-application-profiles.adoc[pass:[260910-01 terminal-application-profiles.adoc]]
+| 260911 | pass:[DDT first-class history profile] | *H*, pass:[partial] | pass:[Basic profile exists; optional DDT subcontexts from the DDT/history plan do not.] | link:260911_7xtgv_terminal_new_additions_DDT_history_plan.adoc[pass:[260911_7xtgv_terminal_new_additions_DDT_history_plan.adoc]]
+| 260911 | pass:[TP301/TINST full-screen editing profile] | *H* | pass:[TP reference and later TP301 test records.] | link:260911-14%20Turbo%20Pascal%203.01%20keyboard%20and%20terminal%20installation%20reference.adoc[pass:[260911-14 Turbo Pascal 3.01 keyboard and terminal installation reference.adoc]]
+| 260915 | pass:[BBC BASIC and BBCLOWER profile/history behavior] | *H*, pass:[partial] | pass:[BBC handoff and BBCLOWER smoke. Separate .TOK loading is pending.] | link:260915-19%20BBC%20BASIC%20and%20app%20history%20handoff.adoc[pass:[260915-19 BBC BASIC and app history handoff.adoc]], link:260917-23%20BBCLOWER%20terminal%20smoke.adoc[pass:[260917-23 BBCLOWER terminal smoke.adoc]]
+| 260915 | pass:[Persistent, checksummed per-bank history] | *H* | pass:[Current manual/README and history handoff.] | link:260915-19%20BBC%20BASIC%20and%20app%20history%20handoff.adoc[pass:[260915-19 BBC BASIC and app history handoff.adoc]]
+| 260915 | pass:[Separate persistent completion/keyword lists] | *D* | pass:[History tokens and editing surfaces. Preserve history and completion selection as separate state.] | link:260915-21%20history%20tokens%20and%20editing%20surfaces.adoc[pass:[260915-21 history tokens and editing surfaces.adoc]]
+| 260917 | pass:[Remove numeric-bank behavior coupling] | *D* | pass:[Coupling audit: editable names are safe, but compiled defaults, CCP bank 0 and a few application transports still depend on numeric identity.] | link:260917-20%20profile%20bank%20coupling%20review%20note.adoc[pass:[260917-20 profile bank coupling review note.adoc]]
+| 260919 | pass:[Historical physical-position key IDs] | *I*, pass:[design-superseded] | pass:[The initial sparse-key draft led to the signed scope. Its modifier-first spelling is obsolete, but its XKB/Czech position evidence remains useful.] | link:260919-19%20terminal%20keyboard%20physical%20keys%20and%20sparse%20overrides%20plan.adoc[pass:[260919-19 terminal keyboard physical keys and sparse overrides plan.adoc]]
+| 260919 | pass:[Readable \^X control-byte notation] | *H* | pass:[Designed in keymap/control notation and exercised with TP3 mappings.] | link:260919-13%207xtgv%20keymap%20personalities%20and%20control%20notation.adoc[pass:[260919-13 7xtgv keymap personalities and control notation.adoc]]
+| 260919 | pass:[Safe on_select only at a live CCP prompt] | *H* | pass:[TP301/profile-switching record; in-app switching preserves the current screen line and shows only the reversible label.] | link:260919-11%20TP301%20editor%20TINST%20and%20profile%20switching.adoc[pass:[260919-11 TP301 editor TINST and profile switching.adoc]]
+| 260920 | pass:[Configurable numkeys character-alias fallback] | *X*, pass:[for-current-konsole] | pass:[Alias addendum. Exact private physical events solved the current layout; retain the alias idea only for a future host unable to distinguish keys.] | link:260920-00%20terminal%20numkeys%20aliases%20and%20key-event%20plan.adoc[pass:[260920-00 terminal numkeys aliases and key-event plan.adoc]]
+| 260920 | pass:[Full physical-key global/bank overrides] | *H* | pass:[Signed scope and implementation.] | link:260920-15%20terminal%20keyboard%20override%20signed%20implementation%20scope.adoc[pass:[260920-15 terminal keyboard override signed implementation scope.adoc]], link:260920-16%20terminal%20keyboard%20override%20implementation.adoc[pass:[260920-16 terminal keyboard override implementation.adoc]]
+| 260920 | pass:[Main-row digit identity and keypad decimal normalization] | *H* | pass:[Corrected key plan; Czech layout behavior was verified.] | link:260920-01%20main-row%20and%20keypad%20identity%20plan.adoc[pass:[260920-01 main-row and keypad identity plan.adoc]]
+| 260922 | pass:[Key-first chord names (insert_ctrl_shift_alt)] | *H*, pass:[deeper-test] | pass:[Signed plan, implementation. Old modifier-first names are intentionally rejected.] | link:260922-13%20key-first%20INI%20chord%20names%20signed%20implementation%20plan.adoc[pass:[260922-13 key-first INI chord names signed implementation plan.adoc]], link:260922-14%20key-first%20INI%20chord%20implementation.adoc[pass:[260922-14 key-first INI chord implementation.adoc]]
+| 260922 | pass:[Private one-byte 0x80..0xFF 7xtgv core-key layout] | *H*, pass:[tp301-device-tested] | pass:[Compact 0x80..0xFF key layout was used for about 90% of TP301 editor controls on the physical device with the correctly TINST-patched TURBO.COM. Boundary: The low-nibble F physical identity and optional 0x8F extension grammar remain open refinements. Next: Repeat independently for FAND only if its patched executable or chain file is identified.] | link:260922-00%207xtgv%20private%208-bit%20core%20key%20codes%20and%20TP3%20proof.adoc[pass:[260922-00 7xtgv private 8-bit core key codes and TP3 proof.adoc]]
+| 260923 | pass:[Profile-only Ctrl-Alt-PgUp-PgDn selection] | *B*, pass:[future-shortcuts] | pass:[Previous/next profile without on_select even at CCP; reserve Alt-Home-End for profile keyword-list selection. Boundary: Not implemented; current Alt-Home-End application bindings remain active. Next: Design profile-only action and keyword-list selection without silently breaking existing bindings.] | link:260923-22%20profile-only%20selection%20and%20keyword%20shortcuts.adoc[pass:[260923-22 profile-only selection and keyword shortcuts.adoc]]
+| 260924 | pass:[PgDn zoom-in and PgUp zoom-out host shortcuts] | *I*, pass:[host-mappings-tested-reopen-pending] | pass:[Reverse Ctrl+Alt+Shift Page keys in Konsole and both Kitty configs; update helper help and manual. All 33 helper tests pass. Boundary: Firmware CSI 66/67 and +/- meanings unchanged; no INI/device change. Existing GUI needs keymap reload/reopen. Next: Reopen explicit-target mirror and check both zoom directions.] | link:260924-22%20zoom%20shortcut%20direction%20and%20narrow%20viewport%20follow-up.adoc[pass:[260924-22 zoom shortcut direction and narrow viewport follow-up.adoc]]
+| - | pass:[Application-aware overlays/selections/semantic regions] | *B* | pass:[Later smart-terminal layer; do not encode into guest text or current ANSI parser.] |
+| - | pass:[Ctrl/Shift/Alt combinations, F1-F12, special keys and modified letters] | *H* | pass:[Sparse overrides are implemented; plain and Shift-only letters remain deliberately invalid bindings.] |
+| - | pass:[Future local/embedded keyboard scanner] | *B* | pass:[It should emit logical physical-key events into the same override path; AltGr remains distinct from project Alt.] |
+| - | pass:[History work-log browser and metadata] | *B* | pass:[Keep optional until actual workflows require timestamps/origin/context UI.] |
+| - | pass:[Independent mode= output and input= presets] | *H* | pass:[ANSI, VT52 and WordStar input presets are implemented independently of output language.] |
+| - | pass:[Input-origin tagging (human/paste/automation)] | *D* | pass:[Described in the DDT and application-profile plans; current reserved bank #9 is the simpler operational boundary.] |
+| - | pass:[MBASIC external edit-mode recognition/resynchronization] | *D* | pass:[Later stage in the MBASIC and multi-application plans.] |
+| - | pass:[Per-profile local compose/transmit-line mode] | *B* | pass:[Useful only for confirmed line-oriented programs; not a global behavior.] |
+| - | pass:[Pinned/favourite history entries] | *B* | pass:[Possible lightweight alternative to a macro language.] |
+| - | pass:[Prefix-filtered history search] | *B* | pass:[Attractive optional Termite-style behavior; not implemented.] |
+| - | pass:[Profile count expansion beyond 0..9] | *B* | pass:[a..z was considered; RAM, INI and UI implications require a separate decision.] |
+| - | pass:[Screen-line tracking and filtered history-token completion] | *H*, pass:[transitional] | pass:[Existing history can supply filtered tokens in line/screen editors. It is intentionally not the final keyword-store design.] |
+| - | pass:[Separate typing delay and paste pacing] | *B* | pass:[Recorded in the DDT/history plan; no generic end-to-end paste protocol exists.] |
+| - | pass:[Several explicitly switchable completion lists per profile] | *D* | pass:[Refined in the TP301/profile-switching record; broader than a single history/keywords toggle.] |
+| - | pass:[XITU-T/custom keyboard mapping] | *B* | pass:[Mentioned in the signed backlight/key plan; requires actual hardware/protocol before implementation.] |
+|===
+
+== Configuration, diagnostics and operational safety
+
+[cols="1,3,1,5,3",options="header"]
+|===
+| Introduced | Feature | State | Summary and remaining boundary | Documents
+
+| 260910 | pass:[Editable A0:7XTGVTRM.INI with compiled fallbacks] | *H* | pass:[Application profiles and the terminal manual.] | link:260910-01%20terminal-application-profiles.adoc[pass:[260910-01 terminal-application-profiles.adoc]]
+| 260921 | pass:[INI parse error count, first ten source lines and .ERR file] | *H* | pass:[Signed diagnostics plan; confirmed clean on the key-first device boot.] | link:260921-01%20terminal%20INI%20parse%20diagnostics%20implementation%20plan.adoc[pass:[260921-01 terminal INI parse diagnostics implementation plan.adoc]]
+| - | pass:[Device-side config fetch with timestamped local backup] | *H* | pass:[tools/fetch-7xtgvtrm-ini.sh; backups are host-local and never deployed.] |
+| - | pass:[Lazy atomic persistence of backlight and zoom] | *H* | pass:[Saved through the SD-owning core; SYNC/reboot/reflash waits for settings and history.] |
+| - | pass:[Mirror reconnect and host mouse-mode sanitation] | *H* | pass:[Mouse tracking and alternate-scroll modes are reset; only recognized mouse packets are defensively filtered, not generic CSI keyboard input.] |
+| - | pass:[Raw terminal output capture/replay for application diagnosis] | *D* | pass:[Useful for FAND and terminal disputes; a generalized replay harness is not yet present.] |
+| - | pass:[Split global/profile/history/keyword files] | *B* | pass:[Discussed after TE's line limit. No file-layout decision is signed; separate keyword storage is the only settled direction.] |
+| - | pass:[Staged VTCONF.COM validator/editor using .NEW] | *B* | pass:[Possible later convenience; simple syntax plus useful line reporting remains preferred first.] |
+|===
+
+== Native 7xtgv architecture
+
+[cols="1,3,1,5,3",options="header"]
+|===
+| Introduced | Feature | State | Summary and remaining boundary | Documents
+
+| 260906 | pass:[Original tiled-GUI/video-256 concept] | *B*, pass:[reference] | pass:[Early 7xtgv brainstorm. Later native specifications, not this raw note, govern implementation.] | link:260906-21%20250524%20%21%21%21%21%20mixworx%207xtgv%20-%20TILED-GUI-VIDEO-256.adoc[pass:[260906-21 250524 !!!! mixworx 7xtgv - TILED-GUI-VIDEO-256.adoc]]
+| 260910 | pass:[Native SEMI 2x5 subcell mode] | *D* | pass:[SEMI/image plan; both overlay and indexed-four-color variants remain unimplemented.] | link:260910-13%207xtgv%20native%20SEMI%20mode%20and%20image%20demo.adoc[pass:[260910-13 7xtgv native SEMI mode and image demo.adoc]]
+| 260910 | pass:[Native v0.1 four-plane TEXT/WIND/INST/SEMI specification] | *D* | pass:[Native specification. It is not the current terminal storage model.] | link:260910-13%207xtgv%20v0.1%20native%20specification%20and%20implementation%20plan.adoc[pass:[260910-13 7xtgv v0.1 native specification and implementation plan.adoc]]
+| - | pass:[ADAPTIVE1024 palette clustering, iteration and dithering] | *B* | pass:[Advanced optional path only after SAFE14 produces deterministic reference output.] |
+| - | pass:[Fade/alpha-to-desktop] | *B* | pass:[Explicitly separate from backlight brightness and v0.1 core semantics.] |
+| - | pass:[HDL/CPLD/FPGA realization] | *D*, pass:[brainstorm] | pass:[Native formats are HDL-friendly, but present work is a software reference over Arduino_GFX.] |
+| - | pass:[Native 256-glyph font] | *D* | pass:[Must not silently promote the legacy QL font into the canonical native set.] |
+| - | pass:[Native hard desktop/window compositor] | *B* | pass:[Multiple clipped windows and flattening are future software above cell RAM.] |
+| - | pass:[Native INST mode] | *D* | pass:[Specified as an instruction/glyph class; no complete renderer.] |
+| - | pass:[Native software reference renderer over Arduino_GFX] | *P*, pass:[design] | pass:[First implement/test independently, then adapt the terminal; do not mutate the spec around terminal shortcuts.] |
+| - | pass:[Native TEXT mode] | *D* | pass:[Character/ATTR/EXTA behavior specified, not implemented as the terminal backend.] |
+| - | pass:[Native WIND mode and window glyph classes] | *D* | pass:[Specified, including HDL-friendly index behavior; no complete renderer.] |
+| - | pass:[SAFE14 reference image converter] | *D* | pass:[Normative/simple converter strategy in the native spec; pending.] |
+|===
+
+== Development tools and process features
+
+[cols="1,3,1,5,3",options="header"]
+|===
+| Introduced | Feature | State | Summary and remaining boundary | Documents
+
+| 260922 | pass:[Central feature ledger (now AsciiDoc)] | *I* | pass:[Human ledger established in Markdown and migrated to FEATURES.adoc on 260923; generated tables come from canonical TSV while narrative sections remain hand-authored. Boundary: Stable feature ID retains its original name.] | link:260922-16%20structured%20feature%20registry%20design.adoc[pass:[260922-16 structured feature registry design.adoc]], link:260923-11%20AsciiDoc%20feature%20registry%20reports%20and%20ledger.adoc[pass:[260923-11 AsciiDoc feature registry reports and ledger.adoc]]
+| 260922 | pass:[Feature-registry validation and report generator] | *I* | pass:[Validator checks ASCII schema, IDs, dates and document paths; reports support AsciiDoc, Markdown, text and TSV. Default ledger is FEATURES.adoc. Boundary: Stable feature ID retains its original name.] | link:260922-16%20structured%20feature%20registry%20design.adoc[pass:[260922-16 structured feature registry design.adoc]], link:260923-11%20AsciiDoc%20feature%20registry%20reports%20and%20ledger.adoc[pass:[260923-11 AsciiDoc feature registry reports and ledger.adoc]]
+| 260922 | pass:[Git-friendly structured feature registry] | *I* | pass:[Canonical ASCII TSV contains the complete migrated feature set and supports deterministic selected-field reports.] | link:260922-16%20structured%20feature%20registry%20design.adoc[pass:[260922-16 structured feature registry design.adoc]]
+| 260923 | pass:[AsciiDoc feature ledger and selected-field reports] | *I* | pass:[FEATURES.adoc replaces the Markdown overview; asciidoc/adoc report formats added with literal-safe tables and document links; 11 tests passed. Boundary: TSV schema unchanged; Markdown, text and TSV exports retained.] | link:260923-11%20AsciiDoc%20feature%20registry%20reports%20and%20ledger.adoc[pass:[260923-11 AsciiDoc feature registry reports and ledger.adoc]]
+| 260923 | pass:[AsciiDoc terminal manual and source audit] | *I*, pass:[doc-checked] | pass:[Converted manual and audited settings, diagnostics, profiles, palettes and transfers against source. Boundary: Documentation only; no new device validation or firmware changes. Next: Keep manual aligned with subsequent implementation changes.] | link:260923-21%20terminal%20manual%20AsciiDoc%20and%20source%20audit.adoc[pass:[260923-21 terminal manual AsciiDoc and source audit.adoc]], link:260912-23%207xtgv%20terminal%20manual/README.adoc[pass:[README.adoc]]
+| 260923 | pass:[Canonical AsciiDoc chronological documentation and dated images] | *I* | pass:[Converted dated Markdown and TXT sources; dated PNGs now have AsciiDoc wrappers and live under docs/images. Rendering, literal preservation and reference checks passed. Boundary: Stable readmes remain in their existing formats; feature-ledger migration is tracked separately.] | link:260923-09%20AsciiDoc%20documentation%20migration%20plan.adoc[pass:[260923-09 AsciiDoc documentation migration plan.adoc]], link:260923-10%20AsciiDoc%20documentation%20migration%20report.adoc[pass:[260923-10 AsciiDoc documentation migration report.adoc]]
+| 260923 | pass:[Kate AsciiDoc embedded INI syntax highlighting] | *I*, pass:[visual-confirmed] | pass:[User-local grammar delegates INI source blocks to KDE INI Files; seven isolated tests passed; Petr confirmed styling in Kate with a screenshot. Boundary: INI only; no config validation or system package edits.] | link:260923-09%20Kate%20AsciiDoc%20INI%20syntax%20highlighting%20Codex%20plan.adoc[pass:[260923-09 Kate AsciiDoc INI syntax highlighting Codex plan.adoc]], link:260923-11%20Kate%20AsciiDoc%20embedded%20INI%20highlighting%20implementation.adoc[pass:[260923-11 Kate AsciiDoc embedded INI highlighting implementation.adoc]]
+| 260923 | pass:[Native CP-M text in the local drive mirror] | *I*, pass:[host-tested] | pass:[44 content-checked text files converted to CRLF and Ctrl-Z; direct-copy VTPAL BASIC test passes; storage policy recorded. Boundary: Binary and tokenized files, native history, snapshots and host metadata preserved; no device deployment. Next: Maintain native text format without transfer conversion.] | link:260923-21%20cpmdrive%20native%20text%20format.adoc[pass:[260923-21 cpmdrive native text format.adoc]]
+| 260924 | pass:[ASCII source workflow for MBASIC and BBC BASIC] | *I*, pass:[host-tested] | pass:[Fetched all five device A7 BAS files after Petr saved ASCII; preserve snapshots. Always MBASIC SAVE name,A; verified BBC and BBCLOWER SPOOL/LIST and cleaned EXEC round-trip locally. Boundary: BBC spool includes command wrappers requiring cleanup; BBC library not converted. Preserve fetched CP-M record tails; only source before Ctrl-Z is meaningful. Next: Maintain ASCII sources and fetch current device edits only on request.] | link:260924-17%20BASIC%20ASCII%20sources%20and%20ink%20test%20labels.adoc[pass:[260924-17 BASIC ASCII sources and ink test labels.adoc]]
+| 260924 | pass:[Independent manual review and scoped pre-push checkpoint] | *B*, pass:[schema-unchanged] | pass:[Dated audit chain records git baseline, changes, evidence and manual gaps; targeted stale manual entries corrected. Propose independent manual milestone and User/Reference/Technical guide split. Boundary: Reports are not exact intermediate working-tree snapshots. No new state, schema, publishing hook or commit/push; guide split is not implemented. Next: Split guides incrementally with single authoritative facts; review selected changes and exclude private/backup data before publishing.] | link:260924-20%20progress%20since%20last%20push%20and%20feature%20tracking%20review.adoc[pass:[260924-20 progress since last push and feature tracking review.adoc]], link:260924-23%20uncommitted%20work%20and%20documentation%20checkpoint.adoc[pass:[260924-23 uncommitted work and documentation checkpoint.adoc]]
+| 260924 | pass:[Small 6x10 bitmap editor and optional TFT pixel preview] | *B*, pass:[await-complete-ql-font] | pass:[Consider MBASIC cell grid and ASCII row export with optional GCLS preview; compare complete QL font and X11 6x10 DEC glyphs. Boundary: No editor or runtime font-redefinition protocol implemented. GCLS preview is transient and absent from text mirror. Next: Review complete QL font and new DEC chart before choosing glyph/editor work.] | link:260924-20%20DEC%20graphics%20review%20and%20expanded%20VTESTS.adoc[pass:[260924-20 DEC graphics review and expanded VTESTS.adoc]]
+| - | pass:[CP/M FAND feature-registry demonstration] | *B* | pass:[Begin with a read-only, ASCII-safe fixed-width export and compare FAND filtering/reports with host output; never write directly back to canonical TSV initially. Boundary: Idea only; fixed-width import text is not a native FAND database. Keep stable ID mapping if compact IDs are chosen; no write-back. Next: Agree fields, record width and FAND import before implementation.] | link:260924-20%20progress%20since%20last%20push%20and%20feature%20tracking%20review.adoc[pass:[260924-20 progress since last push and feature tracking review.adoc]]
+| - | pass:[Interactive text-table analysis] | *B* | pass:[LibreOffice Calc is already installed; Miller 6.21 passed non-installing TSV and custom-pipe trials. VisiData remains optional.] |
+|===
+
+== Application and historical compatibility investigations
+
+[cols="1,3,1,5,3",options="header"]
+|===
+| Introduced | Feature | State | Summary and remaining boundary | Documents
+
+| 260920 | pass:[SHARP MZ-821 / Lamac LEC CP/M lineage] | *D*, pass:[reference] | pass:[Investigation and BIOS reference. A dedicated MZ-821 decoder is not approved.] | link:260921-00%20FAND%20MZ-821%20Lamac-LEC%20CP-M%20investigation.adoc[pass:[260921-00 FAND MZ-821 Lamac-LEC CP-M investigation.adoc]], link:260920-22%20Sharp%20MZ-800%20Czech%20CP-M%20BIOS%20source%20reference.adoc[pass:[260920-22 Sharp MZ-800 Czech CP-M BIOS source reference.adoc]]
+| - | pass:[CP/M FAND 1.0 ANSI/VT52 behavior] | *D*, pass:[not-accepted] | pass:[Keep all live observations in the private MIXWORX FAND log under the manual directory. ANSI 0x9B support exists, but FAND screen and controls are not yet fully verified.] |
+| - | pass:[dBASE/WordStar/other configurable CP/M applications] | *R* | pass:[Use profile and original installer/reference evidence rather than adding speculative terminal families.] |
+| - | pass:[FANDEDIT .CHN reverse engineering] | *X*, pass:[here] | pass:[Keep the private note, but broad binary/Ghidra analysis belongs in ChatGPT/Lyra before repo-grounded implementation.] |
+| - | pass:[TP301 insert-line/status-row anomaly] | *R*, pass:[resolved] | pass:[Application command configuration explained the behavior; terminal CSI L/M remains valid.] |
+|===
+
+// feature-registry:end
+
+== Reference and evidence map
+
+These documents contain facts, measurements or operating guidance rather than
+independent feature promises:
+
+* link:260908-18%207xtgv-target-context.adoc[Target context],
+link:260909-12%20platform-mcu-comparison.adoc[platform comparison],
+link:260908-17%20jc8048w535-baseline.adoc[JC8048W535 baseline], and individual
+JC8048W550 target records.
+* link:260910-01%20runcpm-console-keys.adoc[RunCPM console keys],
+link:260912-00%207xtgv%20terminal%20keyboard%20control%20cheatsheet.adoc[terminal keyboard cheatsheet],
+and the link:260912-23%207xtgv%20terminal%20manual/README.adoc[current terminal manual].
+* link:260911-14%20Turbo%20Pascal%203.01%20keyboard%20and%20terminal%20installation%20reference.adoc[Turbo Pascal installation reference],
+link:260915-19%20BBC%20BASIC%20and%20app%20history%20handoff.adoc[BBC/TP test records],
+and the FAND private log.
+* link:260912-21%20VTSTART%20VTSTOP%20CP-M%20assembly%20and%20PIP%20quirks.adoc[VTSTART/VTSTOP and PIP quirks],
+link:260912-22%20RunCPM%20CP-M%20drive-user%20PIP%20and%20CCP%20quirks.adoc[drive/user and internal-CCP details],
+and the link:260912-22%20RunCPM%20CP-M%20user%20areas%20PIP%20Gn%20and%20CCP%20quirks.adoc[focused user-area note].
+These explain CP/M behavior; they are not separate terminal work items.
+* link:260911-18%20reboot-serial-startup-capture.adoc[Reboot startup capture],
+the link:260913-01%20recent%20terminal%20and%20CP-M%20handoff.adoc[260913 handoff],
+link:260914-12%20terminal%20maintenance%20and%20JC8048W550%20handoff.adoc[260914 target handoff],
+dated smoke reports and validation notes are evidence for the implementation
+rows above.
+* link:code%20changes%20monitoring%20-%20howto/code%20changes%20monitoring%20-%20howto.txt[Code-change monitoring how-to],
+link:260911-22%20%21%21%21%20PERF%20COST%20%21%21%21%207xtgv-codex-model-assignment-cheatsheet.adoc[model-assignment guidance],
+and the link:260922-11%20host%20SAK%20NTFS%20recovery%20and%20Codex%20CWD%20incident%20report.adoc[host incident report]
+are development-process references.
+* Recovery dumps, screenshots and PDFs remain immutable supporting artifacts;
+the corresponding AsciiDoc record is the searchable source of status.
+
+Historical compatibility sources are retained even when a later review
+supersedes decisions: link:260916_7xtgv_terminal_legacy_compatibility.adoc[the original 260916 note]
+and link:260917%207xtgv%20terminal%20I/O%20profiles%20%20ANSI%2BVT100%2C%20VT52%2C%20ADM-3A%20and%20WordStar%20input.adoc[its later expanded copy]
+lead to the signed 260917 review rather than directly authorizing code.
+
+Private MIXWORX FAND logs, recovered raw font/mapping dumps, module-vendor text
+files, screenshots and generated PDFs are intentionally not made normative
+ledger links. They stay available locally as evidence and may be excluded
+from Git publication by project policy.
+
+== Known documentation drift found during this review
+
+* The key-first implementation note still described rebuild, transfer and
+device smoke as pending; it is updated alongside this ledger.
+* Several older design documents correctly retain their historical status
+lines even though a later checkpoint implemented part or all of the design.
+The ledger points to the later evidence instead of rewriting those records.
+* The firmware README still contains a few capability-limit sentences written
+before configurable function/special keys and XMODEM mirror support. Treat
+the manual plus this ledger as current until that prose receives a focused
+cleanup; do not infer removal of the implemented features.
+* Original modifier-first examples remain in historical design documents with
+supersession notices. Only key-first names are accepted by current source.
+
+== Maintenance rule
+
+For every non-trivial new idea or implementation:
+
+[arabic]
+. Preserve the dated source discussion/plan/report.
+. Add or update one canonical `+docs/features.tsv+` record with the strongest
+proven state; never edit the marked generated tables directly.
+. Never advance *I* to *H* solely from host tests or a successful build.
+. Record partial delivery explicitly and keep the unfinished subfeatures.
+. Link later corrections instead of silently rewriting the historical plan.
+. Keep firmware artifact promotion (`+new+` to `+current+`) separate from feature
+state and hardware-test evidence.
+. Run `+python3 src/feature_registry.py check+` and then `+update-ledger+`.

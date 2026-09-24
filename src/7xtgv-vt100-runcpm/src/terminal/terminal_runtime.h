@@ -3,6 +3,8 @@
 void terminalSetup();
 void terminalLoop();
 void terminalWaitReady();
+// Storage owner calls this even when SD/INI loading failed: show defaults/errors.
+void terminalBootConfigComplete();
 void terminalConfigBegin();
 void terminalConfigFeed(uint8_t byte);
 unsigned terminalConfigEnd();
@@ -24,7 +26,7 @@ void terminalHistorySaveComplete(bool saved);
 bool terminalHistoryStoragePoll();
 bool terminalConfigStoragePoll();
 void terminalConfigForceSave();
-bool terminalConfigSaveDue(uint8_t &backlightLevel, uint8_t &zoomLevel);
+bool terminalConfigSaveDue(uint8_t &backlightLevel, uint8_t &zoomLevel, uint8_t *paletteIndex = nullptr);
 void terminalConfigSaveComplete(bool saved);
 void terminalWaitDisplayProfileApplied();
 void terminalDiskActivity(bool active);

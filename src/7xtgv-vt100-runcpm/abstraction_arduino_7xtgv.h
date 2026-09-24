@@ -11,7 +11,7 @@
 #if defined CORE_TEENSY
     #define HostOS 0x04
 #endif
-#if defined ESP32
+#if defined ESP32 || defined ARDUINO_ARCH_ESP32
     #define HostOS 0x05
 #endif
 #if defined _STM32_DEF_

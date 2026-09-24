@@ -1,0 +1,93 @@
+[id="tp301-editor-tinst-and-profile-switching--260919"]
+= TP301 editor, TINST and profile switching — 260919
+:source-highlighter: highlight.js
+
+This records Petr's interactive TP301 investigation on 260919, the native RunCPM comparison, and the terminal change confirmed afterward on the device. It extends the earlier link:260911-14%20Turbo%20Pascal%203.01%20keyboard%20and%20terminal%20installation%20reference.adoc[TINST capability reference], the link:260918-22%20terminal%20insert-delete%20lines%20plan.adoc[ANSI insert/delete-line plan], the link:260918-23%20TP301%20input%20profiles%20and%20ANSI%20attribute%20marker%20notes.adoc[TP301 input-profile notes], and the link:260919-09%20TP301%20insert-line%20prefix%20diagnosis.adoc[focused prefix diagnosis]. The exact live TINST key table below is Petr's reported configuration, not a fresh read-back of `+A2:TINST.DTA+` or a list of Borland defaults.
+
+== What was observed in TP301
+
+* A small `+.PAS+` program could be edited, compiled and run. Petr found the TP3 full-screen editor more comfortable for this work than TE.
+* The new terminal `+CSI Ps L+`/`+CSI Ps M+` support was exercised at the editor. Pressing Petr's configured *Insert line* chord `++Ctrl+L++`, then `+i+`, shifted screen content down from the top and permanently removed the top status line. Repeating it shifted more content. The screenshots first suggested a terminal insert-line fault, but the later comparison narrowed the cause.
+* `++Ctrl+N++` inserted a line on the device without losing the status row. This is the practical input to use for now. Petr can assign it to TINST's Insert line slot or send it directly; whether reassigning that slot would alter a separate built-in/secondary binding has not been verified.
+* Scroll up/down moving the displayed current line, and Page End landing one line short of the apparent last line, were noticed but not established as terminal bugs. Neither reproduces the status-line destruction as clearly as `++Ctrl+L i++`; no change was made on their account.
+
+The native Linux RunCPM test ran the same CP/M TURBO.COM in an ordinary 80x24 ANSI terminal. `++Ctrl+L++` made TP3 move its physical cursor to row 1 to display the `+^L+` command prefix. The following `+i+` caused TP3 to emit `+ESC[1L+` while that cursor was still on row 1, before returning to the editor row. ANSI Insert Line then correctly inserted at row 1, shifting away the status line. The same effect on the device and in ordinary ANSI identifies a TP3/TINST input-prefix interaction; changing 7xtgv's `+CSI L+` semantics would mask it and break standard behavior. The Linux comparison does *not* run 7xtgv's parser/renderer; the separate host terminal tests and device observations cover that side.
+
+== Keep the three control layers separate
+
+[source,text]
+----
+Physical/Czech keyboard -> 7xtgv bank #3 key bindings -> TP3/TINST input command
+TP3/TINST screen definition -> ANSI output bytes -> 7xtgv terminal renderer
+7xtgv terminal profile/history controls -> local behavior, not TP3 commands
+----
+
+`++Ctrl+L i++` is an installed *input* command; `+ESC[1L+` is an *output* command. The latter is not a keyboard mapping. TINST's 45 displayed command slots are configurable primary input sequences. The editor also has WordStar-like secondary controls; TINST does not show all of them in this list. In particular, direct `++Ctrl+N++` works here, but the exact precedence/duplicate dispatch between this installation's primary and secondary commands remains unverified. `++Ctrl+U++` was another possible collision Petr noticed while choosing memorable custom chords. Do not infer that a configurable slot disables every undocumented secondary command, or that all CP/M applications share one WordStar map.
+
+=== Petr's reported TINST primary input configuration
+
+[cols=">,,",options="header",]
+|===
+|++#++ |TINST action |Input bytes/chord
+|1 |Character left |`+ESC [ D+`
+|2 |Character left, alternative |Nothing
+|3 |Character right |`+ESC [ C+`
+|4 |Word left |`++Ctrl+A++`
+|5 |Word right |`++Ctrl+S++`
+|6 |Line up |`+ESC [ A+`
+|7 |Line down |`+ESC [ B+`
+|8 |Scroll down |`++Ctrl+X++`
+|9 |Scroll up |`++Ctrl+E++`
+|10 |Page up |`+ESC [ 5+`
+|11 |Page down |`+ESC [ 6+`
+|12 |To left on line |`+ESC [ H+`
+|13 |To right on line |`+ESC [ F+`
+|14 |To top of page |`++Ctrl+P b++`
+|15 |To bottom of page |`++Ctrl+P e++`
+|16 |To top of file |`++Ctrl+F b++`
+|17 |To end of file |`++Ctrl+F e++`
+|18 |To beginning of block |`++Ctrl+B b++`
+|19 |To end of block |`++Ctrl+B e++`
+|20 |To last cursor position |`++Ctrl+@++`
+|21 |Insert mode on/off |`++Ctrl+V++`
+|22 |Insert line |`++Ctrl+L i++` — status-row problem
+|23 |Delete line |`++Ctrl+L d++`
+|24 |Delete to end of line |`++Ctrl+L e++`
+|25 |Delete right word |`++Ctrl+D++`
+|26 |Delete character under cursor |`+ESC [ 3+`
+|27 |Delete left character |`++Ctrl+H++`
+|28 |Delete left character, alternative |Nothing
+|29 |Mark block begin |`++Ctrl+\++`
+|30 |Mark block end |`++Ctrl+Y++`
+|31 |Mark single word |`++Ctrl+W++`
+|32 |Hide/display block |`++Ctrl+B v++`
+|33 |Copy block |`++Ctrl+B c++`
+|34 |Move block |`++Ctrl+B m++`
+|35 |Delete block |`++Ctrl+B d++`
+|36 |Read block from disk |`++Ctrl+B r++`
+|37 |Write block to disk |`++Ctrl+B w++`
+|38 |End edit |`+ESC [ Q+`
+|39 |Tab |`++Ctrl+I++`
+|40 |Auto tab on/off |`++Ctrl+T++`
+|41 |Restore line |`++Ctrl+L r++`
+|42 |Find |`++Ctrl+Q Ctrl+F++`
+|43 |Find and replace |`++Ctrl+Q Ctrl+R++`
+|44 |Repeat last find |`++Ctrl+Q Ctrl+Q++`
+|45 |Control-character prefix |`++Ctrl+C++`
+|===
+
+These are byte sequences as shown by TINST, *not* necessarily complete xterm keyboard escape sequences; for example, `+ESC [ 5+` and `+ESC [ 3+` are recorded exactly as displayed. They should not be silently expanded to `+ESC[5~+` or `+ESC[3~+` in this historical record. No change to `+A2:TINST.DTA+` or other CP/M files was made during this investigation.
+
+== Profile switching while TP3 or TE owns the screen
+
+Petr's later test exposed a separate terminal-side risk: a bank/profile can have `+on_select=A2:\r+` even while a full-screen editor is active. Emitting it there would type a command into the application. The old profile notice also cleared its cursor row and moved the terminal cursor; switching could send backspaces for an in-memory history line. All three actions are inappropriate inside a screen editor.
+
+The runtime now treats every profile hint as a temporary overlay of the current row. It snapshots and restores characters, paper, attributes and flags without moving the cursor. On profile selection, `+on_select+` and any guest backspaces for a tracked command line are allowed *only* at a fresh, live CCP prompt; a stale `+A0>+` still painted after an app starts is not enough. Quick cycling among profiles first restores the previous overlay. At a live CCP prompt the selected profile's `+on_select+` still runs after the hint.
+
+The sanitizer-enabled runtime and parser host tests passed. The target-aware `+jc8048w550+` build was staged as `+new+` with boot stamp `+260919-1135+`; no firmware was flashed by that `+rebuild+` request. Petr then tested the changed firmware on the device and confirmed this profile-switch behavior works. The candidate's later flash/promotion state is not inferred here.
+
+== History versus several completion lists
+
+TP3 shows why one application profile may need more than one local editing context: its menu/prompt (`+>+`) can use command history, while its full-screen source editor should not recall menu commands as source lines. A terminal can inspect its displayed row for a prompt-like prefix, but automatically deciding an app's semantic mode from arbitrary output is not reliable enough to make the core profile behavior depend on it. The selected profile, effective CCP history bank and any future completion-list choice should remain distinct.
+
+Petr prefers the future, more general name *several completion lists* over a special history/keywords toggle. An explicit list switch would be acceptable for TP3's prompt/editor contexts; multiple named token/phrase sources could then coexist without filling the 255-entry command-history ring. Screen-editor insertion still needs its own cursor-local transport. None of this multi-list behavior was implemented in the profile-switch fix; the earlier link:260915-21%20history%20tokens%20and%20editing%20surfaces.adoc[history/tokens design note] remains the starting point.

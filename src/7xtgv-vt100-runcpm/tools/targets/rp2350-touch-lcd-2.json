@@ -1,4 +1,7 @@
 {
+  "display_id": "RP2_2",
+  "description": "RP2350 Waveshare Touch-LCD 2-inch",
+  "port_globs": ["/dev/serial/by-id/usb-Generic_RP2350*-if00"],
   "method": "bootsel-uf2",
   "profile": "rp2350-touch-lcd-2"
 }

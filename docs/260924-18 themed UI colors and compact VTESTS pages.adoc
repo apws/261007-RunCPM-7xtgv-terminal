@@ -1,0 +1,87 @@
+= Themed UI colors and compact VTESTS pages
+:source-highlighter: highlight.js
+
+Petr requested matching special colors for the new dark themes, a 40% darker
+blue marker in palette 0, and 40x16 layouts for VTESTS tests 1 and 2.
+The corrected paper label is `IMPLICIT`, not `IMPLICITR`.
+
+== Palette changes
+
+[cols="1,2,2,2",options="header"]
+|===
+|Palette |active_line_rgb |cursor_rgb |viewport_gutter_rgb
+|3 BW |32,32,32 |105,105,105 |40,40,40
+|4 plasma |48,12,4 |130,45,20 |55,18,8
+|5 VFD |0,36,36 |30,115,110 |10,45,45
+|===
+
+In all three, `viewport_active_gutter_rgb=active_line` remains unchanged and
+therefore follows the newly tinted line highlight. The copied amber shade
+inks remain unchanged; only the requested special colors were retinted.
+Palette 0 `paper3` changes from `240,240,255` to `144,144,153` (each component
+times 0.60). This substantially darkens the original pale blue; it does not
+increase blue saturation. Other palette values/settings are untouched.
+
+The current renderer stores these palette items as separate RGB colors, then
+converts to RGB565 for the TFT. They are not cell brightness levels today.
+Per-bank/global explicit RGB overrides can still override palette UI colors.
+
+The native design in
+link:260910-13%207xtgv%20v0.1%20native%20specification%20and%20implementation%20plan.adoc[the v0.1 specification]
+already defines EXTA as `PPPP IIII`: separate paper/ink brightness 0..15,
+allowing perceptually tuned lookup tables rather than mandatory linear RGB
+multiplication. This is relevant to future native highlight rendering, not
+an implemented replacement for the current RGB overlays. Gutter treatment
+outside the cell grid still needs its own rendering policy. No native-mode
+or firmware changes were made here.
+
+== VTESTS layout
+
+Only tests 1 and 2 use the compact layout. Ink pairs occupy rows 3..10 with
+columns 1 and 19; the longest ALT IMPLICIT label ends exactly at column 40.
+Both internal indices and ANSI SGR numbers remain visible, with lowercase
+normal and uppercase ALT names. The explanatory heading fits 40 columns.
+
+Paper labels are `IMPLICIT`, `RED MARKER`, `GREEN MARKER`, `BLUE MARKER`, at
+rows 3, 5, 7, 9, still using their existing ANSI background commands.
+Both pages use a separate pause entry at row 14, retaining manual Enter and
+automatic-run behavior. Tests 3..8 and their row-22 pause remain unchanged.
+The new entry also works when either compact test is called independently.
+
+Local `tools/test_vtests_basic.py` passes all eight pages and verifies every
+compact-page cursor position and emitted text character fits 40x16, including
+headings and pause prompts. Existing VTPAL checks also pass. This verifies
+guest output, not hardware rendering. Maintained source stays ASCII CRLF with
+Ctrl-Z. Pre-edit copies are in the ignored host-only directory
+`build/palette-backups/260924-1828-ui-and-compact-tests/`.
+
+Changes are local, pending explicit INI-to-A0 and VTESTS-to-A7 deployment.
+No firmware rebuild is required. DEC graphics review remains pending as
+already recorded in the feature ledger; this change does not implement it.
+
+== Deployment follow-up
+
+Petr approved both uploads. VTPUT reported SAVED for `A0:7XTGVTRM.INI`
+(14976 padded bytes) and `A7:VTESTS.BAS` (9344 padded bytes). The transfer
+workflow restores the original profile/RAW state and launches the visible
+W535 mirror. No extra read-back or mirror probes were performed. No reboot
+was issued; edited palette colors take effect at the next boot. Hardware
+confirmation of the compact pages and new UI colors remains pending.
+
+== PAPER blue-marker tint correction
+
+Petr's mirror screenshot and W535 photo show the compact paper test with its
+row-14 pause on the device. The darkened blue marker appears grey rather than
+pale blue: reducing all channels of the already near-neutral original by 40%
+reduced brightness without adding useful blue saturation.
+
+Prepared palette0 `paper3=205,220,255` instead of `144,144,153`: high blue with
+lower red/green, returning to a pale highlight. This is a visual trial, not a
+display-calibrated color match. Red/green markers and every other setting are
+unchanged. A possible slightly redder marker was mentioned, but not included
+in this comparison. Backup: `build/palette-backups/260924-1844-paper-blue-tint/`.
+This correction is local pending explicit INI deployment.
+
+Petr then approved sending it: VTPUT reported SAVED for `A0:7XTGVTRM.INI`
+(14976 padded bytes). Mirror relaunch is part of the transfer workflow;
+no extra probes, read-back or reboot were performed.

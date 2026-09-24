@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import html
 import os
 from pathlib import Path
 import re
@@ -14,7 +15,7 @@ from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_STORE = ROOT / "docs" / "features.tsv"
-DEFAULT_LEDGER = ROOT / "docs" / "FEATURES.md"
+DEFAULT_LEDGER = ROOT / "docs" / "FEATURES.adoc"
 
 FIELDS = (
     "feature_id",
@@ -56,8 +57,8 @@ DATE_FIELDS = (
     "last_reviewed",
 )
 
-BEGIN_MARKER = "<!-- feature-registry:begin -->"
-END_MARKER = "<!-- feature-registry:end -->"
+BEGIN_MARKER = "// feature-registry:begin"
+END_MARKER = "// feature-registry:end"
 ID_RE = re.compile(r"[a-z0-9][a-z0-9-]*\Z")
 DATE_RE = re.compile(r"(?:|[0-9]{6})\Z")
 
@@ -217,6 +218,28 @@ def render_markdown(records: list[dict[str, str]], fields: list[str]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def adoc_escape(value: str) -> str:
+    """Literal inline data, safe even inside a table cell or link label.
+
+    Escape HTML first, then protect the table separator and macro terminator.
+    The passthrough prevents data from becoming attributes, links or emphasis.
+    """
+    if not value:
+        return ""
+    escaped = html.escape(value, quote=False).replace("|", "&#124;").replace("]", "&#93;")
+    return f"pass:[{escaped}]"
+
+
+def render_asciidoc(records: list[dict[str, str]], fields: list[str]) -> str:
+    lines = [f'[cols="{",".join("1" for _ in fields)}",options="header"]', "|==="]
+    lines.append("| " + " | ".join(field.replace("_", " ").title() for field in fields))
+    lines.append("")
+    for record in records:
+        lines.append("| " + " | ".join(adoc_escape(record[field]) for field in fields))
+    lines.append("|===")
+    return "\n".join(lines) + "\n"
+
+
 def render_tsv(records: list[dict[str, str]], fields: list[str]) -> str:
     lines = ["\t".join(fields)]
     lines.extend("\t".join(record[field] for field in fields) for record in records)
@@ -244,8 +267,7 @@ def doc_link(relative: str) -> str:
         target = Path(*path.parts[1:]).as_posix()
     else:
         target = "../" + path.as_posix()
-    label = md_escape(path.name)
-    return f"[{label}]({quote(target, safe='/._-')})"
+    return f"link:{quote(target, safe='/._-')}[{adoc_escape(path.name)}]"
 
 
 def ledger_detail(record: dict[str, str]) -> str:
@@ -254,7 +276,7 @@ def ledger_detail(record: dict[str, str]) -> str:
         parts.append("Boundary: " + record["boundary"])
     if record["next_gate"]:
         parts.append("Next: " + record["next_gate"])
-    return md_escape(" ".join(filter(None, parts)))
+    return adoc_escape(" ".join(filter(None, parts)))
 
 
 def render_ledger_region(records: list[dict[str, str]]) -> str:
@@ -267,16 +289,18 @@ def render_ledger_region(records: list[dict[str, str]]) -> str:
     for group, heading in GROUPS.items():
         lines.extend(
             [
-                f"## {heading}",
+                f"== {heading}",
                 "",
-                "| Introduced | Feature | State | Summary and remaining boundary | Documents |",
-                "| --- | --- | --- | --- | --- |",
+                '[cols="1,3,1,5,3",options="header"]',
+                "|===",
+                "| Introduced | Feature | State | Summary and remaining boundary | Documents",
+                "",
             ]
         )
         for record in (item for item in records if item["group"] == group):
-            state = f"**{record['state']}**"
+            state = f"*{record['state']}*"
             if record["qualifier"]:
-                state += ", " + md_escape(record["qualifier"])
+                state += ", " + adoc_escape(record["qualifier"])
             documents = ", ".join(
                 doc_link(path) for path in filter(None, record["docs"].split(";"))
             )
@@ -285,16 +309,15 @@ def render_ledger_region(records: list[dict[str, str]]) -> str:
                 + " | ".join(
                     (
                         record["idea_date"] or "-",
-                        md_escape(record["title"]),
+                        adoc_escape(record["title"]),
                         state,
                         ledger_detail(record),
                         documents,
                     )
                 )
-                + " |"
             )
-        lines.append("")
-    return "\n".join(lines).rstrip() + "\n"
+        lines.extend(["|===", ""])
+    return "\n".join(line.rstrip() for line in lines).rstrip() + "\n"
 
 
 def atomic_write(path: Path, text: str) -> None:
@@ -318,6 +341,8 @@ def update_ledger(path: Path, records: list[dict[str, str]], dry_run: bool) -> s
         raise RegistryError(f"cannot read {path}: {exc}") from exc
     if current.count(BEGIN_MARKER) != 1 or current.count(END_MARKER) != 1:
         raise RegistryError(f"{path}: generated-region markers missing or duplicated")
+    if current.index(END_MARKER) < current.index(BEGIN_MARKER):
+        raise RegistryError(f"{path}: generated-region markers out of order")
     before, tail = current.split(BEGIN_MARKER, 1)
     _, after = tail.split(END_MARKER, 1)
     region = render_ledger_region(records)
@@ -355,11 +380,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--where", action="append", default=[], metavar="FIELD=VALUE",
         help="exact filter; FIELD!=VALUE is also accepted",
     )
-    report.add_argument("--format", choices=("markdown", "text", "tsv"), default="text")
+    report.add_argument("--format", choices=("asciidoc", "adoc", "markdown", "text", "tsv"), default="text")
     report.add_argument("--output", "-o", default="-", help="output path or - for stdout")
 
     update = commands.add_parser(
-        "update-ledger", help="replace the marked generated tables in FEATURES.md"
+        "update-ledger", help="replace the marked generated tables in FEATURES.adoc"
     )
     update.add_argument("--dry-run", action="store_true", help="print without writing")
     return parser
@@ -384,6 +409,8 @@ def main(argv: list[str] | None = None) -> int:
             sort_fields = parse_fields(args.sort)
             selected = sort_records(apply_filters(records, args.where), sort_fields)
             renderer = {
+                "asciidoc": render_asciidoc,
+                "adoc": render_asciidoc,
                 "markdown": render_markdown,
                 "text": render_text,
                 "tsv": render_tsv,

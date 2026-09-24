@@ -1,0 +1,40 @@
+= CP/M mirror native text format
+:source-highlighter: highlight.js
+
+Petr requested content inspection and conversion of Linux-format text in
+`cpmdrive/`, and a standing rule that normal transfers do not convert it.
+
+== Policy
+
+Guest text uses CRLF and a final Ctrl-Z. Preserve the format during local edits
+and generation; ordinary transfers copy bytes unchanged. Authored text does
+not need 128-byte padding locally. Existing CP/M padding is retained.
+The optional CLI text import conversion remains available for external host
+text, not for ordinary mirror transfers.
+
+Exclude binaries, tokenized BASIC, disk images (even printable ones), native
+checksummed history, archived snapshots, and host-only JSON/Markdown/Makefile
+metadata. Extensions alone cannot identify text safely.
+
+== Conversion and validation
+
+44 content-checked text files were converted: assembly sources, listings,
+Intel HEX, SUB scripts, text documentation and VTPAL.BAS/VTPAL.INI. This
+includes the existing CRLF brot_bs.z source that lacked an EOF marker.
+All pre-EOF content is identical after newline normalization; existing tails
+after EOF were retained. The other 178 scanned files were hash-identical during
+the conversion (separate documentation edits are outside that comparison).
+
+Already-CP/M legacy files with high-bit data, embedded controls or ambiguous
+post-EOF content were preserved, not cleaned or reinterpreted. In particular,
+the Turbo READ.ME contains high-bit legacy content and remains unchanged.
+
+The temporary recovery copy and per-file hash manifest are at
+`/tmp/xtgv-cpm-text-backup-uolsz7os`; this is not a permanent archive.
+
+The VTPAL BASIC test now copies the actual stored bytes without conversion.
+Its isolated native CP/M MBASIC tests passed: matrix, normal/ALT pairs, paper
+selection, ten palette choices, redraw and exit. This is not a TFT test.
+
+AGENTS.md, the mirror README and the terminal manual record the policy.
+No device transfer, firmware build, reflash or commit was performed.

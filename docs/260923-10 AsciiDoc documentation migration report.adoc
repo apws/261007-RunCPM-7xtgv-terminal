@@ -1,0 +1,92 @@
+= AsciiDoc documentation migration report
+:source-highlighter: highlight.js
+
+== Result
+
+Implemented on 260923 after Petr's sign-off of the
+link:260923-09%20AsciiDoc%20documentation%20migration%20plan.adoc[migration plan].
+AsciiDoc is now the canonical format for chronological project documentation.
+Every resulting document includes `:source-highlighter: highlight.js`.
+
+[cols="1,3",options="header"]
+|===
+|Scope |Result
+|Markdown |77 dated source files covered: 76 converted and one VTPAL duplicate
+consolidated into its existing, equivalent AsciiDoc source.
+|Plain text |Two dated notes converted into titled AsciiDoc with sections;
+the historical hardware layout and exact keyboard-command text retain literal formatting.
+|Images |Three PNGs moved into `docs/images/`, retaining their original
+`YYMMDD-HH` filenames and exact binary contents. Each has a same-stem AsciiDoc
+record at the original chronological location.
+|Existing AsciiDoc |Preserved, normalized where necessary, and validated.
+|Private material |The two dated `MIXWORX` documents were converted locally
+and remain excluded by the existing Git ignore rule.
+|PDFs |Untouched, per Petr's final clarification. No new dependencies on them.
+|Feature registry |Document paths updated in `features.tsv`; `FEATURES.md`
+regenerated with the existing tool. Its Markdown output format remains the
+separate deferred task.
+|Other consumers |Updated operational links in `AGENTS.md`, stable readmes,
+and two graphics-header comments. No executable firmware behavior changed.
+|===
+
+The broader execution inventory includes two `YYMMDD_` filenames and the
+document whose original `I/O` name creates a subdirectory. Their historical
+stems and locations are preserved. Stable non-dated readmes and vendor/recovery
+material remain in their existing formats.
+
+== Preservation and formatting checks
+
+* All resulting AsciiDoc documents render with Asciidoctor 2.0.26 without
+  warnings or errors.
+* Compared the 673 code/literal blocks and 57 tables parsed from the Markdown
+  sources with the converted document model; their payloads/counts match.
+* Compared 3,334 inline-code occurrences against rendered HTML. Explicit
+  passthrough protects control notation, spacing, punctuation, and commands.
+* Checked rendered relative document/image links and retained section IDs.
+* Verified all three moved PNGs against their original SHA-256 hashes.
+* Inspected a Chromium rendering of the VTPAL document, including its table.
+* Feature-registry validation and all six existing registry tests pass.
+* `git diff --check` passes.
+
+Document references inside examples were updated where they identify renamed
+source files. These intended path changes were included in the preservation
+comparison. One previously stale graphics-header link was corrected to its
+current `src/terminal/` location.
+
+== Conversion details worth retaining
+
+Pandoc 3.10.2 supplied the initial structural conversion. Its default output
+required explicit handling for several AsciiDoc rules:
+
+* Numeric or punctuation-leading section IDs use `[id="..."]`, preserving
+  the original Markdown anchor identity without hiding the following heading.
+* Literal inline code uses monospaced passthrough where required. Without this,
+  AsciiDoc can interpret `+^Q^D+` as superscript or replace `+...+` with an ellipsis.
+* Inline code adjacent to another word or a plus-sign substitution sometimes
+  needs unconstrained delimiters. Significant trailing spaces need the longer
+  passthrough form.
+* Heading levels were normalized while retaining heading text and order.
+  The native-specification A--F implementation stages became subsection
+  headings, preserving their labels and paragraph grouping.
+* Nested AsciiDoc examples in the Kate plan use distinct outer delimiters.
+* Relative `link:` references target editable `.adoc` sources for the local
+  browser-extension workflow. A future compiled book/site may choose `xref:`
+  and a dedicated publishing configuration.
+
+The earliest hardware brainstorm retains its original wording and line layout
+in verse sections, with the memory map in a literal block. It remains historical
+evidence rather than a rewritten current specification.
+
+== Recovery and publishing
+
+The migration retained a temporary source snapshot, including pre-existing
+uncommitted document edits, at `/tmp/xtgv-adoc-vwcz__2a/original` for this session.
+Petr's pre-existing documentation ZIP was also left untouched. The temporary
+snapshot is a convenience, not a substitute for committing the finished work.
+
+No commit, push, firmware rebuild, or device operation is included in this
+documentation conversion. Review/publishing can be requested separately.
+
+The source tree contains no generated HTML from the checks. PDF/ebook publishing
+can use these AsciiDoc sources later; the feature-ledger output conversion and
+Kate syntax-highlighting customization remain separate tasks.

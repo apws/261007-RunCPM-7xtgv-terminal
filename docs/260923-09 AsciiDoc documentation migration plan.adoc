@@ -1,0 +1,229 @@
+= AsciiDoc documentation migration plan
+:source-highlighter: highlight.js
+:toc:
+:sectnums:
+
+== Status and decision
+
+AsciiDoc is the mandatory canonical format for new chronological project
+documents. This plan covers conversion of the existing date-prefixed documents
+without changing their technical meaning or historical ordering.
+
+Petr signed off implementation on 260923, including dated image filenames.
+His final clarification leaves the two existing PDFs untouched for his later
+deletion; no new dependencies on those PDFs are introduced.
+
+The feature registry's canonical `features.tsv` store remains in scope only for
+updating document paths. Conversion of its generated human ledger from
+`FEATURES.md` to AsciiDoc is a separate later task.
+
+== Reviewed starting point
+
+The inventory on 260923 contains:
+
+[cols="1,1,3",options="header"]
+|===
+|Kind |Count |Treatment
+
+|Root date-prefixed Markdown
+|74
+|Convert to native `.adoc`; the temporary VTPAL Markdown/AsciiDoc duplicate
+becomes one canonical AsciiDoc document.
+
+|Root date-prefixed plain text
+|2
+|Convert manually to structured AsciiDoc rather than wrapping the complete file
+as an undifferentiated literal block.
+
+|Root date-prefixed standalone PNG
+|3
+|Move the binary images under `docs/images/` and create one chronological
+`.adoc` wrapper for each image.
+
+|Existing root date-prefixed AsciiDoc
+|2
+|Normalize and validate; do not reconvert.
+
+|Nested date-prefixed Markdown
+|3
+|Convert in place. The two uppercase `MIXWORX` filenames remain private and
+ignored by Git. The third document has `I/O` in its original path.
+
+|Date-prefixed PDF companions
+|2
+|Leave untouched and ignore during conversion, per the final sign-off. Petr
+will decide when to remove them; AsciiDoc is the editable publishing source.
+|===
+
+The current non-date-prefixed stable readmes, `features.tsv`, generated
+`FEATURES.md`, recovery manifests, and vendor/recovery trees are not part of
+this first textual migration.
+
+The execution inventory corrected the initial review's narrower filename
+pattern: two root documents use `YYMMDD_` rather than `YYMMDD-HH`, and one
+dated document's `I/O` name creates a nested directory. All are included.
+
+== Findings from the 260923 experiments
+
+`260923-08 VTPAL INI sections.adoc` renders successfully with Asciidoctor and
+demonstrates the required source-highlighter attribute.
+
+`260923-09 Kate AsciiDoc INI syntax highlighting Codex plan.adoc` originally
+nested a `----` listing inside another `----` listing. Asciidoctor therefore
+closed the outer example too early and reported a level-0 section in the body
+and an unterminated listing block. Its outer examples must use a different
+delimiter such as `....`.
+
+A Pandoc dry run proves that most Markdown structures can be translated, but it
+also exposes why a blind bulk rename is unsafe:
+
+* old documents contain skipped heading levels;
+* two root Markdown files have no level-1 title;
+* technical identifiers with underscores can become mechanically escaped and
+  unpleasant to edit;
+* document-local Markdown links retain `.md` until explicitly rewritten;
+* historical tables and large source-block-heavy plans need rendered review.
+
+Pandoc may therefore provide the first structural translation, but its output
+is not accepted until it is cleaned into readable native AsciiDoc and passes
+the validation gates below.
+
+== Canonical AsciiDoc shape
+
+Every converted chronological source document begins with:
+
+[source,asciidoc]
+....
+= Human-readable title
+:source-highlighter: highlight.js
+....
+
+Use native structures:
+
+* `==` and deeper section headings with no skipped levels;
+* `[source,LANG]` followed by a `----` listing block;
+* `|===` tables rather than Markdown pipe-table syntax;
+* `xref:` for repository AsciiDoc documents where practical;
+* `link:` for external URLs and preserved non-AsciiDoc artifacts;
+* `image::images/filename.png[descriptive alternative text]` for root wrappers;
+* `YYMMDD-HH ` prefixes on project-owned filenames under `docs/images/`, using
+  the source document/image-record date rather than the later migration date;
+* distinct outer delimiters when an example itself contains AsciiDoc block
+  delimiters.
+
+Do not rewrite spelling, historical conclusions, status, or signed decisions as
+part of format conversion. Obvious format defects may be corrected, but any
+substantive correction belongs in a later chronological note.
+
+== Migration procedure
+
+=== 1. Preserve and classify
+
+. Record `git status` and preserve all pre-existing uncommitted work.
+. Generate an exact manifest of date-prefixed source, image, and binary files.
+. Detect duplicate stems, missing titles, unbalanced Markdown fences, links,
+  and section-level anomalies before conversion.
+. Keep filename stems unchanged. Only the document extension changes; do not
+  normalize historical spaces, underscores, capitalization, or spelling during
+  this migration.
+
+=== 2. Convert textual documents in chronological batches
+
+. Process a small date-ordered batch rather than all files in one opaque pass.
+. Translate Markdown structure to AsciiDoc in temporary output.
+. Promote the first Markdown level-1 heading to the AsciiDoc document title.
+  For the two titleless documents, derive and review an explicit title from the
+  filename and content.
+. Insert `:source-highlighter: highlight.js` immediately in the document header.
+. Clean mechanical escaping, source language labels, heading hierarchy, tables,
+  callouts, quotations, and local links.
+. Replace the original through a Git-recognizable extension rename so history
+  remains easy to follow.
+
+The two TXT documents receive individual structural conversion. Historical raw
+text that is evidence rather than prose may remain inside a labeled
+`[source,text]` block, but each resulting file still receives a real title and
+short context.
+
+=== 3. Move and wrap standalone images
+
+. Create `docs/images/`.
+. Move each of the three root PNG files there without changing its already
+  chronological `YYMMDD-HH ` filename or its binary contents.
+. At the old chronological root position, create a same-stem `.adoc` document
+  containing a title, short context/caption, and an `image::` reference.
+. Update any direct image references to the new image path or to the wrapper,
+  according to whether the caller needs the picture or the historical record.
+
+New project-owned images must receive a `YYMMDD-HH ` filename when added.
+Imported vendor/recovery assets retain their original identity unless a later
+curation task explicitly adopts and renames them.
+
+=== 4. Leave existing PDFs untouched
+
+The final sign-off excludes the two PDFs from this migration. Do not convert,
+move, delete, or add references to them. Their corresponding `.adoc` documents
+become the canonical editable sources for any future HTML/PDF publishing.
+
+=== 5. Rewrite references atomically
+
+Update references in the same change that renames documents:
+
+* links between converted chronological documents;
+* `AGENTS.md` operational links;
+* source comments and stable readmes that name dated documents;
+* `docs/features.tsv` document paths;
+* the generated `FEATURES.md` links by running the existing generator, while
+  leaving its Markdown format unchanged for now.
+
+The existing feature-registry code is path-extension agnostic, so its format
+does not need to be redesigned merely to point at `.adoc` sources.
+
+=== 6. Validate each batch
+
+For every resulting `.adoc` document:
+
+. render it with `asciidoctor` and treat errors as migration failures;
+. review warnings rather than suppressing them globally;
+. verify balanced block delimiters and a single level-0 document title;
+. verify every relative `xref`, `link`, and `image` target exists;
+. scan for remaining Markdown fences, Markdown inline links, and accidental
+  `.md` references;
+. compare source-block counts, table counts, and headings with the original;
+. visually inspect representative dense documents, especially large plans,
+  tables, nested examples, and image wrappers.
+
+Then run:
+
+[source,bash]
+----
+python3 src/feature_registry.py check
+python3 src/feature_registry.py update-ledger
+git diff --check
+----
+
+Finally confirm that no unintended date-prefixed `.md`, `.txt`, or root `.png`
+files remain, excluding any explicitly preserved binary/reference exceptions.
+
+== Batching and rollback
+
+Recommended batches are chronological date groups, with a commit only after a
+whole batch renders and all links resolve. Conversion is content-preserving and
+does not require firmware rebuilds or hardware access.
+
+Before committing, rollback is simply restoration of the affected paths from
+Git while retaining unrelated working-tree changes. After committing, each
+chronological batch remains independently reviewable and revertible.
+
+== Separate follow-up: feature ledger format
+
+Later, convert the human `FEATURES.md` ledger and its generator to
+`FEATURES.adoc`. That follow-up should update generated-region markers, table
+emission, link syntax, tests, `AGENTS.md`, and the feature-registry design note
+together. `features.tsv` remains the canonical ASCII data source and does not
+need a format change.
+
+== Execution gate
+
+Accepted by Petr on 260923. Conversion is authorized with the PDF exception
+recorded above and the feature-ledger format migration deferred.

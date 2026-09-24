@@ -96,10 +96,11 @@ exclusive access; do not run picocom or a second direct helper alongside it.
 | Alt+Space | Show the active `#n name` for 1 s without changing the bank or current line |
 | Alt+# or Ctrl+] then # | Toggle temporary `## RAW` input bypass |
 | Alt+PageUp / Alt+PageDown | Select previous/next history list |
-| Ctrl+Shift or Alt+Shift+0 ... 9 | Backlight: off, then coarse 20 ... 100% |
+| Ctrl+Shift or Alt+Shift+0 ... 9 | Backlight: off, then coarse module-specific levels up to full ON |
 | Ctrl+Shift or Alt+Shift+PageUp / PageDown | Increase / decrease one of 32 brightness levels |
 | Ctrl+] then a / e | Same edge jumps; works without Alt mappings |
 | Ctrl+Shift or Alt+Shift+Home / End | Global viewport jump to left / right edge |
+| Ctrl+Alt+Shift+PgDn / PgUp | Zoom in (toward 4x) / out (toward 1x) |
 | Ctrl+] then 1 / 2 | Select ANSI / VT52 locally |
 | Ctrl+] then g or Shift+Alt+Backspace | GCLS: arm one local xterm-256 pixel plot without clearing the TFT |
 | Ctrl+] then r | Refresh PC mirror and TFT |
@@ -114,7 +115,7 @@ exclusive access; do not run picocom or a second direct helper alongside it.
 Each bank holds 100 lines and ignores empty, one-character and immediately
 duplicated entries. Arrow and six-key-block behavior is translated
 by the selected application profile. The firmware reads `A0:7XTGVTRM.INI` once
-at boot; see `../../docs/260910-01 terminal-application-profiles.md`.
+at boot; see `../../docs/260910-01 terminal-application-profiles.adoc`.
 Bank `#9 GENERAL` is reserved for Codex and other automated terminal actions,
 so those commands do not consume the user's active application history.
 
@@ -124,12 +125,19 @@ key bindings, and future application adapters. Toggle it again to restore the
 underlying bank; selecting `#0` through `#9` exits RAW and selects that bank.
 `Alt+Space` reports `[#n name]` normally or `[## RAW / #n]` in RAW mode.
 Private host controls are `CSI > 15 v` (toggle), `CSI > 16 v` (on), and
-`CSI > 17 v` (off). `CSI > 63 ; n v` controls the backlight: `n=0..32` sets
-off or an exact one of 32 active levels; `n=33` raises and `n=34` lowers one
+`CSI > 17 v` (off). `CSI > 63 ; n v` controls the backlight: `n=0..31` sets
+OFF (0), PWM (1..30), or full ON (31); legacy 32 aliases 31.
+`n=33` raises and `n=34` lowers one
 level. The remembered non-off value is safely written to `[global]`
 `backlight_level` in `7XTGVTRM.INI` after input settles; zoom changes also
 persist as `view_zoom` in the active HAL's display section. These sequences remain
 reserved even in RAW mode.
+
+Optional `[global] crt_rampup_ms=1500` gives a 1.5-second boot-only backlight
+warm-up after the themed frame is ready. Range 0..60000 ms; default 0 disables
+the effect. Ramp steps follow the target HAL's 32-entry duty table and do not
+alter the remembered brightness or write the INI. Explicit brightness controls
+cancel the ramp immediately. PgUp/PgDn stay within lit levels 1..31.
 
 Panning is manual, with only left/right edge jumps, even when the cursor moves
 off-screen. The hidden-content side is a full-height configurable-grey gutter,
@@ -165,7 +173,7 @@ Explicit keyboard bindings may be placed in `[global]` or `[bankN]` in
 modifier suffixes always appear in `_ctrl_shift_alt` order. `none` suppresses
 a key. The host keymap converts recognized physical keys to private input events before their
 identity is lost in the PTY; the ordinary host bytes are retained for
-unbound keys. See [the implementation note](../../docs/260920-16%20terminal%20keyboard%20override%20implementation.md)
+unbound keys. See [the implementation note](../../docs/260920-16%20terminal%20keyboard%20override%20implementation.adoc)
 for supported names, host limitations, and test status.
 
 The launchers resolve their own directory and pass arguments to the first
@@ -188,7 +196,7 @@ ESC). Remove conflicting mappings in that profile if necessary.
 | --- | --- | --- |
 | Ctrl+] then `a` / `e` | private helper action | Viewport left/right edge |
 | Ctrl+Shift or Alt+Shift+Home / End | global viewport action | Viewport left/right edge |
-| Ctrl+Shift or Alt+Shift+0 ... 9 | local terminal action | Backlight off / coarse 20 ... 100% |
+| Ctrl+Shift or Alt+Shift+0 ... 9 | local terminal action | Backlight off / coarse module-specific levels up to full ON |
 | Ctrl+Shift or Alt+Shift+PageUp / PageDown | local terminal action | Raise / lower one of 32 levels |
 
 ## Supported terminal subset
@@ -300,16 +308,22 @@ plot and repaints the gutter without a full-screen clear.
 The direct RP2350/ST7789 target renders one 6×10 scratch tile at a time and
 sends it to the display. Its write-only wiring cannot read native pixels back.
 The JC8048W535 ESP32-S3 target instead uses its documented rotated PSRAM canvas
-workaround; see [its implementation note](../../docs/260912-12%20JC8048W535%20software%20rotation%20and%20framebuffer%20implementation.md).
+workaround; see [its implementation note](../../docs/260912-12%20JC8048W535%20software%20rotation%20and%20framebuffer%20implementation.adoc).
 A future debug-only USB request can capture a deterministic 80×24 RGB image by
 replaying terminal cell buffers through the same renderer; it must use private
 diagnostic framing separate from CP/M and the normal screen mirror.
 
 ## Tests
 
+Editable text/UI palettes and `VTPAL` selection are described in the
+[palette manual](../../docs/260923-16%20palette%20presets%20manual%20and%20test%20notes.adoc).
+Normal inks are indices 0..7; emphasis uses bit 3 (indices 8..15).
+
 ```sh
 g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g -pthread src/terminal/terminal.cpp src/terminal/history_profiles.cpp tests/test_terminal.cpp -o /tmp/7xtgv-terminal-tests
 /tmp/7xtgv-terminal-tests
+g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g -pthread src/terminal/terminal.cpp src/terminal/history_profiles.cpp tests/test_palette.cpp -o /tmp/7xtgv-palette-tests
+/tmp/7xtgv-palette-tests
 g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g -pthread -Itests/stubs src/terminal/terminal.cpp src/terminal/history_profiles.cpp tests/test_runtime.cpp -o /tmp/7xtgv-runtime-tests
 /tmp/7xtgv-runtime-tests
 g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g -pthread -Itests/stubs src/terminal/terminal.cpp src/terminal/history_profiles.cpp tests/test_plot_position.cpp -o /tmp/7xtgv-plot-position-tests
@@ -329,11 +343,15 @@ end-to-end pseudo-TTY session and terminal restoration. LeakSanitizer needs an e
 
 On hardware: boot without USB, connect the helper, run `DIR VT*.*`, MBASIC, PRINT 2+2,
 then SYSTEM. Test panning while idle and during output; disconnect/reconnect;
-verify TFT remains lit. `tests/VTESTS.BAS` is the single MBASIC visual suite.
+verify TFT remains lit. `../../cpmdrive/A7 - MBASIC and VT tests/VTESTS.BAS`
+is the maintained MBASIC visual suite (ASCII, CRLF, Ctrl-Z). The older
+`tests/VTESTS.BAS` is a historical fixture, not the deployment source.
 Run `MBASIC`, then `RUN "VTESTS"`. Select 1–8 for ink, paper, attributes,
 DEC graphics, VT52, manual pan, the combined ANSI test, or the Mixworx code sample. Individual tests
 stay visible until Enter. A runs all eight automatically, then waits for Enter;
-Q returns to CP/M. The ink page shows all eight normal/dark pairs side by side.
+Q returns to CP/M. The ink page shows normal/ALT pairs in internal palette order,
+with internal indices, `irgbscmy` / `IRGBSCMY` letters and ANSI SGR numbers.
+Always use `SAVE "VTESTS",A` in MBASIC to retain editable ASCII source.
 BASIC-80 5.30 uses internal numbered GOSUB routines, not named procedures.
 This replaces the separate BASIC fixtures; no other BAS files are loaded.
 See VALIDATION.md for checks actually performed on the firmware build.

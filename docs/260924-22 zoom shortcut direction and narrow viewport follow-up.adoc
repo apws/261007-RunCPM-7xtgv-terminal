@@ -1,0 +1,61 @@
+= Zoom shortcut direction and narrow viewport follow-up
+:source-highlighter: highlight.js
+
+== Implemented host-only shortcut change
+
+At Petr's request, Ctrl+Alt+Shift+PgDn now zooms IN (1x toward 4x), and
+Ctrl+Alt+Shift+PgUp zooms OUT (toward 1x). Updated Konsole's keytab and both
+Kitty configurations, terminal helper help, firmware README and current manual.
+Bindings are outside the generated key-event blocks; the generator deliberately
+excludes the all-three-modifier Page keys from application event mappings.
+
+Firmware meaning is unchanged: CSI >66v increases zoom, CSI >67v decreases it.
+Ctrl+] then + / - retain those semantic directions. Absolute ZOOM levels,
+INI view_zoom and geometry, backlight controls and ordinary application Page
+keys are unchanged. No firmware build, flash, INI fetch/upload or device reset.
+
+All 33 test_helper.py tests pass, including exact Konsole/Kitty direction checks
+and unchanged +/- prefix output. Existing GUI windows may retain loaded keymaps;
+reopen the mirror to activate. For the currently connected W535 use explicit
+`tools/kon.sh --port /dev/ttyACM0 --target jc8048w535`, because the persisted host
+default still selects W550. The launcher installs its current Konsole keytab.
+No running mirror was stopped/reopened by this mapping edit.
+
+Later 260924 follow-up: repeated plain kon.sh failures were confirmed in the
+startup log as attempts to open absent /dev/ttyUSB0, not a zoom-key regression.
+An explicit W535 launch restored the visible mirror at A0. Petr then approved
+setting `tools/terminal.conf` to `XTGV_TARGET=jc8048w535`; default resolution now
+returns ES3_35 and /dev/ttyACM0. Shell syntax and all nine target-config tests
+pass. Plain kon.sh/kit.sh now select W535 when starting a new session; the
+already-running session was explicitly W535. Firmware target guard remains
+enabled. No firmware flash, device INI update or serial restart accompanied
+the default-setting edit. Earlier mentions of the W550 default are historical.
+
+== Logical width is not physical viewport width
+
+The failed VTGET case had a 40-column LOGICAL terminal, wrapping the protocol's
+69-character data rows. An 80-column logical terminal with a physically narrower
+viewport retains the complete rows in terminal memory and in the PC mirror.
+The host transfer reads that logical mirror, not the physically clipped TFT.
+Thus a small display does not itself block transfer, nor does it require zoom 1
+when the chosen zoom is configured with sufficient logical width. Use 80 columns
+as the established safe transfer geometry; height must also fit the protocol page.
+
+== Stepped panning and optional indicator: ideas only
+
+Current pan key routes call pan(0) and pan(viewportLimit()), i.e. left/right
+edge jumps. With 80 logical columns and 26 visible, these show columns 0..25
+and 54..79; columns 26..53 cannot be reached with those two jumps. The underlying
+pan(offset) already clamps arbitrary offsets, so the missing part is incremental
+navigation policy/key routing, not a different cell-memory format.
+
+A future page-step policy could advance by visible width and clamp at the last
+offset (for example 0,26,52,54), or choose an intentional overlap. Agree whether
+to change the existing modified Home/End meaning or add separate step controls;
+ordinary application Home/End should not be silently stolen. Automatic cursor
+following remains a separate decision. No pan behavior changed here.
+
+Petr also suggests optionally hiding the gutter cue and filling that strip with
+paper color. At present the renderer only has a gutter when physical width leaves
+residual pixels; W535 at 2x has none. An optional indicator policy is recorded,
+not implemented, and need not alter logical geometry or pan availability.

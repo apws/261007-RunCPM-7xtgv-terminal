@@ -1,0 +1,23 @@
+[id="reboot-serial-startup-capture"]
+= Reboot serial-startup capture
+:source-highlighter: highlight.js
+
+A controlled `+REBOOT.COM+` run on the JC8048W535 captured raw USB serial for seven seconds. The command cleared the terminal, displayed `+7xtgv reboot in 3 seconds...+`, and reset after the delay.
+
+The short text visible immediately after reset is emitted before the Arduino application starts:
+
+[source,text]
+----
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x28 (SPI_FAST_FLASH_BOOT)
+Saved PC:0x40381ffe
+... flash-loader lines ...
+entry 0x403c88ac
+----
+
+It is the ESP32-S3 ROM/second-stage boot-loader serial diagnostic, not a FreeRTOS message and not RunCPM output. It is not persistent. It arrives on the raw USB serial stream, then the 7xtgv terminal mirror clears and redraws for RunCPM.
+
+After it, the persistent visible startup output is the ordinary RunCPM banner: CPU model, BIOS/BDOS placement, SD mount, terminal profile, and terminal history status. RunCPM does not persist that banner by default.
+
+RunCPM has an optional, disabled `+DEBUGLOG+` build flag in `+src/7xtgv-vt100-runcpm/globals.h+`. Enabling it deletes and recreates `+RunCPM.log+` on each startup, then appends its detailed emulator/BDOS trace on the SD card. It is deliberately off: it is extensive and changes SD traffic and performance. FreeRTOS/Arduino logging is also not enabled in the current build.

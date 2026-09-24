@@ -1,0 +1,980 @@
+[id="7xtgv-xterm-256-cpm-image-demo-plan"]
+= 7xtgv xterm-256 CP/M Image Demo Plan
+:source-highlighter: highlight.js
+
+*Project:* 7xtgv terminal / RunCPM compatibility layer +
+*Purpose:* Stream arbitrary indexed-color images from CP/M through the existing VT100/ANSI xterm-256 path and render them as 1-pixel plot samples on RGB565 TFT displays. +
+*Status:* design/implementation plan +
+*Date:* 2026-09-12
+
+'''''
+
+[id="1-goal"]
+== 1. Goal
+
+Add a very small image-demo toolchain built around the xterm-256 support already implemented in the 7xtgv VT100/ANSI compatibility terminal.
+
+The intended path is:
+
+[source,text]
+----
+PNG/JPEG/BMP on PC
+      |
+      v
+png2x256.py
+      |
+      v
+raw xterm-256 indexed image (.X256)
+      |
+      v
+CP/M viewer: X256.COM
+      |
+      v
+ordinary ANSI/xterm-256 output stream
+      |
+      v
+7xtgv VT100/ANSI parser
+      |
+      v
+xterm-256 plot interpretation
+      |
+      v
+RGB565 TFT
+----
+
+No image decoder is required on the Z80 side. CP/M only reads an indexed image file and emits ordinary terminal control sequences plus printable bytes.
+
+The guest program remains unaware that the terminal interprets one printable cell as one plotted sample.
+
+'''''
+
+[id="2-design-principles"]
+== 2. Design principles
+
+[arabic]
+. *Do not introduce another terminal protocol.*
+* Use the existing VT100/ANSI parser.
+* Use normal xterm-style `+CSI 38;5;n m+` indexed foreground color.
+* The special behavior exists only in the terminal renderer/plot interpretation.
+. *Keep the CP/M viewer tiny.*
+* No PNG/JPEG/BMP decoding.
+* No large framebuffer.
+* No requirement that the whole image fit into Z80 RAM.
+* Stream one scanline or a small chunk at a time from disk.
+. *Keep the PC converter simple and deterministic.*
+* Convert source RGB to the exact xterm-256 palette.
+* Optionally resize/crop before conversion.
+* Optional dithering.
+. *Preserve the benchmark/demo value.*
+* The terminal still receives a real ANSI/xterm output stream from CP/M.
+* The viewer can intentionally run in either verbose or optimized output modes.
+. *Allow images larger than the physical TFT.*
+* The terminal renderer clips normally.
+* Future viewport panning can reveal other portions.
+* This deliberately tests clipping and large logical images.
+
+'''''
+
+[id="3-xterm-256-plot-behavior-required-from-7xtgv"]
+== 3. xterm-256 plot behavior required from 7xtgv
+
+The renderer should treat xterm color state as persistent, exactly as normal SGR semantics do.
+
+[source,text]
+----
+CSI 38;5;n m
+----
+
+sets the current foreground/plot color.
+
+In the special plot interpretation:
+
+[source,text]
+----
+printable byte -> emit one logical image sample using current foreground color
+----
+
+Therefore this:
+
+[source,text]
+----
+ESC[38;5;196m##########
+----
+
+produces ten red samples, not only one.
+
+This is preferred over requiring a new SGR sequence before every pixel.
+
+[id="31-line-handling"]
+=== 3.1 Line handling
+
+Recommended plot cursor behavior:
+
+[source,text]
+----
+CR    -> x = 0
+LF    -> y = y + 1
+----
+
+If the CP/M viewer emits `+CR LF+` per line, each image row starts at x=0.
+
+[id="32-plot-exitreset"]
+=== 3.2 Plot exit/reset
+
+[source,text]
+----
+CSI 0 m
+----
+
+resets SGR state and terminates the active colored plot stream cleanly.
+
+The renderer may then return to ordinary terminal text rendering according to the currently selected terminal view mode.
+
+'''''
+
+[id="4-initial-x256-file-format"]
+== 4. Initial `+.X256+` file format
+
+Use an intentionally trivial raw indexed format.
+
+[id="41-version-1-header"]
+=== 4.1 Version 1 header
+
+Suggested little-endian layout:
+
+[source,text]
+----
+offset  size  meaning
+------  ----  -----------------------------------------
+0       4     magic: "X256"
+4       1     format version = 1
+5       1     flags
+6       2     width  (uint16 little-endian)
+8       2     height (uint16 little-endian)
+10      ...   pixel data, row-major, one byte per pixel
+----
+
+Initial flags:
+
+[source,text]
+----
+bit 0   reserved for RLE payload
+bit 1   reserved for future transparency/mask semantics
+bit 2-7 reserved, must be zero
+----
+
+For the first implementation:
+
+[source,text]
+----
+flags = 0
+----
+
+and each pixel is directly one xterm palette index `+0..255+`.
+
+[id="42-raw-image-size-examples"]
+=== 4.2 Raw image size examples
+
+[source,text]
+----
+480 x 320  =   153,600 bytes pixel data
+640 x 480  =   307,200 bytes
+800 x 600  =   480,000 bytes
+1024 x 768 =   786,432 bytes
+1280 x 800 = 1,024,000 bytes
+----
+
+These files do not need to fit in Z80 RAM because the viewer streams them from disk.
+
+'''''
+
+[id="5-optional-x256-rle-extension"]
+== 5. Optional `+.X256+` RLE extension
+
+RLE is useful but should be a second step, not required for the first working demo.
+
+[id="51-why-rle-may-help"]
+=== 5.1 Why RLE may help
+
+Images with large flat regions can become much smaller, and the CP/M viewer can emit long same-color runs efficiently.
+
+It also maps naturally to persistent SGR state:
+
+[source,text]
+----
+run color changes -> emit one CSI 38;5;n m
+run length        -> emit N printable plot bytes
+----
+
+[id="52-simple-rle-record-proposal"]
+=== 5.2 Simple RLE record proposal
+
+When header `+flags bit 0 = 1+`, payload can contain:
+
+[source,text]
+----
+uint16 count
+uint8  color_index
+----
+
+repeated until `+width * height+` samples have been reconstructed.
+
+Suggested semantics:
+
+* little-endian `+count+`
+* `+count >= 1+`
+* runs may cross scanline boundaries in the file
+* viewer internally tracks x/y and emits CR/LF as required at row boundaries
+
+A 16-bit count keeps the decoder tiny and avoids escape-value tricks.
+
+Alternative later format, if desired:
+
+[source,text]
+----
+uint8 count
+uint8 color
+----
+
+with `+count=0+` meaning 256, but the 16-bit version is simpler and clearer.
+
+[id="53-recommendation"]
+=== 5.3 Recommendation
+
+Implement in this order:
+
+[source,text]
+----
+v1 raw X256 first
+then optional v1+RLE using flags bit 0
+----
+
+Do not delay the first viewer for compression.
+
+'''''
+
+[id="6-pc-side-converter-png2x256py"]
+== 6. PC-side converter: `+png2x256.py+`
+
+Use Python {plus} Pillow.
+
+[id="61-required-input"]
+=== 6.1 Required input
+
+Support at minimum:
+
+[source,text]
+----
+PNG
+JPEG
+BMP
+----
+
+Anything Pillow can load is acceptable.
+
+[id="62-required-output"]
+=== 6.2 Required output
+
+[source,text]
+----
+.X256 raw indexed file
+----
+
+with the exact 256-entry xterm palette.
+
+[id="63-xterm-palette-construction"]
+=== 6.3 xterm palette construction
+
+Indices:
+
+[source,text]
+----
+0..15      base/system colors
+16..231    6 x 6 x 6 RGB cube
+232..255   grayscale ramp
+----
+
+Color-cube levels:
+
+[source,text]
+----
+0, 95, 135, 175, 215, 255
+----
+
+For index `+n+` in `+16..231+`:
+
+[source,text]
+----
+k = n - 16
+r = level[k / 36]
+g = level[(k / 6) % 6]
+b = level[k % 6]
+----
+
+Grayscale indices `+232..255+`:
+
+[source,text]
+----
+8, 18, 28, ... 238
+----
+
+The converter should build a fixed 256-color RGB palette and map source pixels to the nearest palette entry.
+
+[id="64-quantization-options"]
+=== 6.4 Quantization options
+
+Required modes:
+
+[source,text]
+----
+--dither none
+--dither fs
+----
+
+where `+fs+` means Floyd-Steinberg dithering.
+
+Recommended default:
+
+[source,text]
+----
+none
+----
+
+because it is deterministic and preserves pixel-art edges.
+
+For photographs, `+--dither fs+` should often look substantially better.
+
+[id="65-resizecrop-options"]
+=== 6.5 Resize/crop options
+
+Useful options:
+
+[source,text]
+----
+--width N
+--height N
+--fit contain
+--fit cover
+--crop X,Y,W,H
+----
+
+For first implementation, it is enough to support:
+
+[source,text]
+----
+--size WIDTHxHEIGHT
+----
+
+with a simple resize.
+
+Do not require resizing: larger-than-screen images are a desired test case.
+
+[id="66-optional-rle-generation"]
+=== 6.6 Optional RLE generation
+
+Later:
+
+[source,text]
+----
+--rle
+----
+
+sets header flag bit 0 and writes `+(count, color)+` runs instead of raw bytes.
+
+'''''
+
+[id="7-cpm-viewer-x256com"]
+== 7. CP/M viewer: `+X256.COM+`
+
+The viewer should be as small and boring as possible.
+
+[id="71-command-line"]
+=== 7.1 Command line
+
+Suggested syntax:
+
+[source,text]
+----
+X256 IMAGE.X25
+----
+
+or:
+
+[source,text]
+----
+X256 IMAGE.X256
+----
+
+Use whichever extension is convenient; `+.X256+` is clearer but longer than classic CP/M naming conventions.
+
+A CP/M-friendly 3-character extension could be:
+
+[source,text]
+----
+.X25
+----
+
+Recommended initial choice:
+
+[source,text]
+----
+filename.X25
+----
+
+while the file magic remains `+X256+`.
+
+[id="72-operation"]
+=== 7.2 Operation
+
+[arabic]
+. Open file.
+. Validate magic/version.
+. Read width/height.
+. Reset local output state.
+. Stream pixels.
+. Emit xterm indexed foreground color only when it changes.
+. Emit one printable plot byte per sample.
+. At row end emit CR/LF.
+. At image end emit `+CSI 0 m+`.
+. Close file and return to CP/M.
+
+[id="73-printable-plot-byte"]
+=== 7.3 Printable plot byte
+
+Use a normal ASCII character, for example:
+
+[source,text]
+----
+#
+----
+
+The 7xtgv plot renderer ignores glyph shape and treats each printable byte as one sample, so the exact byte does not matter.
+
+Using `+#+` avoids dependence on CP437 or extended character sets.
+
+[id="74-color-output-optimization"]
+=== 7.4 Color-output optimization
+
+Track the previous color:
+
+[source,c]
+----
+if (pixel != previous_pixel) {
+    emit_sgr_256(pixel);
+    previous_pixel = pixel;
+}
+emit('#');
+----
+
+This should be the normal viewer mode.
+
+It preserves normal terminal semantics and can reduce output drastically on flat-color images.
+
+[id="75-optional-benchmark-mode"]
+=== 7.5 Optional benchmark mode
+
+A diagnostic option may intentionally emit SGR for every pixel:
+
+[source,text]
+----
+X256 /V IMAGE.X25
+----
+
+where `+/V+` means verbose/full stream.
+
+Then every sample becomes roughly:
+
+[source,text]
+----
+ESC [ 3 8 ; 5 ; n m #
+----
+
+This is useful as a deliberate terminal-output stress benchmark and resembles the existing Mandelbrot demos more closely.
+
+Normal viewing should use color-change suppression.
+
+'''''
+
+[id="8-z80-memory-strategy"]
+== 8. Z80 memory strategy
+
+Do not allocate a full image buffer.
+
+Possible implementations:
+
+=== Minimal byte-stream implementation
+
+[source,text]
+----
+read small file chunk
+process pixels immediately
+----
+
+=== Scanline implementation
+
+For width ++<++= some configured limit:
+
+[source,text]
+----
+read one row
+emit one row
+----
+
+A row buffer is convenient but not required.
+
+Examples:
+
+[source,text]
+----
+480 pixels  -> 480-byte indexed row buffer
+1280 pixels -> 1280-byte indexed row buffer
+----
+
+Even on CP/M this is manageable, but the simplest stream decoder can avoid any width-dependent allocation.
+
+RLE decoding likewise requires only a run counter and current color.
+
+'''''
+
+[id="9-output-volume-expectations"]
+== 9. Output-volume expectations
+
+The raw `+.X256+` file contains exactly one byte per source pixel.
+
+The ANSI stream can be much larger.
+
+=== Worst/verbose case
+
+If every pixel receives its own color escape, each pixel may require around 10-12 terminal bytes.
+
+For 480x320:
+
+[source,text]
+----
+153,600 image samples
+roughly 1.5-1.8 MB terminal output
+----
+
+On a classic real Z80 this can take a very long time and is acceptable as a stress/demo case.
+
+=== Optimized color-change case
+
+For runs of equal colors:
+
+[source,text]
+----
+one SGR sequence per color run
+one printable byte per pixel
+----
+
+This can be much faster for posters, pixel art, diagrams, and flat backgrounds.
+
+Photographs will still generate many color changes.
+
+'''''
+
+[id="10-display-behavior"]
+== 10. Display behavior
+
+The CP/M viewer should not know the physical TFT resolution.
+
+The terminal renderer handles:
+
+[source,text]
+----
+logical plot coordinates
+viewport origin
+current plot scale
+physical clipping
+RGB565 conversion
+----
+
+=== Examples
+
+[id="480x320-image-on-480x320-tft"]
+==== 480x320 image on 480x320 TFT
+
+At 1 physical pixel per logical sample:
+
+[source,text]
+----
+exact full-screen fit
+----
+
+[id="640x480-image-on-480x320-tft"]
+==== 640x480 image on 480x320 TFT
+
+[source,text]
+----
+top-left 480x320 visible
+remainder clipped
+----
+
+Future viewport panning may reveal the rest.
+
+[id="1280x800-image-on-1280x800-tft"]
+==== 1280x800 image on 1280x800 TFT
+
+[source,text]
+----
+exact fit on the ESP32-P4 10-inch panel
+----
+
+This makes the same CP/M viewer useful across all 7xtgv display modules.
+
+'''''
+
+[id="11-relationship-to-7xtgv-zoom-levels"]
+== 11. Relationship to 7xtgv zoom levels
+
+The xterm-256 image plot remains part of the active VT100/ANSI terminal mode.
+
+It does *not* require another parser.
+
+The plot interpretation may use the same selected physical sample-size ladder as the existing view scaling, if desired:
+
+[source,text]
+----
+6x10
+3x5
+2x3
+1x2
+1x1
+----
+
+For image mode these dimensions mean *sample block size*, not character rendering.
+
+Recommended practical image modes:
+
+[source,text]
+----
+1x1   canonical image view
+2x2   optional simple enlargement if later added
+----
+
+The existing terminal zoom controls may still be used experimentally if current implementation already maps plot samples through them.
+
+No attempt should be made to render text glyphs inside an image sample.
+
+'''''
+
+[id="12-suggested-first-demo-images"]
+== 12. Suggested first demo images
+
+Use several categories because they expose different renderer characteristics.
+
+[id="a-xterm-palette-chart"]
+=== A. xterm palette chart
+
+A generated 256-color reference image.
+
+Purpose:
+
+[source,text]
+----
+validate palette mapping
+validate RGB565 conversion
+spot swapped channels or incorrect indices
+----
+
+[id="b-smooth-rgb-gradients"]
+=== B. Smooth RGB gradients
+
+Purpose:
+
+[source,text]
+----
+inspect cube quantization
+compare dithering on/off
+look for banding
+----
+
+[id="c-pixel-art--retro-screenshot"]
+=== C. Pixel art / retro screenshot
+
+Purpose:
+
+[source,text]
+----
+check sharp edges
+check no-dither mode
+exercise repeated color runs
+----
+
+[id="d-photograph"]
+=== D. Photograph
+
+Purpose:
+
+[source,text]
+----
+stress 256-color quantization
+stress terminal throughput
+compare Floyd-Steinberg dithering
+----
+
+[id="e-oversized-image-eg-640x480-or-1024x768"]
+=== E. Oversized image, e.g. 640x480 or 1024x768
+
+Purpose:
+
+[source,text]
+----
+verify clipping
+later verify panning
+verify no dependency on physical display dimensions
+----
+
+[id="f-1280x800-image"]
+=== F. 1280x800 image
+
+Purpose:
+
+[source,text]
+----
+future ESP32-P4 / 10-inch full-resolution demo
+----
+
+'''''
+
+[id="13-validation-tests"]
+== 13. Validation tests
+
+=== Converter tests
+
+* Verify header magic/version.
+* Verify width/height.
+* Verify exact payload length for raw mode.
+* Verify palette index range `+0..255+`.
+* Generate a 256-color test chart with known indices.
+* Compare dithering enabled/disabled output.
+
+=== Viewer tests
+
+* Invalid magic rejected.
+* Unsupported version rejected.
+* Truncated file detected.
+* 1x1 image works.
+* 256x1 palette strip works.
+* CR/LF row transitions correct.
+* SGR emitted only on color changes in optimized mode.
+* `+CSI 0m+` emitted on clean completion and ideally on error exit.
+
+=== Terminal tests
+
+* `+CSI 38;5;n m+` changes current plot color.
+* Repeated printable bytes after one SGR generate repeated same-color samples.
+* CR resets x.
+* LF advances y.
+* Off-screen pixels are safely clipped.
+* Plot mode exit returns to normal VT100/ANSI rendering.
+* RGB565 mapping matches known palette test colors.
+
+'''''
+
+[id="14-benchmark-modes-worth-keeping-separate"]
+== 14. Benchmark modes worth keeping separate
+
+It is useful to distinguish three measurements.
+
+[id="1-image-conversion-benchmark"]
+=== 1. Image conversion benchmark
+
+PC-side only. Not relevant to Z80 speed.
+
+[id="2-cpm-terminal-stream-benchmark"]
+=== 2. CP/M terminal-stream benchmark
+
+Measure elapsed time from `+X256.COM+` start to completion.
+
+Includes:
+
+[source,text]
+----
+CP/M file I/O
+Z80/emulated-Z80 execution
+integer decimal conversion for SGR indices
+terminal output calls
+ANSI parser
+TFT renderer
+----
+
+[id="3-pure-renderer-benchmark"]
+=== 3. Pure renderer benchmark
+
+Host/firmware-side diagnostic feeding prepared indexed samples directly.
+
+This isolates:
+
+[source,text]
+----
+palette lookup
+clipping
+RGB565 write rate
+Arduino_GFX/display controller throughput
+----
+
+Do not confuse this with the CP/M demo benchmark.
+
+'''''
+
+[id="15-performance-notes-for-real-z80-versus-runcpm"]
+== 15. Performance notes for real Z80 versus RunCPM
+
+On a classic Z80, large photographs may be intentionally slow because:
+
+* disk reads are slow,
+* decimal ANSI color sequences are verbose,
+* BDOS/console output overhead is significant,
+* serial transport may dominate on real hardware,
+* highly varied photographs cause many color changes.
+
+This is acceptable.
+
+The main target for larger images is the much faster RunCPM environment on MCUs, especially the future ESP32-P4 implementation.
+
+The same file and CP/M viewer should nevertheless remain valid on actual Z80 CP/M systems.
+
+'''''
+
+[id="16-non-goals"]
+== 16. Non-goals
+
+For the first implementation, do *not* add:
+
+* PNG/JPEG decoder to CP/M
+* GIF animation
+* Unicode half-block tricks
+* SIXEL
+* ReGIS
+* Tektronix graphics
+* kitty/iTerm image protocols
+* truecolor `+38;2;r;g;b+`
+* guest-visible knowledge of TFT resolution
+* guest-side framebuffer
+* arbitrary scaling/filtering in the CP/M viewer
+* sophisticated compression
+
+The point is specifically to exploit the already-working xterm-256 ANSI path in the simplest possible way.
+
+'''''
+
+[id="17-implementation-order"]
+== 17. Implementation order
+
+=== Phase 1 - minimal raw demo
+
+[arabic]
+. Confirm persistent-color behavior in 7xtgv plot mode.
+. Implement `+.X25/.X256+` raw header.
+. Implement `+png2x256.py+` without dithering.
+. Implement `+X256.COM+` streaming raw files.
+. Add color-change suppression.
+. Test 256-color chart.
+. Test 480x320 image.
+. Test oversized 640x480 image and clipping.
+
+=== Phase 2 - image quality
+
+[arabic]
+. Add Floyd-Steinberg dithering.
+. Add source resize option.
+. Test photograph versus pixel art.
+. Add several prepared demo images.
+
+=== Phase 3 - compression/benchmark options
+
+[arabic]
+. Add optional RLE payload.
+. Add `+/V+` full-SGR-per-pixel benchmark mode.
+. Compare raw versus RLE disk sizes.
+. Compare optimized versus verbose terminal-output time.
+
+=== Phase 4 - future viewport integration
+
+[arabic]
+. Use existing/future terminal viewport panning for oversized images.
+. Test on 320x240, 480x320 and 1280x800 targets.
+. Keep all display dimensions outside the CP/M file/viewer format.
+
+'''''
+
+[id="18-minimal-pseudocode"]
+== 18. Minimal pseudocode
+
+=== PC converter
+
+[source,python]
+----
+img = load_image(filename)
+img = optional_resize(img)
+
+palette = build_xterm256_palette()
+indices = quantize(img, palette, dithering=option)
+
+write_header("X256", version=1, flags=0, width=img.width, height=img.height)
+write(indices)
+----
+
+[id="cpm-viewer"]
+=== CP/M viewer
+
+[source,c]
+----
+read_header();
+prev = -1;
+
+for (y = 0; y < height; ++y) {
+    for (x = 0; x < width; ++x) {
+        p = read_byte();
+
+        if (verbose || p != prev) {
+            emit("\x1b[38;5;");
+            emit_decimal(p);
+            emit('m');
+            prev = p;
+        }
+
+        emit('#');
+    }
+
+    emit('\r');
+    emit('\n');
+}
+
+emit("\x1b[0m");
+----
+
+=== RLE viewer extension
+
+[source,c]
+----
+while (samples_remaining) {
+    count = read_u16();
+    color = read_u8();
+
+    set_color_if_needed(color);
+
+    while (count--) {
+        emit('#');
+        advance_x_y_and_emit_crlf_at_row_end();
+    }
+}
+----
+
+'''''
+
+[id="19-final-recommendation"]
+== 19. Final recommendation
+
+Start with *raw one-byte-per-pixel `+.X25+` {plus} color-change suppression*.
+
+That combination is small, transparent, easy to debug, and already sufficient for arbitrary 256-color images much larger than the current 480x320 TFT.
+
+Treat RLE as a later optional storage optimization, not as part of the minimum viable demo.
+
+The important architectural property is retained throughout:
+
+____
+CP/M emits ordinary ANSI/xterm-256 text output; 7xtgv alone decides that, in the selected plot interpretation, each printable byte represents one RGB565 image sample.
+____

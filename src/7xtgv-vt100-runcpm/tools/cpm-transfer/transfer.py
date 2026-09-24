@@ -12,6 +12,9 @@ import termios
 import time
 
 root = Path(__file__).resolve().parents[2]
+if str(root / 'tools') not in sys.path:
+    sys.path.insert(0, str(root / 'tools'))
+from target_config import resolve_port
 spec = importlib.util.spec_from_file_location('smoke', root/'tests/hardware_smoke.py')
 smoke = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(smoke)
@@ -24,27 +27,101 @@ def user_area(value):
     return int(value, 16)
 
 class Link:
-    def __init__(self, port='/dev/ttyACM0', raw=True):
-        self.fd = os.open(port, os.O_RDWR|os.O_NOCTTY|os.O_NONBLOCK)
-        fcntl.ioctl(self.fd, termios.TIOCEXCL)
-        smoke.bridge.configure_serial(self.fd)
+    def __init__(self, port=None, raw=True, *, fd=None):
+        self.owns_fd = fd is None
+        self.fd = os.open(resolve_port(port), os.O_RDWR|os.O_NOCTTY|os.O_NONBLOCK) if fd is None else fd
+        if self.owns_fd:
+            fcntl.ioctl(self.fd, termios.TIOCEXCL)
+            smoke.bridge.configure_serial(self.fd)
         self.screen = smoke.Mirror()
-        self.send('\x1b[>0v')
-        self.pump(.2)
+        self.raw = False
+        self.original_profile = None
+        self.original_raw = False
+        self.closed = False
+        if not self.owns_fd:
+            return  # The mirror verifies CCP before enabling the transfer session.
+        try:
+            self.prepare(raw)
+        except BaseException:
+            self.close()
+            raise
+
+    def profile_notice(self, commands, expected=None):
+        """Read the existing Alt+Space overlay, not the effective CCP bank."""
+        self.pump(.05)
+        self.screen = smoke.Mirror()
+        self.send(commands + '\x1b[>62v')
+        def notice(text):
+            for row in text.splitlines():
+                match = re.match(r'^\[## RAW / #([0-9])\]', row)
+                if match:
+                    state = (int(match[1]), True)
+                else:
+                    match = re.match(r'^\[#([0-9]) ', row)
+                    if not match:
+                        continue
+                    state = (int(match[1]), False)
+                if expected is None or state == expected:
+                    return state
+            return None
+        text = self.until(lambda text: notice(text) is not None,
+                          timeout=3, check_errors=False)
+        return notice(text)
+
+    def require_ccp(self):
+        self.screen = smoke.Mirror()
+        self.send('\x1b[>62v')
+        self.pump(.5)
+        self.until(lambda t: re.fullmatch(r'[A-P](?:[0-9]|1[0-5]|[A-F])?>',
+                   ''.join(self.screen.rows[self.screen.y]).strip()) is not None,
+                   timeout=3, check_errors=False)
+
+    def prepare(self, raw=True):
+        if self.original_profile is not None:
+            raise RuntimeError('Transfer session already prepared')
+        bank, was_raw = self.profile_notice('\x1b[>14v')
+        if was_raw:
+            # Older firmware's RAW peek uses the effective bank (0 at CCP).
+            # RawOff peeks at selectedBank, without running on_select.
+            try:
+                bank, _ = self.profile_notice('\x1b[>17v\x1b[>14v')
+            except BaseException:
+                self.send('\x1b[>16v')
+                raise
+        self.original_profile, self.original_raw = bank, was_raw
         # Automated transfers use the reserved #9 history/profile bank.
-        self.send('\x1b[>29v')
-        self.pump(1.1)
+        # RawOn/Off replaces the selection notice with a peek, cancelling
+        # on_select even if the user configured it for bank 9.
+        self.send('\x1b[>29v' + ('\x1b[>16v' if raw else '\x1b[>17v'))
         self.raw = raw
-        if raw:
-            self.send('\x1b[>16v')
-            self.pump(.1)
+        self.pump(1.1)
 
     def close(self):
-        if self.raw:
-            self.send('\x1b[>17v')
-            self.pump(.1)
-        fcntl.ioctl(self.fd, termios.TIOCNXCL)
-        os.close(self.fd)
+        if self.closed:
+            return
+        self.closed = True
+        try:
+            if self.original_profile is not None:
+                state = (self.original_profile, self.original_raw)
+                # One write: restore bank, then replace its on_select notice
+                # with a RAW-state peek. Never launch its command/change DU.
+                commands = f'\x1b[>{20 + state[0]}v' + (
+                    '\x1b[>16v' if state[1] else '\x1b[>17v')
+                try:
+                    self.profile_notice(commands, expected=state)
+                    self.pump(1.1)
+                except (OSError, RuntimeError, TimeoutError) as error:
+                    raise RuntimeError(
+                        f'Could not confirm restored profile #{state[0]}; '
+                        'check Alt+Space before continuing.') from error
+                self.original_profile = None
+                self.raw = state[1]
+        finally:
+            if self.owns_fd:
+                try:
+                    fcntl.ioctl(self.fd, termios.TIOCNXCL)
+                finally:
+                    os.close(self.fd)
 
     def pump(self, seconds=.02):
         end = time.monotonic()+seconds
@@ -72,23 +149,26 @@ class Link:
         # make the next transaction fail before its command has run.
         self.screen = smoke.Mirror()
 
-    def until(self, predicate, timeout=15):
+    def until(self, predicate, timeout=15, check_errors=True):
         end=time.monotonic()+timeout
         while time.monotonic()<end:
             text=self.screen.text()
-            if 'XFER ERROR' in text:raise RuntimeError(text)
+            if check_errors and 'XFER ERROR' in text:raise RuntimeError(text)
             if predicate(text):return text
             self.pump()
         raise TimeoutError(self.screen.text())
 
-    def user(self, user):
+    def user(self, user, drive='A'):
         assert 0<=user<16
+        assert drive in 'ABCDEFGHIJKLMNOP'
         self.fresh_screen()
-        self.command(f'A{user}:')
+        self.command(f'{drive}{user}:')
         # A verified lazy-history save temporarily pauses RunCPM. Slow SD
         # targets can therefore echo the drive/user command well before CCP
         # gets a chance to print its new prompt.
-        self.until(lambda t:f'A{user}>' in t, timeout=60)
+        self.until(lambda t: re.fullmatch(
+            rf'{drive}(?:{user}|{user:X})?>',
+            ''.join(self.screen.rows[self.screen.y]).strip()) is not None, timeout=60)
 
     def get(self, name, progress=None):
         assert re.fullmatch(r'[A-Z0-9_-]{1,8}\.[A-Z0-9]{1,3}', name)
@@ -97,12 +177,15 @@ class Link:
         data=bytearray();record=0
         while True:
             marker=f'REC{record:04X}'
+            tagged_marker=f'R2C{record:04X}'
             endmarker=f'END{record:04X}'
             def complete_rows(text):
-                if not text.startswith(marker) or f'READY{record:04X}' not in text:
+                tagged = text.startswith(tagged_marker)
+                if not (tagged or text.startswith(marker)) or f'READY{record:04X}' not in text:
                     return None
                 rows=text.splitlines()[1:5]
-                return rows if len(rows)==4 and all(re.fullmatch('[0-9A-F]{64}', r) for r in rows) else None
+                pattern = '[0-9A-F]{64}' + (f':{record:04X}' if tagged else '')
+                return [r[:64] for r in rows] if len(rows)==4 and all(re.fullmatch(pattern, r) for r in rows) else None
             # Mirror cells arrive incrementally. READY can be visible before
             # the four hex rows are complete; a snapshot request in raw mode
             # would instead reach VTGET as input and abort the transfer.
@@ -162,7 +245,8 @@ def cpm_text(data):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--port',default='/dev/ttyACM0')
+    p.add_argument('--port',help='Serial device; otherwise XTGV_PORT or selected target data')
+    p.add_argument('--target',help='Target for port defaults; otherwise XTGV_TARGET')
     p.add_argument('--user',type=user_area,default=0,metavar='0-F',
                    help='CP/M mirror user area in hexadecimal (default: 0)')
     p.add_argument('--no-raw',action='store_true',
@@ -175,6 +259,10 @@ if __name__=='__main__':
     p.add_argument('files',nargs='+')
     p.add_argument('--directory',type=Path,default=Path('.'))
     args=p.parse_args()
+    try:
+        args.port = resolve_port(args.port, args.target)
+    except RuntimeError as error:
+        p.error(str(error))
     paths=[Path(f) for f in args.files]
     progress=None; uploadData={}
     if args.action=='put':

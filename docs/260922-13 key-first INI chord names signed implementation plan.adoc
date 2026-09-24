@@ -1,0 +1,78 @@
+[id="key-first-ini-chord-names--signed-implementation-plan"]
+= Key-first INI chord names — signed implementation plan
+:source-highlighter: highlight.js
+
+Signed off by Petr on 260922. This supersedes the modifier-first spelling for ordinary `+[global]+` and `+[bankN]+` key bindings. Historical design documents remain unchanged as records of the syntax used when they were written.
+
+== Decision
+
+The sole accepted ordinary key-chord name grammar becomes:
+
+[source,text]
+----
+<key>[_ctrl][_shift][_alt]
+----
+
+The base key is always first. Present modifier suffixes must appear in the fixed order `+ctrl+`, `+shift+`, `+alt+`. Names remain case-insensitive.
+
+Examples:
+
+[source,ini]
+----
+left=send:\e[D
+left_ctrl=send:\e[1;5D
+left_shift=send:\x91
+up_alt=history_previous
+page_up_ctrl=send:\^Q\^E
+delete_ctrl_shift=send:\^T
+s_ctrl=send:\^K\^S
+z1_ctrl_shift=send:\xDF
+f5_ctrl_shift_alt=send:\eQ
+----
+
+The former `+<modifiers>_<key>+` spelling, such as `+ctrl_left+` or `+ctrl_shift_alt_f5+`, is rejected. There is no temporary dual parser. Petr will pause device testing until the converted INI and matching firmware are ready.
+
+== Scope and boundaries
+
+Implementation is deliberately narrow:
+
+[arabic]
+. Parse a known base-key name first, including compound names such as `+page_up+` and `+kp_decimal+`.
+. Parse zero or more modifier suffixes in canonical order.
+. Reject repeated, missing, unknown or out-of-order suffixes.
+. Preserve the existing validity rule that plain and Shift-only letters, and the unmodified dead-key positions, are not configurable chords.
+. Route all bank chord bindings through the existing `+KeyChord+` identity and legacy fixed-key storage where applicable; use sparse storage for the remaining chords.
+. Keep global/bank precedence, input presets, `+none+`, history actions, `+send:+`/`+send_cancel:+`, and the 16-byte decoded payload unchanged.
+
+The following are not renamed or redesigned:
+
+* internal C{plus}{plus} enums such as `+AppCtrlLeft+`;
+* numeric modifier bits in the private host event `+CSI >70;1;...v+`;
+* Konsole/Kitty native shortcut syntax;
+* the separate global values `++exit_key=lalt+ralt+escape++` and `++clear_key=lalt+ralt+delete++`.
+
+== Files and migration
+
+* Change `+src/terminal/history_profiles.cpp+` and its host tests.
+* Convert the fetched `+cpmdrive/A0 - CP-M core/7XTGVTRM.INI+` and the maintained `+7XTGVTRM.txt+` template mechanically to key-first names.
+* Update the current terminal manual, firmware README and current implementation note. Do not rewrite older signed plans merely to hide the former grammar.
+* Add a short supersession note where a still-current document otherwise presents modifier-first syntax as canonical.
+
+The fetched live INI contains 64 active and 12 commented prefixed chord names. A dry-run conversion found no resulting name collision within a section. The reference template contains 24 active and 176 commented names to convert.
+
+== Required host verification
+
+Before any device update:
+
+[arabic]
+. Unit-test every modifier subset over representative simple and compound base keys.
+. Test letters, Czech physical-position names, function keys, main-row keys and keypad keys.
+. Verify that old prefix spelling, reordered suffixes, repeated suffixes and invalid plain/Shift-only letters are rejected.
+. Verify duplicate binding detection and global-versus-bank precedence.
+. Parse the fully converted fetched INI with zero errors.
+. Build and run the complete terminal/runtime sanitizer-backed host tests.
+. Run `+git diff --check+` and inspect the mechanical INI conversion.
+
+== Device boundary
+
+This plan does not authorize overwriting device `+A0:7XTGVTRM.INI+` or `+A0:7XTGVTRM.BUF+`. After local tests pass, firmware may be rebuilt only on Petr's explicit `+rebuild+` request and flashed only on `+reflash+`. The converted INI is transferred separately only after Petr explicitly approves that file. Until both new firmware and converted INI are installed, device testing is paused because old and new syntax are intentionally incompatible.

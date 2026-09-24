@@ -1,0 +1,334 @@
+[id="7xtgv-backlight-brightness-control-plan"]
+= 7xtgv backlight brightness control plan
+:source-highlighter: highlight.js
+
+Date: 2026-09-13 Status: implementation plan Scope: MCU/TFT 7xtgv terminal targets
+
+== Goal
+
+Add a small, board-independent backlight brightness control layer to 7xtgv terminals.
+
+The user-facing control should provide ten states:
+
+* `+0+` = backlight OFF
+* `+1+` = 10%
+* `+2+` = 20%
+* `+3+` = 30%
+* `+4+` = 40%
+* `+5+` = 50%
+* `+6+` = 60%
+* `+7+` = 70%
+* `+8+` = 80%
+* `+9+` = 90%
+
+For the first implementation, keep the existing boot behavior unchanged: displays may start at their current full/default brightness and only enter the 0-9 stepped scheme after the user or an application changes brightness. This avoids an unnecessary startup regression while the PWM behavior of every module is being verified.
+
+Brightness OFF must mean only backlight off. The LCD controller, framebuffer, terminal state and CP/M runtime continue running normally, so another keyboard command can always restore the backlight.
+
+== Current hardware knowledge
+
+The repository already defines a backlight GPIO for the LCD modules, but there is currently no common brightness/PWM abstraction.
+
+[cols=",,>",options="header",]
+|===
+|Target/module |MCU/display |Current backlight pin
+|Waveshare RP2350 Touch LCD 2 |RP2350 {plus} ST7789 320x240 |GPIO 15
+|JC8048W535 |ESP32-S3 {plus} 480x320 TFT |GPIO 1
+|JC8048W550 |ESP32-S3 {plus} ST7262 800x480 RGB |GPIO 2
+|JC8012P4A1C |ESP32-P4 {plus} 1280x800 MIPI DSI |GPIO 23
+|older Waveshare RP2350 LCD 1.47 |RP2350 |GPIO 21
+|older Waveshare ESP32-C6 LCD 1.47 |ESP32-C6 |GPIO 22
+|===
+
+The direct JC8012P4A1C panel test also explicitly uses GPIO 23 as the backlight enable pin, so that target has independent confirmation beyond the generic `+GFX_BL+` definition.
+
+=== AMOLED exception
+
+The Waveshare RP2350 AMOLED 1.64 target does not have a normal LED backlight pin. Do not force it through the LCD PWM abstraction.
+
+If this module is found and used again, brightness should be implemented separately through the AMOLED panel/controller luminance/current mechanism. Until then it may simply report brightness control as unsupported.
+
+== Proposed common API
+
+Keep brightness below the terminal compositor/rendering layer, near display/HAL setup.
+
+Suggested minimal interface:
+
+[source,cpp]
+----
+void xtgvBacklightInit();
+void xtgvBacklightSet(uint8_t level);   // level 0..9
+uint8_t xtgvBacklightGet();
+bool xtgvBacklightSupported();
+----
+
+Naming may follow the existing local 7xtgv conventions; the important point is one board-independent interface.
+
+`+xtgvBacklightSet()+` clamps invalid values to the supported range or rejects them consistently. It must not contain terminal parsing logic.
+
+== PWM implementation
+
+=== RP2350
+
+Use the Arduino-Pico PWM/`+analogWrite+` facility or the equivalent already supported by the active RP2350 core.
+
+Prefer a PWM frequency comfortably above visible flicker. Do not over-engineer frequency selection before hardware testing.
+
+[id="esp32-s3--esp32-p4--esp32-c6"]
+=== ESP32-S3 / ESP32-P4 / ESP32-C6
+
+Use ESP32 LEDC/PWM through a compatibility wrapper appropriate for the installed Arduino-ESP32 core.
+
+Arduino-ESP32 2.x and 3.x differ in LEDC APIs, so do not scatter direct version-specific calls through terminal code. Keep compatibility handling inside the backlight HAL implementation.
+
+=== Duty mapping
+
+The first version may use a simple linear mapping:
+
+[source,text]
+----
+0 ->   0%
+1 ->  10%
+2 ->  20%
+...
+9 ->  90%
+----
+
+A perceptual/gamma-corrected duty table may later be substituted without changing the public 0-9 interface if linear steps look poor on real hardware.
+
+== Keyboard control
+
+The preferred physical PC shortcuts are:
+
+[source,text]
+----
+Alt+Shift+0 -> OFF
+Alt+Shift+1 -> 10%
+...
+Alt+Shift+9 -> 90%
+----
+
+These are terminal-local controls and must not be delivered to CP/M as normal keystrokes.
+
+=== Human fallback command
+
+Use the existing `++Ctrl+]++` private-command prefix with an explicit brightness subcommand:
+
+[source,text]
+----
+Ctrl+] b 0
+Ctrl+] b 1
+...
+Ctrl+] b 9
+----
+
+This is intentionally a three-keystroke command.
+
+Do *not* use bare `++Ctrl+] 0..9++`, because `++Alt+0..9++` already belongs to the 7xtgv profile/bank-selection namespace and keeping digits namespaced avoids ambiguity.
+
+The PC helper may translate the human `++Ctrl+] b N++` form into the same private terminal sequence used by the direct Alt{plus}Shift shortcuts.
+
+== Private terminal protocol
+
+The human `++Ctrl+]++` prefix is a convenience mechanism in the PC helper. The actual MCU-facing control should continue using a private CSI sequence, consistent with existing controls such as `+CSI > 60 v+` and `+CSI > 61 v+`.
+
+Reserve one parameterized private command rather than ten unrelated commands.
+
+Recommended form:
+
+[source,text]
+----
+CSI > 40 ; n v
+----
+
+where `+n+` is `+0..9+`.
+
+Examples:
+
+[source,text]
+----
+ESC [ > 40 ; 0 v    backlight OFF
+ESC [ > 40 ; 5 v    50%
+ESC [ > 40 ; 9 v    90%
+----
+
+`+40+` is only a proposed private command number. Before implementation, confirm that it does not collide with another current or planned 7xtgv private CSI command. If occupied, choose another unused value while preserving the parameterized form.
+
+The terminal parser consumes this sequence locally and calls `+xtgvBacklightSet(n)+`.
+
+== Application-side control
+
+A CP/M application does not need to emulate `++Ctrl+] b N++` keystrokes.
+
+It may write the private CSI command directly to the console:
+
+[source,text]
+----
+application output
+    -> CSI > 40 ; 7 v
+    -> terminal parser
+    -> xtgvBacklightSet(7)
+    -> board PWM HAL
+    -> 70% backlight
+----
+
+This makes brightness a real terminal capability rather than only a PC-keyboard convenience.
+
+The command must be consumed by the 7xtgv terminal and must not become visible text or ordinary guest keyboard input.
+
+== Optional future query/reply capability
+
+No brightness query is required for the first implementation.
+
+However, 7xtgv already has a terminal reply path. Standard terminal queries such as `+CSI 5 n+`, `+CSI 6 n+`, and `+CSI c+` are answered internally and the reply bytes are placed into the terminal input path for the application to read.
+
+Therefore a future private brightness query can be added cleanly, for example:
+
+[source,text]
+----
+application -> terminal: private brightness query
+terminal -> application: private reply containing level 0..9
+----
+
+The exact encoding should be designed only if/when an application actually needs it. Do not add extra protocol now merely for completeness.
+
+The same future mechanism could expose other 7xtgv-local state such as active profile, viewport, terminal geometry, display type, or firmware capabilities.
+
+== Host-side mappings
+
+Update all maintained host keyboard front ends consistently:
+
+* `+src/7xtgv-vt100-runcpm/tools/terminal.py+`
+* Kitty configuration(s)
+* Konsole keytab
+* keyboard-control documentation / cheatsheet
+
+The direct Alt{plus}Shift mappings should emit the private CSI brightness command rather than literal Alt-modified characters.
+
+The Python helper should also understand the `++Ctrl+] b N++` fallback form.
+
+== Terminal/runtime placement
+
+Recommended data flow:
+
+[source,text]
+----
+physical keyboard
+    Alt+Shift+7
+        |
+        v
+PC helper / Kitty / Konsole mapping
+        |
+        v
+CSI > 40 ; 7 v
+        |
+        v
+7xtgv terminal parser/runtime
+        |
+        v
+xtgvBacklightSet(7)
+        |
+        v
+board-specific PWM HAL
+        |
+        v
+70% LCD backlight
+----
+
+The CP/M emulator core should not own this feature. It belongs to the local terminal/display side.
+
+== Tests
+
+=== Parser/unit tests
+
+Add tests proving that:
+
+[arabic]
+. `+CSI > 40 ; 0 v+` invokes brightness level 0.
+. `+CSI > 40 ; 9 v+` invokes brightness level 9.
+. intermediate values are decoded correctly.
+. invalid parameters do not corrupt terminal state.
+. brightness commands do not enter the CP/M guest input stream.
+. ordinary unrelated CSI sequences continue to work.
+
+The test harness can use a small callback/action or mock backlight setter rather than real GPIO.
+
+=== Host helper tests
+
+Verify:
+
+[source,text]
+----
+Ctrl+] b 0 -> private brightness CSI for level 0
+Ctrl+] b 9 -> private brightness CSI for level 9
+----
+
+and verify the Alt{plus}Shift digit mappings emit the same commands.
+
+=== Hardware smoke tests
+
+Test PWM behavior on actual boards before declaring each target supported.
+
+Initial priority:
+
+[arabic]
+. RP2350 Touch LCD 2
+. JC8048W535 ESP32-S3
+. JC8048W550 ESP32-S3
+. JC8012P4A1C ESP32-P4
+
+For each board verify:
+
+* level 0 fully extinguishes the backlight
+* levels 1..9 are stable
+* no obvious flicker
+* no audible PWM artifacts
+* brightness changes do not reset or disturb the display controller
+* USB/serial/terminal operation continues with the backlight off
+* level 1 is still visibly useful and level 9 is near the existing bright setting
+
+Older 1.47-inch LCD boards may be tested opportunistically.
+
+== Persistence
+
+Do not persist brightness across reboot in the first implementation.
+
+A stored preference can be considered later, but persistence introduces flash-write policy, defaults and recovery questions that are unnecessary for this small feature.
+
+== Suggested implementation order
+
+[arabic]
+. Add the board-independent backlight API.
+. Implement RP2350 PWM and test on the 2-inch module.
+. Implement ESP32 LEDC compatibility and test JC8048W535.
+. Add the private parameterized CSI command to the terminal parser/runtime.
+. Add parser/runtime tests.
+. Add `++Ctrl+] b N++` handling to `+terminal.py+`.
+. Add Alt{plus}Shift{plus}0..9 mappings to Kitty and Konsole definitions.
+. Update the keyboard cheatsheet/manual.
+. Smoke-test JC8048W550 and JC8012P4A1C.
+. Mark unsupported/non-backlit targets explicitly rather than pretending PWM exists.
+
+== Non-goals for this pass
+
+Do not add yet:
+
+* automatic dimming/timeouts
+* ambient-light control
+* saved brightness in flash/NVS
+* smooth fades/animations
+* gamma calibration UI
+* brightness query/reply protocol
+* AMOLED-specific luminance control
+
+Those can be layered later without changing the basic 0-9 terminal interface.
+
+== Result
+
+After this work, 7xtgv will have one unified brightness abstraction usable from:
+
+* direct keyboard shortcuts
+* the `++Ctrl+]++` local-control helper
+* CP/M applications emitting the private terminal CSI command
+
+while remaining independent of the CP/M emulator core and of the specific MCU/display board.

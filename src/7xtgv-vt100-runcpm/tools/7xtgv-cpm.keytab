@@ -34,14 +34,15 @@ key End       +Shift+Alt-Ctrl : "\E[1;3F"
 # Zoom deliberately requires all three modifiers, leaving Ctrl+Shift PgUp/Dn
 # for fine backlight control. Konsole's keytab syntax does not distinguish
 # left/right Alt, so LAlt is the intended ergonomic physical key.
-key PgUp      +Shift+Alt+Ctrl : "\E[>66v"
-key PgDown    +Shift+Alt+Ctrl : "\E[>67v"
+# PgDown zooms in; PgUp zooms out. Protocol 66=in, 67=out is unchanged.
+key PgUp      +Shift+Alt+Ctrl : "\E[>67v"
+key PgDown    +Shift+Alt+Ctrl : "\E[>66v"
 # One-hit terminal output interpretation selection.
 key 1         +Shift+Alt+Ctrl : "\E[>1v"
 key 2         +Shift+Alt+Ctrl : "\E[>2v"
 
-# Global backlight: Ctrl+Shift+digit presets are 0/off, then 20..100%.
-# Ctrl+Shift/Alt+Shift PgUp/PgDn use the full 32-step range.
+# Global backlight: Ctrl+Shift+digit presets are OFF, then module-specific levels.
+# Ctrl+Shift/Alt+Shift PgUp/PgDn use lit levels 1..31 (0 is separate OFF).
 key PgUp      +Shift-Alt+Ctrl : "\E[>63;33v"
 key PgDown    +Shift-Alt+Ctrl : "\E[>63;34v"
 key PgUp      +Shift+Alt-Ctrl : "\E[>63;33v"
@@ -55,7 +56,7 @@ key 5         +Shift-Alt+Ctrl : "\E[>63;18v"
 key 6         +Shift-Alt+Ctrl : "\E[>63;21v"
 key 7         +Shift-Alt+Ctrl : "\E[>63;25v"
 key 8         +Shift-Alt+Ctrl : "\E[>63;28v"
-key 9         +Shift-Alt+Ctrl : "\E[>63;32v"
+key 9         +Shift-Alt+Ctrl : "\E[>63;31v"
 
 key Delete    -Shift-Alt-Ctrl : "\E[>34v"
 key Insert    -Shift-Alt-Ctrl : "\E[>35v"
@@ -389,6 +390,6 @@ key 7         -Shift+Alt-Ctrl : "\E[>27v"
 key 8         -Shift+Alt-Ctrl : "\E[>28v"
 key 9         -Shift+Alt-Ctrl : "\E[>29v"
 
-# Host-only XMODEM panel.  Ctrl+Shift+X is intercepted by terminal.py and
+# Host-only VTPUT/VTGET panel. Ctrl+Shift+X is intercepted by terminal.py and
 # never reaches CP/M; Ctrl+] m remains its keyboard-layout-neutral fallback.
 key X         +Shift-Alt+Ctrl : "\x1dm"

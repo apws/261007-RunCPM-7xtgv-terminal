@@ -28,3 +28,4 @@ failed: lxi     d,errmsg
 request:
         db      27,'[>64v','$'
 errmsg: db      'REFLASH: history save failed',13,10,'$'
+

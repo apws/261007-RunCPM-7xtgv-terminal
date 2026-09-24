@@ -15,14 +15,30 @@ mirror_stopped=false
 cleanup() {
     rm -rf "$temp_dir"
     if [ "$mirror_stopped" = true ]; then
-        "$tools_dir/kon.sh" >/dev/null 2>&1 &
+        "$tools_dir/kon.sh" --port "$port" --target "$XTGV_TARGET" >/dev/null 2>&1 &
     fi
 }
 trap cleanup EXIT HUP INT TERM
 
 # Keep the target/port choice in one place with the regular mirror tools.
 . "$tools_dir/terminal.conf"
-port=${XTGV_PORT:-/dev/ttyACM0}
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --target|--port)
+            if [ "$#" -lt 2 ] || [ -z "$2" ]; then
+                echo "Missing value for $1" >&2
+                exit 2
+            fi
+            case "$1" in
+                --target) XTGV_TARGET=$2; export XTGV_TARGET ;;
+                --port) XTGV_PORT=$2; export XTGV_PORT ;;
+            esac
+            shift 2
+            ;;
+        *) echo "Usage: $0 [--target TARGET] [--port PORT]" >&2; exit 2 ;;
+    esac
+done
+port=$(python3 "$tools_dir/target_config.py" --print-port)
 
 tmux kill-session -t 7xtgv-cpm 2>/dev/null || true
 mirror_stopped=true

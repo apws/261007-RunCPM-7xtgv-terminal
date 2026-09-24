@@ -1,0 +1,64 @@
+= XMODEM host path editor: shared Send and Receive fix
+:source-highlighter: highlight.js
+
+== Cause
+
+Petr reported that Backspace closed the host transfer dialog. The generated
+Konsole keytab emits `ESC[>70;1;11;0;008v` for plain Backspace, not a bare
+BS byte. The former dialog canceled on every ESC byte, including prefixes
+of Backspace, Enter, cursor and other encoded keyboard events.
+
+== Change
+
+Both Send and Receive use the same local editor. It now decodes complete
+private 7xtgv key events and the legacy private cursor codes, plus ordinary
+ANSI/SS3 Left/Right/Home/End and ANSI Delete. Unsupported sequences are ignored,
+not treated as cancellation. Fragmented escape packets are retained; a bare
+Escape cancels after a short timeout, while the encoded Escape key cancels
+immediately. These controls do not pass through CP/M profile bindings.
+
+The path is prefilled with this repository's `cpmdrive/` absolute directory.
+`XTGV_XMODEM_ROOT` can override it; an example is in `tools/terminal.conf`.
+Relative paths are resolved against that root in both directions, independently
+of the launch directory. Absolute paths and `~/...` remain supported.
+Spaces are literal: do not add shell quotes.
+
+Backspace/Delete, Left/Right, Home/End and insertion at the cursor are supported.
+Ctrl+U clears the complete path. UTF-8 characters are deleted/moved as characters,
+not single continuation bytes. Long paths scroll horizontally to keep the cursor
+on the path line. Enter submits; the receive destination must not already exist.
+
+This is a host-only change. No firmware build, device configuration overwrite,
+transfer compression or change to the XMODEM wire protocol was introduced.
+XMODEM still sends bytes as stored; it does not normalize text to CP/M CRLF.
+
+== Verification and deployment
+
+All 33 host-tool Python tests passed, including tests covering both directions,
+prefilled/root-relative/absolute/home paths, fragmented Konsole Backspace,
+encoded Enter/Escape, legacy and ANSI movement/deletion, UTF-8 editing,
+printable fallbacks, long-path cursor placement, and the existing pseudo-terminal
+XMODEM send/receive CRC and destination non-overwrite tests.
+
+Petr's earlier device receive attempt had timed out and deleted its empty
+destination; the device was at A0>. Restarted the visible Konsole mirror with
+the revised Python code. CP/M was not rebooted. A successful real-device
+XMODEM round-trip remains to be confirmed by Petr; local protocol tests are
+not claimed as that hardware confirmation.
+
+== Follow-up: DU then filename, both directions
+
+Petr found the long Linux directory names inconvenient and requested a simpler
+dialog. The current flow replaces the full-path entry above with `S/R`, then
+local `DU`, then filename only. Example: `a6:` resolves the unique existing
+`A6 - Benchmarks and CPU tests` under cpmdrive. Hex user suffixes A..F and
+decimal 10..15 are accepted (`AF:` and `A15:` identify the same local area).
+No folder is created automatically; missing/ambiguous matches stay in the DU
+editor with an error. The filename field rejects directory traversal and paths.
+Filename matching is case-insensitive; new receive names are uppercase.
+Existing receive files remain protected by the transfer code.
+
+The selected DU is host-side only: the running CP/M XMODEM command still
+determines the remote file/drive/user. The dialog displays this distinction.
+All 34 local tests pass, covering both directions, DU resolution/failure cases,
+filename editing and existing protocol tests. No firmware changes are needed.

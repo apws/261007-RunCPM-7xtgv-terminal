@@ -4,6 +4,7 @@
 #include "../../runcpm-config.h"
 #include "7xtgv-palette.h"
 #include "key_chords.h"
+#include "text_palette.h"
 
 namespace vt {
 // Host-only, versioned private keyboard event. Unknown/malformed events must
@@ -46,7 +47,7 @@ class Terminal {
     // Private `CSI >68;n v` is output-side terminal view control. It lets a
     // CP/M transient request an absolute 1x..4x zoom without pretending that
     // keyboard-only private controls are part of application output.
-    enum ControlEvent : uint8_t { Backlight, Zoom, FullClear };
+    enum ControlEvent : uint8_t { Backlight, Zoom, FullClear, Palette };
     using Control = void (*)(void *, ControlEvent, uint8_t);
     explicit Terminal(Reply reply = nullptr, void *context = nullptr);
     void reset();
@@ -67,6 +68,7 @@ class Terminal {
     bool plotting() const { return plotState != PlotOff; }
     RGB foreground(int i) const;
     RGB background(int i) const;
+    TextPalette palette;
     bool graphics(int i) const { return flags[i] & Graphics; }
 
   private:

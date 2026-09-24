@@ -17,20 +17,20 @@ font, the Mixworx color palette, and console file-transfer helpers.
 | [`build/`](build/) | Generated Arduino build output; ignored by Git |
 | [`cpmdrive/`](cpmdrive/README.md) | Documented mirror of CP/M drive A user areas |
 | [`cpm-languages/`](cpm-languages/SOURCES.md) | Language-package sources and provenance |
-| [`docs/`](docs/) | [Central feature ledger](docs/FEATURES.md), recovery notes, reference material, and archived experiments |
+| [`docs/`](docs/) | [Central feature ledger](docs/FEATURES.adoc), recovery notes, reference material, and archived experiments |
 | `backups/` | Local generated backups; ignored by Git |
 
 ## Feature registry
 
 [`docs/features.tsv`](docs/features.tsv) is the canonical ASCII feature store;
-[`docs/FEATURES.md`](docs/FEATURES.md) is its human ledger plus hand-written
+[`docs/FEATURES.adoc`](docs/FEATURES.adoc) is its human ledger plus hand-written
 status and evidence notes. Validate, query, or regenerate it with:
 
 ```sh
 python3 src/feature_registry.py check
 python3 src/feature_registry.py report --format text \
   --fields group,idea_date,state,title --sort group,idea_date,title
-python3 src/feature_registry.py report --format markdown \
+python3 src/feature_registry.py report --format asciidoc \
   --where group=INP --fields idea_date,title,state,qualifier,next_gate
 python3 src/feature_registry.py update-ledger
 ```

@@ -1,0 +1,43 @@
+= Terminal manual AsciiDoc conversion and source audit
+:source-highlighter: highlight.js
+
+== Scope
+
+Petr requested conversion of the manual README and a source-grounded review
+while testing the device. The canonical manual is now
+link:260912-23%207xtgv%20terminal%20manual/README.adoc[README.adoc].
+The former README.md is replaced, not maintained as a second manual.
+Private MIXWORX application logs remain untouched.
+
+== Corrections and additions
+
+* Preserved existing instructions, tables and byte examples; repaired the ZOOM
+  command row whose unescaped pipes already broke its Markdown table.
+* Distinguished compiled profile defaults from INI examples and session-only
+  bank selection. Documented CCP-only on_select behavior and adapter choices.
+* Added error counts, bad-line listings, ERR-file behavior, Boolean syntax,
+  parser limits, display settings and remaining bank/global settings.
+* Documented legacy exit_key/clear_key value syntax separately from key-first
+  bindings. The proposed boot_ansi option is not implemented.
+* Documented editable palettes, normal/ALT slots, ANSI color mapping, UI
+  inheritance and the four-paper/plot limitations. ES3_5 is the W550 INI ID.
+* Retained the current VTPUT/VTGET dialog instructions and added UNZIP157
+  extraction usage; no automatic compression is implied.
+* Removed stale deployment statements about control-caret escapes, fixed the
+  root-relative launcher commands and added missing host shortcuts.
+
+Source references are included in the manual. This is an operational source
+review, not proof that every combination has been hardware-tested. In
+particular, editing_surface is parsed/stored without a separate recall
+transport, and rgb_refresh_hz is a compatibility placeholder.
+
+== Validation and boundaries
+
+* Asciidoctor HTML rendering and local-link validation.
+* All 408 original parsed inline-code occurrences survived the initial format
+  conversion; later content corrections were deliberate source-audit edits.
+* Explicit render checks for control escapes, modifier names and ZOOM syntax.
+* Feature-registry validation and regenerated AsciiDoc overview.
+
+No firmware, device files, serial connection or running CP/M application was
+changed. No rebuild, reflash, commit or push was performed.

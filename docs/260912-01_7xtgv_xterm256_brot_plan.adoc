@@ -1,0 +1,355 @@
+[id="7xtgv-minimal-xterm-256--cpm-mandelbrot-compatibility-plan"]
+= 7xtgv minimal xterm-256 / CP/M Mandelbrot compatibility plan
+:source-highlighter: highlight.js
+
+Date: 2026-09-11
+
+[id="1-what-the-attached-mandelbrot-programs-actually-use"]
+== 1. What the attached Mandelbrot programs actually use
+
+The attached `+brot-bs.z+` and `+brot-ps.asm+` do *not* use a true xterm bitmap/hires graphics protocol. They generate a pseudo-raster using ordinary printable characters, with one xterm 256-color SGR foreground-color escape sequence before each sample:
+
+[source,text]
+----
+ESC [ 38 ; 5 ; n m   <printable byte>
+----
+
+At the end they send:
+
+[source,text]
+----
+ESC [ 0 m
+----
+
+Both sources also define `+ESC[48;5;...m+` for indexed background color, although the Mandelbrot path shown in these sources uses foreground color.
+
+`+brot-bs.z+` (Bill Shen / zmac version) uses byte 219 as its sample character, intended as a solid block in a CP437-like character set. `+brot-ps.asm+` (Phillip Stevens / z88dk version) uses `+#+`, which is much more portable across terminal character sets.
+
+Therefore the minimal compatibility feature is *xterm indexed 256-color SGR*, not a general xterm graphics implementation.
+
+[id="2-relationship-of-ansi--vt--xterm"]
+== 2. Relationship of ANSI / VT / xterm
+
+Use the following terminology in 7xtgv documentation:
+
+* *ANSI / ECMA-48*: standardized control-sequence syntax and functions such as CSI and SGR.
+* *DEC VT100/VT2xx/...*: concrete terminals with DEC-specific behavior and private sequences.
+* *xterm*: an X Window System terminal emulator which emulates DEC terminal behavior and adds many extensions. It is a de-facto compatibility target, not a "higher ANSI standard".
+* *xterm-256color*: the commonly emulated 256-color indexed palette convention using SGR 38/48.
+* xterm also has Tektronix 4014 emulation, but that is a separate graphics facility and is unrelated to these Mandelbrot sources.
+
+For the attached programs, the only xterm-specific extension we need is the legacy semicolon form:
+
+[source,text]
+----
+CSI 38 ; 5 ; n m    set foreground to indexed color n, 0..255
+CSI 48 ; 5 ; n m    set background to indexed color n, 0..255
+----
+
+[id="3-minimal-parser-scope"]
+== 3. Minimal parser scope
+
+Extend the existing VT100/ANSI compatibility parser, not the native 7xtgv command language.
+
+Required SGR support:
+
+[source,text]
+----
+CSI 0 m             reset rendition/colors
+CSI 38 ; 5 ; n m    xterm indexed foreground
+CSI 48 ; 5 ; n m    xterm indexed background
+----
+
+Recommended almost-free additions:
+
+[source,text]
+----
+CSI 39 m            default foreground
+CSI 49 m            default background
+----
+
+Optional later extension:
+
+[source,text]
+----
+CSI 38 ; 2 ; r ; g ; b m
+CSI 48 ; 2 ; r ; g ; b m
+----
+
+The attached benchmarks do not need direct RGB (`+38;2+` / `+48;2+`).
+
+Parser requirements:
+
+* accept decimal `+n+` in 0..255;
+* ignore malformed or incomplete extended-color parameters safely;
+* preserve the existing handling of ordinary SGR parameters;
+* do not require terminfo negotiation or terminal-identification queries, because these CP/M programs hard-code the escape stream.
+
+Suggested SGR parsing pattern:
+
+[source,text]
+----
+for each SGR parameter i:
+    if p[i] == 0: reset attributes/colors
+    if p[i] == 38 and p[i+1] == 5 and color exists:
+        fg565 = xterm256_to_565[p[i+2]]
+        i += 2
+    if p[i] == 48 and p[i+1] == 5 and color exists:
+        bg565 = xterm256_to_565[p[i+2]]
+        i += 2
+----
+
+[id="4-xterm-256-color-palette---rgb565"]
+== 4. xterm 256-color palette -++>++ RGB565
+
+Keep a 256-entry RGB565 lookup table (`+512 bytes+`) or generate it at build time. This is preferable to recomputing RGB conversion for every sample, because the benchmark emits a color SGR before every point.
+
+Palette structure:
+
+* 0..15: conventional xterm ANSI/aixterm colors;
+* 16..231: 6x6x6 RGB cube;
+* 232..255: 24-step grayscale ramp.
+
+For 16..231:
+
+[source,text]
+----
+k = n - 16
+r6 = k / 36
+g6 = (k / 6) % 6
+b6 = k % 6
+level[6] = { 0, 95, 135, 175, 215, 255 }
+----
+
+For 232..255:
+
+[source,text]
+----
+v = 8 + 10 * (n - 232)
+r = g = b = v
+----
+
+RGB888 -++>++ RGB565:
+
+[source,text]
+----
+rgb565 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
+----
+
+Useful test vectors from the Mandelbrot palette:
+
+[source,text]
+----
+index 201 = RGB(255,   0, 255) -> 0xF81F  magenta
+index 196 = RGB(255,   0,   0) -> 0xF800  red
+index 226 = RGB(255, 255,   0) -> 0xFFE0  yellow
+index  46 = RGB(  0, 255,   0) -> 0x07E0  green
+index  51 = RGB(  0, 255, 255) -> 0x07FF  cyan
+index  21 = RGB(  0,   0, 255) -> 0x001F  blue
+index   0 = RGB(  0,   0,   0) -> 0x0000  black
+----
+
+[id="5-keep-normal-xterm-text-compatibility-separate-from-the-experimental-raster-interpretation"]
+== 5. Keep normal xterm text compatibility separate from the experimental raster interpretation
+
+[id="51-normal-compatibility-mode"]
+=== 5.1 Normal compatibility mode
+
+Normal behavior should remain terminal-like:
+
+* `+CSI 38;5;n m+` changes the current foreground;
+* subsequent printable characters are rendered as glyphs in that color;
+* CR/LF and normal cursor behavior remain unchanged;
+* Bill's byte 219 depends on the selected character set / CP437 compatibility;
+* Phillip's `+#+` needs no special character mapping.
+
+This is the correct xterm-like behavior.
+
+[id="52-optional-7xtgv-experimental-xt256-plot-mode"]
+=== 5.2 Optional 7xtgv experimental `+XT256-PLOT+` mode
+
+For the CP/M Mandelbrot demo, add an explicitly selected *local 7xtgv interpretation mode*. Do not pretend that this is standard xterm behavior.
+
+In this mode the escape stream is treated as a compact indexed-color pixel stream:
+
+[arabic]
+. `+CSI 38;5;n m+` sets `+plotColor565+` and sets `+plotArmed = true+`.
+. The next printable character, regardless of whether it is `+#+` or byte 219, is consumed as one logical pixel sample instead of being rasterized as a font glyph.
+. Plot the sample at `+(plotX, plotY)+`, then increment `+plotX+` and clear `+plotArmed+`.
+. CR does not advance the raster position.
+. LF sets `+plotX = 0+` and increments `+plotY+`.
+. `+CSI 0 m+` resets colors, cancels `+plotArmed+`, and returns following printable output to normal text.
+
+This allows both attached programs to create the same picture despite their different sample character. It also avoids dependence on CP437 glyph 219.
+
+Activation should be explicit (profile/build/runtime option), because ordinary applications legitimately use `+38;5;n+` for colored text and must not have their characters converted into pixels.
+
+[id="6-display--arduino_gfx-boundary"]
+== 6. Display / Arduino++_++GFX boundary
+
+Do not put xterm-256 semantics into each display-controller driver.
+
+The terminal layer should resolve indexed color to RGB565 and call a tiny graphics abstraction such as:
+
+[source,text]
+----
+plotPixel565(x, y, rgb565)
+plotSpan565(x, y, const uint16_t *pixels, count)   // preferred fast path
+fillRect565(x, y, w, h, rgb565)                   // optional scaling path
+----
+
+The Arduino++_++GFX/platform HAL then maps these operations to the current controller and rotation. Use the post-rotation display width/height from the existing display abstraction.
+
+For SPI displays, prefer buffering one raster line and flushing it as a horizontal RGB565 span. Per-sample `+drawPixel()+` is a valid fallback but can distort benchmark results by making display I/O dominate.
+
+A line buffer of 320 RGB565 pixels is only 640 bytes and is enough for these programs. If desired, store 8-bit xterm palette indexes in the line buffer and convert to RGB565 only during the flush.
+
+[id="7-geometry-of-the-attached-programs"]
+== 7. Geometry of the attached programs
+
+The comments describe an intended order of roughly 240 x 150 samples. However, the actual fixed-point constants are integer assembler expressions:
+
+[source,text]
+----
+x: -2*256 .. +1*256, step 256/80 -> integer 3
+=> 257 samples per row (inclusive endpoints)
+
+y: -5*256/4 .. +5*256/4, step 256/60 -> integer 4
+=> 161 rows (inclusive endpoints)
+----
+
+So an unchanged source stream is approximately *257 x 161 logical samples*, not exactly 240 x 150.
+
+That is useful for 7xtgv:
+
+* 320x240 TFT: 1 logical sample = 1 physical pixel fits;
+* 480x320 TFT: 1:1 fits very comfortably and can be centered;
+* 1280x800 TFT: an optional integer zoom can enlarge the image;
+* 2x on a 480x320 display does *not* fit the actual 257x161 stream (514x322).
+
+Therefore the minimal default should be *1:1 sample-to-pixel rendering*, with clipping at the viewport. Scaling/centering can be a later option.
+
+[id="8-handling-the-benchmarks-text-around-the-image"]
+== 8. Handling the benchmark's text around the image
+
+Both sources print a `+Generating a Mandelbrot set+` message before the colored stream and a reset plus `+Computation finished.+` afterward.
+
+In normal terminal mode, keep their exact text/cursor semantics.
+
+In `+XT256-PLOT+` mode, use one of these policies:
+
+* simplest: clear/claim a graphics viewport when the first indexed-color sample arrives and keep normal text outside it;
+* better: use a small status line above/below the raster for pre/post messages;
+* debugging: mirror all non-pixel text to the serial/log console.
+
+Do not infer plot mode merely from the string `+Generating a Mandelbrot set+`; activation should remain a local profile/option.
+
+[id="9-benchmark-integrity"]
+== 9. Benchmark integrity
+
+For historical comparability, *consume every byte the CP/M program emits*. Do not change the guest program to suppress repeated color sequences. The old benchmark discussion explicitly treats the large escape-stream output as part of the test.
+
+Internal host-side batching is fine:
+
+* parse all SGR sequences;
+* preserve guest-visible console semantics;
+* batch only the physical TFT writes (for example flush a completed raster line at LF).
+
+Define two measurements clearly:
+
+[arabic]
+. *7xtgv integrated benchmark* - RunCPM/Z80 emulation {plus} CP/M BDOS/console path {plus} terminal parser {plus} TFT rendering. This is the useful real-system number for the MCU display module.
+. *CPU/emulator benchmark* - same guest program, but with TFT flush deferred/disabled or written to a memory raster. This isolates the emulated Z80 core and CP/M overhead.
+
+A RunCPM console call is not automatically equivalent to a historical 115200-baud UART. If comparison to physical RC2014/YAZ180 numbers is desired, add a separate optional serial pacing model; do not bake pacing into the xterm parser.
+
+[id="10-differences-relevant-to-brot-bs-vs-brot-ps"]
+== 10. Differences relevant to `+brot-bs+` vs `+brot-ps+`
+
+[id="brot-bsz"]
+=== `+brot-bs.z+`
+
+* Bill Shen version, assembled with zmac according to the attached discussion.
+* CP/M BDOS console output uses functions 2 and 9.
+* sample character is byte 219 (solid block in CP437-like mapping).
+* uses the older signed 16x16 multiply routine.
+
+[id="brot-psasm"]
+=== `+brot-ps.asm+`
+
+* Phillip Stevens / z88dk-oriented source.
+* supports CP/M plus other build targets and contains Z180/APU options.
+* CP/M path uses direct console I/O (BDOS function 6) in the shown code.
+* sample character is `+#+`.
+* optimized Z80 multiply uses a 512-byte square lookup table; Z180 builds can use the hardware `+MLT+` instruction.
+* masks the iteration value to five bits before indexing the 31-entry color table.
+
+The display protocol we need to support is essentially the same in both, so 7xtgv should not contain source-specific code paths.
+
+[id="11-test-plan"]
+== 11. Test plan
+
+=== Parser unit tests
+
+Feed byte streams directly to the compatibility parser:
+
+[source,text]
+----
+ESC[38;5;201m#   -> foreground/plot color 0xF81F
+ESC[38;5;196m#   -> 0xF800
+ESC[38;5;226m#   -> 0xFFE0
+ESC[38;5;46m#    -> 0x07E0
+ESC[38;5;51m#    -> 0x07FF
+ESC[38;5;21m#    -> 0x001F
+ESC[0m            -> defaults restored, plot arm cleared
+----
+
+Also test `+48;5;n+` even though the attached demo does not currently use it.
+
+=== Raster-mode tests
+
+* same output for `+#+` and byte 219 after the same indexed-color SGR;
+* CR/LF makes a new raster row correctly;
+* `+SGR 0+` returns to normal text;
+* width overrun clips without corrupting memory;
+* height overrun clips safely;
+* rotation and display width/height are taken from the current Arduino++_++GFX abstraction.
+
+=== Integration tests
+
+Run unchanged `+brot-bs.com+` and `+brot-ps.com+` if/when their binaries are available:
+
+* normal compatibility mode: conventional colored character stream;
+* `+XT256-PLOT+`: compact 257x161-ish raster on TFT;
+* framebuffer/no-flush benchmark;
+* normal TFT benchmark;
+* optionally repeat on ESP32-S3, ESP32-P4, RP2350 and STM32 target modules.
+
+[id="12-non-goals-for-the-first-implementation"]
+== 12. Non-goals for the first implementation
+
+Do not implement these merely for the Mandelbrot benchmark:
+
+* all xterm private modes;
+* xterm mouse protocols;
+* OSC title/palette controls;
+* Tektronix 4014 emulation;
+* SIXEL;
+* ReGIS;
+* Unicode graphics;
+* full terminfo/xterm behavioral equivalence;
+* 24-bit direct color unless another demo actually needs it.
+
+[id="13-recommended-implementation-order"]
+== 13. Recommended implementation order
+
+[arabic]
+. Add xterm 256-color RGB565 palette conversion/table.
+. Extend existing SGR parser with `+38;5;n+` and `+48;5;n+`.
+. Verify both Mandelbrot sources in ordinary character rendering.
+. Add explicit `+XT256-PLOT+` profile/flag.
+. Add line-buffered RGB565 span flush for the TFT path.
+. Add benchmark counters/timing that separately report guest execution and TFT flush cost if practical.
+. Only then consider `+38;2;r;g;b+` truecolor or other xterm graphics protocols.
+
+This keeps the change small, preserves the existing VT100/ANSI compatibility architecture, works across Arduino++_++GFX-backed RGB565 displays, and provides a useful experimental pseudo-hires path for unchanged CP/M software without claiming that the reinterpretation is standard xterm behavior.

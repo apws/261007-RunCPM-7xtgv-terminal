@@ -1,0 +1,106 @@
+"""Compile the actual sketch settings writer with a memory-only File adapter."""
+from pathlib import Path
+import subprocess
+import tempfile
+import unittest
+
+SKETCH = Path(__file__).resolve().parents[1] / "7xtgv-vt100-runcpm.ino"
+
+
+class ConfigSettingsTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.directory = tempfile.TemporaryDirectory(prefix="xtgv-config-test-")
+        cls.binary = Path(cls.directory.name) / "writer"
+        sketch = SKETCH.read_text()
+        functions = sketch.split("static bool configEqualNoCase", 1)[1].split(
+            "static bool writeTerminalConfigErrorReport", 1)[0]
+        source = r'''
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <iostream>
+#include <iterator>
+#include <string>
+struct File {
+    std::string bytes;
+    size_t pos=0;
+    bool fail=false;
+    explicit operator bool() const { return true; }
+    bool available() const { return pos < bytes.size(); }
+    int read() { return available() ? uint8_t(bytes[pos++]) : -1; }
+    size_t size() const { return bytes.size(); }
+    size_t write(uint8_t byte) { if (fail) return 0; bytes+=char(byte); return 1; }
+    size_t write(const uint8_t *p,size_t n) {
+        if (fail) return 0;
+        bytes.append(reinterpret_cast<const char *>(p),n); return n;
+    }
+};
+''' + "static bool configEqualNoCase" + functions + r'''
+int main(int argc, char **) {
+    File input,output;
+    input.bytes=std::string(std::istreambuf_iterator<char>(std::cin),{});
+    output.fail=argc>1;
+    if (!writeConfigSettings(input,output,17,2,"rp2_2",3)) return 1;
+    std::cout << output.bytes;
+}
+'''
+        path = Path(cls.directory.name) / "writer.cpp"
+        path.write_text(source)
+        subprocess.run(["g++", "-std=c++17", "-Wall", "-Wextra", "-Werror",
+                        str(path), "-o", str(cls.binary)], check=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.directory.cleanup()
+
+    def rewrite(self, data):
+        return subprocess.run([str(self.binary)], input=data, capture_output=True, check=True).stdout
+
+    def test_preserves_palettes_comments_and_other_displays(self):
+        palette = b"[palette3]\r\n; keep me\r\npaper0=1,2,3\r\nink08=9,8,7\r\n"
+        other = b"[display:ES3_5]\r\nview_zoom=4\r\n"
+        data = b"[global]\r\nmode_palette=1\r\nmode_palette=9\r\nbacklight_level=16\r\ncrt_rampup_ms=1500\r\n" + palette + other
+        output = self.rewrite(data + b"\x1aignored padding")
+        self.assertIn(palette, output)
+        self.assertIn(other, output)
+        self.assertEqual(output.count(b"mode_palette="),1)
+        self.assertIn(b"mode_palette=3",output)
+        self.assertIn(b"backlight_level=17",output)
+        self.assertIn(b"crt_rampup_ms=1500\r\n",output)
+        self.assertIn(b"[display:rp2_2]\r\nview_zoom=2",output)
+        self.assertTrue(output.endswith(b"\x1a"))
+        self.assertNotIn(b"ignored padding",output)
+
+    def test_missing_keys_and_idempotence(self):
+        for source in (b"", b"; comment", b"[palette0]\nink00=1,2,3\n"):
+            output = self.rewrite(source)
+            self.assertIn(b"mode_palette=3",output)
+            self.assertEqual(self.rewrite(output),output)
+
+    def test_shared_id_case_and_repeated_sections(self):
+        other = b"[display:RP2_2B]\r\nview_zoom=4\r\n"
+        source = (b"[display:RP2_2]\r\nview_zoom=1\r\nzoom1_terminal=80x24\r\n" +
+                  other + b"[display:rp2_2]\r\nview_zoom=3\r\nrender_flush_hz=15\r\n")
+        output = self.rewrite(source)
+        self.assertIn(other, output)
+        self.assertEqual(output.count(b"view_zoom=2"), 1)
+        self.assertNotIn(b"view_zoom=3", output)
+        self.assertIn(b"zoom1_terminal=80x24", output)
+        self.assertIn(b"render_flush_hz=15", output)
+
+    def test_line_endings_and_long_lines(self):
+        for ending in (b"\r",b"\n",b"\r\n"):
+            long_line = b";" + b"x" * 700
+            source = b"[global]"+ending+b"mode_palette=0"+ending+long_line+ending
+            output = self.rewrite(source)
+            self.assertIn(long_line+ending,output)
+            self.assertIn(b"mode_palette=3"+ending,output)
+
+    def test_write_failure(self):
+        result = subprocess.run([str(self.binary),"fail"],input=b"[global]\nmode_palette=1\n",capture_output=True)
+        self.assertEqual(result.returncode,1)
+
+
+if __name__ == "__main__":
+    unittest.main()

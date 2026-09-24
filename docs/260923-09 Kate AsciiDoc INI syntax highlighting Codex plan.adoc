@@ -1,0 +1,349 @@
+= Kate: AsciiDoc `[source,ini]` nested syntax highlighting — Codex implementation plan
+:toc:
+:sectnums:
+:source-highlighter: highlight.js
+
+== Goal
+
+Make Kate highlight the _contents_ of native AsciiDoc INI source blocks with KDE's existing INI syntax definition.
+
+Target AsciiDoc:
+
+[source,asciidoc]
+....
+[source,ini]
+----
+[palette0]
+
+; comment
+paper0 = RGB565
+paper1 = RGB565 R
+----
+....
+
+Expected result in Kate:
+
+* the AsciiDoc document itself remains highlighted as AsciiDoc;
+* `[source,ini]` and the source-block delimiters remain AsciiDoc syntax;
+* text between the `----` delimiters is highlighted using KDE's existing `INI Files` highlighter;
+* no system package file is edited permanently.
+
+This is a Kate / KSyntaxHighlighting customization only.
+The Chromium Asciidoctor.js preview is independent and already works with:
+
+[source,asciidoc]
+----
+:source-highlighter: highlight.js
+----
+
+== Background
+
+KDE's syntax-highlighting engine supports embedding one language inside another using `IncludeRules`, for example:
+
+[source,xml]
+----
+<IncludeRules context="##INI Files" includeAttrib="true"/>
+----
+
+The stock Markdown definition already uses this technique for fenced blocks such as:
+
+[source,markdown]
+----
+```ini
+[section]
+key=value
+```
+----
+
+The stock AsciiDoc definition does not currently give `[source,ini]` blocks the same nested INI treatment, so Kate displays their contents as generic verbatim/source text.
+
+The user-local syntax directory is normally:
+
+[source,text]
+----
+~/.local/share/org.kde.syntax-highlighting/syntax/
+----
+
+Do *not* modify the packaged file under `/usr/share/...` directly.
+
+== Codex task
+
+=== 1. Locate the exact AsciiDoc syntax definition used on this CachyOS/KDE installation
+
+First inspect, do not guess paths.
+
+Useful commands:
+
+[source,bash]
+----
+find /usr/share ~/.local/share \
+    -path '*/org.kde.syntax-highlighting/syntax/asciidoc.xml' \
+    -o -path '*/syntax/asciidoc.xml' 2>/dev/null
+----
+
+Also useful:
+
+[source,bash]
+----
+grep -RIl '<language name="AsciiDoc"' \
+    /usr/share/org.kde.syntax-highlighting \
+    ~/.local/share/org.kde.syntax-highlighting 2>/dev/null
+----
+
+Record the packaged source path that Kate is actually using.
+
+=== 2. Create a user-local override
+
+Create the local syntax directory if needed:
+
+[source,bash]
+----
+mkdir -p ~/.local/share/org.kde.syntax-highlighting/syntax
+----
+
+Copy the currently installed AsciiDoc definition there.
+
+Example only -- use the path discovered in step 1:
+
+[source,bash]
+----
+cp /usr/share/org.kde.syntax-highlighting/syntax/asciidoc.xml \
+   ~/.local/share/org.kde.syntax-highlighting/syntax/asciidoc.xml
+----
+
+Before changing it, also make a dated backup:
+
+[source,bash]
+----
+cp ~/.local/share/org.kde.syntax-highlighting/syntax/asciidoc.xml \
+   ~/.local/share/org.kde.syntax-highlighting/syntax/asciidoc.xml.bak-260923
+----
+
+Do not change the system copy.
+
+=== 3. Inspect the installed AsciiDoc grammar before patching
+
+Codex should inspect the actual XML and identify:
+
+* the main text context;
+* handling of block attribute lines such as `[source,ini]`;
+* handling of listing/source delimiters `----`;
+* the context used for generic verbatim/source block content;
+* how contexts return when the closing delimiter is reached.
+
+Do not paste a patch copied from another KDE version without adapting it to the installed XML.
+
+The desired behavior is stateful:
+
+. recognize `[source,ini]`;
+. remember that the _next_ `----` begins an INI source block;
+. enter a dedicated context for the contents;
+. terminate that context at the matching closing `----`;
+. delegate all other text inside to `##INI Files`.
+
+=== 4. Add a dedicated INI source-block context
+
+Use the same general mechanism KDE's Markdown highlighter already uses for embedded languages.
+
+The core nested rule should ultimately contain:
+
+[source,xml]
+----
+<IncludeRules context="##INI Files" includeAttrib="true"/>
+----
+
+Conceptually the resulting AsciiDoc grammar needs contexts equivalent to:
+
+[source,xml]
+----
+<!-- conceptual example only; adapt names/transitions to the installed asciidoc.xml -->
+
+<context name="asciidoc-ini-source" attribute="Code" lineEndContext="#stay">
+    <!-- closing AsciiDoc block delimiter must be tested BEFORE INI rules -->
+    <StringDetect
+        attribute="Block"
+        context="#pop"
+        String="----"
+        column="0"/>
+
+    <IncludeRules context="##INI Files" includeAttrib="true"/>
+</context>
+----
+
+Important: the closing `----` rule must have priority over the included INI rules, otherwise the parser may fail to leave the embedded language context.
+
+The preceding `[source,ini]` line must route the following opening `----` into this context. The exact context transition depends on the stock `asciidoc.xml`; Codex should implement it using the existing source/listing-block state machine rather than creating an unrelated parser.
+
+=== 5. Keep the first patch deliberately narrow
+
+Initial scope:
+
+[source,text]
+....
+[source,ini]
+----
+...
+----
+....
+
+Also accept harmless spacing if the stock grammar conventions make this easy, for example:
+
+[source,text]
+....
+[source, ini]
+....
+
+Do not initially redesign all AsciiDoc source handling.
+
+Do not add C, C++, Bash, Python, JSON, etc. until INI works reliably.
+
+== Validation
+
+=== 6. Reload Kate highlighting without restarting the desktop
+
+After saving the local XML:
+
+. in Kate press `F7`;
+. execute:
+
+[source,text]
+----
+reload-highlighting
+----
+
+If necessary, close/reopen the `.adoc` document or restart Kate once.
+
+Confirm that the document highlighting mode is still AsciiDoc.
+
+=== 7. Test file
+
+Use this minimal test:
+
+[source,asciidoc]
+....
+= Kate AsciiDoc nested INI test
+
+[source,ini]
+----
+[palette0]
+
+; comment should have INI comment color
+paper0 = RGB565
+paper1 = RGB565 R
+paper2 = RGB565 G
+
+[palette1]
+ink00 = RGB565 GREY
+----
+....
+
+Success criteria:
+
+* `[palette0]` / `[palette1]` use INI section styling;
+* `; comment ...` uses INI comment styling;
+* keys such as `paper0` and `ink00` use INI key styling;
+* closing `----` is recognized as AsciiDoc again;
+* text after the block returns to normal AsciiDoc highlighting;
+* another ordinary AsciiDoc block is unaffected.
+
+=== 8. Optional command-line validation
+
+If installed, KDE's syntax-highlighting package may provide:
+
+[source,bash]
+----
+ksyntaxhighlighter6
+----
+
+It can help confirm which syntax/context is applied.
+
+For example, inspect available options first:
+
+[source,bash]
+----
+ksyntaxhighlighter6 --help
+----
+
+KDE upstream also supplies XML validation tooling in the syntax-highlighting source repository. Use it if convenient, but do not make installing a complete KDE build environment a requirement for this small local patch.
+
+== Rollback
+
+If Kate highlighting breaks:
+
+[source,bash]
+----
+rm ~/.local/share/org.kde.syntax-highlighting/syntax/asciidoc.xml
+----
+
+Then run:
+
+[source,text]
+----
+F7
+reload-highlighting
+----
+
+or restart Kate.
+
+Removing the user-local override returns Kate to the packaged system definition.
+
+== After INI works
+
+Extend the same mechanism only for languages actually useful in the 7xtgv documentation.
+
+Likely candidates:
+
+[source,text]
+----
+[source,c]
+[source,cpp]
+[source,bash]
+[source,python]
+[source,json]
+[source,yaml]
+[source,verilog]
+[source,asm]
+----
+
+Each should reuse KDE's existing syntax definition via an `IncludeRules` context instead of duplicating language rules.
+
+Examples of the general pattern:
+
+[source,xml]
+----
+<IncludeRules context="##C" includeAttrib="true"/>
+<IncludeRules context="##C++" includeAttrib="true"/>
+<IncludeRules context="##Bash" includeAttrib="true"/>
+<IncludeRules context="##Python" includeAttrib="true"/>
+<IncludeRules context="##JSON" includeAttrib="true"/>
+<IncludeRules context="##YAML" includeAttrib="true"/>
+----
+
+The exact exported context names must be checked against the locally installed KDE syntax definitions before adding each language.
+
+== Constraints for Codex
+
+* Keep `*.adoc` as the canonical documentation format.
+* Use native AsciiDoc `[source,LANG]` + `----`; do not switch back to Markdown fenced syntax.
+* Preserve the system syntax XML untouched.
+* Make the customization user-local and trivially removable.
+* Start with INI only.
+* Inspect the locally installed KDE XML before editing; KDE grammar versions differ.
+* Prefer a small, understandable patch over a generalized dynamic-language mechanism.
+* Document every local modification in comments inside the copied XML.
+* After success, save a diff of the local XML versus the packaged original so the customization can be reapplied after KDE package upgrades.
+
+== Useful upstream references
+
+KDE Syntax Highlighting repository:
+
+https://github.com/KDE/syntax-highlighting
+
+The upstream README documents the user-local syntax location and `reload-highlighting`.
+
+The current KDE Markdown grammar is also a useful implementation example because it already embeds INI syntax in fenced Markdown blocks using:
+
+[source,xml]
+----
+<IncludeRules context="##INI Files" includeAttrib="true"/>
+----

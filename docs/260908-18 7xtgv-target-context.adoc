@@ -1,0 +1,23 @@
+[id="7xtgv-active-target-context"]
+= 7xtgv active target context
+:source-highlighter: highlight.js
+
+Use this as the compact starting point for hardware work. Detailed history stays in the individual project READMEs and module resource folders.
+
+[cols=",,,",options="header",]
+|===
+|Target |MCU/display |Demo profile |Upload note
+|2 inch |RP2350 {plus} 320x240 ST7789 |`+rp2350-touch-lcd-2+` |Enter BOOTSEL manually before UF2 upload.
+|5 inch |ESP32-S3 {plus} 800x480 ST7262 RGB |`+jc8048w550+` |RGB parallel; board resources are under `+docs/tft-ips-modules+`.
+|10 inch |ESP32-P4 {plus} 1280x800 MIPI DSI |`+jc8012p4a1c+` |CH340 data socket; Arduino++_++GFX P4 DSI patch required.
+|===
+
+The demos use Arduino++_++GFX and the shared link:../src/7xtgv-palette.h[7xtgv palette]. RunCPM currently targets the RP2350 board; the ESP32-P4 RunCPM port is future work. Build outputs belong under `+build/+`; source and target setup stay under `+src/+`.
+
+== Display status-overlay rule
+
+Activity LEDs, viewport marks, and future taskbar/status pixels are UI overlays, not evidence of unused panel area and not generic HAL settings. Choose their position per target after checking physical resolution, controller offset and rotation, and any target-specific non-scrolling region. Check the schematic before using a board LED pin: on some modules it can be the TFT backlight or share display wiring. The current 2-inch RP2350 terminal therefore uses its final eight pixels as a full-height grey viewport gutter, configured by `+viewport_gutter_rgb+` in `+A0:7XTGVTRM.INI+`, and draws its temporary SD activity mark in the top-left; retained xterm256 plots suppress that mark.
+
+See ++[++platform-mcu-comparison.md++]++(260909-12 platform-mcu-comparison.adoc) for the CPU architecture differences and RunCPM portability notes.
+
+For a focused turn, name the target and action explicitly, for example: “RP2350, flash demo-print, inspect pale-blue paper.” Start with the target context note, then inspect only its sketch profile and `+gfxsetup.h+`.

@@ -24,12 +24,19 @@ class Mirror:
         self.x = self.y = 0
         self.escape = None
         self.decoder = codecs.getincrementaldecoder('utf-8')('replace')
+        self.host_events = bridge.HostEvents()
 
     def feed(self, data):
+        data, _ = self.host_events.feed(data)
         for c in self.decoder.decode(data):
             if self.escape is not None:
                 self.escape += c
                 if self.escape == '[':
+                    continue
+                if self.escape in ('(', ')'):
+                    continue
+                if self.escape in ('(B', '(0', ')B', ')0'):
+                    self.escape = None
                     continue
                 if self.escape.startswith('[') and '@' <= c <= '~':
                     body = self.escape[1:-1]
@@ -39,6 +46,9 @@ class Mirror:
                         self.x = max(0, min(79, (p[1] if len(p) > 1 else 1) - 1))
                     elif c == 'J' and body == '2':
                         self.rows = [[' '] * 80 for _ in range(self.row_count)]
+                    elif c == 'K':
+                        start = 0 if body == '2' else self.x
+                        self.rows[self.y][start:] = [' '] * (80-start)
                     self.escape = None
                 elif len(self.escape) > 128:
                     self.escape = None

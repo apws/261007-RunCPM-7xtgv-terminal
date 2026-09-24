@@ -1,0 +1,82 @@
+= Neutral host defaults and explicit target selection
+:source-highlighter: highlight.js
+
+Status: proposed small follow-up, documentation only. Petr requested a note/plan,
+not implementation. No launcher, configuration, firmware or device changes here.
+
+== Motivation
+
+The checked-in `tools/terminal.conf` currently selects `jc8048w550`. That is Petr's
+local preference, not a suitable assumption for every fresh clone. An agent can
+handle explicit target selection, but documented commands should work predictably
+without an agent too. The upload guard prevents unsafe unconfirmed uploads; it
+does not solve confusing startup defaults or incorrect port selection.
+
+Related background:
+
+* link:260924-13%20short%20display%20IDs%20and%20host%20target%20data%20cleanup.adoc[Shared target metadata and short display IDs].
+* link:260924-13%20display%20profile%20selection%20and%20identity%20audit.adoc[Selection and persistence audit].
+
+== Minimal intended behavior
+
+* Ship no selected device in shared defaults. Keep target definitions and Arduino
+  profiles versioned; they describe supported hardware, not which device is attached.
+* Accept an explicit canonical target in the launcher. Example, from the sketch
+  directory and when starting a new session:
+
+[source,sh]
+----
+./tools/kon.sh --target jc8048w535
+./tools/kon.sh --target jc8048w535 --port /dev/ttyACM0
+----
+
+* Allow an optional Git-ignored `tools/terminal.local.conf` for personal defaults.
+  Document a short copyable example; no interactive setup wizard is needed.
+* With no selected target, explain what is missing and show an exact example.
+  Preserve explicitly supported port-only mirror usage, but never infer upload
+  authorization from that port. Uploads still require a selected canonical target.
+* Keep the fresh firmware identity guard. Unknown old firmware still requires
+  explicit physical-target confirmation and a one-shot allowance; never save that
+  allowance in local defaults.
+* Do not change the shared CP/M INI. It remains portable; the display group ID
+  does not choose host upload artifacts or identify an individual physical unit.
+
+== Details to settle during implementation
+
+. Separate generic host preferences from local target/port selection. Preserve
+  Petr's current preference in the ignored local file during migration; do not
+  silently lose keyboard settings or enable device-triggered uploads for new users.
+. Use a single documented precedence: explicit CLI, exported environment, optional
+  local defaults, then target metadata for port discovery/defaults. Shared defaults
+  must not overwrite an explicit environment selection.
+. Treat target and port consistently: a stale local port for one target must not
+  silently follow an explicit different target. Scope the local port to its local
+  target; explicit CLI/environment port overrides remain deliberate and visible.
+. Keep shell launchers and direct Python tools consistent without making Python
+  execute arbitrary shell configuration. If the optional file remains shell-style,
+  document that launchers load it while direct Python calls use CLI/environment.
+. Show the selected target and port at startup. An existing tmux session currently
+  wins over new launcher arguments: attach only when compatible, or clearly report
+  the conflict and give a stop/restart command. Never silently switch an active
+  serial session or discard CP/M state.
+. Document how to change device with explicit launch arguments and how to stop the
+  old mirror first. No new device-selection UI or persistent device registry.
+
+The precedence and session checks are proposed behavior, not claims about today's
+implementation. Keep the change small; no broad configuration framework is needed.
+
+== Acceptance checks
+
+* Fresh-clone/no-local-default case gives a useful missing-target message.
+* Explicit W535 and W550 selections use their own defaults; custom ports work.
+* Local defaults work without appearing in Git; explicit selection takes priority.
+* A different target does not inherit a stale target-specific local port.
+* Existing-session conflicts are visible rather than silently ignored.
+* Identity mismatches and absent identity still block upload; no override is stored.
+* Mirror, transfer, INI-fetch and reflash paths retain consistent selection rules.
+
+== Deferred / out of scope
+
+No wizard, elaborate hardware autodetection, per-unit MAC registry, new short-ID
+alias system, RP2350 uploader integration or automatic firmware rebuild/promotion.
+Build-version provenance is tracked separately. Wait for implementation approval.

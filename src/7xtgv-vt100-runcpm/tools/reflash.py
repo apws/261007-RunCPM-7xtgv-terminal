@@ -2,15 +2,43 @@
 """Target-aware host action for the CP/M A0:REFLASH.COM event."""
 import argparse
 from datetime import datetime
-import json
 import os
 from pathlib import Path
 import subprocess
 import sys
+from firmware_identity import require_target, IdentityUnavailable, TargetMismatch
+from target_config import load_target, resolve_port, arduino_cli, target_label
 
 
 ROOT = Path(__file__).resolve().parent.parent
 TARGETS = Path(__file__).resolve().parent / "targets"
+
+
+def resolved_build_properties(cli, definition, stamp):
+    """Append project flags to the selected core/profile's expanded defaults.
+
+    Replacing build.extra_flags outright loses USB, PSRAM and core-affinity
+    definitions. Ask Arduino before overriding that one property; keep its
+    quoting intact and never infer a board's flags from the target name.
+    """
+    properties = dict(definition.get("build_properties", {}))
+    additions = properties.pop("build.extra_flags", "")
+    command = [cli, "compile", "--profile", definition["profile"],
+               "--show-properties=expanded"]
+    for key, value in properties.items():
+        command.extend(["--build-property", f"{key}={value}"])
+    command.append(str(ROOT))
+    result = subprocess.run(command, text=True, capture_output=True, check=False)
+    if result.returncode:
+        raise RuntimeError("Cannot resolve Arduino build flags: " + result.stderr.strip())
+    defaults = [line.partition("=")[2] for line in result.stdout.splitlines()
+                if line.startswith("build.extra_flags=")]
+    if len(defaults) != 1 or "{" in defaults[0] or "}" in defaults[0]:
+        raise RuntimeError("Arduino did not return one fully expanded build.extra_flags value")
+    properties["build.extra_flags"] = " ".join(
+        part.strip() for part in (defaults[0], additions, f"-DXTGV_BUILD_STAMP={stamp}")
+        if part.strip())
+    return properties
 
 
 def main():
@@ -30,6 +58,8 @@ def main():
     parser.add_argument("--restore", metavar="ARCHIVE",
                         help="promote a named target archive to current before upload")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--allow-unidentified-target", metavar="TARGET",
+                        help="explicit manual recovery for old/nonresponding firmware; never overrides a mismatch")
     args = parser.parse_args()
     if sum(bool(option) for option in (args.build, args.build_only, args.promote_new,
                                        args.current, args.restore)) > 1:
@@ -37,17 +67,20 @@ def main():
     building = args.build or args.build_only
     if not args.target:
         parser.error("set XTGV_TARGET or pass --target")
-    definition_path = TARGETS / f"{args.target}.json"
+    if args.allow_unidentified_target and args.allow_unidentified_target != args.target:
+        parser.error("--allow-unidentified-target must repeat the selected --target exactly")
     try:
-        definition = json.loads(definition_path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        parser.error(f"unknown target {args.target!r}: no {definition_path.name}")
+        _, definition = load_target(args.target, TARGETS)
+    except RuntimeError as error:
+        parser.error(str(error))
     if definition.get("method") != "arduino-cli":
         parser.error(f"{args.target} requires {definition.get('method', 'an unspecified')} upload workflow")
-    port = args.port or definition.get("port")
-    if not port:
-        parser.error(f"{args.target} has no default port; set XTGV_PORT")
-    cli = os.environ.get("ARDUINO_CLI", "/home/falken/.local/bin/arduino-cli")
+    try:
+        port = resolve_port(args.port, args.target, definition)
+        cli = arduino_cli()
+    except RuntimeError as error:
+        parser.error(str(error))
+    print("7xtgv target:", target_label(args.target, definition), flush=True)
     # A device-side REFLASH event must never compile whatever happens to be in
     # the working tree. It uploads the latest target-aware `new` candidate,
     # falling back to hardware-proven `current` only when no candidate exists.
@@ -80,9 +113,10 @@ def main():
                        "--output-dir", str(build_dir)]
     build_properties = dict(definition.get("build_properties", {}))
     if building:
-        build_properties["build.extra_flags"] = (
-            build_properties.get("build.extra_flags", "") +
-            f" -DXTGV_BUILD_STAMP={stamp}").strip()
+        try:
+            build_properties = resolved_build_properties(cli, definition, stamp)
+        except RuntimeError as error:
+            parser.error(str(error))
     for key, value in build_properties.items():
         compile_command.extend(["--build-property", f"{key}={value}"])
     compile_command.append(str(ROOT))
@@ -104,6 +138,20 @@ def main():
         print("7xtgv reflash upload:", " ".join(upload_command), flush=True)
     if args.dry_run:
         return 0
+    # Every upload path (including device-triggered REFLASH) checks before
+    # promotion/restoration or invoking the uploader. Build-only is offline.
+    def check_device():
+        try:
+            require_target(port, args.target, args.allow_unidentified_target)
+        except (IdentityUnavailable, TargetMismatch, OSError) as error:
+            print(f"7xtgv reflash blocked: {error}", file=sys.stderr)
+            if isinstance(error, IdentityUnavailable):
+                print("For intentional recovery/first installation only, repeat with "
+                      f"--allow-unidentified-target {args.target}", file=sys.stderr)
+            return 1
+        return 0
+    if not building and check_device():
+        return 1
     if restore_dir:
         stamp = datetime.now().strftime("%y%m%d-%H%M")
         stable_dir = current_dir
@@ -145,7 +193,12 @@ def main():
         upload_command[upload_command.index("--input-dir") + 1] = str(build_dir)
     elif not build_dir.is_dir():
         parser.error(f"no stable image for {args.target}: run host reflash with --build first")
-    return 0 if args.build_only else subprocess.run(upload_command, check=False).returncode
+    if args.build_only:
+        return 0
+    # Build+upload may take a while: query after compilation, not before it.
+    if building and check_device():
+        return 1
+    return subprocess.run(upload_command, check=False).returncode
 
 
 if __name__ == "__main__":

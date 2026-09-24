@@ -322,6 +322,10 @@ int main() {
     assert(lastBacklight == 7 && t.charRAM[85] == ' ');
     feed(t, "\033[>63;10v");
     assert(lastBacklight == 10);
+    for (int level = 0; level <= 31; ++level) {
+        feed(t, "\033[>63;" + std::to_string(level) + "v");
+        assert(lastBacklight == level);
+    }
     feed(t, "\033[>63;32v");
     assert(lastBacklight == 32);
     feed(t, "\033[>63;33v");
@@ -370,19 +374,19 @@ int main() {
     t.reset();
     feed(t, "\033[31;4;7mX");
     assert(t.flags[0] == (vt::Underline | vt::Reverse));
-    assert((t.attrRAM[0] & 15) == 2);
+    assert((t.attrRAM[0] & 15) == 1);
     feed(t, "\033[1mB");
-    assert((t.attrRAM[1] & 15) == 3);
+    assert((t.attrRAM[1] & 15) == 9);
     feed(t, "\033[0m\033[90mD");
-    assert((t.attrRAM[2] & 15) == 1);
+    assert((t.attrRAM[2] & 15) == 8);
     feed(t, "\033[0mY");
     assert(t.flags[3] == 0 && t.attrRAM[3] == 0);
     feed(t, "\033[38;2;1;4;7mZ");
     assert(t.flags[4] == 0 && t.attrRAM[4] == 0);
     feed(t, "\033[30mA\033[1mB\033[39mC");
     assert((t.attrRAM[5] & 15) == 0);
-    assert((t.attrRAM[6] & 15) == 1);
-    assert((t.attrRAM[7] & 15) == 1); // SGR 39 keeps the active bold attribute.
+    assert((t.attrRAM[6] & 15) == 8);
+    assert((t.attrRAM[7] & 15) == 8); // SGR 39 keeps the active bold attribute.
     feed(t, "\033[22mD");
     assert((t.attrRAM[8] & 15) == 0);
     // Exact xterm colors are consumed only after explicit private GCLS.  The
@@ -450,7 +454,7 @@ int main() {
     t.feed(32 + 70);
     feed(t, "Z");
     assert(!t.ansi && t.charRAM[10 * 80 + 70] == 'Z' &&
-           (t.attrRAM[10 * 80 + 70] & 15) == 2);
+           (t.attrRAM[10 * 80 + 70] & 15) == 1);
     feed(t, "\033Z");
     assert(replies == "\033/Z");
     replies.clear();
@@ -459,7 +463,7 @@ int main() {
     feed(t, "\033<\033[6n");
     assert(t.ansi && replies == "\033[1;3R");
     feed(t, "A");
-    assert((t.attrRAM[2] & 15) == 2); // mode changes preserve ink.
+    assert((t.attrRAM[2] & 15) == 1); // mode changes preserve ink.
     // Both CSI encodings reach the same ANSI scanner; C1 is not an output
     // mode switch and fragmented bytes are handled just like ESC [.
     t.reset();
@@ -468,7 +472,7 @@ int main() {
     t.feed(0x9b);
     feed(t, "31mR");
     assert(t.ansi && t.charRAM[t.index(2, 1)] == 'R' &&
-           (t.attrRAM[t.index(2, 1)] & 15) == 2);
+           (t.attrRAM[t.index(2, 1)] & 15) == 1);
     t.feed(0x9b);
     feed(t, "0mN"); // FAND's compact three-byte attribute reset.
     assert(t.charRAM[t.index(3, 1)] == 'N' &&
@@ -613,6 +617,17 @@ int main() {
     assert(lastAction == vt::Keyboard::ZoomOut && input.empty());
 
     vt::HistoryProfiles profiles;
+    assert(profiles.global().crtRampupMs == 0);
+    for (const std::string duration : {"0", "1", "1500", "60000", "60001", "-1", "abc", "1ms", ""}) {
+        profiles.beginLoad();
+        const std::string ini = "[global]\nbacklight_level=32\ncrt_rampup_ms=" + duration + "\n";
+        for (uint8_t c : ini) profiles.feed(c);
+        profiles.finishLoad();
+        const bool valid = duration == "0" || duration == "1" || duration == "1500" || duration == "60000";
+        assert(profiles.errors() == (valid ? 0u : 1u));
+        assert(profiles.global().backlightLevel == 31);
+        assert(profiles.global().crtRampupMs == (valid ? unsigned(std::stoi(duration)) : 0u));
+    }
     const std::string profileIni =
         "[global]\r\nexit_key=lalt+ralt+delete\r\nclear_key=lalt+ralt+escape\r\ncursor_blink_ms=250\r\n"
         "viewport_gutter_rgb=128,129,130\r\nviewport_active_gutter_rgb=active_line\r\n"
@@ -687,6 +702,40 @@ int main() {
     assert(displayProfiles.display().geometry[1].cols == 40 &&
            displayProfiles.display().geometry[1].rows == 12 &&
            displayProfiles.display().renderFlushHz == 15);
+
+    // Broken headings cannot leak settings into the preceding valid section.
+    displayProfiles.beginLoad();
+    for (uint8_t c : std::string(
+             "[display:RP2_2]\nview_zoom=2\n[display:ES3_5\nview_zoom=4\n"
+             "[global]\nbacklight_level=16\n[typo]\nbacklight_level=31\n"
+             "[bank1\nname=must not apply\n"
+             "[display:RP2_2]\nrender_flush_hz=12\n")) displayProfiles.feed(c);
+    displayProfiles.finishLoad();
+    assert(displayProfiles.errors() == 6);
+    assert(displayProfiles.display().viewZoom == 2);
+    assert(displayProfiles.global().backlightLevel == 16);
+    assert(displayProfiles.display().renderFlushHz == 12);
+    displayProfiles.beginLoad();
+    const std::string longHeading = "[display:RP2_2]\nview_zoom=2\n[" +
+        std::string(250, 'X') + "]\nview_zoom=4\n";
+    for (uint8_t c : longHeading) displayProfiles.feed(c);
+    displayProfiles.finishLoad();
+    assert(displayProfiles.errors() == 2 && displayProfiles.display().viewZoom == 2);
+
+    // A group is intentionally shareable; absent fields retain each HAL's defaults.
+    auto sharedHal = vt::displayHalDefaults();
+    sharedHal.id = "GROUP_5A";
+    for (uint16_t flush : {uint16_t(15), uint16_t(30)}) {
+        sharedHal.defaultRenderFlushHz = flush;
+        displayProfiles.beginLoad(sharedHal);
+        for (uint8_t c : std::string(
+                 "[display:group_5a]\nview_zoom=2\nzoom2_terminal=40x12\n"
+                 "[display:GROUP_5B]\nview_zoom=4\nunknown_setting=ignored\n"))
+            displayProfiles.feed(c);
+        displayProfiles.finishLoad();
+        assert(displayProfiles.errors() == 0 && displayProfiles.display().viewZoom == 2);
+        assert(displayProfiles.display().renderFlushHz == flush);
+    }
 
     // Mode, console width and input keys are independent. A late input=
     // line must not overwrite an explicit key entered earlier in the INI.

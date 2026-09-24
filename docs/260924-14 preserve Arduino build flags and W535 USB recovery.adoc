@@ -1,0 +1,84 @@
+= Preserve Arduino build flags and recover W535 USB
+:source-highlighter: highlight.js
+
+Petr approved fixing the build tooling, rebuilding W535 and reflashing it after
+the USB-console regression in `260924-1441`. The TFT/CP-M and shared INI worked,
+but the USB mirror and identity query did not. See
+link:260924-14%20W535%20shared-card%20rebuild%20checkpoint.adoc[the preceding checkpoint and corrected diagnosis].
+
+== Cause and correction
+
+The builder replaced Arduino's entire `build.extra_flags` property with project
+defines and a build stamp. That removed core-provided definitions including USB
+mode, CDC-on-boot, PSRAM presence, task affinity and `ESP32`. The core itself had
+not removed the legacy `ESP32` macro; the earlier explanation was incorrect.
+
+`tools/reflash.py` now queries the selected profile with
+`arduino-cli compile --show-properties=expanded` before building. Non-extra-flag
+target property overrides participate in that query. The builder preserves the
+returned `build.extra_flags` string, including quoting, and appends target additions
+and `XTGV_BUILD_STAMP`. Missing, duplicate, unresolved or failed property results
+stop the build rather than silently falling back to incomplete flags.
+
+This property query does not compile, reset or query the device. Existing-image
+uploads still do not rebuild or resolve build flags. No upload safeguard was
+weakened. Build-only remains free of device access.
+
+Target JSON's `build.extra_flags` is now explicitly additive. Removed redundant
+`-DESP32` additions and the W550's duplicate debug define. Removed the misleading
+W550-only compatibility shim in `runcpm-config.h`; normal Arduino platform flags
+provide these definitions. RunCPM's host-ID test accepting either architecture
+macro remains harmless compatibility support.
+
+== Serial selection remains target-specific
+
+[cols="1,1,2",options="header"]
+|===
+|Target |CDC on boot |Terminal transport
+|W535 / ES3_35 |1 |Native hardware USB CDC, normally `/dev/ttyACM0`
+|W550 / ES3_5 |0 |UART0 through external USB serial bridge, normally `/dev/ttyUSB0`
+|===
+
+The W550 Arduino profile now explicitly selects `CDCOnBoot=default`. Its old
+profile said CDC even though replacing the flags accidentally selected UART0.
+Making UART selection explicit preserves the actual working transport while
+allowing other platform defaults to survive. W535 retains `CDCOnBoot=cdc`.
+No W550 firmware was built or uploaded as part of this recovery.
+
+== Verification
+
+All 73 Python host tests passed. New cases cover preservation of quoted default
+flags, target additions, other overrides, valid empty defaults and rejection of
+failed/missing/duplicate/unexpanded property results. Dispatcher tests verify
+property resolution before compile, and identity checking after compilation for
+build-and-upload requests.
+
+Actual expanded properties from installed Arduino-ESP32 3.1.0 were checked for
+both profiles: `ESP32`, PSRAM, loop/event core 1 and USB mode 1 are retained;
+CDC-on-boot is respectively 1 and 0. These are real CLI property checks, not only
+synthetic macro tests. The build-version manifest idea remains separate future work.
+
+== Build, upload and hardware result
+
+W535 candidate `260924-1456` built successfully: 630036 bytes flash, 171328 bytes
+static RAM, leaving 156352 bytes. Its link map confirms terminal runtime uses
+`HWCDC`, replacing the previous erroneous `HardwareSerial` reference.
+Uploaded through the common dispatcher with the explicitly approved one-time
+W535 recovery allowance because the prior build's USB console could not answer.
+All flash hashes verified.
+
+A fresh identity query without any allowance returned `jc8048w535`, `260924-1456`.
+Completed Petr's wrong-target test through the real reflash dispatcher with W550
+selected against that W535 port. It refused the explicit target mismatch, returned
+1 and made zero uploader calls. The uploader was additionally replaced by a raising
+safety trap for this negative test only; the serial query/guard remained real.
+
+Visible Konsole restored with explicit W535/ACM0 session arguments. Mirror confirms
+build stamp, SD/profile/history OK and `A0>`. No INI or history file was transferred
+or edited. CP/M restarted for upload. Candidate stays `new`; `current` was not
+promoted. Persistent host configuration still names W550, while this active mirror
+session explicitly selects W535. W550's corrected build properties were checked,
+but a new W550 firmware image/hardware test remains for its next requested rebuild.
+
+Petr's earlier double-ramp observation on W550 is not diagnosed or claimed fixed by
+this USB/build-flags repair. Longer display/input/ramp validation remains with Petr.

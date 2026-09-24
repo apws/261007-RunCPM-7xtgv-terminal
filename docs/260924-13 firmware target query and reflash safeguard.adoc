@@ -1,0 +1,140 @@
+= Firmware target query and reflash safeguard
+:source-highlighter: highlight.js
+
+== Signed scope
+
+Petr approved a small safeguard on 260924, explicitly including requests emitted
+by device-side `REFLASH.COM`. No MAC registry, registration database, automatic
+board-wiring discovery, INI target selection or new P4 upload backend is included.
+
+The firmware reports its compiled target and build. This prevents an accidental
+upload selected for another known target; it is not independent evidence of the
+physical board model if incorrect firmware is already installed.
+
+== Protocol
+
+Host sends the existing safe mirror-snapshot query `ESC [ > 6 2 v`.
+New firmware returns a host-only DCS frame, in addition to the existing snapshot:
+
+[source,text]
+----
+ESC P 7xtgv-id;1;jc8048w550;260924-1259 ESC \
+----
+
+Spaces above around escape characters are explanatory, not transmitted bytes.
+Fields are protocol version 1, compiled target name, and build stamp.
+Unstamped direct builds report `unstamped`. Known targets are `jc8048w550`,
+`jc8048w535`, and `rp2350-touch-lcd-2`; unknown firmware targets cannot match
+a configured known target.
+
+The query works in normal and RAW input modes, enters neither CP/M nor history,
+and does not change profile, DU, brightness, or TFT contents. Response bytes are
+serialized between complete mirror updates and tolerate partial serial writes.
+The PC mirror and transfer-screen parser filter the DCS frame from display text.
+
+The uploader opens the selected port exclusively using the mirror's established
+serial/DTR policy, discards unread host input, sends a new query, and waits up to
+four seconds for the framed reply. It does not parse a cached boot banner or use
+USB VID/PID as proof of the board. No reset command or download-mode probe is sent.
+The normal serial driver/DTR behavior still applies when opening/closing a port.
+Older firmware safely handles the snapshot request but returns no identity.
+
+== Upload policy
+
+* Matching target: proceed through the selected target's normal uploader.
+* Different reported target: refuse, including when a manual allowance was given.
+* No identity reply: refuse by default; an intentional first installation or
+  recovery requires a one-shot `--allow-unidentified-target TARGET` matching the
+  selected target exactly.
+* Port errors, permissions and exclusive-ownership failures are not bypassed by
+  that allowance.
+* `--build-only` stays offline; `--dry-run` does not probe hardware.
+* Existing-image upload, `--current`, promotion and restore all check identity
+  before invoking the uploader or mutating promotion/restore directories.
+* Build+upload queries after compilation, so a pre-build observation is not reused.
+
+The common `tools/reflash.py` owns the guard. The legacy W535 shortcut now delegates
+to it rather than invoking Arduino CLI directly. The configured device-side
+REFLASH event already calls this dispatcher after releasing the mirror's port;
+therefore the same guard covers it. Do not put a manual allowance into
+`terminal.conf` or any persistent automatic command.
+
+The dispatcher still refuses `bootsel-uf2` targets: RP2350's manual BOOTSEL workflow
+was not converted into a new automatic uploader. Its firmware identity is ready,
+but that separate manual workflow is not covered by this dispatcher yet.
+
+== Bootstrap and limitations
+
+Current device firmware `260924-1259` predates the response. The first guarded
+upgrade therefore needs explicit physical-target confirmation and the one-shot
+allowance. Subsequent upgrades can use the matching firmware reply normally.
+Until the first upgrade, device-side REFLASH will be refused for missing identity.
+No upload was performed as part of implementing this safeguard.
+
+The guard compares the reported target to the selected per-target artifact
+directory/profile. It is not firmware signing, binary attestation or a defence
+against deliberately mislabelled/copied artifacts. USB removal/replacement between
+the completed check and the separate uploader process is also not atomically
+prevented; do not swap boards during an upload. The shared microSD INI stays
+portable and plays no role in target selection.
+
+== Verification
+
+Host tests cover matching and mismatched targets, missing replies, deliberate
+recovery, invalid allowances, serial-error refusal, old buffered input removal,
+fragmented serial responses, normal/RAW firmware input, partial serial writes,
+unchanged CP/M/TFT state, and filtering in both mirror and transfer paths.
+Dispatcher tests cover new/current/promote/restore, offline builds/dry-runs,
+and checking after compilation. All three compiled target IDs and stamped versus
+unstamped builds were checked locally. Python and runtime sanitizer tests pass.
+
+Pending: explicit rebuild, first confirmed manual upgrade, and a hardware query
+check. No device access, firmware build, flash, INI edit or transfer in this task.
+
+== Requested rebuild checkpoint, 260924-1421
+
+The requested W550 `--build-only` run succeeded and staged `260924-1421` in
+`build/7xtgv-vt100-runcpm/jc8048w550/new`; `current` remains unchanged.
+Flash usage is 587452 bytes; static RAM is 190520 bytes, leaving 137160 bytes.
+The staged binary contains the correct build stamp, `jc8048w550` target and
+identity-reply format. It includes the malformed-section parser isolation fix.
+
+No INI change is needed. Nothing was uploaded. The first upload must still be
+host-initiated with explicit physical-target confirmation and the one-shot
+unidentified-firmware allowance, followed by verification of the new identity reply.
+
+== First hardware upgrade, 260924
+
+Petr then requested reflash. Stopped the shared mirror and uploaded candidate
+`260924-1421` to the confirmed W550 through the common dispatcher with the one-shot
+`--allow-unidentified-target jc8048w550` allowance. All upload hashes verified.
+After reboot, a fresh `require_target` call without any allowance confirmed
+`jc8048w550`, build `260924-1421`. The visible Konsole/tmux mirror was restored;
+boot reports terminal profile/history OK and reaches `A0>`.
+
+The identity handshake is now hardware-smoke-tested; future guarded uploads no
+longer need the old-firmware allowance for this device. No second upload was made
+just to exercise that path. Mismatch/refusal paths remain covered by host tests.
+INI/history files were not transferred or edited; CP/M restarted. Candidate stays
+`new`, with no promotion of `current`.
+
+== Wrong-target attempt against old W535 firmware, 260924
+
+After Petr swapped to W535 (`/dev/ttyACM0`), deliberately ran the real dispatcher
+with `--target jc8048w550 --port /dev/ttyACM0`, with no unidentified-device allowance.
+For this negative test only, the uploader subprocess was additionally replaced by
+a raising safety trap: the real serial identity query and guard were not mocked.
+The guard returned 1 for missing identity and the uploader had zero calls.
+No firmware was written, no build was made and no persistent target configuration
+or INI was changed.
+
+Petr observed only a screen blink. The query reuses the snapshot request, so an
+older renderer can redraw without implementing the new identity response.
+Restored visible Konsole with explicit session-only W535 target/ACM0 overrides.
+Snapshot shows the old 260914 build at `A0>`, history OK and profile loaded with
+errors. The shared newer INI may contain syntax unsupported by that old parser;
+no attempt was made to change it or identify each error during this safeguard test.
+
+This verifies the real-device missing-identity refusal path, not an explicit
+W535/W550 reply mismatch. That latter hardware test requires first installing
+identity-capable W535 firmware with separately approved build/upload steps.

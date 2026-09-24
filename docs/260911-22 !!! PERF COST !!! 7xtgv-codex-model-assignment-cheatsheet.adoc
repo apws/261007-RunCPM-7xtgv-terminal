@@ -1,0 +1,185 @@
+[id="7xtgv-codex-model--effort-assignment-cheatsheet"]
+= 7xtgv Codex Model / Effort Assignment Cheatsheet
+:source-highlighter: highlight.js
+
+== Goal
+
+Maximize *useful engineering work per Codex allowance*, not raw speed.
+
+Use Petr {plus} ChatGPT/Lyra for design discussion, ambiguity reduction, architecture, and formal plans when useful. Give Codex bounded implementation tasks whenever possible.
+
+== Default model ladder
+
+[cols=",,",options="header",]
+|===
+|Task type |Recommended model / effort |Use for
+|Mechanical, precisely specified |*Luna Medium* |pin changes, known board variants, renames, repetitive edits, simple generated glue
+|Normal implementation |*Terra Medium* |default coding model; several files, ordinary debugging, tests, refactors with clear intent
+|Ambiguous / architectural |*Sol Medium* |unclear requirements, subtle existing code, concurrency, memory/cache behavior, emulator integration
+|Difficult / risky reasoning |*Sol High* |tangled bugs, emulator semantics, delicate refactors, corruption, concurrency, hard review
+|Expert consultation / hard decision |*Astra Low or Medium* |inspect difficult problem, choose approach, produce exact plan; then hand implementation back to Terra when possible
+|===
+
+=== Practical shorthand
+
+* *Luna = hands*
+* *Terra = everyday colleague*
+* *Sol = engineer*
+* *Astra = consultant*
+* *Petr = architect*
+
+== Important efficiency rules
+
+* Prefer *Medium first*. Use *High because there is a reason*, not because the task is important.
+* A stronger model at lower effort can be more efficient than a weaker model repeatedly misunderstanding the task.
+* If a model misunderstands the same architectural point twice, *change model instead of spending many corrective turns*.
+* Do not use Luna for vague architecture or tasks requiring strong intuition from incomplete wording.
+* Do not leave Sol High or Astra running broadly just because they can discover more improvements.
+* Prefer one strong reasoning pass followed by a cheaper implementation pass:
+** *Astra Low / Sol Medium -++>++ exact plan -++>++ Terra Medium implementation*
+* For already formalized jobs:
+** *precise plan -++>++ Luna Medium or Terra Medium*
+* Avoid broad autonomous “keep going until done” tasks when the search space is large.
+* Avoid parameter sweeps, repeated benchmarks, and trial/error loops unless they answer a specific decision.
+* Ask Petr when a design choice depends on project intent, hardware behavior, aesthetics, acceptable tradeoffs, or future direction.
+* Petr can perform slow visual/device tests; Codex should provide a short exact checklist instead of consuming allowance driving long hardware sessions.
+* Prefer theoretical reasoning and source inspection before experimentation.
+* Keep experiments small, hypothesis-driven, and reversible.
+* Record what was tried and why rejected so the same expensive path is not rediscovered.
+
+== When to escalate
+
+=== Luna -++>++ Terra
+
+Escalate when:
+
+* the task spans several interacting files;
+* requirements are incomplete or implied;
+* the first attempt shows misunderstanding;
+* behavior of existing architecture must be inferred;
+* debugging requires more than a straightforward compile error fix.
+
+=== Terra -++>++ Sol
+
+Escalate when:
+
+* concurrency, caches, memory placement, scheduler behavior, or emulator semantics matter;
+* several plausible designs exist;
+* a subtle regression could be expensive;
+* understanding the code is more important than typing the patch;
+* repeated Terra attempts start forming a trial/error loop.
+
+=== Sol -++>++ Astra
+
+Escalate when:
+
+* the main problem is deciding *what should be done*, not implementing it;
+* the architecture is genuinely unclear;
+* a wrong direction would cause many downstream edits/tests;
+* a strong one-pass review could prevent a large search tree.
+
+Prefer using Astra to *decide and specify*, not automatically to perform all downstream implementation and testing.
+
+== When to stop and ask Petr
+
+Stop instead of exploring blindly when:
+
+* two or more materially different designs are reasonable;
+* the choice depends on 7xtgv design intent;
+* hardware behavior can be checked faster by Petr;
+* the next step would start a broad benchmark/search loop;
+* success criteria are subjective or visual;
+* the agent would otherwise modify unrelated working code;
+* an optimization is interesting but not required by the current goal.
+
+A good stop message is:
+
+____
+I see approaches A and B. A costs X / changes Y; B preserves Z but costs W. I recommend B because ++____++. Shall I proceed with B?
+____
+
+[id="chatgptlyra--codex-workflow"]
+== ChatGPT/Lyra {plus} Codex workflow
+
+For fuzzy or expensive tasks:
+
+[arabic]
+. Discuss architecture / intent with Petr {plus} Lyra.
+. Reduce ambiguity and identify constraints.
+. Produce a compact Markdown implementation plan.
+. Give that plan to *Terra Medium* first.
+. Let Codex implement only the bounded task.
+. Petr performs relevant hardware / visual testing.
+. Escalate model only if the remaining problem truly needs it.
+
+This can make a “weaker” coding model effective because the expensive reasoning was already resolved.
+
+== Speed setting
+
+* *Do not use Fast by default.*
+* In this project, elapsed time is usually less important than weekly allowance.
+* Spend extra speed/compute only when there is a concrete reason.
+
+== Model/effort selection heuristic
+
+Before substantial work, ask:
+
+[arabic]
+. *Is the task mechanically specified?* +
+-++>++ Luna Medium.
+. *Does it require normal multi-file coding but the goal is clear?* +
+-++>++ Terra Medium.
+. *Does it require understanding architecture or resolving ambiguity?* +
+-++>++ Sol Medium.
+. *Is it genuinely difficult / subtle / risky?* +
+-++>++ Sol High.
+. *Would one excellent decision save many implementation/test iterations?* +
+-++>++ Astra Low/Medium for analysis, then return to Terra.
+
+[id="suggested-agentsmd-clause"]
+== Suggested `+AGENTS.md+` clause
+
+[source,md]
+----
+- Before substantial work, prefer the cheapest model and lowest reasoning effort
+  likely to complete the task correctly. Recommend a model/effort change when a
+  task would materially benefit from it. Escalate because of demonstrated
+  ambiguity, architectural difficulty, subtle risk, or repeated misunderstanding
+  rather than merely because a task is important. Prefer a stronger model for
+  one bounded analysis/decision pass followed by a cheaper implementation model
+  over broad autonomous trial/error loops. When multiple materially different
+  approaches depend on project intent, stop and ask Petr instead of exploring
+  all branches.
+----
+
+Optional companion rule:
+
+[source,md]
+----
+- Treat Petr as the project architect and hardware/visual test operator. Preserve
+  his visibility into design decisions. For expensive experiments, state the
+  hypothesis and expected decision first; avoid broad benchmark sweeps or
+  unrelated optimization unless explicitly requested.
+----
+
+[id="7xtgv-specific-examples"]
+== 7xtgv-specific examples
+
+* Change known SPI pins for an otherwise identical display module +
+-++>++ *Luna Medium*
+* Add a new display HAL using an already established pattern +
+-++>++ *Terra Medium*
+* Port the current RunCPM integration from RP2350 to STM32H7 with known board HAL +
+-++>++ *Terra Medium*, escalate to Sol only for architecture-specific issues
+* Analyze STM32H7 cache / ITCM / DTCM placement for `+Z80run()+` +
+-++>++ *Sol Medium*
+* Diagnose a subtle RunCPM {plus} FreeRTOS {plus} cache contention issue +
+-++>++ *Sol High*
+* Decide whether a large emulator restructuring is justified at all +
+-++>++ *Astra Low/Medium consultation*, then stop for Petr's decision
+* Apply an already decided one-line placement attribute and add a focused test +
+-++>++ *Luna or Terra Medium*
+
+== Rule of thumb
+
+*Do not optimize for cheapest tokens. Optimize for the cheapest path to a correct, understood, bounded result.*

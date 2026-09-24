@@ -30,3 +30,4 @@ Set the front panel switches with the "p - Port 255 value" menu
 command, or with "p fe" in the ICE (yes, port 254, which is a mirror
 of port 255 to allow setting the switches, since writing to port 255
 will set the port LEDs on the front panel display).
+

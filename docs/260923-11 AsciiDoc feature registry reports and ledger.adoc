@@ -1,0 +1,106 @@
+= AsciiDoc feature registry reports and ledger
+:source-highlighter: highlight.js
+
+Date: 260923. Status: implemented at Petr's request; host tests passed.
+
+== Scope
+
+Completes the explicitly deferred feature-tooling part of
+link:260923-09%20AsciiDoc%20documentation%20migration%20plan.adoc[the documentation migration].
+The original link:260922-16%20structured%20feature%20registry%20design.adoc[registry design]
+remains historical evidence of the Markdown-first implementation.
+
+* link:FEATURES.adoc[FEATURES.adoc] replaces the former Markdown overview.
+* `features.tsv` remains the canonical ASCII data store with the same schema.
+* Group order and introduction-date/title sorting are unchanged.
+* The overview's status legend, firmware gate, evidence map, drift notes and
+  maintenance rules are preserved outside the generated region.
+* Document links now use native AsciiDoc link macros with encoded targets.
+* Existing Markdown, plain-text and TSV report exports remain available.
+
+The old `FEATURES.md` is removed after migration, not maintained as a second
+copy that could become stale. Its history remains in Git; its narrative and
+feature content are carried forward in `FEATURES.adoc`.
+
+== Commands
+
+Validate the store and regenerate the default AsciiDoc overview:
+
+[source,bash]
+----
+python3 src/feature_registry.py check
+python3 src/feature_registry.py update-ledger
+----
+
+Preview regeneration without writing:
+
+[source,bash]
+----
+python3 src/feature_registry.py update-ledger --dry-run
+----
+
+Export a selected, sorted AsciiDoc table:
+
+[source,bash]
+----
+python3 src/feature_registry.py report --format asciidoc \
+  --where group=INP --fields idea_date,title,state,next_gate \
+  --sort idea_date,title --output /tmp/input-features.adoc
+----
+
+`--format adoc` is an alias for `--format asciidoc`. Both emit a table fragment
+that can be rendered directly or included in another document; they do not
+add a document title. The full overview has its own title and the required
+`:source-highlighter: highlight.js` attribute.
+
+List features that are neither implemented nor hardware-tested:
+
+[source,bash]
+----
+python3 src/feature_registry.py report --format asciidoc \
+  --where state!=I --where state!=H \
+  --fields group,idea_date,title,state,next_gate
+----
+
+This includes reference and deliberately deferred/rejected records. Use an
+exact filter such as `--where state=P` to select signed implementation plans.
+
+== Generation and escaping
+
+Only the region between these standalone AsciiDoc comment lines is regenerated:
+
+[source,text]
+----
+// feature-registry:begin
+// feature-registry:end
+----
+
+Generated fields are literal text, protected with inline passthrough macros
+and escaped HTML characters, pipe separators and closing brackets. This keeps
+control notation, braces, underscores, markup-like strings and filenames from
+changing table structure or becoming unintended formatting/macros. Intended
+document links and state emphasis are generated separately.
+
+Never edit generated tables directly. Change TSV records, validate, then
+regenerate. Historical Markdown-format examples in dated plans are intentionally
+not rewritten; the active root README and AGENTS instructions use the new path.
+
+== Verification
+
+[source,bash]
+----
+python3 src/feature_registry_test.py
+----
+
+Eleven tests cover schema/document validation, record parity, deterministic
+regeneration, sorting, filtering, retained Markdown export, preservation of
+hand-written regions, AsciiDoc aliases, invalid marker order and empty reports.
+
+Rendering tests use the locally installed Asciidoctor to verify every generated
+feature row has five cells, titles survive unchanged, document links remain
+links, and difficult literal data survives rendering. These integration tests
+skip only when Asciidoctor is absent; the generator itself remains a
+Python-standard-library-only tool.
+
+The complete overview was also rendered without warnings and its local links
+checked. No firmware build, device operation, commit or push is part of this task.

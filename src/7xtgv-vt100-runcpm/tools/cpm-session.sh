@@ -23,9 +23,11 @@ case "${1-}" in
 esac
 
 if [ "$#" -eq 0 ]; then
-    # ESP32-S3 modules may enumerate as ACM or USB serial.  The selected
-    # target's terminal.conf supplies the explicit port when it is not ACM.
-    set -- --port "${XTGV_PORT:-/dev/ttyACM0}"
+    # Resolve through the same data as the Python tools, after the existing
+    # session shortcut below (which must not probe a newly disconnected port).
+    resolve_default_port=1
+else
+    resolve_default_port=0
 fi
 
 # An existing shared session already owns the serial port.  A new Konsole
@@ -33,6 +35,11 @@ fi
 # to inspect the port before attaching.
 if tmux has-session -t "$session" 2>/dev/null; then
     exec tmux attach-session -t "$session"
+fi
+
+if [ "$resolve_default_port" -eq 1 ]; then
+    port=$(python3 "$tools_dir/target_config.py" --print-port)
+    set -- --port "$port"
 fi
 
 if [ "${1-}" = "--port" ] && [ -n "${2-}" ]; then
@@ -88,7 +95,7 @@ if ! tmux has-session -t "$session" 2>/dev/null; then
     sleep 0.2
     if ! tmux has-session -t "$session" 2>/dev/null; then
         echo "7xtgv terminal failed to start."
-        echo "Run $tools_dir/terminal.py --port /dev/ttyACM0 to see the error."
+        echo "Run $tools_dir/terminal.py with the same target/port to see the error."
         printf 'Press Enter to close... '
         read dummy
         exit 1

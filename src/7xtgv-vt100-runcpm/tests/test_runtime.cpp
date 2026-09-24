@@ -38,15 +38,143 @@ static void screenshot(const char *path) {
         f.write(rgb, 3);
     }
 }
-int main() {
+static void testBoot(const std::string &mode) {
+    gfxBeginOK = mode != "display-failure";
     terminalSetup();
+    assert(ready && backlight == 0 && xtgvBacklightGetRemembered() == 16);
+    // Arbitrarily slow SD mount must not expose the compiled white palette.
+    for (int n = 0; n < 300; ++n) { fakeTime += 10; terminalLoop(); }
+    assert(backlight == 0);
+    const bool configured = mode == "dark" || mode == "ini-errors" || mode == "ramp";
+    if (configured) {
+        terminalConfigBegin();
+        std::string ini = "[global]\nmode_palette=1\nbacklight_level=7\n";
+        if (mode == "ramp") ini += "crt_rampup_ms=70\n";
+        if (mode == "ini-errors") ini += "not_a_setting=bad\n";
+        for (uint8_t c : ini) terminalConfigFeed(c);
+        assert(terminalConfigEnd() == (mode == "ini-errors" ? 1u : 0u));
+        assert(backlight == 0 && xtgvBacklightGetRemembered() == 7);
+    }
+    // Same notification for missing INI, SD failure, or task creation failure.
+    terminalBootConfigComplete();
+    emit(configured ? "BOOT\r\n" : "Boot fallback/error\r\n");
+    unsigned flushBefore = gfx->flushCount;
+    bool checkedFrame = false;
+    for (int n = 0; n < 500; ++n) {
+        fakeTime++;
+        terminalLoop();
+        if (bootFrameReady && !checkedFrame) {
+            checkedFrame = true;
+            assert(backlight == 0);
+            assert(!terminal.compositionDirty);
+            for (int y = 0; y < terminal.rows; ++y)
+                for (int x = 0; x < terminal.visibleCols; ++x)
+                    assert(!terminal.dirty[terminal.index(x + terminal.viewport, y)]);
+            assert(activePalette == (configured ? 1 : 0));
+            assert(gfx->framebuffer[319 + 239 * 320] == rgb565(terminal.palette.paper[0]));
+#if defined(GFX_BUFFERED_CANVAS) || defined(GFX_DEFERRED_FLUSH)
+            assert(gfx->flushCount > flushBefore);
+#else
+            (void)flushBefore;
+#endif
+        }
+        if (backlight != 0) {
+            assert(checkedFrame && uint32_t(millis() - bootFrameFlushedAt) >= 33);
+            break;
+        }
+    }
+    if (mode == "ramp") {
+        assert(xtgvBacklightRamp().active && backlight == xtgvBacklightDuty(1));
+        assert(xtgvBacklightGet() == 7 && xtgvBacklightGetRemembered() == 7);
+        fakeTime += 70;
+        terminalLoop();
+        assert(!xtgvBacklightRamp().active);
+    }
+    assert(backlight == (gfxBeginOK ? xtgvBacklightDuty(configured ? 7 : 16) : 0));
+    assert(!configSavePending.load()); // startup must not rewrite the INI
+    if (!gfxBeginOK) {
+        Serial.online = true;
+        settle();
+        assert(!Serial.tx.empty()); // failed TFT leaves the PC mirror usable
+    } else {
+        xtgvBacklightSet(0);
+        terminalBootConfigComplete(); // completion must never turn OFF back ON
+        for (int n = 0; n < 100; ++n) { fakeTime++; terminalLoop(); }
+        assert(backlight == 0);
+        xtgvBacklightAdjust(1);
+        assert(backlight == xtgvBacklightDuty(configured ? 7 : 16));
+    }
+    std::cout << "Boot test passed: " << mode << '\n';
+}
+static void testIdentity() {
+    terminalSetup();
+    terminalBootConfigComplete();
+    Serial.online = true;
+    settle();
+    for (int i = 0; i < 300; ++i) terminalLoop();
+    const std::vector<uint16_t> pixels(std::begin(gfx->framebuffer), std::end(gfx->framebuffer));
+    const std::string expected = std::string("\033P7xtgv-id;1;") + xtgvFirmwareTarget() +
+                                 ";" + xtgvFirmwareBuild() + "\033\\";
+    for (bool raw : {false, true}) {
+        rawInputMode = raw;
+        Serial.tx.clear();
+        Serial.capacity = Serial.chunk = 1;
+        // An existing partial mirror write must finish before identity begins.
+        mirrorLength = 3; mirrorSent = 1;
+        memcpy(mirrorBuffer, "XYZ", 3);
+        for (uint8_t c : std::string("\033[>62v")) Serial.rx.push_back(c);
+        for (int n = 0; n < 10000 && Serial.tx.find(expected) == std::string::npos; ++n)
+            terminalLoop();
+        assert(Serial.tx.rfind("YZ" + expected, 0) == 0);
+        assert(input.available() == 0 && rawInputMode == raw);
+        assert(std::equal(pixels.begin(), pixels.end(), std::begin(gfx->framebuffer)));
+        Serial.capacity = Serial.chunk = 64;
+        settle();
+    }
+    std::cout << "Firmware identity normal/RAW/partial-write tests passed\n";
+}
+int main(int argc, char **argv) {
+    if (argc == 2 && std::string(argv[1]) == "identity") { testIdentity(); return 0; }
+    if (argc == 2) { testBoot(argv[1]); return 0; }
+    terminalSetup();
+    assert(ready && backlight == 0 && displayOK);
+    terminalBootConfigComplete();
+    for (int n = 0; n < 300; ++n) { fakeTime++; terminalLoop(); }
     assert(ready && backlight == 145 && displayOK);
+    // Keep the original regression suite's blink-phase time origin.
+    fakeTime = blinkAt = 0;
+    cursorPhase = true;
     const int plotBaseX = 0, plotBaseY = 0; // physical panel origin, not text origin
     xtgvBacklightSet(0); assert(backlight == 0);
     xtgvBacklightAdjust(1); assert(xtgvBacklightGet() == 16 && backlight == 145);
     xtgvBacklightSet(0);
     xtgvBacklightSet(1); assert(backlight == 51);
     xtgvBacklightSet(32); assert(backlight == 255);
+    // 32 states include OFF and 31 strictly increasing lit levels. Only the
+    // final level is full-on; one step down skips the near-DC duty 254.
+    assert(xtgvBacklightDuty(0) == 0);
+    for (uint8_t level = 1; level <= XTGV_BACKLIGHT_MAX_LEVEL; ++level) {
+        assert(xtgvBacklightDuty(level) > xtgvBacklightDuty(level - 1));
+        xtgvBacklightSet(level);
+        assert(backlight == xtgvBacklightDuty(level));
+        if (level < XTGV_BACKLIGHT_MAX_LEVEL) assert(backlight <= 253);
+    }
+    assert(xtgvBacklightDuty(29) == 252 && xtgvBacklightDuty(30) == 253);
+    xtgvBacklightAdjust(-1);
+    assert(xtgvBacklightGet() == 30 && backlight == 253);
+    xtgvBacklightAdjust(1);
+    assert(xtgvBacklightGet() == 31 && backlight == 255);
+    for (int i = 0; i < 40; ++i) xtgvBacklightAdjust(1);
+    assert(xtgvBacklightGet() == 31 && backlight == 255);
+    terminalBacklight(32); // legacy protocol full ON
+    assert(xtgvBacklightGet() == 31 && backlight == 255);
+    for (int i = 0; i < 40; ++i) xtgvBacklightAdjust(-1);
+    assert(xtgvBacklightGet() == 1 && backlight == 51);
+    xtgvBacklightSet(0);
+    assert(backlight == 0 && xtgvBacklightGetRemembered() == 1);
+    xtgvBacklightAdjust(-1);
+    assert(xtgvBacklightGet() == 1 && backlight == 51);
+    assert(xtgvBacklightDuty(255) == 255);
     xtgvBacklightSet(16); assert(backlight == 145);
     // CP/M's A0:REFLASH.COM output event is removed from the TFT terminal
     // stream and forwarded verbatim, between completed mirror updates only.
@@ -551,6 +679,37 @@ int main() {
     std::string selectedCommand;
     while (input.pop(testByte)) selectedCommand.push_back(char(testByte));
     assert(selectedCommand == "A2:\r");
+    // Transfer host uses Alt+Space to save selected bank, not CCP's effective
+    // bank 0. Restoring bank + RAW-state peek in one command burst must cancel
+    // its pending on_select (A2:) and leave the current A7 DU untouched.
+    for (bool restoreRaw : {false, true}) {
+        terminal.reset();
+        emit("A7>");
+        while (output.available()) terminalLoop();
+        selectedBank = 3;
+        history->select(0);
+        rawInputMode = false;
+        keyboardAction(nullptr, vt::Keyboard::HistoryBankShow);
+        assert(std::string(reinterpret_cast<char *>(terminal.charRAM), 3) == "[#3");
+        const auto hostControls = [&](const std::string &bytes) {
+            for (uint8_t c : bytes) {
+                if (rawInputMode) rawFeed(c, fakeTime);
+                else keyboard.feed(c, fakeTime);
+            }
+        };
+        hostControls("\033[>29v\033[>16v");
+        assert(selectedBank == 9 && rawInputMode && !historyNoticeSendOnSelect);
+        fakeTime += 1100;
+        historyNoticePoll();
+        hostControls(std::string("\033[>23v") + (restoreRaw ? "\033[>16v" : "\033[>17v"));
+        assert(selectedBank == 3 && rawInputMode == restoreRaw);
+        assert(!historyNoticeSendOnSelect);
+        fakeTime += 1100;
+        historyNoticePoll();
+        assert(!input.pop(testByte));
+        assert(std::string(reinterpret_cast<char *>(terminal.charRAM), 3) == "A7>");
+    }
+    rawInputMode = false;
     terminalConfigBegin();
     assert(terminalConfigEnd() == 0);
     selectedBank = 0;
@@ -756,7 +915,7 @@ int main() {
     assert(terminal.zoom == 2);
     terminal.cursorVisible = false;
     terminal.charRAM[terminal.index(0, 0)] = 'A';
-    terminal.attrRAM[terminal.index(0, 0)] = 1;
+    terminal.attrRAM[terminal.index(0, 0)] = 8;
     terminal.flags[terminal.index(0, 0)] = 0;
     drawCell(terminal.index(0, 0));
     for (int y = 0; y < 20; y += 2)
@@ -826,6 +985,41 @@ int main() {
     assert(!terminal.ansi);
     keyboardAction(nullptr, vt::Keyboard::Action(vt::Keyboard::HistoryBank0 + 2));
     assert(terminal.ansi); // explicit selection reapplies bank 2's default.
+    // Palette startup, TFT/mirror colors, live selection and lazy save.
+    terminalConfigBegin();
+    const char *themeIni = "[global]\nmode_palette=1\n"
+        "[palette1]\npaper0=8,16,24\nink00=120,200,120\n"
+        "active_line_rgb=16,32,48\ncursor_rgb=80,96,112\nviewport_gutter_rgb=40,48,56\n"
+        "[palette2]\npaper0=24,16,8\nink00=200,120,80\n"
+        "[bank0]\nactive_line=false\n";
+    for (const char *s=themeIni; *s; ++s) terminalConfigFeed(uint8_t(*s));
+    assert(terminalConfigEnd()==0);
+    terminalLoop();
+    assert(activePalette==1 && terminal.palette.paper[0].r==8);
+    terminal.reset(); activeRow=-1; terminal.cursorVisible=false;
+    selectEffectiveBank(0);
+    emit("\033[2J\033[HPALETTE"); settle();
+    for (int n=0;n<1000;++n) terminalLoop();
+    assert(Serial.tx.find("38;2;120;200;120;48;2;8;16;24m")!=std::string::npos);
+    assert(gfx->framebuffer[200*320+100]==rgb565(terminal.palette.paper[0]));
+    const int oldX=terminal.x, oldY=terminal.y;
+    const uint8_t oldChar=terminal.charRAM[0];
+    configSavePending=false;
+    emit("\033[>69;2v"); settle(); terminalLoop(); settle();
+    assert(activePalette==2 && terminal.x==oldX && terminal.y==oldY && terminal.charRAM[0]==oldChar);
+    uint8_t savedLight=0, themeZoom=0, savedPalette=0;
+    assert(!terminalConfigSaveDue(savedLight,themeZoom,&savedPalette));
+    fakeTime+=1501;
+    assert(terminalConfigSaveDue(savedLight,themeZoom,&savedPalette) && savedPalette==2);
+    terminalConfigSaveComplete(true);
+    // Theme must survive an independently requested zoom/profile geometry change.
+    requestZoomLevel(2); fakeTime+=200; terminalLoop();
+    assert(activePalette==2);
+    terminal.beginPlot();
+    terminalControl(nullptr,vt::Terminal::Palette,1); terminalLoop();
+    assert(activePalette==2 && requestedPalette==1);
+    terminal.abortPlot(); fakeTime+=200; terminalLoop(); terminalLoop();
+    assert(activePalette==1);
     std::cout << "runtime render/mirror, slow/disconnected USB, queue saturation, and reconnect "
                  "tests passed\n";
 }

@@ -1,0 +1,149 @@
+= Kate AsciiDoc embedded INI highlighting implementation
+:source-highlighter: highlight.js
+
+Date: 260923.
+
+Status: implemented and installed locally; command-line highlighting verified.
+Petr subsequently confirmed the appearance in his running Kate session with
+a screenshot on 260923: section names, comments, keys and values are styled
+correctly inside the AsciiDoc INI block.
+
+== Scope and source plan
+
+Implements the INI-only extension approved by Petr after review of
+link:260923-09%20Kate%20AsciiDoc%20INI%20syntax%20highlighting%20Codex%20plan.adoc[the original plan].
+This uses KDE's supported nested-language mechanism, not a separate INI parser.
+No firmware, device configuration, packaged KDE file, Chromium preview setting,
+or existing document source syntax was changed.
+
+Installed versions at implementation: Kate 26.08.1; syntax-highlighting 6.30.0.
+The packaged AsciiDoc grammar has definition version 9. The local override is
+version 10 so KDE selects it ahead of version 9.
+
+== Files and implementation
+
+* link:../src/kate-asciidoc/build_override.py[Override generator]: reads the installed
+  AsciiDoc grammar, checks the expected integration points, adds two contexts,
+  and refuses to overwrite an existing customization or companion file.
+* link:../src/kate-asciidoc/test_override.py[Regression tests]: exercise the real
+  `ksyntaxhighlighter6` in temporary, isolated user-data directories.
+
+The source definition used was:
+
+[source,text]
+----
+/usr/share/org.kde.syntax-highlighting/syntax-bundled/asciidoc.xml
+----
+
+Its SHA-256 before and after installation:
+
+[source,text]
+----
+307fedfcc5c7b91fde578089b8765a3b30cd3499e4c8dfee90b3758f55a13386
+----
+
+Installed files:
+
+[source,text]
+----
+~/.local/share/org.kde.syntax-highlighting/syntax/asciidoc.xml
+~/.local/share/org.kde.syntax-highlighting/syntax/asciidoc.xml.base
+~/.local/share/org.kde.syntax-highlighting/syntax/asciidoc.xml.patch
+----
+
+The `.base` file is formatting-normalized upstream XML, not a byte-for-byte
+backup. The `.patch` records the small semantic delta against that base.
+Only `asciidoc.xml` is loaded as a syntax definition. No pre-existing local
+AsciiDoc override was present; unrelated JavaScript/TypeScript definitions
+were left untouched. Generated XML retains the upstream author/license metadata
+and comments identify the local additions.
+
+The new INI selector precedes the generic source-block selector. A pending
+context recognizes the opening hyphen delimiter and otherwise delegates to
+the original verbatim rules. The embedded context checks an exact, same-length
+closing delimiter before delegating content to `##INI Files` with
+`includeAttrib="true"`.
+
+Supported forms include `[source,ini]`, `[source, ini]`, and
+`[source,ini,linenums]`. Hyphen delimiters of four or more characters are
+supported, with matching opening/closing lengths and optional trailing
+whitespace. Literal dot-delimited blocks retain their original behavior.
+This is not generalized language dispatch or full AsciiDoc validation.
+
+== Verification
+
+Run from the repository root:
+
+[source,bash]
+----
+python3 src/kate-asciidoc/test_override.py
+----
+
+Seven tests passed, covering:
+
+* Embedded section/comment/key/value styling identical to standalone KDE INI.
+* Attribute spacing and additional positional options.
+* Six-hyphen delimiters, shorter hyphen lines and delimiter-like content.
+* Return to ordinary prose/headings and consecutive INI blocks.
+* Unchanged non-INI, generic, literal, commented and malformed-opening cases.
+* Blocks inside examples and list continuations.
+* Refusal to overwrite an existing local customization.
+
+A separate probe using the normal user environment confirmed that the installed
+override is selected and produces INI styling without grammar warnings.
+The stock package file's hash remained unchanged.
+
+== Reload and visual check
+
+In an already running Kate, press F7 and execute:
+
+[source,text]
+----
+reload-highlighting
+----
+
+If the existing view does not refresh, reopen the document or restart Kate
+after saving work. Keep its highlighting mode set to AsciiDoc.
+The agent did not close or restart the running editor.
+
+This block is also a visual fixture:
+
+[source,ini]
+----
+[palette0]
+; INI comment
+paper0 = RGB565
+paper1 = RGB565 R
+enabled = on
+
+[palette1]
+ink00 = RGB565 GREY
+----
+
+This sentence should return to ordinary AsciiDoc styling, including *bold text*.
+Colors depend on the selected Kate theme. This highlights syntax only; it does
+not validate 7xtgv-specific keys, values, or configuration semantics.
+
+== Rollback and future package upgrades
+
+Move the user-local `asciidoc.xml` outside the syntax directory, preserving it
+as a backup, then reload highlighting. With no previous local override to
+restore, this installation falls back to the packaged definition. The `.base`
+and `.patch` companions can remain; they are not syntax definitions.
+
+For future upgrades, compare against the new packaged grammar and rerun the
+tests. The local copy does not automatically merge upstream improvements.
+If upstream gains INI support, remove the override after testing the upstream
+behavior rather than layering another copy of this patch on top.
+
+To generate a candidate without touching the installed override:
+
+[source,bash]
+----
+candidate_dir=$(mktemp -d /tmp/xtgv-kate-candidate-XXXXXX)
+python3 src/kate-asciidoc/build_override.py --output-dir "$candidate_dir"
+----
+
+Do not blindly raise the version number to defeat future upstream updates.
+Other embedded languages remain a separate enhancement, with their own tests
+for multiline contexts and reliable return to AsciiDoc delimiters.

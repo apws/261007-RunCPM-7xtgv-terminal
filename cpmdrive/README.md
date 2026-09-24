@@ -1,5 +1,14 @@
 # CP/M drive layout
 
+Guest text files are stored in CP/M format: CRLF line endings and a trailing
+Ctrl-Z. Maintain that format locally; normal Send/Receive preserves bytes and
+does not convert text. New authored files need no 128-byte record padding.
+Classify by content, not extension: tokenized BASIC, executable/data files,
+disk images and checksummed terminal history must remain byte-exact.
+Host-only JSON metadata, this Markdown README and Makefiles retain host format;
+historical snapshots remain unchanged. `--cpm-text` is for deliberate external
+host-text imports only, not ordinary transfers from this mirror.
+
 These descriptive folders mirror RunCPM drive A user areas: `A0 - CP-M core`
 corresponds to the `A0>` prompt (SD directory `A/0`). Type `A1:` to switch
 to user 1 and `A0:` to return. The folder suffix uses hexadecimal notation for
@@ -34,12 +43,12 @@ indices, so its `10` record corresponds to folder `AA`.
 
 `A0:7XTGVTRM.INI` configures the ten named terminal application profiles. The
 firmware reads it once during boot; see
-`../docs/260910-01 terminal-application-profiles.md` for its format.
+`../docs/260910-01 terminal-application-profiles.adoc` for its format.
 
-Use `A0:`, `MBASIC`, `RUN "VTESTS"` for the shared menu. A7 contains a
-clean duplicate workspace with only `MBASIC.COM` and `VTESTS.BAS`; use `A7:`
-then `MBASIC` and `RUN "VTESTS"` when testing that pair in isolation. 1 = ink,
-8 = Mixworx code.
+Use `A7:`, `MBASIC`, then `RUN "VTESTS"` for the maintained visual-test menu:
+1 = ink, 2 = paper, 4 = expanded DEC graphics, 8 = Mixworx code.
+A7 also holds `VTPAL.BAS` and the ASCII demo sources. Save maintained MBASIC
+programs with `SAVE "NAME",A` and load normally; ordinary SAVE is tokenized.
 
 The `VTCPU`, `VTCPU8X`, `VTDRV` and `VTDRV8X` commands are installed in A0 so
 the internal CCP can find them from every user area. Duplicates in A6 keep them
@@ -57,9 +66,8 @@ configuration targets C128 and requires INSTALL for a different terminal.
 The Lua files alone do not establish that this firmware enables Lua BDOS calls.
 See `../cpm-languages/SOURCES.md` for package provenance.
 
-Board-side copies were verified for A1, A2, and A4–A6. The physical board and
-project mirror now agree on the exchanged areas: A7 contains only MBASIC and
-VTESTS, while AA contains the seven alternate BASIC binaries. A8 received its
-demo files, but CP/M returned `Bdos Err on A: R/O` while erasing the original
-A0 copies, so cleanup stopped and those duplicates remain safely in place.
-A3's board copy is pending.
+Earlier board-side checks covered A1, A2 and A4–A6; AA holds the alternate
+BASIC binaries. Later ASCII source cleanup moved the maintained demo sources
+into A7. These historical transfers are not proof of a current whole-card
+mirror: device-side files can change independently. Fetch live INI before
+editing it, and fetch BASIC sources when requested before modifying them.

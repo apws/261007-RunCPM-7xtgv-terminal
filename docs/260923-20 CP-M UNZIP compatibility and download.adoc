@@ -1,0 +1,89 @@
+= CP/M UNZIP compatibility and download
+:source-highlighter: highlight.js
+
+== Result and recommendation
+
+For the simplest verified Linux-to-CP/M compressed-file path, use ordinary
+Linux ZIP/Deflate and the maintained plain-CP/M UNZIP 1.5-7. This is not a
+claim that Deflate is the fastest possible Z80 decompressor; ARC/LZH have
+not been benchmarked. Avoid additional tooling until device measurements
+show a need. Native Linux timing is not device timing.
+
+Downloaded `cpmdrive/A0 - CP-M core/UNZIP157.COM` without replacing the
+existing `UNZIP.COM` and without transferring anything to the device.
+
+* https://github.com/agn453/UNZIP-CPM-Z80[Upstream project and version notes]
+* https://raw.githubusercontent.com/agn453/UNZIP-CPM-Z80/master/unzip/UNZIP157.COM[Direct binary download]
+* https://raw.githubusercontent.com/agn453/UNZIP-CPM-Z80/master/unzip/UNZIP157.Z80[Corresponding Z80 source]
+
+Downloaded binary size: 5,272 bytes. SHA-256:
+
+----
+e123fa4d61c2995439db3bc7964db2e0fd65847b1ffa8b06a5102b4f67a12b5d
+----
+
+Existing local `UNZIP.COM` reports `UNZIP Version 1.8 - DPG`. Its SHA-256:
+
+----
+0031049e5d2e73f0042121fdee621c183141efe4dc586d9583fb4aeca2250bcc
+----
+
+Version numbers alone are misleading across these branches. The comparison
+uses this local copy, not a newly fetched/hash-verified device binary.
+
+== Reproducible isolated comparison
+
+Run `python3 tools/test_cpm_unzip.py` from the Arduino sketch directory.
+It uses Linux zip and disposable native Linux RunCPM storage, copies the
+local INI under the fixture name VTINI.INI, and checks extracted content.
+Input ZIPs include 128-byte transfer padding; extracted CP/M padding is
+accounted for. No real CP/M drive contents are modified.
+
+[cols="1,1,1,1",options="header"]
+|===
+|Linux archive |ZIP bytes |Existing UNZIP 1.8 |UNZIP 1.5-7
+|zip -0 (Stored) |13,473 |Pass |Pass
+|zip -1 (Deflate) |4,392 |Unknown compression method |Pass
+|zip -9 (Deflate) |3,920 |Unknown compression method |Pass
+|===
+
+Fixture source is 13,305 bytes. Both compressed cases passed exact content
+comparison with 1.5-7. Native extraction was approximately 0.007 seconds for
+each, but that is neither an embedded-board result nor a rigorous benchmark.
+Archive size differs slightly from the prior sample because the entry name
+is VTINI.INI rather than 7XTGVTRM.INI.
+
+== Usage
+
+Linux, from the directory containing an uppercase 8.3-named source:
+
+[source,shell]
+----
+zip -9 -j VTFILES.ZIP FILE.INI
+----
+
+Transfer the ZIP unchanged using VTPUT, then in CP/M:
+
+[source,text]
+----
+UNZIP157 VTFILES.ZIP A:
+----
+
+The explicit destination `A:` enables extraction into drive A in the current
+user area. Omitting the destination only lists/checks archive members. Start
+with new target filenames or a disposable user area; do not add overwrite
+options implicitly. Use uppercase 8.3 member names and no directory entries.
+Convert LF-only source text before packing if the intended CP/M editor requires
+CRLF; never use text conversion on the ZIP itself.
+
+Automatic ZIP packing/unpacking in the transfer UI remains deferred. Extractor
+hardware deployment, embedded timing and CP/M-to-Linux compression are separate
+next steps. The upstream CP/M ZIP creator uses Stored entries, not compression.
+
+== Subsequent device deployment
+
+At Petr's explicit request, transferred UNZIP157.COM to device A0 and verified
+all 5,376 bytes including CP/M record padding by complete read-back. Existing
+UNZIP.COM, INI, history file and firmware were not transferred or replaced.
+The device was idle at A0 before the operation. Restored the visible Konsole
+mirror afterward. ZIP extraction itself has still only been tested locally.

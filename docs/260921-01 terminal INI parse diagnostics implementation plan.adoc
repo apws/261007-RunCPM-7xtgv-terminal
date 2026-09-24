@@ -1,0 +1,22 @@
+[id="terminal-ini-parse-diagnostics--signed-implementation-plan"]
+= Terminal INI parse diagnostics — signed implementation plan
+:source-highlighter: highlight.js
+
+Status: signed for implementation, 2026-09-21.
+
+`+A0:7XTGVTRM.INI+` remains deliberately simple CP/M text. The firmware parser continues after malformed lines, counts every error, and retains the first ten physical source lines that failed parsing. Each retained entry contains the 1-based line number, the active section label, and the original line text. CR/LF is one physical line; a Ctrl-Z is logical EOF.
+
+At boot a bad configuration reports only the compact summary:
+
+[source,text]
+----
+Terminal profile .....LOADED WITH ERRORS (4)
+----
+
+The retained lines follow immediately. ANSI output paints each complete detail row with the terminal's pale-red paper; VT52 falls back to a visible `+***+` prefix instead of emitting ANSI bytes into VT52 text.
+
+The same retained list is written by the SD-owning core to `+A0:7XTGVTRM.ERR+`. A later clean parse removes the stale report. The report is diagnostic only: it never changes the authored INI or history files.
+
+Comments remain whole-line only (`+;+` or `+#+` as first non-space character). No end-of-line comments, error categories, broad semantic analyser, or editor configuration UI is introduced here. Geometry values are checked while their source line is parsed, so an unsafe geometry has the same useful source-line report as an ordinary syntax error.
+
+`+boot_ansi=on|off+` remains a separate future global setting and is intentionally outside this delivery.

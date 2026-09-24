@@ -1,0 +1,27 @@
+[id="terminal-legacy-compatibility-implementation-checkpoint"]
+= Terminal legacy compatibility: implementation checkpoint
+:source-highlighter: highlight.js
+
+*Date:* 260917. This records implementation of the signed plan in `+docs/260917-10 terminal legacy compatibility implementation review.adoc+`. The source document is unchanged. This is a host-tested source checkpoint, not a claim of hardware or FAND acceptance.
+
+== Implemented in the working tree
+
+* ANSI output accepts single-byte C1 CSI (`+0x9B+`) through the existing bounded CSI scanner as well as `+ESC [+`. VT52 `+ESC Y+` address bytes remain opaque, and ordinary ANSI screen commands remain inert in VT52.
+* The reserved `+ESC [ > ... v+` application-output controls work in VT52 too. GCLS accepts only its required xterm256 SGR forms while plotting and no longer switches the terminal's ANSI/VT52 output mode. Keyboard-side local controls and the separate host-reflash prefilter keep their own paths.
+* The existing INI parser now supports `+[global] mode=ansi|vt52+` and `+console_bits=7|8+`, and `+[bankN] mode=+`, `+input=custom|ansi|vt52|wordstar+`, and `+zoom1_terminal+` through `+zoom4_terminal+`. Input presets supply defaults; explicit bindings win independently of INI line order. Invalid geometry falls back to the display profile. Current `+7XTGVTRM.INI+` explicitly retains ANSI/Console7 defaults; its existing per-key bank bindings are unchanged.
+* Boot applies the global output mode and CP/M console-output mask before the banner. An explicit bank selection applies that bank's output-mode default and geometry once. Temporary effective history-bank changes on CCP prompts do not change output mode or geometry. Physical zoom changes reapply the selected bank's geometry. Console7/8 runtime overrides remain unsaved.
+* Narrow logical grids leave default-paper pixels outside the grid, without enlarging the physical gutter. ANSI `+CSI 2J+` repaints those unused pixels. If a clear and a GCLS stream are queued together, the pending clear is consumed before the first plot sample, never after the image is complete. The mirror still uses the logical grid dimensions.
+* New CP/M mirror helpers `+A0:VT52.COM+` and `+A0:VT100.COM+` are assembled from `+A5:VT52.Z80+` and `+A5:VT100.Z80+`. They emit `+ESC[?2l+` and `+ESC<+` respectively, then warm-start CCP. They do not change the INI or colors.
+
+== Verification and limits
+
+* Host C{plus}{plus} terminal, runtime, and positioned-plot tests pass with `+-Wall -Wextra -Werror+`. Added cases cover split C1 CSI, overlong CSI, Console7 masking, VT52 address bytes, VT52-private control and GCLS transaction, mode/color persistence, profile parsing, real preset key output, selected/effective-bank separation, narrowed-grid gutter and full clear. Python host tests pass; `+git diff --check+` is clean. The two new `+.COM+` files' bytes were inspected after assembly with the installed z88dk `+z80asm+`.
+* Petr's explicit `+rebuild+` on 260917 produced a target-aware ES3++_++5 (`+jc8048w550+`) build and staged it under `+build/7xtgv-vt100-runcpm/jc8048w550/new+`; `+current+` remains untouched. Arduino CLI reported 580160 bytes of program storage (18%) and 181056 bytes of global RAM (55%). No firmware flash or device acceptance test followed.
+* In two direct CP/M transfers, with the shared mirror stopped and relaunched each time, A0 received `+7XTGVTRM.INI+`, `+VT52.COM+`, `+VT100.COM+`; A5 received CP/M CR/LF/Ctrl-Z text `+VT52.Z80+`, `+VT100.Z80+`. The transfer tool reported `+SAVED+` for each file; no byte-for-byte read-back was requested. The user-visible Konsole mirror was attached again afterward at `+A5>+`.
+* `+reflash+` remains the separate command that uploads the staged candidate.
+* FAND's real ANSI/Console8 attribute fields and editor keys, VT52 table, mixed-protocol apps, and hardware zoom/gutter/backlight/graphics/mirror acceptance remain interactive checks. Capture any discrepant raw bytes before changing the parser. Console7 stays the normal boot default.
+* Existing `+A0:CLS.COM+` emits ANSI cursor/erase sequences. It is not a VT52-native clear command; use `+VT100.COM+` before it if the decoder is in VT52. This preserves the plan's boundary that ordinary ANSI screen commands are not silently enabled in VT52.
+
+== Recovery context
+
+Work is in `+src/7xtgv-vt100-runcpm/{terminal.cpp,terminal.h, history_profiles.cpp,history_profiles.h,terminal_runtime.cpp, terminal_runtime.h,7xtgv-vt100-runcpm.ino,tests/}+` plus the CP/M mirror paths above. User-owned `+ext/+`, `+260914 backup - cpmcard.zip+`, and `+docs/code changes monitoring - howto/+` are unrelated and left untouched. The signed plan has the configuration and acceptance contracts; do not turn this checkpoint into a new design or broad parser refactor.

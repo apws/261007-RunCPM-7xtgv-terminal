@@ -1,0 +1,55 @@
+= Live INI preservation and narrow transfer limitation
+:source-highlighter: highlight.js
+
+Petr resolved the reported W535 pan issue: his device-side 80x16 edit had been
+overwritten by an older local INI containing 40x16. Requested correction is
+only `[display:ES3_35] zoom2_terminal=80x16`, using a fresh live fetch first.
+AGENTS now requires that fetch before future device-configuration edits;
+failed fetches must never lead to uploading the stale local copy.
+
+The fetch helper previously selected the configured W550 and relaunched a
+default-target mirror. Added explicit --target/--port arguments and matching
+mirror restart, checked with sh -n. No persistent default target was changed.
+
+The attempted W535 fetch failed at R2C0000: the active 40-column geometry
+wrapped each 64-hex-digit plus 5-character record-tag line into two rows.
+The host receiver requires four intact data rows and timed out. This is a
+transfer protocol/layout limitation, not evidence that pan failed at 80x16.
+The local INI was not replaced and no device INI write occurred. Transfer
+cleanup restored the input profile/RAW state and relaunched the W535 mirror.
+
+Asked Petr for one reboot to exit the waiting helper, then zoom 1 (80 columns)
+and idle CCP before retry. Do not inject speculative recovery commands. Once
+ready, fetch again, change only the requested geometry, preserve other live
+settings, and upload on the existing request. A reboot then loads the new
+geometry; the current task has not yet achieved that upload.
+
+Future transfer work should either check usable logical width before starting,
+or support narrow screens explicitly. No automatic zoom workaround or protocol
+change was made here. Source policy locally accepts W535 80x16 at 2x and its
+normal key decoder pans to offset 40; RAW mode separately bypasses pan keys.
+
+== Recovery and completed configuration transfer
+
+After power-cycling, Petr's plain kon.sh launch failed because its persisted
+host default was still W550 (/dev/ttyUSB0), not the connected W535 on
+/dev/ttyACM0. The log established the missing-port error; explicit W535 launch
+restored an attached mirror at A0. No persistent target default was changed.
+
+Petr then selected default zoom. The explicit W535 live INI fetch succeeded:
+14,976 record-padded bytes; preceding local mirror archived as
+`cpmdrive/.7xtgvtrm-ini-history/09242222.INI`. The fetched ES3_35 section had
+view_zoom=1 and zoom2_terminal=40x16. Changed only that zoom2 entry to 80x16;
+byte comparison through Ctrl-Z confirmed all other live settings preserved.
+Maintained local text has CRLF and one EOF marker, without record padding.
+
+Sent the edited source to device A0:7XTGVTRM.INI: SAVED 14,976 padded bytes.
+Profile/RAW cleanup succeeded and the visible W535 mirror was relaunched.
+No read-back, firmware rebuild, reflash or automated reboot. Petr should reboot
+to load this INI, select zoom 2 and check both viewport edge jumps. Narrow-screen
+VTGET support remains unresolved; use an 80-column logical terminal meanwhile.
+
+Petr confirms after deployment that W535 zoom-2 panning works. The reported
+failure was the stale local INI overwriting his wider geometry, not an
+established firmware pan defect. No pan code was changed. The separate
+40-column VTGET limitation remains open.

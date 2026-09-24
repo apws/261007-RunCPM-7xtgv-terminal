@@ -7,17 +7,14 @@ namespace vt {
 const RGB (&Ink)[16] = mixworx::Ink;
 const RGB (&Paper)[4] = mixworx::Paper;
 static uint8_t ansiInk(int code) {
-    static const uint8_t map[8] = {0, 2, 4, 14, 6, 12, 10, 8};
+    static const uint8_t map[8] = {0, 1, 2, 7, 3, 6, 5, 4};
     return map[code & 7];
 }
 static uint8_t ansiDarkInk(int code) {
-    static const uint8_t map[8] = {1, 3, 5, 15, 7, 13, 11, 9};
-    return map[code & 7];
+    return ansiInk(code) | 8;
 }
 static uint8_t selectedInk(uint8_t ink, bool bold) {
-    // Even entries are the eight lighter inks; their odd companions are the
-    // darker bold inks. Gray/black retain their dedicated entries.
-    return bold && !(ink & 1) ? uint8_t(ink + 1) : ink;
+    return bold ? uint8_t(ink | 8) : ink;
 }
 Terminal::Terminal(Reply reply, void *context) : reply_(reply), context_(context) { reset(); }
 void Terminal::changed(int i) {
@@ -155,10 +152,10 @@ void Terminal::pan(int offset) {
     }
 }
 RGB Terminal::foreground(int i) const {
-    return (flags[i] & Reverse) ? Paper[(attrRAM[i] >> 4) & 3] : Ink[attrRAM[i] & 15];
+    return (flags[i] & Reverse) ? palette.paper[(attrRAM[i] >> 4) & 3] : palette.ink[attrRAM[i] & 15];
 }
 RGB Terminal::background(int i) const {
-    return (flags[i] & Reverse) ? Ink[attrRAM[i] & 15] : Paper[(attrRAM[i] >> 4) & 3];
+    return (flags[i] & Reverse) ? palette.ink[attrRAM[i] & 15] : palette.paper[(attrRAM[i] >> 4) & 3];
 }
 void Terminal::move(int col, int row) {
     changed(index(x, y));
@@ -381,6 +378,8 @@ void Terminal::dispatchPrivate(uint8_t f) {
             control(Backlight, uint8_t(params[1]));
         else if (f == 'v' && count == 2 && params[0] == 68 && params[1] >= 1 && params[1] <= 4)
             control(Zoom, uint8_t(params[1]));
+        else if (f == 'v' && count == 2 && params[0] == 69 && params[1] >= 0 && params[1] <= 9)
+            control(Palette, uint8_t(params[1]));
     }
 }
 void Terminal::dispatch(uint8_t f) {

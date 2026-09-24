@@ -13,13 +13,15 @@
  ld de,0080h
  ld c,26
  call 5
+ ld de,clear
+ call puts
 newrec:
  ld hl,0080h
  ld b,4
 chunk:
  push bc
  push hl
- ld de,clear
+ ld de,pagehome
  call puts
  ld de,heading
  call puts
@@ -33,6 +35,8 @@ chunk:
  ld a,' '
  call putc
  ld de,progress
+ call puts
+ ld de,eraseline
  call puts
  ld de,input
  ld c,10

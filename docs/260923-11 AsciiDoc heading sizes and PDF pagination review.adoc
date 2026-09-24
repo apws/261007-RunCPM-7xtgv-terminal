@@ -1,0 +1,79 @@
+= AsciiDoc heading sizes and PDF pagination review
+:source-highlighter: highlight.js
+
+Date: 260923.
+
+Status: findings recorded; changes deferred at Petr's request. Leave existing
+document heading levels and `mixworx-golo.css` unchanged.
+
+== Motivation
+
+After the AsciiDoc migration, Petr considered lowering all document headings
+by one level to make them smaller. His custom stylesheet also forces page
+breaks for some headings when printing through Chromium to PDF.
+
+This note separates document structure from visual size and pagination.
+See link:260923-10%20AsciiDoc%20documentation%20migration%20report.adoc[the migration report]
+and link:mixworx-golo.css[the custom stylesheet].
+
+== Current document hierarchy
+
+Inspection of 85 AsciiDoc documents found the following hierarchy. Counts
+describe the reviewed collection before adding this note.
+
+[cols="2,3,1,1,2",options="header"]
+|===
+|AsciiDoc |Role |HTML |Count |Forced new PDF page
+|`= Title` |Document title |h1 |85 |No
+|`== Heading` |Main section |h2 |563 |Yes
+|`=== Heading` |Subsection |h3 |307 |Yes
+|`==== Heading` |Smaller subsection |h4 |14 |No
+|===
+
+For example, "Input and recall path" in
+link:260910-01%20terminal-extension-plans.adoc[Terminal extension plans]
+is a subsection rendered as h3, not a main section.
+
+== Current stylesheet behavior
+
+The print rule near line 766 is:
+
+[source,css]
+----
+@media print {
+    p { page-break-inside: avoid; }
+    div#content { margin-top: 0px; }
+    h2, h3 { margin-top: 0px; page-break-before: always; }
+}
+----
+
+Both main sections and subsections therefore start on new printed pages.
+Keeping paragraphs together can also leave additional whitespace.
+
+The heading-size declarations near line 201 are overridden for screen widths
+of at least 768px by the screen-only media query near line 288. Consequently,
+large browser windows use larger h1 through h4 headings than print does.
+Any future size adjustment should consider both sets of declarations.
+
+== Recommended approach if resumed
+
+* Preserve the semantic heading hierarchy and the level-0 document title.
+* Make headings visually one step smaller through CSS rather than changing
+  the number of equals signs throughout the documents.
+* Consider forcing new PDF pages only for h2/main sections, allowing
+  h3/subsections to follow normally.
+* For short notes, optionally avoid forced section breaks altogether.
+
+Demoting every heading is not a complete pagination fix: main sections would
+become h3, which still forces a page break under the current CSS. Demoting
+the document title would also lose its title role; preserving the title but
+demoting all body headings would skip a section level.
+
+CSS-only changes would preserve contents-list structure and future book
+assembly while allowing independent control over size and page breaks.
+
+== Decision
+
+Petr requested documentation only: leave the current appearance and pagination
+as they are for now. No CSS changes, heading rewrites, firmware changes, or
+device actions are part of this note.

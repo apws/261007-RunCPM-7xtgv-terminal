@@ -1,0 +1,328 @@
+= Palette presets: configuration and testing
+:source-highlighter: highlight.js
+
+Date: 260923. Implementation follows the
+link:260923-16%20palette%20indexing%20and%20editable%20presets%20signed%20plan.adoc[signed plan].
+Source and host checks only; no firmware rebuild, device transfer or flash yet.
+
+== Ink indices
+
+[cols="1,1,2,3,3",options="header"]
+|===
+|Normal |Emphasis |Hue |Normal RGB |Emphasis RGB
+|0 |8 |Grey/black |100,100,100 |0,0,0
+|1 |9 |Red |255,0,0 |231,37,37
+|2 |10 |Green |0,242,0 |21,200,47
+|3 |11 |Blue |0,0,255 |37,89,221
+|4 |12 |Silver |230,230,230 |215,215,215
+|5 |13 |Cyan |76,242,242 |0,184,194
+|6 |14 |Magenta |255,80,255 |205,47,189
+|7 |15 |Yellow |230,230,50 |200,194,0
+|===
+
+The low three bits select hue and bit 3 selects emphasis. These are native
+palette indices, not ANSI color numbers. ANSI red still uses SGR 31, yellow
+33, blue 34, etc.; the decoder translates those numbers. SGR 1 adds emphasis;
+SGR 90..97 selects it explicitly. Existing RGB values are preserved.
+
+== Configuration and overrides
+
+Palettes are sections in `A0:7XTGVTRM.INI`, not a separately loaded file.
+Each of ten slots starts from built-in PAPER defaults. Entries are optional;
+invalid entries are diagnosed and do not overwrite valid/default values.
+Editing palette 0 does not implicitly modify slots 1..9.
+
+`[global] mode_palette=0..9` is applied before the CP/M boot text.
+Use three decimal RGB components, each 0..255. `RGB565` and symbolic color
+names in the earlier brainstorming note were placeholders, not accepted syntax.
+
+Existing explicit bank `active_line_rgb`/`cursor_rgb` settings and global
+gutter settings retain precedence. Use `palette` on those keys to inherit
+the currently selected palette. In particular, the existing local INI contains
+explicit colors in many banks: changing only the palette will not override
+those intentional settings. The initial implementation left the user INI alone;
+the explicitly requested follow-up preparation is recorded below.
+
+These are terminal UI roles, not extra native paper indices. Native text
+still has four papers and sixteen inks.
+
+== Editable starting presets
+
+The following can be merged into the existing INI. Keep existing globals and
+bank settings; these excerpts show only palette-related additions. PAPER is
+the exact current default. GREEN and AMBER are provisional color experiments:
+default text is phosphor-colored, while named colored inks remain colored.
+They are not pure monochrome transforms.
+
+[source,ini]
+----
+[global]
+mode_palette=0
+viewport_gutter_rgb=palette
+viewport_active_gutter_rgb=palette
+
+[palette0]
+paper0=255,255,255
+paper1=255,230,235
+paper2=205,255,205
+paper3=240,240,255
+ink00=100,100,100
+ink01=255,0,0
+ink02=0,242,0
+ink03=0,0,255
+ink04=230,230,230
+ink05=76,242,242
+ink06=255,80,255
+ink07=230,230,50
+ink08=0,0,0
+ink09=231,37,37
+ink10=21,200,47
+ink11=37,89,221
+ink12=215,215,215
+ink13=0,184,194
+ink14=205,47,189
+ink15=200,194,0
+active_line_rgb=205,255,205
+cursor_rgb=0,150,40
+viewport_gutter_rgb=128,128,128
+viewport_active_gutter_rgb=active_line
+
+[palette1]
+;GREEN starting point: missing entries retain built-in PAPER RGB values
+paper0=0,12,0
+paper1=40,12,12
+paper2=0,40,8
+paper3=12,20,44
+ink00=100,210,100
+ink08=170,255,170
+ink04=140,160,140
+ink12=215,235,215
+active_line_rgb=0,40,8
+cursor_rgb=50,120,50
+viewport_gutter_rgb=20,45,20
+viewport_active_gutter_rgb=active_line
+
+[palette2]
+;AMBER starting point
+paper0=16,8,0
+paper1=44,16,8
+paper2=20,36,8
+paper3=20,20,40
+ink00=220,155,45
+ink08=255,205,100
+ink04=165,150,120
+ink12=235,220,190
+active_line_rgb=48,28,0
+cursor_rgb=130,80,10
+viewport_gutter_rgb=55,35,10
+viewport_active_gutter_rgb=active_line
+
+;Repeat these two overrides in each desired existing bank section.
+[bank0]
+active_line_rgb=palette
+cursor_rgb=palette
+----
+
+== Runtime selection and saving
+
+After deploying the new firmware and `VTPAL.COM`:
+
+[source,text]
+----
+VTPAL 0
+VTPAL 1
+VTPAL 2
+----
+
+No argument selects 0. Only one digit 0..9 is accepted; invalid arguments
+print usage and send no selection event. The helper emits `ESC[>69;n v`
+(without the explanatory space before `v`) through BDOS 9. The private
+command works under both ANSI and VT52 output interpretation.
+
+The live selection preserves cells and cursor position, invalidates text/UI
+rendering, and updates the RGB mirror. A real selection change is saved after
+the existing 1500 ms quiet period, or by the existing forced-sync path.
+Only `mode_palette`, `backlight_level` and the active HAL's `view_zoom` are
+rewritten; palette definitions, unrelated sections and comments are preserved.
+
+The normal save path uses its existing temporary-file/backup transaction.
+This is not a new filesystem or write-back cache.
+
+An active GCLS plot defers selection until plot end/abort. The subsequent
+explicit full redraw replaces a retained plot image; xterm256 color conversion
+itself remains untouched. Cells cannot reconstruct that direct pixel image.
+
+Selection does not implement marker attributes. Do not add `mode_attr=markers`
+yet; underline, reverse and blink keep their existing behavior.
+
+== Host verification and helper build
+
+Tests cover all eight ANSI normal/emphasized RGB pairs, index-bit behavior,
+palette parsing/defaults/errors, overrides/inheritance, ANSI/VT52 selectors,
+TFT/mirror repaint, zoom preservation, plot deferral and lazy-save snapshots.
+The actual sketch settings writer is tested with a memory-only File adapter
+for palette/comment preservation, duplicate settings, line endings, long lines,
+idempotence, Ctrl-Z and write failure.
+
+`tools/build_vtpal.py` assembles the authored Intel 8080 `VTPAL.ASM` with Digital
+Research ASM/LOAD in a disposable Linux RunCPM filesystem, tests 16 argument
+cases, then updates only the local mirrored `VTPAL.COM`. It does not touch
+card-work, the device, or the running shared terminal. This guest-output test
+does not claim to test the embedded terminal renderer.
+
+Recorded host results on 260923:
+
+* Four C++ suites passed: terminal/parser/queues, palette, runtime TFT/mirror,
+  and physical plot positioning/gutter redraw. AddressSanitizer and
+  UndefinedBehaviorSanitizer were enabled. Leak detection was disabled for
+  the latter three because LeakSanitizer cannot operate under this sandbox's
+  tracing environment; no leak-test claim is made.
+* All 28 terminal-tool Python tests passed, including four tests compiling
+  and exercising the actual sketch settings writer.
+* VTPAL assembled successfully; all 16 argument/output cases passed in the
+  isolated Linux RunCPM fixture.
+* All 11 feature-registry tests passed; the 120-record ledger validated and
+  regenerated. Both new documents rendered through Asciidoctor without warnings.
+
+Firmware still requires Petr's separate `rebuild` request. Hardware acceptance:
+
+. Confirm palette 0 leaves existing display colors unchanged.
+. Try the provisional dark themes, including cursor, active line and gutter.
+. Check TP301 reverse/block selection, zoom/pan and mirror agreement.
+. Return to palette 0; sync/reboot and verify the selected palette persists.
+. Confirm missing/malformed entries produce useful diagnostics and safe defaults.
+
+No firmware candidate has been promoted by this work.
+
+== Follow-up: live configuration preparation
+
+On 260923, at Petr's request, fetched device `A0:7XTGVTRM.INI` (11136 bytes).
+The preceding local mirror was archived as
+`cpmdrive/.7xtgvtrm-ini-history/09231646.INI`; this backup is host-only.
+The visible Konsole mirror was restored after the transfer.
+
+Updated the fetched local copy with complete editable PAPER, GREEN and AMBER
+entries, empty spare palette sections 3..9, and `mode_palette=0`.
+All ten banks' original cursor/active-line RGB overrides and the global gutter
+overrides now inherit `palette`. Their appearance in PAPER remains unchanged.
+All other settings, including keys, geometry and profile actions, were preserved.
+Validated this actual INI with the production parser: zero errors; exact default
+PAPER RGB values and UI inheritance verified. CRLF and CP/M EOF retained.
+
+This is local preparation only: the device INI has not been overwritten and
+firmware rebuild/deployment remain separate steps. Do not deploy the new palette
+syntax to old firmware and expect it to parse without errors.
+
+== Firmware build checkpoint
+
+At Petr's separate rebuild request, built JC8048W550 candidate `260923-1650`
+through `tools/reflash.py --target jc8048w550 --build-only`.
+Staged under `build/7xtgv-vt100-runcpm/jc8048w550/new`; the binary contains
+the fresh build stamp. Flash use: 586556 bytes (18%); static RAM: 190392 bytes
+(58%), leaving 137288 bytes. Existing `current` remains unchanged.
+
+Deployed `A0:VTPAL.COM` (128 bytes) and verified by full read-back; restored
+the visible Konsole mirror after the transfer. No firmware flash or device
+INI overwrite was performed. Updated INI deployment still needs explicit
+approval, paired with the new firmware. Hardware palette checks remain pending.
+
+== Approved device deployment
+
+Petr subsequently approved the prepared INI transfer and firmware reflash.
+Transferred `A0:7XTGVTRM.INI` as CP/M text and verified all 13312 padded bytes
+by read-back. Flashed the staged JC8048W550 `new` candidate without promotion;
+the uploader verified the flash hashes and reset the device.
+
+Restored the visible, attached Konsole mirror. Its boot screen confirms
+`Build 7xtgv-runcpm-v2 / 260923-1650`, `Terminal profile .....OK`,
+`Terminal history .....OK`, and the `A0>` prompt. The history file was not
+overwritten. No active application was running before the transfer; flashing
+restarted CP/M. `current` remains unchanged. PAPER is selected; visual checks
+of GREEN/AMBER and selection persistence remain for Petr, not claimed complete.
+
+== Dark-theme ink-pair tuning, 260923
+
+After visual testing Petr requested normal/ALT exchanges in palettes 1 and 2
+for native hue indices 1, 2, 5, 6, 7: red, green, cyan, magenta, yellow.
+Swapped `ink01/09`, `ink02/10`, `ink05/13`, `ink06/14`, `ink07/15` in each
+of those two INI sections. Pairs 0, 3, 4, every paper/UI setting, and palette 0
+are unchanged. An exact comparison confirmed only these 20 entries changed;
+the production INI parser reports zero errors. This changes configuration only,
+not the firmware's built-in fallback palette or the ANSI index translation.
+
+The earlier tables/examples describe the initial palette, not these subsequent
+dark-theme swaps. Optional VTPAL.INI comparison presets 3..6 still contain the
+initial ink pairs: align those with the tuned base presets before deploying
+them for a background-only comparison. They have not been installed on device.
+
+For reference, conventional ANSI indices 0..7 are black, red, green, yellow,
+blue, magenta, cyan, white; indices 8..15 are the corresponding bright variants.
+Our internal indices 0..7 are normal ink, red, green, blue, silver, cyan,
+magenta, yellow; 8..15 are their ALT partners. The ANSI decoder explicitly
+maps between these orders. Palette 0 includes all four paper and sixteen ink
+RGB entries explicitly, preserving the original PAPER appearance.
+
+Transferred the tuned INI to A0: with CP/M text normalization and verified
+all 13312 padded bytes by read-back. Exited VTPAL.BAS and MBASIC cleanly first;
+restored the attached Konsole mirror afterward. No reboot/reflash performed;
+the new definitions take effect at next configuration load (boot).
+
+Petr reports pronounced transfer-screen blinking newly noticed after palette
+support. Code review confirms VTPUT explicitly clears once per 32-byte chunk,
+VTGET once per 128-byte record. CSI 2J triggers a full surface fill, followed
+by dirty-cell repaint. JC8048W550 uses GFX_DEFERRED_FLUSH, not the buffered-
+canvas branch, so its repaint budget is only 720 pixels per pass (12 cells
+at 1x, 3 cells at 2x). These paths and budgets also exist in pre-palette HEAD
+1be7630; palette work changed the fill color source and adds a full redraw on
+actual palette selection, not on ordinary transfer chunks. This establishes
+an inefficient redraw mechanism, but does not establish the cause of the
+reported new severity. No renderer change was made during this inspection.
+
+== Additional dark-paper tuning, 260924
+
+After accepting VTESTS TEST 1, Petr requested another 10% increase for papers
+1, 2, 3 in dark palettes 1 and 2. Multiplied each configured RGB component
+by 1.10 and rounded to the nearest integer (halves up):
+
+[cols="1,1,1,1",options="header"]
+|===
+|Palette |Paper |Previous RGB |New RGB
+|1 |1 |53,15,15 |58,17,17
+|1 |2 |0,44,9 |0,48,10
+|1 |3 |15,26,58 |17,29,64
+|2 |1 |58,22,11 |64,24,12
+|2 |2 |22,40,9 |24,44,10
+|2 |3 |26,26,53 |29,29,58
+|===
+
+Exact file comparison shows only those six lines changed; palette 0, all inks,
+paper0 and UI colors are unchanged. This is a numerical RGB adjustment, not
+a promise of precisely 10% perceived brightness after RGB565 quantization.
+The prior local INI is backed up under the ignored host-only
+`build/palette-backups/260924-17-papers-plus10/` directory.
+Sent the local CP/M-format INI to `A0:7XTGVTRM.INI`; VTPUT reported SAVED
+(13440 record-padded bytes), without full read-back. No reboot was issued;
+new definitions load at the next boot. This is configuration only.
+
+=== Next visual tuning pass, 260924-17
+
+Petr requested a further 20% increase from those current dark-paper values,
+and a 20% decrease of both shade inks in palette 0. Same per-channel rounding:
+
+[cols="1,1,1,1",options="header"]
+|===
+|Palette |Entry |Previous RGB |New RGB
+|1 |paper1 |58,17,17 |70,20,20
+|1 |paper2 |0,48,10 |0,58,12
+|1 |paper3 |17,29,64 |20,35,77
+|2 |paper1 |64,24,12 |77,29,14
+|2 |paper2 |24,44,10 |29,53,12
+|2 |paper3 |29,29,58 |35,35,70
+|0 |ink04 (s shade) |230,230,230 |184,184,184
+|0 |ink12 (S ALT SHADE) |215,215,215 |172,172,172
+|===
+
+Only these eight values and the now-outdated palette-0 comment changed.
+In particular, implicit inks 0/8, other inks, paper0, UI colors and palette-0
+papers remain unchanged. Backup:
+`build/palette-backups/260924-1736-papers-plus20-shades-minus20/7XTGVTRM.INI`.

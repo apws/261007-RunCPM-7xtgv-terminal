@@ -1,0 +1,128 @@
+[id="turbo-pascal-301-keyboard-and-terminal-installation-reference"]
+= Turbo Pascal 3.01 keyboard and terminal installation reference
+:source-highlighter: highlight.js
+
+This is the first reference for the installed CP/M-80 Turbo Pascal 3.01 package in `+cpmdrive/A2 - Turbo Pascal+`. It is derived from its own `+TINST.MSG+`, so it describes the command slots that *this exact installer* can define. It is not yet a record of the definition installed on the device; that needs a careful interactive `+TINST+` session after MBASIC is retested.
+
+The later link:260922-00%207xtgv%20private%208-bit%20core%20key%20codes%20and%20TP3%20proof.adoc[private 8-bit control proof] clarifies that TINST installs the active command table into `+TURBO.COM+`, not merely `+TINST.DTA+`, and demonstrates a working `+81 01+` editor command under Linux RunCPM.
+
+Turbo keeps the two necessary pieces separate:
+
+[source,text]
+----
+TINST screen definition       CP/M output -> 7xtgv terminal
+TINST command definition      configured input bytes -> Turbo editor command
+7xtgv profile #3              physical PC/Czech keyboard -> configured bytes
+----
+
+This is the right arrangement. 7xtgv can render ANSI/VT100 output while TP301 receives a deliberately installed, keyboard-friendly command set. Do not assume ANSI cursor-key input is accepted before installing it.
+
+== Every installable editor command
+
+`+TINST+` groups the 45 primary command slots as follows. `+Alternative+` is a second independently installable input sequence for the preceding action.
+
+=== Cursor movement
+
+[cols=">,",options="header",]
+|===
+|Slot |Command
+|20 |Character left
+|21 |Character left — alternative
+|22 |Character right
+|23 |Word left
+|24 |Word right
+|25 |Line up
+|26 |Line down
+|27 |Scroll down
+|28 |Scroll up
+|29 |Page up
+|30 |Page down
+|31 |To left on line
+|32 |To right on line
+|33 |To top of page
+|34 |To bottom of page
+|35 |To top of file
+|36 |To end of file
+|37 |To beginning of block
+|38 |To end of block
+|39 |To last cursor position
+|===
+
+=== Insert and delete
+
+[cols=">,",options="header",]
+|===
+|Slot |Command
+|40 |Insert mode on/off
+|41 |Insert line
+|42 |Delete line
+|43 |Delete to end of line
+|44 |Delete right word
+|45 |Delete character under cursor
+|46 |Delete left character
+|47 |Delete left character — alternative
+|===
+
+=== Block commands
+
+[cols=">,",options="header",]
+|===
+|Slot |Command
+|48 |Mark block begin
+|49 |Mark block end
+|50 |Mark single word
+|51 |Hide/display block
+|52 |Copy block
+|53 |Move block
+|54 |Delete block
+|55 |Read block from disk
+|56 |Write block to disk
+|===
+
+=== Miscellaneous editing
+
+[cols=">,",options="header",]
+|===
+|Slot |Command
+|57 |End edit
+|58 |Tab
+|59 |Auto-tab on/off
+|60 |Restore line
+|61 |Find
+|62 |Find and replace
+|63 |Repeat last find
+|64 |Control-character prefix
+|===
+
+== Screen-definition fields
+
+The same installer can define the output terminal protocol: cursor lead-in; line/column separator and suffix; column-first ordering; line/column offsets; binary versus two/three ASCII coordinate digits; clear, home, delete-line, insert-line, erase-to-EOL, highlight start/end; geometry; and three operation delays. The 7xtgv target should use its already-working ANSI output behavior rather than inventing a separate protocol.
+
+== Planned PC/Czech-keyboard shape
+
+First test the installed definition as-is in `+#3 TURBO+` and `+## RAW+`. After that, use `+TINST+` to install stable guest byte sequences, then make the 7xtgv profile map PC keys to those bytes. Prefer ordinary modern keys where they are unambiguous:
+
+[source,text]
+----
+Arrow keys                 character/line movement
+Home / End                 left/right on line
+Ctrl+Left / Ctrl+Right     word movement
+PageUp / PageDown          page movement
+Ctrl+Home / Ctrl+End       beginning/end of file
+Insert / Delete            insert toggle / delete under cursor
+Backspace                  delete left character
+----
+
+Leave the exact choices for block, find, restore, scrolling and control-prefix commands until the live IDE/help screen has been exercised. Avoid binding Czech layout punctuation, Shift-only punctuation, or CapsLock-dependent keys: Petr's `+shift:breaks_caps,caps:none+` XKB preference makes them unsuitable as terminal control chords. Function keys and Ctrl/Alt combinations can be considered only after confirming that Konsole and Kitty both emit the selected sequence without a desktop shortcut intercepting it.
+
+== Practical test order
+
+[arabic]
+. Run `+TINST+`; identify the current screen and command definitions.
+. Confirm ANSI output: full-screen redraw, cursor position, erase, scrolling, highlight, and 80x24/25 geometry.
+. Launch `+TURBO+`; test each normal navigation/edit key before remapping.
+. Make one small source edit, compile, inspect an error, correct it, and run.
+. Save the final `+TINST+` definition and mirror its files into `+cpmdrive/A2+`.
+. Document actual bindings separately from this capability reference.
+
+The source for the complete slot list is `+TINST.MSG+` on the installed CP/M mirror. It is intentionally kept local so this reference remains valid even without web access.

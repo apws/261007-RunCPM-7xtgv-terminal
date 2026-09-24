@@ -1,0 +1,37 @@
+[id="esp32-s3-headless-runcpm-validation"]
+= ESP32-S3 headless RunCPM validation
+:source-highlighter: highlight.js
+
+Validated 2026-09-08 on the 3.5-inch JC8048W535 / JC3248W535EN module.
+
+== Configuration
+
+* MCU: ESP32-S3 QFN56 revision 0.2, dual Xtensa LX7, 8 MB embedded PSRAM
+* Arduino-ESP32: 3.1.0
+* Console: native USB Serial/JTAG, 115200 baud, `+/dev/ttyACM0+`
+* Storage: one-bit SD++_++MMC, CLK GPIO12, CMD GPIO11, D0 GPIO13, 20 MHz request
+* Card tested: Kingston Industrial SDCIT2/16GB, FAT hierarchy mirrored under `+cpmcard/+`
+* RunCPM: 6.9, CPU Model 1, internal CCP 3.3, one 64 KiB memory bank
+* Build profile: `+jc8048w535-headless+`
+* Build size: 449,328 source bytes reported by Arduino CLI before image merging; 97,736 bytes of static internal RAM
+
+== Results
+
+* Native USB serial and Xtensa firmware startup: pass
+* SD++_++MMC pin configuration and FAT mount: pass
+* CP/M `+A/0+` selection and `+DIR+`: pass
+* External `+INFO.COM+`: pass; reports RunCPM 6.9 on ESP32
+* MBASIC 5.30 load and `++PRINT 2+2++`: pass, result 4
+* Storage create/read/rename/delete: pass using temporary `+VTS3.BAS+` and `+VTS3R.BAS+`; the temporary file was deleted after verification
+* Existing RP2350 profile regression compile: pass
+* Host terminal/runtime and Python helper tests: pass with ASan/UBSan; leak detection disabled because LeakSanitizer cannot run under the sandbox ptrace environment
+
+RunCPM's startup estimate reported approximately 19 MHz equivalent Z80 speed. This is a workload-specific estimate, not a general benchmark.
+
+== Observations
+
+The panel's supplied media card mounted but lacked the required `+/A+` hierarchy, so RunCPM correctly reported `+Bdos Err on A: Select+`. The CP/M card initially timed out during CID acquisition after a hot swap; removing power, reseating the card and booting cold resolved it.
+
+A batch containing several MBASIC commands lost the first character of `+NEW+` while crossing command transitions. Individually paced interactive commands worked. This direct headless console is only the portability proof; later dual- core integration returns to the existing bounded virtual-serial queues.
+
+The root-directory listing was enabled in the headless milestone as an early storage diagnostic. It is not part of the later TFT terminal output. The headless result remains available at commit `+50572b3+`; the active S3 profile is subsequently used for the dual-task terminal integration.

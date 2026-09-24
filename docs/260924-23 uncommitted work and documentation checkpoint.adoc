@@ -1,0 +1,239 @@
+= Uncommitted work and documentation checkpoint
+:source-highlighter: highlight.js
+
+== Baseline, scope and recoverable chronology
+
+Review started 260924 23:04 +02:00. A successful `git fetch origin` confirmed
+HEAD = origin/main = `1be7630`, "terminal: adopt key-first chords and feature
+registry", committed 260922 19:46 +02:00. Ahead/behind is 0/0; the index is
+empty. There are *no committed-but-unpushed changes*. All newer local work is
+uncommitted. The commit date is not the time it was pushed.
+
+This follows
+link:260924-20%20progress%20since%20last%20push%20and%20feature%20tracking%20review.adoc[the earlier 20h audit].
+That report plus later dated implementation notes provide a durable checkpoint
+chain. They do not contain a complete snapshot of the working tree at every
+chat request. File modification times can change during copying/conversion;
+they cannot prove the exact request time, author, or intermediate contents.
+Use the Git baseline for the exact committed comparison and the linked reports
+for subsequent milestones. Do not infer completion from `last_reviewed` alone.
+
+This is a grouped whole-tree inventory and targeted documentation consistency
+review, not a line-by-line audit of every change or a new all-target regression.
+No commit, push, build, flash, transfer or device-state change is part of it.
+
+== Working-tree inventory before this review's edits
+
+[cols="2,1,1,1",options="header"]
+|===
+|Area |Modified tracked |Deleted tracked |Untracked paths
+|Source |46 |0 |22
+|CP/M mirror |46 |3 |15
+|Documentation |1 |83 |134
+|Repository root |2 |0 |2
+|Total |95 |86 |173
+|===
+
+The 354 paths are not 354 features. These counts exclude ignored build output,
+local INI history and private documents, and precede this checkpoint's edits.
+The registry contained 146 records, 49,753 bytes: 30 new records and 59 changed
+existing records relative to HEAD's 116. The prior 20h report counted 140 before
+its own additions; report-time counts are not exact intermediate snapshots.
+
+== All principal change groups since HEAD
+
+* Documentation: broad Markdown/text to AsciiDoc migration, manual conversion
+  and source review, image moves, feature-ledger generation, presentation CSS,
+  Kate embedded INI syntax support and dated implementation/test reports.
+* Palette implementation: shared/internal normal-ALT model, bit-3 emphasis,
+  ANSI translation, editable INI colors, themed cursor/line/gutter, updated
+  demo constants, VTPAL utility/generator and BASIC comparison program.
+  Current six presets are PAPER, GREEN, AMBER, BW, PLASMA and VFD; marker
+  papers and inks have extensive user visual tuning on W535.
+* Backlight: per-HAL 32-state duty tables, OFF=0/full ON=31, boot kept dark
+  until the themed frame, configurable CRT ramp, saved target brightness,
+  accepted W535 minimum 1/255 and gamma-2.2 curve. Other modules need their
+  own regression; W535 observations do not certify RP2_2 or future P4.
+* Firmware identity and upload tooling: target/build query, mismatch refusal,
+  common guard including device-triggered upload, target JSON metadata,
+  short shared display IDs, Arduino build-property preservation, W535 USB
+  recovery and associated host tests. No MAC registry or universal automatic
+  module identification; RP2350 BOOTSEL remains separate/manual.
+* Host transfers: editable local DU/source/target dialog, overwrite choices,
+  VTPUT/VTGET integration, tagged records, reduced full clears, profile/RAW
+  restoration, synchronized helper binaries/sources and transfer tests.
+  The unsuccessful XMODEM path was superseded, not made binary-transparent.
+* CP/M mirror: text normalization, current live INI/palettes/display settings,
+  ASCII BASIC source workflow, compact VTESTS pages and VTPAL, UNZIP157 and
+  extraction tests. No automatic compression or implicit text conversion.
+* Later host/config work: explicit target/port in the live-INI fetch helper,
+  fetch-before-edit policy, W535 zoom2 restored to 80x16, reversed host-only
+  three-modifier Page shortcuts, and current host default changed to W535.
+* Operating guidance and tests: source-of-truth rules, build versus flash,
+  serial ownership/recovery, profile restoration, no routine transfer readback,
+  native Linux RunCPM test-scope warning; palette/backlight/runtime/identity/
+  metadata/config/transfer/BASIC and feature-registry test additions.
+
+No tracked changes exist under `src/linux_RunCPM`: using that emulator for
+CP/M program checks did not implement the device terminal there.
+
+Of the modified CP/M files, 41 text changes compare equal after removing CRLF
+and EOF-tail formatting differences. This does not include the semantically
+changed INI, tokenized-to-ASCII/edited VTESTS, changed transfer binaries, or
+host metadata. Maintained guest text remains CRLF plus Ctrl-Z, not LF-only.
+
+Deleted documentation paths have same-stem AsciiDoc replacements except the
+two QL PNG names. Those images were found byte-identically under `! QL font --`
+names in both `docs/images/` and the recovery directory. This is duplicated/
+renamed reference material, not lost images or imported firmware font data.
+Preserve user copies until any cleanup is explicitly agreed.
+
+== Progress after the 20h checkpoint
+
+[cols="2,5",options="header"]
+|===
+|Record |Newer evidence
+|link:260924-20%20DEC%20graphics%20review%20and%20expanded%20VTESTS.adoc[Expanded DEC test]
+|Two 40x16 pages, continuous frame, patterns and all 32 code positions. Uploaded
+to A7 and accepted by Petr as a W535 visual smoke test. The earlier audit's
+"local only" statement is historical, not the latest deployment state.
+|link:260924-21%20live%20INI%20preservation%20and%20narrow%20transfer%20limitation.adoc[Live INI and pan]
+|Fresh device INI fetched; only W535 zoom2 changed to 80x16 and sent back.
+Petr confirmed pan works. No pan implementation fix was needed. VTGET stalling
+at 40 logical columns was identified; narrow physical viewport is distinct.
+|link:260924-22%20zoom%20shortcut%20direction%20and%20narrow%20viewport%20follow-up.adoc[Shortcuts and host target]
+|Ctrl+Alt+Shift+PgDn now zooms IN, PgUp OUT in host maps; firmware command
+semantics unchanged. Host helper tests: 33 passed. W535 explicitly selected
+as current terminal.conf default; target-config tests: 9 passed. This is not
+the proposed neutral fresh-clone configuration design.
+|===
+
+Those results are carried forward from their records, not rerun by this audit.
+
+== Documentation corrections made here
+
+* Main manual: remove stale A0/shared test claims; identify A7 ASCII sources.
+* Add scoped DEC inventory/test acceptance and TFT versus mirror limitations.
+* Record 80-column logical transfer requirement and fresh-live-INI workflow;
+  include both in the transfer README too.
+* Replace pending W535 curve prose with accepted candidate 260924-1549 status.
+* Remove the stale "current W550" statement, identify W535 at this review,
+  and distinguish exact upload target from shared display-profile IDs.
+* List the six actual presets and warn that VTPAL help still describes old
+  optional-level slots. Preserve ANSI versus internal-index distinction.
+* Link this checkpoint from FEATURES and reconcile the old DEC support row
+  with the newer deployed-test evidence. No broader H certification.
+
+== Remaining gaps and next gates
+
+* VTPAL.BAS help/labels are still obsolete: optional green/amber levels 3..6,
+  INK/SILVER names, missing clear internal index/ANSI distinctions. These are
+  program edits, not fixed merely by updating the manual. Old `_VTPAL.BAS`
+  and `_VTPAL.INI` fixtures must not be deployed over current presets 3..5.
+* Some older ledger rows still have next gates predating newer implementation
+  reports (ink-label/emphasis and transfer-restoration evidence in particular).
+  Reconcile exact test scope before upgrading them; a successful transfer
+  does not certify every failure-cleanup path. Latest linked reports matter.
+* Documentation does not have an independent machine-checked manual-complete
+  milestone. H means hardware exercised, with target/depth stated; it is not
+  proof the manual is current. Existing fields suffice until a schema change
+  is agreed; no M state or new database is introduced here.
+* Fresh-clone neutral defaults, better launcher error reporting, narrow
+  logical-terminal transfer support and stepped horizontal pan remain separate
+  implementation/design work, not silently completed documentation tasks.
+* RP2_2 current-state retest is pending. DEC missing glyphs, QL comparison,
+  bitmap editor, CRT scanlines, P4/all-display retests, build provenance and
+  compact FAND demo export retain their separate plans/gates.
+
+== Proposed manual structure: simple outside, explicit inside
+
+Petr proposed this during the review; recorded as direction, not a file move:
+
+[cols="2,5",options="header"]
+|===
+|Document |Owns
+|User Guide |Short first start, target selection, mirror attachment, normal
+keys, applications, safe transfers and simple recovery. Worked tasks with
+sensible defaults; no parser or HAL internals required to get started.
+|Reference Guide |Authoritative implemented commands, key chords, INI fields,
+defaults/ranges, palette/ANSI mappings, compatibility and current limitations.
+The present combined manual is the starting point, not a second duplicate.
+|Technical Reference |Architecture/data flow, HAL boundaries, rendering and
+buffers, host/device protocol, current VT adaptations, build/test boundaries.
+Future native 7xtgv is explicitly marked planned and linked to its own specs.
+|===
+
+Each fact should have one authoritative home. The User Guide links to exact
+Reference entries; the Technical Reference explains why/how rather than
+copying user tables. Keep dated design/test reports as evidence, not mandatory
+reading for ordinary use. Link proposed native behavior separately from shipped
+VT behavior. A small entry-page index and stable section anchors are enough;
+no new documentation framework is needed. Split incrementally in an explicit
+documentation task, preserving links and checking them after moves.
+
+== Publishing boundary and the next checkpoint
+
+Do not stage the tree indiscriminately. Untracked root archives include
+`260923-0923 backup docs.zip` (949,674,532 bytes) and
+`260924 backup - cpmcard.zip` (5,896,929 bytes). Smaller INI/COMAL ZIPs are
+also present. Their contents, redistribution rights and private material are
+not audited. The uppercase MIXWORX ignore rule does not protect private
+contents inside an archive with another name. No archive was removed.
+
+For the next requested review or publication, start here and compare to the
+then-current Git baseline. Record previous checkpoint, review time, selected
+change groups, actual test evidence, manual gaps and exclusions. A report is
+not an exact working-tree snapshot; explicit commits provide that stronger
+boundary when Petr requests them. Nothing here authorizes automatic commits
+or pushes. Keep the feature TSV as the index, with dated reports as evidence.
+
+Validation for this documentation pass: feature-registry check/regeneration
+and its unit tests, plus AsciiDoc rendering of the checkpoint and manual.
+These checks do not substitute for firmware or device regression tests.
+
+== Subsequent authorization: one honest checkpoint commit
+
+Later on 260924, Petr requested committing the accumulated work. After an
+initial grouping proposal he explicitly chose *one current-state commit*,
+not an artificial reconstruction of feature-by-feature history. The empty
+index and unchanged HEAD were confirmed before preparation; no partial
+feature commits were made. Push is not authorized by this request.
+
+The checkpoint includes current project source/tests, CP/M text/source changes,
+palette INI, helper binaries, documentation conversions and new reports, the
+feature registry, editor support, and operating guidance. Coupled firmware
+changes remain together. The CP/M README's stale A0/A7 test-location claims
+were also corrected. AGENTS now asks for a small checkpoint reminder at
+completed-feature or unrelated-topic boundaries, without automatic commits
+or pushes and without blocking brainstorming.
+
+Eleven untracked local files are deliberately excluded, not deleted:
+
+* Both root backup ZIPs and the A0 INI ZIP.
+* Five A3 COMAL ZIPs (`cpu1`, `cpu3`, `docs1`, `docs2`, `docs3`).
+* A7 `_VTPAL.BAS` and `_VTPAL.INI`, obsolete optional-preset experiments.
+* Downloaded `UNZIP157.COM`, pending redistribution review. Its provenance,
+  exact hash and download link remain in the UNZIP report; the extraction
+  test requires that separately obtained local binary.
+
+Ignored private MIXWORX files, build artifacts and INI snapshots stay outside
+the commit. Existing public historical lowercase-named references are retained.
+
+Final-state checks rerun for commit preparation:
+
+* 74 Python host tests passed.
+* C++ terminal/keyboard/bounds/fuzz/queue, palette, runtime/mirror and physical
+  plot-position suites passed with AddressSanitizer/UndefinedBehaviorSanitizer.
+  The initial sandbox run stopped at LeakSanitizer's ptrace restriction;
+  the outside-sandbox rerun passed. No firmware build or device access.
+* Five ASCII MBASIC programs load and SAVE ,A round-trip; eight VTESTS menu
+  tests/nine pages pass. VTPAL matrix/pairs/papers/preset/redraw/exit checks pass.
+  These are isolated native Linux RunCPM application checks, not TFT tests.
+* Registry validation: 146 rows; 11 registry tests passed. Seven Kate syntax
+  override tests passed. The manual/checkpoint AsciiDoc render check passed
+  in the preceding documentation review.
+
+This records the tested final state, not a claim that every historical change
+was individually committed or every device was retested. RP2_2 remains pending.
+Staged-diff whitespace checks also prompted removal of trailing spaces from
+generated ledger rows and two converted notes; no source-note substance changed.

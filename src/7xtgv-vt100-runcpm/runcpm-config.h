@@ -4,12 +4,8 @@
 #include <Arduino.h>
 #endif
 
-// Arduino-ESP32 3.x uses ARDUINO_ARCH_ESP32 but no longer publishes ESP32.
-// Arduino_GFX 1.6.4 and RunCPM's established ESP host marker still use the
-// latter. Limit this compatibility name to the RGB W550 target.
-#if defined(RUNCPM_TARGET_JC8048W550) && defined(ARDUINO_ARCH_ESP32) && !defined(ESP32)
-#define ESP32 1
-#endif
+// ESP32 and the USB/PSRAM/core-affinity defines come from Arduino's platform
+// flags. The host builder preserves them when appending target/stamp defines.
 
 // JC8048W535: Arduino's setup()/loop() task owns core 1 and the terminal.
 // A small FreeRTOS adapter pins RunCPM and SD_MMC ownership to core 0.

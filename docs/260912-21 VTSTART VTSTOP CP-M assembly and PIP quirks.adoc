@@ -1,0 +1,50 @@
+[id="vtstart--vtstop-cpm-assembly-and-pip-quirks"]
+= VTSTART / VTSTOP: CP/M assembly and PIP quirks
+:source-highlighter: highlight.js
+
+== Situation
+
+`+VTSTART.ASM+` and `+VTSTOP.ASM+` are 8080-compatible sources for the RunCPM uptime benchmark commands. They call the RunCPM private BDOS function F8h, which returns the firmware uptime in milliseconds. `+VTSTART+` stores a stamp in `+VTIME.DAT+`; `+VTSTOP+` subtracts it and prints elapsed milliseconds.
+
+The sources are stored on CP/M drive A6. `+ASM.COM+` is available on A4 and `+LOAD.COM+` is available on A0.
+
+== What the screenshot demonstrated
+
+The commands tried were variants of:
+
+[source,text]
+----
+A4>PIP A6:ASM.COM=ASM.COM
+A4>PIP A0:ASM.COM=ASM.COM
+A4>A0:PIP A0:ASM.COM=ASM.COM
+A4>A0:PIP COM A0:ASM.COM=ASM.COM
+A4>PIP.COM A0:ASM.COM=ASM.COM
+----
+
+This particular `+PIP.COM+` reports `+INVALID FORMAT: A6:+` or `+INVALID FORMAT: A0:+`. It is an old CP/M utility with a restricted filename/drive parser; its syntax is not as flexible as modern PIP implementations. The error does not mean that A4 is unreadable: `+A4>DIR+` showed `+ASM.COM+` there, and `+A4>ASM+` started the assembler.
+
+== CCP and drive-qualified commands
+
+RunCPM’s internal CCP first handles its built-in commands. For an external command it searches the current drive/user, then has a project-specific fallback to A0 user 0. Thus `+ASM+` can be found on A0 even while the current drive is A6. This fallback belongs to RunCPM’s CCP; it is not a general rule implemented by `+ASM.COM+` or `+PIP.COM+`.
+
+`+A4:ASM+` selects the external program from A4. The assembler itself then expects its source basename on the drive it considers current. The attempted `+A4:ASM VTSTART+` and `+A4:ASM A6:VTSTART+` produced `+ASM?+` because this assembler variant did not successfully resolve the A6 source argument.
+
+The safest intended arrangement is therefore to place `+ASM.COM+` on the same drive as the source, or use a PIP variant that supports explicit source and destination drives. Once `+ASM.COM+` is available on A6, the normal sequence is:
+
+[source,text]
+----
+A6>ASM VTSTART
+A6>A0:LOAD VTSTART
+A6>ASM VTSTOP
+A6>A0:LOAD VTSTOP
+----
+
+The source extension is omitted because CP/M `+ASM.COM+` appends `+.ASM+`; `+LOAD+` reads the generated `+.HEX+` and writes `+.COM+`.
+
+== Device transfer status
+
+`+VTDRV.COM+` and `+VTDRV8X.COM+` were transferred to A6 and verified; the device reported `+VTDRV verify: PASS+`. `+VTSTART.ASM+` and the complete 5,376-byte `+VTSTOP.ASM+` were also transferred and verified. The earlier `+VTS01.ASM+` … `+VTS06.ASM+` files were temporary record-aligned transfer chunks and are no longer needed once the complete `+VTSTOP.ASM+` exists.
+
+== Host-side note
+
+There is no usable Z80/8080 assembler installed in the Linux development environment. The intended build tools are the CP/M copies on the device: `+ASM.COM+` (A4) and `+LOAD.COM+` (A0). The PC bridge’s serial transfer command has a roughly 30-second interactive tool limit, so long transfers must use a persistent terminal session or another transfer arrangement; this is a host tool constraint, not a CP/M file-size limit.

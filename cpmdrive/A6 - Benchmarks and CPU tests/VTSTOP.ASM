@@ -217,3 +217,4 @@ suffix: db      ' ms',13,10,'$'
 nomsg:  db      'VTSTOP: no VTIME.DAT on this drive/user$'
 badmsg: db      'VTSTOP: cannot read VTIME.DAT$'
         end     start
+

@@ -1,0 +1,101 @@
+= VTPUT/VTGET mirror integration and redraw reduction
+:source-highlighter: highlight.js
+
+== Decision and corrected hardware finding
+
+Petr approved using VTPUT/VTGET in the existing transfer dialog after the
+XMODEM attempt failed. The host protocol unit tests did not validate the
+firmware boundary: the serial mirror reconstructs ANSI rows rather than
+forwarding guest output bytes. Displayed C characters can falsely satisfy
+XMODEM startup detection; ACK/NAK are not preserved. Payload reached CCP as
+commands after the receiver was no longer active. Petr rebooted afterward.
+The previous XMODEM documentation and feature claim are superseded here.
+
+XMODEM is no longer reachable through the dialog. Its standalone protocol
+class remains only for local protocol tests. A future binary transfer mode
+would share the physical USB connection but require an explicit firmware
+handshake, bypass in both directions, and safe timeout/exit behavior.
+
+== Implemented scope
+
+* Ctrl+Shift+X / Ctrl+] m opens VTPUT/VTGET, reusing the existing key editor.
+* Start at idle CCP. Select Send/Receive, DU, filename. DU selects both the
+  cpmdrive folder and remote drive/user; hex or decimal user input is accepted.
+* Send asks Y before replacing/creating the device file. Receive refuses an
+  existing local destination. Bytes are binary, without text conversion.
+* The mirror borrows its own descriptor for the existing transfer Link. It
+  does not open another serial connection. A fresh screen snapshot and idle
+  CCP prompt check precede commands; this remains a heuristic, not firmware
+  proof that an application cannot mimic a prompt.
+* Reserved bank #9 and RAW input protect interactive history and hex bytes.
+  RAW is disabled on completion/error; #9 remains selected. Error recovery
+  does not inject speculative keystrokes into a possibly active helper.
+* Results remain displayed until Enter/Esc. If the helper remains active
+  after a failure, reset before retrying.
+* XTGV_TRANSFER_ROOT replaces the old environment setting in the template;
+  XTGV_XMODEM_ROOT remains accepted as a compatibility fallback.
+
+== Redraw and integrity
+
+Previously VTPUT emitted a full CLS every 32 bytes and VTGET every 128 bytes.
+They now clear once per invocation and home the cursor thereafter. VTPUT
+erases only the old echoed input line. No terminal firmware change is needed.
+
+The serial mirror rotates across dirty rows, so simply deleting CLS would
+allow valid-looking old hex rows to survive into a new page. New VTGET pages
+use R2C headers and append the current record number to every data row.
+The host waits for all four matching row-end tags and READY before ACK.
+Because each mirrored row is sent left-to-right, the new end tag also guards
+against accepting an incomplete row update. Legacy REC pages remain readable
+by the updated host; old hosts cannot read the new R2C pages.
+
+The broader renderer still fills the full display when compositionDirty is
+set, then paints cells in batches. The non-canvas budget is 720 pixels per
+pass (12 cells at zoom 1, three at zoom 2); mirror output likewise sends whole
+dirty rows. These are candidates for a later measured optimization. The work
+here removes repeated explicit CLS requests, without changing rendering
+semantics or claiming to have explained why palette work made flicker more
+noticeable to Petr.
+
+== Compression proposal, not implemented
+
+Prefer explicit Linux ZIP/Deflate -> binary VTPUT -> CP/M UNZIP first.
+https://github.com/agn453/UNZIP-CPM-Z80[Maintained CP/M UNZIP] supports Deflate;
+old UNZIP binaries may not. The local UNZIP.COM banner is version 1.8, which
+is not evidence of compatibility with modern Deflate archives.
+
+Test a maintained plain-CP/M extractor in isolated Linux RunCPM, then on
+hardware, before replacing any device utility. Use uppercase 8.3 entry names
+and no directories/encryption/ZIP64. Convert text line endings before packing
+when required; archives themselves must never undergo text conversion.
+
+Automatic compression is deferred: choose temporary filenames safely, avoid
+silently overwriting extracted files, check errors, and measure total transfer
+plus unpack time. For CP/M-to-Linux compression a guest compressor would also
+need selection and measurement; the linked CP/M ZIP creator currently uses
+Stored entries, not compression. Native ZIP extraction tests would not test
+our embedded display. The immediate higher-confidence gain is removing CLS.
+
+== Local verification
+
+40 Python tests pass, including shared-fd ownership, DU selection, overwrite
+confirmation, refusal before commands without CCP, and stale-row rejection.
+The rebuilt Z80 helpers run in isolated native Linux RunCPM: all byte values,
+a partial final record, empty files, exact round-trip comparison, and exactly
+one CLS per nonempty helper invocation pass. This does not establish device
+redraw quality or end-to-end mirror UI behavior; those need hardware checks.
+
+== Device deployment and compression size sample
+
+Installed A0:VTPUT.COM and A0:VTGET.COM through the existing CLI and verified
+both by complete binary read-back (768 and 640 bytes with CP/M record padding).
+The VTGET verification exercised the new tagged-page protocol on the device.
+No firmware rebuild/reflash or INI transfer was performed. The device was
+idle at CCP before maintenance, so no running application was interrupted.
+Relaunched the visible Konsole mirror with the new host dialog. Petr's visual
+flicker assessment and interactive Send/Receive panel checks remain pending.
+
+A host-only `zip -9 -j` sample compressed the local 13,305-byte INI into a
+3,926-byte ZIP, including archive overhead (approximately 70% fewer bytes).
+This is not an end-to-end speed measurement or a CP/M extraction test. The
+archive is temporary and has not been sent to or extracted on the device.

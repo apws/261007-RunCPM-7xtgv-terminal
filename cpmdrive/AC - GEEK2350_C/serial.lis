@@ -86,3 +86,4 @@ Symbol table
 CR     000d    DONE   002a    ECHO   0011    LF     000a    LOOP   0007
 OUTCH  002b    OUTCH1 002c    STACK  008d    TEXT   0035    TTYDAT 0001
 TTYSTA 0000
+

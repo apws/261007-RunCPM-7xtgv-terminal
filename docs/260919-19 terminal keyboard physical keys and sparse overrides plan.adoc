@@ -1,0 +1,102 @@
+[id="terminal-keyboard-physical-keys-and-sparse-overrides--draft"]
+= Terminal keyboard physical keys and sparse overrides — draft
+:source-highlighter: highlight.js
+
+____
+INI syntax note (260922): modifier-first chord names in this historical document are superseded by the signed key-first grammar `+<key>[_ctrl][_shift][_alt]+`. See the link:260922-13%20key-first%20INI%20chord%20names%20signed%20implementation%20plan.adoc[refactoring plan].
+____
+
+Status: *review draft, not signed off*. No firmware, host keymap, or device INI change is authorized by this document alone. Petr's `+260919-18+` keyboard photo is the visual reference for the location IDs below. The existing keyboard and profile implementation is under `+src/7xtgv-vt100-runcpm/src/terminal/+`; the host translations are under `+src/7xtgv-vt100-runcpm/tools/+`.
+
+260920 correction/addendum: see link:260920-00%20terminal%20numkeys%20aliases%20and%20key-event%20plan.adoc[`+260920-00 terminal numkeys aliases and key-event plan.adoc+`].
+
+== Requested behavior
+
+* Accept all subsets of Ctrl, Shift, and Alt for the supported non-letter keys, including the existing arrows, Home/End, Insert/Delete, and PageUp/PageDown. Use canonical INI spelling `+ctrl_shift_alt_<key>+` when all three are present. Modifier order in file names is fixed, regardless of press order. Parsing should be case-insensitive; examples below use lowercase.
+* Add `+backspace+`, `+escape+`, `+enter+`, `+space+`, `+f1+`–`+f12+`, physical main-row `+num0+`–`+num9+`, and the marked punctuation positions in the photo. The number pad is distinct and remains outside this change.
+* Accept `+a+`–`+z+` only with Ctrl or Alt (possibly both and/or Shift). Do not bind unmodified letters or Shift-only letters: normal typing must stay normal.
+* Permit the same sparse `+send:+`, `+send_cancel:+`, `+history_previous+`, `+history_next+`, and `+none+` bindings in `+[global]+` and `+[bankN]+`. Preserve the existing input presets, in-app history behavior, and local line handling.
+* Ordinary keys not explicitly mapped must retain their existing behavior. A remapping to ASCII digits on the Czech main number row is opt-in, e.g. `+[global] num1=send:1+`; it is not a blanket keyboard-layout switch.
+
+== Position IDs in Petr's photo
+
+These names describe _positions_, not printed Czech or US characters. XKB names make the position correspondence explicit. `+<LSGT>+` is the extra ISO key left of the first bottom-row letter (Y on Petr's Czech QWERTZ layout, Z on a US QWERTY layout); the photographed keyboard has it even though the configured XKB model is described as “Generic 104-key PC”. Actual events must still be measured on the host: a compiled XKB map does not prove that the hardware reports every position.
+
+[cols=",,",options="header",]
+|===
+|INI base |XKB position |Photo location
+|`+num1+` … `+num9+`, `+num0+` |`+<AE01>+` … `+<AE09>+`, `+<AE10>+` |Main number row, not keypad
+|`+bs2+`, `+bs1+` |`+<AE11>+`, `+<AE12>+` |Two keys immediately left of Backspace, left to right
+|`+p1+`, `+p2+` |`+<AD11>+`, `+<AD12>+` |Two keys immediately right of P
+|`+l1+`, `+l2+`, `+l3+` |`+<AC10>+`, `+<AC11>+`, `+<BKSL>+` |Three keys immediately right of L
+|`+z1+` (provisional name) |`+<LSGT>+` |ISO key left of bottom-row Y/Z
+|`+m1+`, `+m2+`, `+m3+` |`+<AB08>+`, `+<AB09>+`, `+<AB10>+` |Three keys immediately right of M
+|===
+
+Petr's Konsole/nano screenshot provides this *observed unmodified Czech layout* legend, independent of what RunCPM can accept:
+
+[cols=",",options="header",]
+|===
+|Position ID |Visible output in the screenshot
+|`+num1+` … `+num9+`, `+num0+` |`+++ ě š č ř ž ý á í é++`
+|`+bs2+`, `+bs1+` |`+=+`, dead acute accent `+´+`
+|`+p1+`, `+p2+` |`+ú+`, `+)+`
+|`+l1+`, `+l2+`, `+l3+` |`+ů+`, `+§+`, dead diaeresis `+¨+`
+|`+<LSGT>+` |`+\+` (the new screenshot annotates this `+Y1+`; the earlier photo says `+Z1+`)
+|`+m1+`, `+m2+`, `+m3+` |`+,+`, `+.+`, `+-+`
+|===
+
+Petr reports that `+bs1+` and `+l3+` require _two presses_ to display their accent characters. That is expected dead-key behavior to preserve when no override applies. The `+Y1+`/`+Z1+` name discrepancy should be resolved before making this one permanent INI base name; the XKB position itself is unambiguous. The lower “in fact NOTHING” annotation lists `+num2+`–`+num0+`, `+bs1+`, `+p1+`, and `+l1+`–`+l3+`: precisely the positions whose unmodified results above are non-ASCII or dead accents. Petr clarified that *nano in Konsole receives and displays them*; the current terminal passes them onward, but CP/M gives no usable result. Thus “NOTHING” refers to the CP/M outcome, not a missing host key event or missing character in nano. The exact CP/M-side byte/encoding failure remains to be diagnosed separately; do not assume `+console_bits=8+` is UTF-8 conversion.
+
+The physical key left of `+num1+` (`+<TLDE>+`) was not marked in the photo; it is not included merely by assumption. In the Czech layout, some marked keys are dead keys. Intercepting them without a correct fallback can break accent composition, so their _unmapped_ behavior is a specific acceptance test.
+
+Examples of legal INI names: `+num1+`, `+shift_num1+`, `+alt_bs1+`, `+ctrl_shift_f5+`, `+ctrl_alt_enter+`, `+ctrl_shift_alt_m3+`, `+ctrl_a+`, `+alt_a+`, `+ctrl_shift_a+`. `+a+` and `+shift_a+` are deliberately illegal. These examples describe the target INI grammar, not support in the current firmware.
+
+== Existing code and why this is not an enum expansion
+
+`+history_profiles.h+` currently defines 30 `+AppKey+` values, an array of 30 bindings in each bank, and a 32-bit explicit-override mask. The INI parser recognizes those 30 names only inside `+[bankN]+`; `+[global]+` accepts terminal settings but no ordinary key bindings. `+input=+` presets fill the fixed array, including `+none+` values. Simply enumerating every new key × eight modifier combinations in each of ten banks and two atomic configuration sets would waste substantial RAM and immediately exceed the mask. Use a bounded sparse representation for explicit overrides, and preserve the existing preset resolution and atomic configuration publication. Capacity limits and duplicate key handling must be deterministic and reported as INI errors rather than silently overwriting another mapping.
+
+Resolution should be:
+
+[arabic]
+. Explicit binding in the selected bank.
+. Explicit binding in `+[global]+`.
+. That bank's existing `+input=+` preset/default behavior for existing keys.
+. Original host behavior if no binding applies.
+
+`+none+` is an explicit suppress action and must shadow a global binding; omission inherits. A future `+pass+` action to cancel a global binding and restore the original host key could be useful, but it is only correct if the host supplies the original translated bytes (or equivalent native event). Do not promise `+pass+` in phase one without that transport.
+
+`+send:+`/`+send_cancel:+` from the new keys must use the same input path as ordinary typing wherever line history and local composition need to observe them. A direct push into the CP/M byte queue without updating that state can make later history recall/editing inconsistent. Raw mode retains its existing bypass behavior and must not suddenly apply bank/global macros.
+
+== The host-input boundary (the main design risk)
+
+Konsole `+.keytab+` rules match Qt key values and modifier states; the Python mirror reads translated bytes from a PTY. Neither currently gives the firmware an XKB physical position. On the observed Czech QWERTZ layout, the unshifted main-row keys produce `+++ěščřžýáíé++`, not ASCII `+1234567890+`; the existing bridge already has an `+XTGV_BANK_KEYS+` workaround for Alt{plus}bank selection. Adding `+num1+` to the firmware parser alone will *not* make the pass:[<code>+</code>] key identifiable as `+<AE01>+`. Nor can legacy Ctrl{plus}A and Ctrl{plus}Shift{plus}A generally be distinguished after both have become the same control byte; recognition has to occur in the host key frontend before the PTY loses modifier information.
+
+Consequently, implement and test two distinct layers:
+
+* Firmware: canonical logical/position IDs, sparse `+[global]+` and bank overrides, and a private, non-colliding key-event transport. Keep ordinary CSI cursor/Home/End sequences intact; do not filter generic `+ESC [+` input.
+* Host adapter: translate the actual host events to those IDs. The first adapter can target the *known Czech layout and photographed keyboard* in Konsole/Kitty. This is not automatically layout-independent: their existing static keymaps may match characters/keysyms, while true position identity requires a native-scancode-aware frontend or a proven enhanced keyboard protocol. Do not make all punctuation positions globally intercepted before the fallback behavior is specified and tested, especially dead keys.
+
+An intercepted but unbound position must not vanish. Either the host event includes a faithful original translated fallback, or the host intercepts only the explicitly supported/mapped combinations. The latter is less flexible for device-side INI edits: the host cannot automatically know that a new mapping was entered in TE on the SD card. This is a phase-one design decision, not an implementation detail. A keytab generated from a _host copy_ of the INI is only safe if synchronization and bank changes are handled deliberately.
+
+`+AltGr+`/Right Alt, Compose/dead keys, and host-reserved keys (for example Petr's F11 fullscreen or Alt{plus}F1/F2 window-manager actions) cannot be assumed to reach the terminal as ordinary Alt chords. The INI can specify what to do _when an event arrives_; it cannot override a compositor or physical Fn/media layer that swallows the key first. `+console_bits=8+` does not turn UTF-8 Czech text into a CP/M national character encoding.
+
+== Existing host chords to preserve or retire deliberately
+
+* Keep global profile selection/show, viewport, zoom, clear/exit, history delete, and Ctrl{plus}Shift{plus}number backlight actions unless separately changed. Their collisions with newly configurable chords are the user's choice, but the host translation must document which action wins; the device cannot remap an event never forwarded by the host.
+* Remove the project’s _unshifted F5_ host binding that currently emits `++Ctrl+Q++` followed by `+F+`. It is a project convenience, not a standard F5 encoding, and explains the stray `+F+` seen at the CP/M prompt.
+* Remove the redundant `++Alt+Shift+0++` … `++Alt+Shift+9++` backlight presets from Konsole/Kitty; retain Ctrl{plus}Shift{plus}digits. In the current Kitty map, `++Alt+Shift+3++` is also assigned a RAW toggle, so its duplicate binding must be resolved explicitly. This removal does *not* imply removal of Alt{plus}Shift{plus}PgUp/PgDn unless requested separately.
+* Keep existing plain `++Alt+0++` … `++Alt+9++` bank selection and terminal-owned chords visible in the keymap reference. Don't silently repurpose them as bank macros. The newly configurable `+num0+`–`+num9+` names refer to the physical row; host-level global chords have precedence where already owned.
+
+== Recommended implementation gates
+
+[arabic]
+. Add parser/lookup tests first: canonical spelling, allowed letter chords, global/bank precedence, `+none+`, unset passthrough, preset compatibility, duplicate/overflow errors, and bounded memory. No firmware build yet.
+. Define a versioned/private key-event range that does not overlap existing `+CSI > ... v+` controls. Test incomplete/unknown sequences and ordinary ANSI keyboard input. Use one path for both Konsole and Kitty adapters.
+. Implement the Czech host adapter on a _small pilot set_: one main-row digit, one ordinary punctuation position, one dead-key position, F5, and Ctrl{plus}Shift{plus}A. Determine exact event identity and fallback on this machine. Expand to all named positions only after this gate passes.
+. Add the remaining key names and mappings, retire the F5 and Alt{plus}Shift{plus}digit host shortcuts, and run host parser/keymap tests. Stage firmware only on Petr's explicit `+rebuild+`; do not alter device `+7XTGVTRM.INI+` or BUF.
+. Device acceptance: test plain/Shift Czech typing, both main-row and keypad digits, dead-key composition when unmapped, all intended modifier subsets, `+[global]+` versus bank overrides, TE/TP3/history/local editing, RAW mode, and host-owned F11/Alt{plus}F1/F2 behavior. Konsole and Kitty may need separate evidence; a Linux RunCPM ANSI session cannot prove the 7xtgv parser.
+
+Before sign-off, decide only the phase-one host fallback rule: *(A)* make host mapping for the requested keys opt-in and require mapping coverage where intercepted, or *(B)* build a native/enhanced-event frontend that preserves both physical identity and normal translated fallback. B is the more general target, but substantially larger than the sparse INI parser itself. A is reasonable for Petr's current Czech hardware if its limits are explicit.
+
+References: https://docs.kde.org/trunk_kf6/en/konsole/konsole/key-bindings.html[Konsole key bindings], https://xkbcommon.org/doc/current/keymap-text-format-v1-v2.html[XKB keymap format], https://doc.qt.io/qt-6/qkeyevent.html[Qt key events], https://sw.kovidgoyal.net/kitty/keyboard-protocol/[Kitty keyboard protocol].

@@ -196,13 +196,13 @@ static bool configLineIsKey(const char *line, const char *key) {
 }
 
 static bool writeConfigSettings(File &source, File &target, uint8_t level,
-                                uint8_t zoom, const char *displayId) {
+                                uint8_t zoom, const char *displayId, uint8_t palette) {
     char line[192];
     size_t length = 0;
     bool valid = true;
     bool overlong = false, skippedCR = false;
     bool logicalEof = false;
-    bool wroteZoom = false, wroteBacklight = false;
+    bool wroteZoom = false, wroteBacklight = false, wrotePalette = false;
     size_t bytesRead = 0;
     enum Section : uint8_t { Other, Global, Display } section = Other;
     char displaySection[24];
@@ -225,16 +225,20 @@ static bool writeConfigSettings(File &source, File &target, uint8_t level,
                                   configLineIsKey(line, "backlight_level");
         const bool zoomKey = !overlong && section == Display &&
                              configLineIsKey(line, "view_zoom");
-        const bool duplicate = (backlightKey && wroteBacklight) || (zoomKey && wroteZoom);
-        if ((backlightKey || zoomKey) && !duplicate) {
+        const bool paletteKey = !overlong && section == Global && configLineIsKey(line, "mode_palette");
+        const bool duplicate = (backlightKey && wroteBacklight) || (zoomKey && wroteZoom) ||
+                               (paletteKey && wrotePalette);
+        if ((backlightKey || zoomKey || paletteKey) && !duplicate) {
             char replacement[48];
             const int count = backlightKey
                 ? snprintf(replacement, sizeof(replacement), "backlight_level=%u", unsigned(level))
-                : snprintf(replacement, sizeof(replacement), "view_zoom=%u", unsigned(zoom));
+                : paletteKey ? snprintf(replacement, sizeof(replacement), "mode_palette=%u", unsigned(palette))
+                             : snprintf(replacement, sizeof(replacement), "view_zoom=%u", unsigned(zoom));
             valid = valid && count > 0 && size_t(count) < sizeof(replacement) &&
                     target.write(reinterpret_cast<const uint8_t *>(replacement), size_t(count)) == size_t(count);
             if (ending >= 0) valid = valid && target.write(uint8_t(ending)) == 1;
             if (backlightKey) wroteBacklight = true;
+            else if (paletteKey) wrotePalette = true;
             else wroteZoom = true;
         } else if (!duplicate) {
             valid = valid && target.write(reinterpret_cast<const uint8_t *>(line), length) == length;
@@ -283,6 +287,13 @@ static bool writeConfigSettings(File &source, File &target, uint8_t level,
         valid = valid && count > 0 && size_t(count) < sizeof(saved) &&
                 target.write(reinterpret_cast<const uint8_t *>(saved), size_t(count)) == size_t(count);
     }
+    if (!wrotePalette) {
+        char saved[48];
+        const int count = snprintf(saved, sizeof(saved),
+                                   "\r\n[global]\r\nmode_palette=%u\r\n", unsigned(palette));
+        valid = valid && count > 0 && size_t(count) < sizeof(saved) &&
+                target.write(reinterpret_cast<const uint8_t *>(saved), size_t(count)) == size_t(count);
+    }
     return valid && target.write(uint8_t(0x1a)) == 1;
 }
 
@@ -322,13 +333,13 @@ static bool writeTerminalConfigErrorReport() {
 }
 
 bool terminalConfigStoragePoll() {
-    uint8_t level = 0, zoom = 0;
-    if (!terminalConfigSaveDue(level, zoom))
+    uint8_t level = 0, zoom = 0, palette = 0;
+    if (!terminalConfigSaveDue(level, zoom, &palette))
         return true;
     terminalPause(true);
     // A last key could have arrived between the due check and pause. Recheck
     // the settled snapshot now that its producing core cannot mutate it.
-    if (!terminalConfigSaveDue(level, zoom)) {
+    if (!terminalConfigSaveDue(level, zoom, &palette)) {
         terminalPause(false);
         return true;
     }
@@ -338,7 +349,7 @@ bool terminalConfigStoragePoll() {
     File source = SD.open(TerminalConfigPath, FILE_READ);
     File target = SD.open(TerminalConfigNewPath, O_CREAT | O_WRITE);
     bool saved = bool(target) && (!SD.exists(TerminalConfigPath) || bool(source)) &&
-                 writeConfigSettings(source, target, level, zoom, vt::displayHalDefaults().id);
+                 writeConfigSettings(source, target, level, zoom, vt::displayHalDefaults().id, palette);
     if (source) source.close();
     if (target) { target.flush(); target.close(); }
     if (saved) {
@@ -557,6 +568,11 @@ static void runCPM() {
     }
 #endif
 
+#if !defined(RUNCPM_HEADLESS)
+    // Always release startup blanking, including absent SD/INI fallback.
+    // The display core waits for the actual themed frame, not just this flag.
+    terminalBootConfigComplete();
+#endif
     printBootBanner();
 #if !defined(RUNCPM_TARGET_JC8048W535) && !defined(RUNCPM_TARGET_JC8048W550)
     _puts("Init SD SPI bus ......CONFIGURED\r\n");
@@ -754,6 +770,7 @@ void setup() {
         const char *message = "RunCPM task creation failed.\r\n";
         while (*message)
             virtualWrite(*message++);
+        terminalBootConfigComplete();
         return;
     }
     created = xTaskCreatePinnedToCore(runCPMIdleWindowTask, "RunCPMIdle", 2048, nullptr, 2,

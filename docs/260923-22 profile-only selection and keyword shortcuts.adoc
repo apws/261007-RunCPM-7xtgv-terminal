@@ -1,0 +1,19 @@
+= Profile-only selection and keyword-list shortcut intent
+:source-highlighter: highlight.js
+
+Petr proposes Ctrl+Alt+PgUp/PgDn for previous/next profile selection without
+executing on_select, including at CCP. Ordinary switching currently runs that
+command only at a live CCP prompt; inside applications it only changes profile.
+This new interactive shortcut is a future feature, not implemented here.
+
+Reserve Alt+Home/End for selecting the profile's keyword lists in the future.
+Current host maps deliver these as ordinary profile keys, and the local INI
+already contains home_alt/end_alt byte bindings (A7/A6). Those bindings remain
+unchanged until an explicit keyboard behavior change is implemented. Existing
+commented INI examples also mention keywords_previous/keywords_next, which
+are not implemented binding actions yet.
+
+Transfer cleanup already implements profile-only restoration through existing
+controls: bank selection immediately followed by RawOn/RawOff replaces the
+pending on_select notice with a display-only peek. This also restores RAW state.
+See link:260923-21%20VTPUT%20VTGET%20profile%20restoration.adoc[transfer restoration].

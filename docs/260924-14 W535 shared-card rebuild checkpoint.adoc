@@ -1,0 +1,91 @@
+= W535 shared-card rebuild checkpoint
+:source-highlighter: highlight.js
+
+Petr connected W535 and confirmed that its microSD came from W550, containing
+the current shared INI. The old 260914 firmware reported configuration errors;
+no attempt was made to downgrade or modify that INI. Requested action: rebuild
+for W535, not upload.
+
+== Build compatibility repair
+
+The first build failed because RunCPM's `HostOS` selection recognized only the
+legacy `ESP32` macro. Arduino-ESP32 3.1.0 supplies `ARDUINO_ARCH_ESP32` instead.
+The HAL now accepts either macro for the same ESP host identifier, `0x05`.
+
+The next compile exposed the same issue in Arduino_GFX 1.6.4: its QSPI class and
+implementation are guarded by `ESP32`. Added `-DESP32` to the W535 target JSON's
+build properties, so the compatibility define covers library translation units
+as well as the sketch. No library installation or upstream library edits were
+needed. W550 already has that flag. Display wiring and geometry are unchanged.
+
+== Successful candidate
+
+`python3 tools/reflash.py --target jc8048w535 --build-only` succeeded:
+
+* Build stamp: `260924-1441`.
+* Target: `jc8048w535`; display group: `ES3_35`.
+* Flash: 645288 bytes (20%).
+* Static RAM: 171328 bytes (52%); 156352 bytes remain.
+* Candidate: `build/7xtgv-vt100-runcpm/jc8048w535/new`.
+* Existing `current` remains unchanged; failed attempts did not stage candidates.
+* Ten host target/configuration tests pass, including compiled selector checks.
+
+The staged binary's stamp, target, display ID and identity-reply marker were
+checked. No flash, device reset, INI/history edit or transfer was performed.
+The visible mirror remains on the W535 session configured earlier; persistent
+`terminal.conf` still selects W550, so explicit target selection remains important.
+
+== Next hardware check
+
+On a separately requested W535 reflash, use the common dispatcher and the explicit
+one-shot old-firmware allowance for `jc8048w535`. Then verify the fresh identity
+reply, boot profile parsing, W535 geometry and backlight ramp with the shared card.
+Only after this upgrade can the wrong-W550-target hardware test exercise a real
+explicit mismatch reply, rather than the missing-identity refusal already tested.
+Keep the candidate unpromoted until Petr's display/input checks are complete.
+
+== Upload and hardware observation
+
+Petr requested reflash. Uploaded `260924-1441` through the common W535 dispatcher
+with the explicit old-firmware allowance; all upload hashes verified. His before/
+after photos confirm the new stamp, working CRT palette, SD/profile/history OK
+and `A0>` on the TFT. No INI update was needed. The post-upload identity query
+timed out; restored visible W535 Konsole is attached but blank.
+
+== Root cause correction: build flags, not missing core support
+
+The initial explanation above attributing the missing `ESP32` macro to the Arduino
+core was incorrect. Local Arduino-ESP32 3.1.0 `platform.txt`, line 104, supplies
+`-DESP32=ESP32` in its default `build.extra_flags`, together with loop/event core,
+USB configuration and other board definitions. Its S3-specific flags include
+`ARDUINO_USB_MODE` and `ARDUINO_USB_CDC_ON_BOOT` from the selected board options.
+
+Our `tools/reflash.py` replaces that entire property when adding the build stamp.
+The W535 compatibility addition restored only `ESP32`, not the other flags.
+The resulting build-options record confirms only
+`build.extra_flags=-DESP32 -DXTGV_BUILD_STAMP=260924-1441`.
+The firmware map ties terminal runtime serial calls to `HardwareSerial`, not the
+intended hardware USB CDC console. Thus TFT startup works but USB mirror/identity
+does not. This is a build-tool defect, not an INI problem or failed flash.
+
+Required next correction: preserve platform/profile flags while injecting project
+defines, explicitly retain W550's intended external-UART console, and test actual
+expanded target build properties (not just host identity macros). Merely adding
+another missing define would not address the general replacement error. A fixed
+W535 rebuild/reflash is needed; no silent second build/upload was performed.
+The current W535 remains usable on TFT but is not a fully verified candidate.
+
+== Idea: build provenance record
+
+Petr proposed reporting/storing Arduino-layer versions with builds, optionally
+exposing them later in firmware diagnostics. Recommendation: first retain a small
+host-side record alongside each artifact containing target, build stamp, effective
+board options/flags, Arduino CLI/core, compiler and library versions. This costs
+no firmware bytes and directly helps incidents such as the flag replacement above.
+Firmware strings are optional later work. This is an idea, not implemented here.
+The observed W535 build used Arduino-ESP32 3.1.0 and Arduino_GFX 1.6.4;
+upload used esptool 4.8.1. These are observations, not a complete provenance record.
+
+Resolved in the subsequently authorized recovery: build `260924-1456` preserves
+Arduino defaults and restores USB, identity reporting and the visible mirror.
+See link:260924-14%20preserve%20Arduino%20build%20flags%20and%20W535%20USB%20recovery.adoc[fix and verified hardware outcome].

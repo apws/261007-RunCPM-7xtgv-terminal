@@ -1,0 +1,78 @@
+= Dark phosphor, plasma and VFD palette trials
+:source-highlighter: highlight.js
+
+Petr requested three copies of the current amber palette 2, followed by a
+40% increase of papers 1..3 across all five dark palettes. Numbering remains
+1 green, 2 amber; new slots are 3 BW phosphor, 4 red plasma, 5 cyan VFD.
+These are aesthetic starting points for human visual tuning, not simulations
+of phosphor spectra or the physics of plasma/VFD displays.
+
+== Implicit ink and background choices
+
+[cols="1,2,2,2,2",options="header"]
+|===
+|Slot |Theme |paper0 RGB |ink00 RGB |ink08 RGB
+|1 |Green (unchanged) |0,12,0 |100,210,100 |170,255,170
+|2 |Amber (unchanged) |16,8,0 |220,155,45 |255,205,100
+|3 |BW phosphor |8,8,8 |180,180,180 |235,235,235
+|4 |Red plasma |16,3,0 |210,75,40 |255,145,95
+|5 |Cyan VFD |0,12,12 |60,195,190 |140,245,235
+|===
+
+The initial request changed only the implicit pair in each amber copy. Before
+deployment Petr additionally approved matching tinted paper0 backgrounds.
+All other inks, including the warm shade pair, and UI colors remain copied
+from amber. Thus active-line/cursor/gutter colors are still amber-tinted;
+retuning those is a separate possible follow-up, not silently included here.
+
+== Paper emphasis increase
+
+Applied once to the current values, multiplying each RGB component by 1.40
+and rounding to nearest integer (halves up). This is not a measurement of
+perceived brightness; RGB565 quantization applies at rendering.
+
+[cols="1,1,1,1",options="header"]
+|===
+|Slot(s) |paper1 |paper2 |paper3
+|1 |98,28,28 |0,81,17 |28,49,108
+|2,3,4,5 |108,41,20 |41,74,17 |49,49,98
+|===
+
+Palette 0, existing inks in palettes 1/2, other INI settings and firmware
+remain unchanged. Spare slots 6..9 remain empty. Prior INI backup:
+`build/palette-backups/260924-1753-five-dark-palettes/7XTGVTRM.INI`.
+The local check asserts exact paper scaling, clones differing only in paper0
+and implicit inks, unchanged other sections, valid RGB ranges, CRLF and EOF.
+Visual hardware acceptance remains pending.
+
+== Transfer policy clarification
+
+Petr requested avoiding routine full read-backs and separate post-transfer
+mirror probes. Trust a successful transfer result, restore the original profile
+and RAW state, and launch the visible mirror. Failures still must be reported.
+In transfer context, `reload` repeats the last clearly identified transfer;
+it does not mean a firmware rebuild/reflash or device reboot. AGENTS.md records
+this convention. Boot is still required to load edited palette definitions.
+
+Petr explicitly approved deployment. Sent `7XTGVTRM.INI` to A0; VTPUT reported
+SAVED (14976 record-padded bytes). The transfer workflow restores the profile
+and launches the W535 Konsole mirror. No extra read-back or mirror probe was
+performed, and no reboot was issued.
+
+== Dark blue ink readability follow-up, 260924-19
+
+Petr reports the dark palettes otherwise look good in VTPAL, but both blue
+inks need more visibility, especially at minimum backlight. A simple 20%
+RGB multiplication would clip normal blue's already-high channel (242), with
+only about 5% headroom to 255. He approved these visual-tuning candidates:
+
+* In palettes 1..5, `ink03`: `0,0,242` -> `40,60,255`.
+* In palettes 1..5, `ink11`: `37,89,221` -> `60,110,255`.
+
+These add red/green to lift blue readability; they are not a calibrated 20%
+perceptual increase. Exact comparison confirms only these ten INI entries
+changed; palette 0 and all papers/UI colors remain untouched. Prior INI:
+`build/palette-backups/260924-1918-dark-blue-inks/7XTGVTRM.INI`.
+Uploaded to `A0:7XTGVTRM.INI` on request; VTPUT reported SAVED (14976 padded
+bytes). No extra read-back/probes or reboot. The new blue candidates await
+Petr's visual comparison after reboot.

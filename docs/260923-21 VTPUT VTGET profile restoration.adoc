@@ -1,0 +1,52 @@
+= VTPUT and VTGET restore the selected device profile
+:source-highlighter: highlight.js
+
+== Request and implementation
+
+Petr requested returning to his selected device profile after transfers, using
+the existing Alt+Space command rather than adding a firmware query protocol.
+
+The shared host transfer Link reads the `CSI >14v` profile overlay before
+switching to reserved profile 9. Both the mirror panel and standalone CLI
+restore the original profile and RAW state in cleanup, including failure paths.
+No firmware or guest COM change is required.
+
+Selecting a profile normally schedules its on_select command after the notice.
+The host sends bank selection followed immediately by RawOn/RawOff, replacing
+that notice with a non-command peek. This suppresses on_select both for bank 9
+and for the restored bank, without changing the firmware's normal behavior.
+Restoration is checked against the resulting overlay. Failure is reported;
+a disconnected/reset device cannot be promised to retain its previous state.
+
+The deployed RAW peek can show effective CCP bank 0 rather than selectedBank.
+For an initially RAW session, the host briefly disables RAW and peeks again to
+capture selectedBank, then restores the original RAW state on exit. If this
+second query fails, it attempts to re-enable RAW before aborting.
+
+Device DU remains independent: the mirror keeps its current DU; the CLI's
+explicit user option still changes it intentionally. Restoring the profile
+must not trigger another DU change via on_select.
+
+== Tests
+
+* 48 Python tests passed, including all 10 banks with both original RAW states
+  and both transfer RAW choices, unknown-profile refusal, restore-failure
+  reporting/descriptor release, and cleanup after failed sends and receives.
+* The production firmware runtime, compiled against fake peripherals with
+  address/undefined sanitizers, passed. Added tests verify selected bank 3
+  while CCP effectively uses bank 0, and restoration from 9 to 3 without
+  emitting its configured A2 command or altering the A7 prompt.
+* Existing isolated native CP/M binary helper round-trip tests passed. Native
+  RunCPM alone is not a test of the embedded profile mechanism.
+
+No live device test or restart was performed. The mirror loads the shared
+transfer module per operation, so its next transfer picks up this host change.
+For the hardware check, select any non-9 profile, note Alt+Space, send or receive
+a disposable file at CCP, then check Alt+Space and the unchanged device DU.
+
+== Later same-day device upload
+
+The subsequent red/blue paper INI upload completed with the new CLI Link,
+including its original-profile query and matching restoration confirmation.
+The exact original bank was not printed in the CLI log; this is not a claimed
+all-bank or receive/failure hardware test. The mirror was reopened afterward.

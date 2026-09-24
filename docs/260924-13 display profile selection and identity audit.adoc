@@ -1,0 +1,186 @@
+= Display-profile selection, persistence and target identity audit
+:source-highlighter: highlight.js
+
+== Scope and decision
+
+Source-grounded review requested by Petr on 260924, including possible design
+mistakes, following
+link:260924-13%20short%20display%20IDs%20and%20host%20target%20data%20cleanup.adoc[the host target cleanup].
+No device read, INI modification, build/stage, flash or transfer was performed.
+
+Keep two distinct identifiers. The short ID is a locally assigned display-settings
+group, intentionally shareable by compatible HALs. The canonical target identifies
+the compiled board configuration and upload artifacts. Neither identifies a physical
+unit. A USB path is a transport endpoint, not either kind of identity.
+
+[cols="1,2,1,2",options="header"]
+|===
+|Group |Canonical target |Oriented pixels |Default zoom 1/2/3/4 geometry
+|ES3_5 |jc8048w550 |800x480 |132x48 / 80x24 / 44x16 / 32x12
+|ES3_35 |jc8048w535 |480x320 |80x32 / 40x16 / 26x10 / 20x8
+|RP2_2 |rp2350-touch-lcd-2 |320x240 |80x24 / 40x12 / 26x8 / 20x6
+|===
+
+The RP2_2 logical width intentionally exceeds its physically visible width;
+horizontal viewport handling is not a resolution mismatch.
+
+== Historical names versus implemented names
+
+The original `260914-23_7xtgv_generic_zoom_in_display_geometry_plan.adoc` used
+examples such as `JCW550` and `RP2LCD2`; these are not current aliases.
+`260915-01 7xtgv signed zoom-in implementation plan.adoc` assigned the three
+current IDs plus future `EP4_10`, `EC6_15` and `RP2_15`. Those future assignments
+do not imply implemented terminal HALs or available target JSON records today.
+
+The older plan called the short ID an INI/machine identity; Petr's clarification
+now makes its shareable group meaning explicit. Its promised descriptive HAL name
+is present in policy metadata, but currently has no runtime reader/boot-print use.
+Likewise, physical/max dimensions still appear in both compile-time storage/GFX
+configuration and policy, despite the plan's single-source aspiration. New tests
+check policy maxima against terminal storage limits and validate default geometry;
+this audit does not introduce generated hardware configuration or restructure HALs.
+Historical documents remain unchanged as design history.
+
+== When each selection happens
+
+. Host selection: `tools/terminal.conf` selects `XTGV_TARGET`. The common
+  `tools/target_config.py` reads `tools/targets/<target>.json`. The canonical name
+  selects an Arduino profile, build properties, upload method and artifact directory.
+  JSON `display_id` is a human-facing label; it does not configure the firmware.
+. Compile time: `runcpm-config.h` selects target macros and terminal storage limits.
+  `src/terminal/display_policy.h` supplies the short ID, oriented dimensions, allowed
+  geometry and defaults. `src/terminal/7xtgv-gfxsetup.h` constructs the real display
+  driver and fixes pins, bus, orientation and scanout timing. The ID changes none of these.
+. Early boot: the terminal starts with compiled defaults and backlight held off.
+  Display initialization precedes SD config parsing. If storage or INI is absent,
+  defaults remain usable; absence of a matching display section is not an error.
+. Config load: the SD-owning task in `7xtgv-vt100-runcpm.ino` reads
+  `A/0/7XTGVTRM.INI` while the terminal task is paused. `terminalConfigBegin()` passes
+  the compiled policy to `HistoryProfiles::beginLoad()`. A fresh defaults-based set
+  receives the file; this is not an overlay on previously loaded settings.
+. Selection: `[display:ID]` compares case-insensitively with the compiled ID.
+  Only the matching section updates display settings. Globals, palettes and bank
+  profiles load independently. The host JSON, USB path and MAC play no part here.
+. Activation: `finishLoad()` validates and publishes the settings. Runtime queues
+  palette/display application, applies it on the display task, and boot waits for
+  that application before printing its banner. The backlight hold/ramp releases
+  only after a themed frame is ready; see the separate boot/ramp implementation notes.
+. Runtime: zoom requests select one of the four configured geometries. Bank
+  changes can replace that geometry with bank-specific overrides. Neither action
+  chooses a different display ID; switching output mode also leaves the ID alone.
+. Persistence: changed zoom, brightness or palette requests trigger a settled save
+  after 1500 ms, or an explicit pending-save flush. Ordinary boot loading does not
+  itself request a save. The writer uses the compiled ID, never the host label.
+
+== Exact display-section behavior
+
+`view_zoom` accepts 1..4; `zoomN_terminal` accepts logical columns and rows.
+Columns must be at least 2 and within the HAL maximum; odd counts round down.
+Rows must be positive, within the HAL maximum, and physically fit at that zoom
+using 10-pixel-high cells. There is no corresponding physical-width rejection:
+6-pixel-wide cells can form a wider logical screen with a narrower viewport.
+The runtime additionally checks terminal storage limits and actual GFX dimensions.
+
+`render_flush_hz=0..60` limits software flush frequency; 0 removes that interval.
+Compiled defaults are 30 for W550/W535 and 0 for RP2_2. The local mirror currently
+explicitly selects 10, 10 and 0 respectively; it was inspected, not changed or
+assumed to be identical to the live device.
+
+`rgb_refresh_hz` is accepted but ignored, without value validation. It does not
+change physical refresh. `defaultRgbRefreshHz` in the policy is descriptive metadata
+with no runtime consumer; actual RGB timing remains in display construction.
+Do not present this placeholder as a working adjustment.
+
+Section names are trimmed at their outer edges. ID comparison is case-insensitive,
+but whitespace inside `[display: ID ]` is not normalized. Setting keys are currently
+case-sensitive in the parser. An unknown display ID is intentionally accepted for
+shared cards, so an ID typo can silently select defaults. Inactive display sections
+ignore key/value semantics, but missing `=` and overlong lines can still report errors.
+This is not an offline validation of every target on the shared card.
+
+Repeated matching sections merge in file order; later valid values win. Invalid
+values report their source line and leave the preceding/default valid value intact.
+
+== Sharing boundaries and design cautions
+
+* IDs use 1..8 ASCII letters, digits or underscores; uppercase is the convention.
+  Optional letter suffixes distinguish groups. This limit is enforced in host target
+  metadata; the firmware INI parser does not impose an eight-character limit on
+  unrelated display headers. Existing compiled selectors all follow the convention.
+* Different oriented pixel resolutions get different IDs, as Petr requested.
+  Equal resolution alone does not guarantee equal desired settings: terminal memory
+  limits, flush policy and desired zoom behavior must also be compatible. A suffix
+  is appropriate when those settings should be independent.
+* Sharing means sharing explicit settings, not necessarily identical final values:
+  omitted fields retain each HAL's own defaults. This is useful and tested.
+* Bank geometry overrides are outside display sections and apply on every HAL.
+  A large-panel-only override can become invalid on a small panel; it is rejected
+  with a diagnostic, retaining the display fallback. The current local INI has no
+  active bank geometry overrides. Do not add target-specific bank syntax implicitly.
+* Brightness level, palette index and ramp duration are global. Moving the SD card
+  carries those preferences to every device. Each HAL maps brightness steps to its
+  own electrical behavior, but equal steps do not promise equal perceived brightness.
+* No runtime group alias or automatic ID migration exists. Changing JSON alone only
+  changes host labels; changing the compiled ID requires a matching INI section and
+  rebuilt firmware. Old unmatched sections are preserved for other devices.
+* Current build selection explicitly recognizes W550, but otherwise treats ESP32-S3
+  as W535 and Arduino RP2040 architecture as the RP2350 Touch-LCD target. These are
+  legacy build assumptions, not board detection. Adding another S3/RP board must
+  update this selection first; using a generic core alone is not safe identification.
+
+== What automatic saving modifies
+
+`writeConfigSettings()` updates `[global] backlight_level`, `[global] mode_palette`
+and `[display:<compiled ID>] view_zoom`. Other display sections, geometries,
+palettes and comments remain. Matching headings are case-insensitive. Duplicate
+instances of those three saved keys are collapsed; missing keys are appended in
+new/repeated sections. Output ends at CP/M Ctrl-Z and receives a final Ctrl-Z.
+
+The writer stages a temporary file, checks its trailing marker, renames the old INI
+to backup and then replaces it, attempting rollback on rename failure. This is not
+a complete revalidation or checksum verification of the rewritten configuration.
+The writer recognizes saved key names case-insensitively, unlike the parser;
+canonical lowercase is the supported authoring form. No broad casing migration was
+made during this audit.
+
+== Host identity and safety boundary
+
+Port priority is explicit CLI port, then `XTGV_PORT`, then target JSON discovery or
+default. An explicit/inherited port can name a different board; display IDs do not
+resolve that. Mirror/transfer connections do not require the firmware identity query.
+Existing tmux sessions keep their starting selection until restarted.
+
+The guarded uploader checks the fresh firmware-reported canonical target, not the
+short display group. A mismatch blocks upload even when both boards share an ID.
+The reply describes the running firmware's compiled configuration, not independent
+proof of wiring, chip MAC or the upload artifact's contents. Keep target build
+directories trustworthy. Unidentified old firmware needs an explicit one-shot
+physical-target confirmation; RP2350 BOOTSEL remains outside this dispatcher.
+
+== Cleanup and verification
+
+Found and corrected a parser isolation defect: an unknown or incomplete section
+heading could leave the preceding section active, letting subsequent values modify
+that display/global profile. An incomplete `[bankN` was also accepted by `sscanf`
+before its missing closing delimiter was checked. Invalid headings now invalidate
+the section until a recognized heading appears, including overlong headings.
+Each rejected subsequent setting remains visible in diagnostics; boot continues.
+Valid INI behavior and intentional shared IDs are unchanged.
+
+Added host tests compile the current HAL policy and identity header for all three
+target definitions and compare both names with JSON. This detects metadata drift
+without requiring generated headers or prohibiting shared group IDs. Parser tests
+exercise case-insensitive groups, suffix separation, per-HAL defaults and malformed
+heading isolation. Settings-writer tests cover repeated/case-varied matching sections
+and preservation of a different suffixed group.
+
+Python suite: 70 tests passed. C++ terminal/parser/bounds/fuzz/queue suite passed.
+The small parser correction needs the next requested firmware rebuild and flash;
+no new device build was staged during this audit.
+
+Follow-up requested rebuild: W550 candidate `260924-1421` now includes this fix.
+Build succeeded and is staged as `new`; no flash or INI transfer was performed.
+
+Subsequent requested reflash installed `260924-1421`; clean boot reports profile
+and history OK. No INI edits were needed. Malformed-header regression coverage
+remains host-side; no deliberate bad configuration was sent to hardware.

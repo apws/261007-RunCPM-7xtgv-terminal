@@ -1,0 +1,160 @@
+[id="vtpalcom-runtime-palettes-and-crt-themes"]
+= VTPAL.COM runtime palettes and CRT themes
+:source-highlighter: highlight.js
+
+*Date:* 260918 +
+*Status:* brainstorm and design source; palette loading, `+VTPAL.COM+`, CRT themes and attribute-marker reinterpretation are not implemented.
+
+This note proposes moving the terminal's fixed four-paper and sixteen-ink palette into an editable runtime configuration. It also records the visual goal for white-paper, green-screen and amber-screen themes.
+
+The later link:260918-23%20TP301%20input%20profiles%20and%20ANSI%20attribute%20marker%20notes.adoc[TP301 input profiles and ANSI attribute marker notes] refine the attribute model. Where the two notes differ, the later structured design is the stronger reference.
+
+[id="1-runtime-palette-sets"]
+== 1. Runtime palette sets
+
+Use a dedicated palette configuration file, provisionally `+VTPAL.INI+`, with ten sets indexed `+0..9+`.
+
+Each set defines RGB888 values for:
+
+* four paper/background colours;
+* sixteen ink/foreground colours.
+
+The values should be easy to edit while testing real TFT panels. The active set index belongs in `+7XTGVTRM.INI+`, uses the existing lazy settings-save transaction, and is restored during terminal startup.
+
+`+VTPAL.COM+` is the proposed CP/M-side selector. It would emit a private terminal command selecting set `+0..9+`; the exact command and argument syntax still need to be assigned.
+
+The current built-in PAPER palette remains the fallback when the palette file is absent or invalid.
+
+[id="2-initial-visual-themes"]
+== 2. Initial visual themes
+
+Three useful starting sets are:
+
+[cols=",,,",options="header",]
+|===
+|Theme |Default paper |Ink character |Marker papers
+|`+PAPER+` |white |current coloured/dark inks |pale red, green and blue
+|`+CRT_GREEN+` |black or very dark green |green phosphor shades |dark red, green and blue tints
+|`+CRT_AMBER+` |black or very dark amber |amber phosphor shades |dark red, green and blue tints
+|===
+
+The remaining seven indexed sets can hold experiments, panel-specific tuning, or user-defined themes.
+
+The logical palette roles stay stable across themes. A cell continues to store paper and ink indices; selecting a new set changes only the RGB values used to render those indices. Existing terminal contents can therefore be repainted without rewriting the cell buffer.
+
+=== Light PAPER mode
+
+* Paper 0 is white.
+* Papers 1..3 are pale marker colours.
+* Ink colours are darker than their paper background.
+* There is intentionally no ordinary bright-white ink that disappears into white paper.
+
+=== Dark CRT modes
+
+* Paper 0 is black or a chosen very dark phosphor-tinted colour.
+* Ink colours are brighter than the background.
+* Logical black cannot remain invisible black ink; its visible role must map to a neutral, green or amber phosphor shade.
+* Papers 1..3 become dark marker tints rather than pale highlights.
+* The relationship between normal and BRIGHT ink may use lighter or darker companion shades, subject to visual testing.
+
+[id="3-current-palette-index-clarification"]
+== 3. Current palette-index clarification
+
+The original brainstorm suggested reversing ink definitions `+0+` and `+7+` for a dark theme. That idea predates the current paired internal layout:
+
+[source,text]
+----
+0/1    gray / black
+2/3    red normal / dark
+4/5    green normal / dark
+6/7    blue normal / dark
+8/9    silver normal / dark
+10/11  cyan normal / dark
+12/13  magenta normal / dark
+14/15  yellow normal / dark
+----
+
+ANSI white currently maps to the silver pair `+8/9+`, not array entry `+7+`. Every theme should therefore define all sixteen ink values deliberately; implementation must not blindly swap indices `+0+` and `+7+`.
+
+[id="4-ansi-attributes-and-four-paper-roles"]
+== 4. ANSI attributes and four paper roles
+
+The terminal receives the traditional attributes:
+
+* BRIGHT/HIGHLIGHT;
+* UNDERLINE;
+* REVERSE;
+* BLINK.
+
+The original idea was to express legacy emphasis through the four available paper colours:
+
+[cols=",,",options="header",]
+|===
+|Attribute |PAPER appearance |CRT appearance
+|UNDERLINE |pale green marker |dark green marker
+|REVERSE |pale blue marker |dark blue marker
+|BLINK |pale red marker |dark red marker
+|===
+
+Pale green is also the current active-line colour. TP301 block selection is a particularly useful test: a selected block could use the blue paper marker instead of a literal foreground/background swap.
+
+The later attribute note proposes a cleaner and more expressive model:
+
+[source,text]
+----
+UNDERLINE  REVERSE     paper role
+0          0           default
+1          0           marker 1
+0          1           marker 2
+1          1           marker 3
+----
+
+Under that model BRIGHT and BLINK remain independent. A profile can select literal ANSI behavior or marker behavior and can permute the marker meanings for an application.
+
+This attribute reinterpretation is a separate design decision from loading RGB palettes. Palette switching can be implemented first while retaining the terminal's current literal underline, reverse and blink behavior.
+
+[id="5-optional-crt-scanlines"]
+== 5. Optional CRT scanlines
+
+A CRT theme may optionally render alternating dark horizontal intensities to suggest scanlines. Two nearby background shades would form the striped raster. The effect must remain subtle at 1x so the 6x10 glyph strokes stay legible; larger zoom factors provide more physical rows per logical raster line and allow a clearer effect.
+
+Scanlines are a renderer option rather than palette data or terminal state.
+
+[id="6-tp301-questions-to-test"]
+== 6. TP301 questions to test
+
+TP301 uses highlighting for marked text, while ordinary editor text may already appear in the highlighted/default rendition expected by its original terminal configuration.
+
+Tests should cover:
+
+* block selection using literal REVERSE;
+* block selection using the preferred blue marker paper;
+* the main TP301 menu and dialogs under the same mapping;
+* PAPER, CRT++_++GREEN and CRT++_++AMBER themes;
+* combinations of BRIGHT, UNDERLINE, REVERSE and BLINK actually emitted by TP301.
+
+Attribute telemetry from real applications is preferable to choosing precedence rules from assumptions.
+
+[id="7-suggested-implementation-stages"]
+== 7. Suggested implementation stages
+
+[arabic]
+. Replace the compile-time palette view with mutable runtime arrays initialized from the current built-in PAPER palette.
+. Define and validate the ten-set `+VTPAL.INI+` grammar.
+. Add the selected palette index to `+7XTGVTRM.INI+` persistence.
+. Assign the private selection command and implement `+VTPAL.COM+`.
+. On selection, repaint all cells, the physical background, unused area and gutter; leave direct xterm-256 plot pixels independent.
+. Visually tune PAPER, CRT++_++GREEN and CRT++_++AMBER on the actual TFTs.
+. Design and test optional `+attribute_mode=ansi|markers+` behavior.
+. Experiment with scanlines only after the three basic themes are stable.
+
+[id="8-open-decisions"]
+== 8. Open decisions
+
+* Exact `+VTPAL.INI+` section and RGB syntax.
+* Private CSI command used by `+VTPAL.COM+`.
+* Whether palette names accompany numeric indices.
+* Theme-aware treatment of active-line and cursor RGB values, which currently live in profile settings outside the four-paper palette.
+* Exact green and amber phosphor ramps.
+* Whether marker interpretation is global or selected per application profile.
+* Whether bare REVERSE remains available in marker mode.

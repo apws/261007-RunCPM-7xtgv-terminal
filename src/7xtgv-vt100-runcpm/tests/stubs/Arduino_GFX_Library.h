@@ -1,8 +1,10 @@
 #pragma once
+#include <Arduino.h>
 #include <algorithm>
 #include <assert.h>
 #include <stdint.h>
 class Arduino_DataBus {};
+inline bool gfxBeginOK = true;
 class Arduino_RPiPicoSPI : public Arduino_DataBus {
   public:
     Arduino_RPiPicoSPI(int, int, int, int, int) {}
@@ -10,8 +12,9 @@ class Arduino_RPiPicoSPI : public Arduino_DataBus {
 class Arduino_GFX {
   public:
     uint16_t framebuffer[320 * 240] = {};
-    bool begin() { return true; }
-    void flush(bool = false) {}
+    unsigned flushCount = 0;
+    bool begin() { assert(backlight == 0); return gfxBeginOK; }
+    void flush(bool = false) { ++flushCount; }
     int width() const { return 320; }
     int height() const { return 240; }
     void fillScreen(uint16_t c) { std::fill(framebuffer, framebuffer + 320 * 240, c); }

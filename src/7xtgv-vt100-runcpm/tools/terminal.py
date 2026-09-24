@@ -3,10 +3,11 @@
 import argparse
 import errno
 import fcntl
-import glob
 import grp
+import importlib.util
 import os
 import pwd
+import re
 import select
 import shlex
 import shutil
@@ -15,16 +16,27 @@ import struct
 import subprocess
 import sys
 import termios
+import tempfile
+import textwrap
 import time
 import traceback
 import tty
+import unicodedata
 from pathlib import Path
+
+# Also support the existing import-by-path host tests and transfer helper.
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+from target_config import resolve_port
 
 PREFIX = 0x1D  # Ctrl+]
 SOH, EOT, ACK, NAK, CAN, CRC_REQUEST = 0x01, 0x04, 0x06, 0x15, 0x18, 0x43
 SNAPSHOT_REQUEST = b'\x1b[>62v'  # PC mirror only; does not redraw the TFT.
 SNAPSHOT_RESET = b'\x1b[2J\x1b[H'
 MOUSE_MODES = (1000, 1002, 1003, 1005, 1006, 1007, 1015, 1016)
+TRANSFER_ROOT = Path(os.path.expanduser(os.environ.get(
+    'XTGV_TRANSFER_ROOT', os.environ.get('XTGV_XMODEM_ROOT',
+    str(Path(__file__).resolve().parents[3] / 'cpmdrive'))))).absolute()
 # Guest-to-host capability request.  This is deliberately handled by the PC
 # bridge only: the firmware has no knowledge of the host build/upload setup.
 HOST_REFLASH_REQUEST = b'\x1b[>64v'
@@ -170,9 +182,10 @@ class Keys:
             if self.brightness:
                 self.brightness = False
                 if ord('0') <= c <= ord('9'):
-                    # The digit shortcuts are coarse 0/off, 20%, 30% ...
-                    # 100%; PgUp/PgDn carry the full 32-level precision.
-                    level = (0, 4, 7, 11, 14, 18, 21, 25, 28, 32)[c - ord('0')]
+                    # Digit shortcuts select OFF or coarse logical levels,
+                    # not brightness percentages; each HAL maps their duties.
+                    # PgUp/PgDn step through every lit level (1..31).
+                    level = (0, 4, 7, 11, 14, 18, 21, 25, 28, 31)[c - ord('0')]
                     result.extend(b'\x1b[>63;' + str(level).encode('ascii') + b'v')
                 elif c == ord('+'):
                     result.extend(b'\x1b[>63;33v')
@@ -221,57 +234,364 @@ def xmodem_packet(number, payload):
     return bytes((SOH, number & 0xff, (~number) & 0xff)) + payload + bytes((crc >> 8, crc & 0xff))
 
 
-class XmodemPrompt:
+class TransferPrompt:
     """Small host-only UI; the CP/M screen is reconstructed on leaving it."""
-    def __init__(self):
+    def __init__(self, root=None):
         self.direction = None
+        self.root = Path(root) if root is not None else TRANSFER_ROOT
+        self.stage = 'du'
+        self.directory = None
+        self.du = ''
+        self.error = ''
         self.path = bytearray()
+        self.position = 0
+        self.escape = bytearray()
+        self.escape_at = 0.0
+        self.source = ''
+        self.target = ''
+        self.overwrite = None
+        self.overwrite_approved = False
 
-    def screen(self, note=''):
-        cursor = b''
+    @staticmethod
+    def file_stamp(path):
+        if path.is_symlink() or not path.is_file():
+            raise ValueError('Target must be a regular file, not a directory or symlink.')
+        info = path.stat()
+        return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns)
+
+    def escape_ready(self):
+        return bool(self.escape) and time.monotonic() - self.escape_at >= 0.15
+
+    def chosen_path(self, value):
+        if self.directory is None or not value or value in ('.','..') or '/' in value or '\\' in value:
+            raise ValueError('Enter a filename only, without a directory.')
+        # The CP/M mirror normally uses uppercase filenames; accept typed lowercase.
+        matches = [p for p in self.directory.iterdir() if p.name.casefold() == value.casefold()]
+        if len(matches) > 1:
+            raise ValueError('Ambiguous filename: multiple case variants exist.')
+        return matches[0] if matches else self.directory / value.upper()
+
+    def select_directory(self, value):
+        match = re.fullmatch(r'([A-P])([0-9A-F]|1[0-5]):?', value.strip().upper())
+        if not match:
+            raise ValueError('Use DU such as A0:, A6:, AF: (or A15:).')
+        user = int(match[2], 10 if len(match[2]) == 2 else 16)
+        du = match[1] + format(user, 'X')
+        matches = [p for p in self.root.iterdir() if p.is_dir() and
+                   (p.name.upper() == du or p.name.upper().startswith(du + ' - '))]
+        if not matches:
+            raise ValueError(f'No local folder for {du}: under cpmdrive.')
+        if len(matches) != 1:
+            raise ValueError(f'Multiple local folders match {du}:; resolve ambiguity first.')
+        self.du, self.directory = du + ':', matches[0]
+
+    def _left(self):
+        if self.position:
+            self.position -= 1
+            while self.position and self.path[self.position] & 0xc0 == 0x80:
+                self.position -= 1
+
+    def _right(self):
+        if self.position < len(self.path):
+            self.position += 1
+            while self.position < len(self.path) and self.path[self.position] & 0xc0 == 0x80:
+                self.position += 1
+
+    def _key(self, key):
+        self.error = ''
+        if key == 'cancel':
+            return 'cancel'
+        if self.stage == 'done':
+            return 'cancel' if key == 'enter' else None
+        if self.stage == 'confirm':
+            return None
         if self.direction is None:
+            return None
+        if key == 'left':
+            self._left()
+        elif key == 'right':
+            self._right()
+        elif key == 'home':
+            self.position = 0
+        elif key == 'end':
+            self.position = len(self.path)
+        elif key == 'backspace':
+            end = self.position
+            self._left()
+            del self.path[self.position:end]
+        elif key == 'delete':
+            start = self.position
+            self._right()
+            del self.path[start:self.position]
+            self.position = start
+        elif key == 'clear':
+            self.path.clear()
+            self.position = 0
+        elif key == 'enter' and self.path:
+            value = self.path.decode('utf-8', 'surrogateescape')
+            try:
+                if self.stage == 'du':
+                    self.select_directory(value)
+                    self.stage = 'file'
+                    self.path.clear()
+                    self.position = 0
+                elif self.stage in ('file', 'target'):
+                    self.chosen_path(value)  # Validate before closing the editor.
+                    if not re.fullmatch(r'[A-Za-z0-9_-]{1,8}\.[A-Za-z0-9]{1,3}', value):
+                        raise ValueError('Use an 8.3 CP/M filename, e.g. TEST.INI.')
+                    if self.stage == 'file':
+                        if self.direction == 'send' and not self.chosen_path(value).is_file():
+                            raise ValueError('Local source file does not exist.')
+                        self.source = value.upper()
+                        self.stage = 'target'
+                        self.path = bytearray(value.encode('ascii'))
+                        self.position = len(self.path)
+                        return None
+                    self.target = value.upper()
+                    self.overwrite = None
+                    self.overwrite_approved = False
+                    if self.direction == 'receive':
+                        destination = self.chosen_path(self.target)
+                        if destination.exists() or destination.is_symlink():
+                            self.overwrite = (destination, self.file_stamp(destination))
+                    if self.direction == 'send' or self.overwrite is not None:
+                        self.stage = 'confirm'
+                        return None
+                    return self.direction, value
+            except (OSError, ValueError) as exc:
+                self.error = str(exc)
+        return None
+
+    def _byte(self, byte):
+        if self.stage == 'done':
+            return 'cancel' if byte in (13, 10, 32) else None
+        if self.stage == 'confirm':
+            if byte in (ord('y'), ord('Y')):
+                self.overwrite_approved = True
+                return self.direction, self.path.decode('utf-8', 'surrogateescape')
+            if byte in (ord('n'), ord('N')):
+                self.stage = 'target'
+            if byte in (ord('c'), ord('C')):
+                return 'cancel'
+            return None
+        controls = {8: 'backspace', 127: 'backspace', 13: 'enter', 10: 'enter',
+                    1: 'home', 5: 'end', 21: 'clear', 24: 'clear'}
+        if byte in controls:
+            return self._key(controls[byte])
+        if self.direction is None:
+            if byte in (ord('s'), ord('S'), ord('r'), ord('R')):
+                self.direction = 'send' if byte in (ord('s'), ord('S')) else 'receive'
+                self.path.clear()
+                self.position = 0
+        elif 32 <= byte < 127 or byte >= 128:
+            self.error = ''
+            self.path[self.position:self.position] = bytes((byte,))
+            self.position += 1
+        return None
+
+    def _sequence(self, sequence):
+        # Decode the host key vocabulary locally, never through CP/M bindings.
+        ordinary = {b'\x1b[D': 'left', b'\x1b[C': 'right',
+                    b'\x1b[H': 'home', b'\x1b[F': 'end',
+                    b'\x1bOH': 'home', b'\x1bOF': 'end',
+                    b'\x1bOD': 'left', b'\x1bOC': 'right',
+                    b'\x1b[1~': 'home', b'\x1b[4~': 'end', b'\x1b[3~': 'delete'}
+        if sequence in ordinary:
+            return self._key(ordinary[sequence])
+        legacy = re.fullmatch(rb'\x1b\[>(30|31|32|33|34|65)v', sequence)
+        if legacy:
+            return self._key({30: 'left',31: 'right',32: 'home',33: 'end',
+                              34: 'delete',65: 'clear'}[int(legacy[1])])
+        event = re.fullmatch(rb'\x1b\[>70;1;(\d+);(\d+);([0-9]*)v', sequence)
+        if event:
+            key = int(event[1])
+            action = {1: 'left',2: 'right',3: 'home',4: 'end',5: 'delete',
+                      11: 'backspace',12: 'cancel',13: 'enter'}.get(key)
+            if action:
+                return self._key(action)
+            fallback = event[3]
+            if len(fallback) % 3 == 0:
+                values = [int(fallback[i:i+3]) for i in range(0,len(fallback),3)]
+                # Printable fallbacks preserve host layout, including punctuation.
+                if all(32 <= value <= 255 and value != 127 for value in values):
+                    for value in values:
+                        result = self._byte(value)
+                        if result is not None:
+                            return result
+        # Unknown function/modifier sequences are ignored, never cancellation.
+        return None
+
+    def screen(self, note='', columns=None):
+        cursor = b''
+        if self.stage == 'done':
+            body = ('VTPUT / VTGET — result\r\n\r\n' + self.result +
+                    '\r\n\r\nEnter/Esc returns to the CP/M screen.')
+        elif self.direction is None:
             body = (
-                'XMODEM — host transfer\r\n\r\n'
-                'S  local file  -> CP/M    (CP/M: XMODEM DEST /R /X0)\r\n'
-                'R  CP/M file   -> local   (CP/M: XMODEM SOURCE /S /X0)\r\n\r\n'
-                'Start XMODEM in CP/M first; then choose S or R here.\r\n'
+                'VTPUT / VTGET — host transfer\r\n\r\n'
+                'S  local file  -> CP/M    (VTPUT; replaces destination)\r\n'
+                'R  CP/M file   -> local   (VTGET)\r\n\r\n'
+                'Leave CP/M idle at CCP. The helper is started automatically.\r\n'
                 'Esc cancels.'
             )
+        elif self.stage == 'confirm':
+            where = ('device CURRENT drive/user' if self.direction == 'send'
+                     else f'local {self.du}')
+            verb = 'Write (replace if present)' if self.direction == 'send' else 'Overwrite'
+            body = (f'VTPUT / VTGET — confirm target\r\n\r\n'
+                    f'{verb} {self.target} in {where}?\r\n'
+                    f'Source: {self.source}\r\n'
+                    'Y = Yes; N = edit target name; C/Esc = Cancel.\r\n'
+                    'Bytes are sent unchanged (binary); no text conversion.')
         else:
-            action = 'Local file to send' if self.direction == 'send' else 'New local destination'
-            body = f'XMODEM — {action}\r\n\r\nPath: {self.path.decode("utf-8", "replace")}\r\n\r\nEnter starts transfer; Esc cancels.'
-            # The prompt starts at column 7 on row 3. Paths are normally
-            # ASCII; use the decoded character count for sensible UTF-8 too.
+            action = 'Send to device' if self.direction == 'send' else 'Receive from device'
+            columns = columns or shutil.get_terminal_size((80,24)).columns
+            label = 'DU: ' if self.stage == 'du' else 'Source: ' if self.stage == 'file' else 'Target: '
+            width = max(1, columns - len(label) - 2)
+            text = self.path.decode('utf-8', 'replace')
+            caret = len(self.path[:self.position].decode('utf-8', 'replace'))
+            def cells(s):
+                return sum(0 if unicodedata.combining(c) else
+                           2 if unicodedata.east_asian_width(c) in ('W','F') else 1 for c in s)
+            start = 0
+            while start < caret and cells(text[start:caret]) >= width:
+                start += 1
+            end = start
+            while end < len(text) and cells(text[start:end+1]) <= width:
+                end += 1
+            explanation = ('Local mirror area: A0:, A6:, AF: (A15: also accepted).'
+                           if self.stage == 'du' else
+                           f'Local folder: {self.directory.name} [{self.du}]')
+            body = (f'VTPUT / VTGET — {action}\r\n\r\n{label}{text[start:end]}\r\n\r\n'
+                    + explanation + '\r\n'
+                    'DU selects the LOCAL folder only; device stays in CURRENT DU.\r\n'
+                    + (f'Source: {self.source}\r\n' if self.source else '') +
+                    'Enter starts; Esc cancels; Ctrl+U clears.\r\n'
+                    'Left/Right Home/End BS/Delete edit; long names scroll.'
+                    + ('\r\n' + self.error if self.error else ''))
+            if self.stage == 'du':
+                body = body.replace('Enter starts;', 'Enter selects folder;')
             if not note:
-                column = 7 + len(self.path.decode('utf-8', 'replace'))
+                column = len(label) + 1 + cells(text[start:caret])
                 cursor = f'\x1b[3;{column}H'.encode('ascii')
-        return (b'\x1b[2J\x1b[H\x1b[30;46m' + body.encode('utf-8') + b'\x1b[0m'
-                + (note.encode() if note else b'') + cursor)
+        # stdout is raw and the mirror disables autowrap: LF alone stair-steps,
+        # and long error/path messages would be clipped. Wrap and emit CRLF.
+        columns = columns or shutil.get_terminal_size((80,24)).columns
+        def formatted(text):
+            lines = []
+            for line in text.splitlines():
+                lines.extend(textwrap.wrap(line, max(1, columns-1),
+                                          replace_whitespace=False) or [''])
+            return '\r\n'.join(lines).encode('utf-8')
+        return (b'\x1b[?25h\x1b[0m\x1b[2J\x1b[H\x1b[30;46m' + formatted(body) + b'\x1b[0m'
+                + (formatted(note) if note else b'') + cursor)
 
     def feed(self, data):
         """Return (direction, path), 'cancel', or None."""
+        if not data and self.escape_ready():
+            lone_escape = self.escape == b'\x1b'
+            self.escape.clear()
+            return 'cancel' if lone_escape else None
         for byte in data:
-            if byte == 27:
-                return 'cancel'
-            if self.direction is None:
-                if byte in (ord('s'), ord('S')):
-                    self.direction = 'send'
-                elif byte in (ord('r'), ord('R')):
-                    self.direction = 'receive'
+            if self.escape:
+                self.escape.append(byte)
+                self.escape_at = time.monotonic()
+                if len(self.escape) == 2 and byte in (ord('['),ord('O')):
+                    continue
+                if len(self.escape) >= 3 and self.escape[1] in (ord('['),ord('O')):
+                    if not 0x40 <= byte <= 0x7e and len(self.escape) < 96:
+                        continue
+                    result = self._sequence(bytes(self.escape))
+                else:
+                    result = None
+                self.escape.clear()
+            elif byte == 27:
+                self.escape.append(byte)
+                self.escape_at = time.monotonic()
                 continue
-            if byte in (10, 13):
-                if self.path:
-                    return self.direction, self.path.decode('utf-8', 'surrogateescape')
-            elif byte in (8, 127):
-                if self.path:
-                    self.path.pop()
-            elif 32 <= byte < 127 or byte >= 128:
-                self.path.append(byte)
+            else:
+                result = self._byte(byte)
+            if result is not None:
+                return result
         return None
 
 
+def load_console_transfer():
+    spec = importlib.util.spec_from_file_location(
+        'vt_console_transfer', Path(__file__).parent / 'cpm-transfer' / 'transfer.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def vt_transfer(fd, prompt, status):
+    """Borrow the mirror fd exclusively; never open a second serial reader."""
+    for name in (prompt.source, prompt.target):
+        if not re.fullmatch(r'[A-Z0-9_-]{1,8}\.[A-Z0-9]{1,3}', name):
+            raise ValueError('Use an 8.3 CP/M filename.')
+    path = prompt.chosen_path(prompt.source if prompt.direction == 'send' else prompt.target)
+    def check_destination():
+        if prompt.overwrite is not None:
+            if not prompt.overwrite_approved or prompt.overwrite != (path, prompt.file_stamp(path)):
+                raise FileExistsError('Local target changed or overwrite was not confirmed; choose it again.')
+        elif path.exists() or path.is_symlink():
+            raise FileExistsError('Local target now exists; choose it again to confirm overwrite.')
+    if prompt.direction == 'receive':
+        check_destination()
+    elif not prompt.overwrite_approved:
+        raise ValueError('Device write was not confirmed.')
+    data = path.read_bytes() if prompt.direction == 'send' else None
+    module = load_console_transfer()
+    link = module.Link(fd=fd)
+
+    class Progress:
+        count = 0
+        def advance(self, size, filename, phase):
+            self.count += size
+            if data is None:
+                status(f'VTGET {filename}: {self.count} bytes')
+                return 0
+            total = max(128, (len(data) + 127) // 128 * 128)
+            percent = min(100, self.count * 100 // total)
+            status(f'VTPUT {filename}: {percent}% ({self.count}/{total} bytes)')
+            return percent
+
+    try:
+        status('Checking idle CCP prompt…')
+        try:
+            link.require_ccp()
+        except TimeoutError:
+            raise RuntimeError('No idle CCP prompt. Exit the application before transfer.') from None
+        link.prepare()
+        progress = Progress()
+        if data is not None:
+            size = link.put(prompt.target, data, progress)
+            return f'Saved {prompt.target} in device current DU: {size} bytes (record padding included).'
+        data = link.get(prompt.source, progress)
+        check_destination()
+        if prompt.overwrite is None:
+            with path.open('xb') as output:
+                output.write(data)
+        else:
+            temporary = None
+            try:
+                with tempfile.NamedTemporaryFile(dir=path.parent, prefix='.vtget-', delete=False) as output:
+                    temporary = Path(output.name)
+                    output.write(data)
+                    output.flush()
+                    os.fsync(output.fileno())
+                check_destination()
+                os.replace(temporary, path)
+            finally:
+                if temporary is not None and temporary.exists():
+                    temporary.unlink()
+        return f'Received {prompt.source} as local {prompt.du}{prompt.target}: {len(data)} bytes (record padding retained).'
+    finally:
+        link.close()  # Borrowed fd stays open; restore original profile/RAW state.
+
+
 class Xmodem:
-    """Minimal, binary-clean CRC XMODEM over the already open mirror fd."""
+    """Protocol test utility only. NOT usable on the reconstructed screen mirror."""
     Retries = 10
 
     def __init__(self, fd, status):
@@ -416,6 +736,13 @@ class HostEvents:
         for byte in data:
             self.pending.append(byte)
             while self.pending:
+                identity_prefix = b'\x1bP7xtgv-id;1;'
+                if identity_prefix.startswith(self.pending):
+                    break
+                if self.pending.startswith(identity_prefix) and len(self.pending) <= 160:
+                    if self.pending.endswith(b'\x1b\\'):
+                        self.pending.clear()
+                    break
                 if HOST_REFLASH_REQUEST.startswith(self.pending):
                     if self.pending == HOST_REFLASH_REQUEST:
                         reflash = True
@@ -425,13 +752,8 @@ class HostEvents:
         return bytes(displayed), reflash
 
 
-def choose_port(port):
-    if port:
-        return port
-    ports = sorted(glob.glob('/dev/serial/by-id/usb-Generic_RP2350*-if00'))
-    if len(ports) != 1:
-        raise RuntimeError('Specify --port: expected exactly one RP2350 serial device.')
-    return ports[0]
+def choose_port(port, target=None):
+    return resolve_port(port, target)
 
 
 def ensure_port_group(port):
@@ -573,9 +895,9 @@ def run(port, mode, reflash_command=None):
                     close_serial(fd, saved_serial)
                     fd = saved_serial = None
                     reconnect_at = time.monotonic() + 0.05
-            if 0 in readable:
-                data = os.read(0, 256)
-                if not data:
+            if 0 in readable or (xmodem_prompt is not None and xmodem_prompt.escape_ready()):
+                data = os.read(0, 256) if 0 in readable else b''
+                if 0 in readable and not data:
                     break
                 if xmodem_prompt is not None:
                     answer = xmodem_prompt.feed(data)
@@ -586,26 +908,24 @@ def run(port, mode, reflash_command=None):
                         snapshot_retry_at = time.monotonic()
                     elif answer is not None:
                         direction, raw_path = answer
-                        chosen_path = Path(os.path.expanduser(raw_path))
 
                         def xmodem_status(message):
                             os.write(1, xmodem_prompt.screen('\r\n' + message))
 
                         try:
-                            xmodem_status('Preparing transfer…')
-                            protocol = Xmodem(fd, xmodem_status)
-                            if direction == 'send':
-                                size = protocol.send(chosen_path)
-                                result = f'Complete: sent {size} bytes from {chosen_path.name}'
-                            else:
-                                size = protocol.receive(chosen_path)
-                                result = f'Complete: received {size} bytes into {chosen_path.name}'
+                            if fd is None or outgoing:
+                                raise RuntimeError('Connection not idle; return to CCP and try again.')
+                            xmodem_prompt.stage = 'busy'
+                            result = vt_transfer(fd, xmodem_prompt, xmodem_status)
                         except (OSError, RuntimeError, TimeoutError, ValueError) as exc:
-                            result = f'XMODEM failed: {exc}'
-                        os.write(1, xmodem_prompt.screen('\r\n' + result + '\r\nReturning to CP/M screen…'))
-                        xmodem_prompt = None
+                            detail = '\n'.join(line.strip() for line in str(exc).splitlines() if line.strip())
+                            result = ('Transfer failed: ' + detail +
+                                      '\nAt CCP: no reset needed. Reset only if a helper is still active.')
+                        xmodem_prompt.stage = 'done'
+                        xmodem_prompt.result = result
+                        os.write(1, xmodem_prompt.screen())
                         incoming.clear()
-                        snapshot_pending = True
+                        snapshot_pending = False
                         snapshot_probe.clear()
                         snapshot_retry_at = time.monotonic()
                     else:
@@ -614,8 +934,9 @@ def run(port, mode, reflash_command=None):
                     translated = keys.feed(mouse_reports.feed(data))
                     if keys.xmodem:
                         keys.xmodem = False
-                        xmodem_prompt = XmodemPrompt()
+                        xmodem_prompt = TransferPrompt()
                         incoming.clear()
+                        snapshot_pending = False
                         os.write(1, xmodem_prompt.screen())
                     if not keys.quit and len(outgoing) < 8192:
                         outgoing.extend(translated)
@@ -649,9 +970,8 @@ def run(port, mode, reflash_command=None):
                 if data:
                     data, reflash_requested = host_events.feed(data)
                     if xmodem_prompt is not None:
-                        # XMODEM control bytes and its initial CP/M banner are
-                        # deliberately host-private.  The post-transfer snapshot
-                        # restores all normal terminal text afterwards.
+                        # The transfer panel owns the host display. A snapshot
+                        # restores the CP/M screen after the result is dismissed.
                         continue
                     if snapshot_pending:
                         snapshot_probe.extend(data)
@@ -712,9 +1032,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, epilog=(
         'Ctrl+] then q: exit; 1: ANSI; 2: VT52; a/e: left/right edge; '
         'r: redraw; g: xterm256 GCLS; p/n: history; [/]: history bank; '
-        '#: toggle RAW; x: profile exit; c: profile clear; m: XMODEM panel; Ctrl+] again: literal Ctrl+]. '
-        'Ctrl+Shift+Home/End jump to viewport edges; Ctrl+Alt+Shift+PgUp/PgDn changes glyph zoom.'))
-    parser.add_argument('--port', help='Serial device; defaults to the unique RP2350 by-id path')
+        '#: toggle RAW; x: profile exit; c: profile clear; m: VTPUT/VTGET panel; Ctrl+] again: literal Ctrl+]. '
+        'Ctrl+Shift+Home/End jump to viewport edges; '
+        'Ctrl+Alt+Shift+PgDn zooms in, PgUp zooms out.'))
+    parser.add_argument('--port', help='Serial device; otherwise XTGV_PORT or selected target data')
+    parser.add_argument('--target', help='Target for port defaults; otherwise XTGV_TARGET')
     parser.add_argument('--mode', choices=('ansi', 'vt52'), help='Select mode on connection; otherwise preserve it')
     parser.add_argument('--reflash-command',
                         help='opt-in host uploader invoked by guest CSI >64v; overrides XTGV_REFLASH_COMMAND')
@@ -722,7 +1044,12 @@ def main():
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGHUP, interrupted)
     try:
-        port = choose_port(args.port)
+        port = choose_port(args.port, args.target)
+        # The device-triggered uploader must inherit this actual selection,
+        # including explicit CLI overrides, not a stale launcher environment.
+        if args.target:
+            os.environ['XTGV_TARGET'] = args.target
+        os.environ['XTGV_PORT'] = port
         ensure_port_group(port)
         command = args.reflash_command or os.environ.get('XTGV_REFLASH_COMMAND')
         run(port, args.mode, shlex.split(command) if command else None)

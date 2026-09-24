@@ -1,0 +1,54 @@
+= Palette indexing and editable presets
+:source-highlighter: highlight.js
+
+Date: 260923. Signed off by Petr: implement ink indexing and palette presets
+in two steps. Firmware build, device transfer and flashing remain separate.
+
+Sources: link:260923-08%20VTPAL%20INI%20sections.adoc[latest palette notes] and
+link:260918-17%20vtpal_com%20command%20to%20load%20one%20of%20basic%2010%20pallete%20sets%20fromt%20vtpal_ini%20file.adoc[original theme proposal].
+
+== Step 1: ink indexing
+
+Preserve RGB values and base hue order: grey, red, green, blue, silver, cyan,
+magenta, yellow. Normal inks occupy 0..7; emphasis companions occupy 8..15.
+Use bit 3, not bit 0, for emphasis. Update shared definitions, ANSI lookup,
+direct attributes, demo constants and tests together. No cell-memory format
+size change, font change or native four-plane implementation is implied.
+
+== Step 2: editable presets
+
+Add `[palette0]` through `[palette9]` to the existing `7XTGVTRM.INI` parser.
+Use existing decimal `R,G,B` syntax (0..255), not RGB565 literals. Each palette
+contains `paper0..paper3`, `ink00..ink15`, `active_line_rgb`, `cursor_rgb`,
+`viewport_gutter_rgb` and optional `viewport_active_gutter_rgb=active_line`
+or an RGB triplet. All slots initially contain the current PAPER defaults;
+valid assignments override individual entries. Invalid values are reported
+through the existing line diagnostics and leave the prior/default entry intact.
+
+`[global] mode_palette=0..9` selects the boot palette, applied before boot text.
+Palette data remains immutable after parsing; selection is runtime state.
+Explicit existing bank UI colors and global gutter colors override palette
+defaults. Missing overrides inherit the selected palette. `palette` as a value
+on those existing override keys explicitly returns to inheritance.
+
+Add output-side `CSI >69;n v` for runtime selection (ANSI or VT52), plus
+`VTPAL n` CP/M helper. Preserve cursor/cells; redraw TFT and mirror together.
+Selection joins the existing lazy settings-save transaction. Palette sections
+and comments must survive settings rewrites. No separate palette file is loaded.
+
+Direct xterm256 RGB conversion remains unchanged. Palette selection is deferred
+until an active plot transaction finishes; the explicit full-screen theme
+redraw then replaces any retained image, as a zoom/full redraw does. It does
+not recolor or reconstruct direct plot pixels from terminal cells.
+
+== Boundaries and verification
+
+Attribute-marker mode, blink changes, scanlines, per-profile palette selection,
+native compositing and EXTA remain deferred. Do not accept `mode_attr=markers`
+as though that behavior were implemented.
+
+Verify RGB preservation for all ANSI inks and bold variants; default rendering;
+palette parsing, malformed data and UI inheritance; both output modes; runtime
+redraw and persistence snapshots; plot deferral; settings rewrite preservation.
+Provide editable PAPER/green/amber examples, with CRT colors labeled as
+starting points for Petr's visual tuning rather than established defaults.

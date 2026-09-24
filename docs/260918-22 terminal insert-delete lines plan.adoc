@@ -1,0 +1,22 @@
+[id="ansi-insertdelete-lines-for-tp301"]
+= ANSI insert/delete lines for TP301
+:source-highlighter: highlight.js
+
+Status: signed off by Petr on 260918; implemented in the shared terminal core. The `+jc8048w550+` candidate was staged as `+new+` and reflashed with boot stamp `+260918-2304+`; TP301 device testing is pending.
+
+== Behavior
+
+* `+CSI Ps L+` inserts lines at the cursor row, shifting rows down through the bottom scrolling margin. `+CSI Ps M+` deletes from the cursor row, shifting following rows up and blanking the bottom of that region.
+* Omitted or zero `+Ps+` means one line. Clamp larger counts to the number of rows from the cursor through the bottom margin. Ignore either command when the cursor is outside the scrolling region.
+* After an effective operation, keep the cursor on its row and move it to column one. Preserve all character, paper, attribute, and flag planes on shifted rows; blank newly exposed rows using the terminal's existing blank policy.
+* Keep the existing fixed-stride cell storage. Mark each affected row dirty for the display and mirror, and use the existing plot-scroll notification so retained graphics and the gutter recover consistently.
+
+The DEC VT220 programmer reference specifies these IL/DL rules: https://www.zx.net.nz/computers/dec/vt220/doc/vt220-rm/chapter4.html#4.11
+
+== Scope and verification
+
+Add one shared row-shift helper reused by the existing index/reverse-index scroll and by new ANSI `+L+`/`+M+` dispatch cases. No HAL-specific draw path or indexed-row architecture is required for correctness: the current renderer already redraws dirty logical cells at the active zoom and viewport.
+
+Host tests should cover insert/delete, omitted/zero/multiple/excessive counts, scroll margins and outside-margin no-ops, cursor position, all four cell planes, dirty/mirror flags, zoom/panning, and the 8-bit CSI prefix. Repainting most of a screen may be visible at high zoom; measure that before considering row indirection or controller-specific scrolling.
+
+The parser test covers those cases, and the runtime test checks a panned 2x framebuffer result. Both sanitizer-enabled host suites passed on 260918 (the runtime suite used `+ASAN_OPTIONS=detect_leaks=0+` because LeakSanitizer cannot run under this environment's ptrace). The target-aware host build succeeded on 260918. The upload verified by hash, the ESP32 reset, and the relaunched Konsole mirror showed boot stamp `+260918-2304+`.

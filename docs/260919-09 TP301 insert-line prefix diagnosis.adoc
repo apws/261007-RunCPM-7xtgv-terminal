@@ -1,0 +1,23 @@
+[id="tp301-insert-line-prefix-diagnosis"]
+= TP301 insert-line prefix diagnosis
+:source-highlighter: highlight.js
+
+Recorded 260919. This follows the signed link:260918-22%20terminal%20insert-delete%20lines%20plan.adoc[ANSI insert/delete-line plan].
+
+== Result
+
+TP301's installed *input* command for Insert Line is `++Ctrl+L++`, then `+i+` (TINST's "Insert line" command entry). Its separate *screen output* command is `+ESC[1L+` (ANSI Insert Line). These are different sides of the terminal interface.
+
+The two-key input loses the top status row on both the 7xtgv device and an ordinary 80x24 ANSI terminal running the same TURBO.COM in native Linux RunCPM. Raw output from the latter shows why:
+
+[source,text]
+----
+Ctrl+L alone:  ESC[01;01H ^L
+then i:       ESC[01;01H ^Li ESC[1L ... ESC[12;01H
+----
+
+TP301 moves the physical cursor to its status row to display the `+^L+` prefix, then sends Insert Line before restoring the editing-row cursor. Standard `+CSI L+` therefore inserts at the top, shifting the screen's contents and losing the status line. This is a TP301 command-prefix/TINST interaction, not evidence that 7xtgv's `+CSI L+` implementation should change.
+
+Direct `++Ctrl+N++` inserted a line *without* losing the status row in the ordinary ANSI comparison and on Petr's real 7xtgv device. The original Turbo Pascal manual lists `++Ctrl+N++` as the default for TINST's configurable "Insert line" command. Why it still works alongside this installation's `++Ctrl+L i++` binding has not been established; the practical workaround is to use `++Ctrl+N++`. Other `++Ctrl+L++` combinations have not been checked and should not be assumed broken.
+
+The native Linux RunCPM comparison uses tmux/Konsole's ANSI parser, *not* our 7xtgv terminal parser or renderer. It isolates application output; 7xtgv terminal correctness still needs its host terminal tests and device checks. No firmware, TINST installation, or CP/M file was changed for this diagnosis.

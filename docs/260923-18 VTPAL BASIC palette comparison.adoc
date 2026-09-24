@@ -1,0 +1,88 @@
+= VTPAL.BAS: paper and ink comparison
+:source-highlighter: highlight.js
+
+== Purpose and files
+
+Petr's device photographs and MBASIC VTESTS checks on 260923 confirmed useful
+PAPER/GREEN/AMBER rendering. Colored dark papers need more visible emphasis;
+some normal/ALT ink pairs remain difficult to distinguish. This small tester
+supports visual tuning without changing the terminal firmware.
+
+Source: `cpmdrive/A7 - MBASIC and VT tests/VTPAL.BAS`, plain ASCII BASIC.
+Optional configuration excerpt: the adjacent `VTPAL.INI`.
+Neither file was deployed to the device by this task; the live INI is untouched.
+
+Run from A7 after transferring the BASIC file as CP/M text:
+
+[source,text]
+----
+MBASIC VTPAL
+----
+
+Use a terminal geometry of at least 80 columns and 24 rows, and the MBASIC
+input profile. The tester enters ANSI mode, starts with palette 0, and hides
+the cursor while displaying comparisons. Quit restores cursor visibility and
+returns to the BASIC prompt, retaining the last selected palette and WIDTH 255.
+`WIDTH 80` can restore ordinary BASIC output wrapping afterward if desired.
+
+== Pages and controls
+
+[cols="1,4",options="header"]
+|===
+|Key |Action
+|P |Paper matrix: sixteen ink rows against all four paper columns (64 samples).
+|I |Normal/ALT ink pairs: identical glyphs side by side for all eight hues.
+|B |Cycle the pair page's background through base, red, green and blue.
+|0..9 |Select a global palette and repaint the current page.
+|R |Redraw without changing palette.
+|Q |Clear the screen, show cursor and return to MBASIC.
+|===
+
+Labels use `NORMAL INK` / `ALT INK` for hue 0 and normal/ALT plus the hue name
+for other inks. They do not assume that emphasis is darker: on white PAPER
+the alternative is darker; on dark themes the grey/silver alternatives are
+brighter. The labels refer to index banks 0..7 and 8..15, not a new attribute.
+
+The cursor remains below the samples so the active-line overlay does not mask
+the comparison papers. No blink or reverse is used in these samples.
+Palette selection uses existing `CSI >69;n v`; it also invokes the terminal's
+normal lazy persistence. Choose the desired final palette before quitting.
+
+== Three background levels
+
+The optional excerpt defines slots 3..6, with complete ink and UI entries.
+It is *not* read automatically and is *not* a replacement for 7XTGVTRM.INI.
+Merge its sections in place of the empty matching sections in the main INI
+only with Petr's approval. Then reboot to load; no firmware rebuild is needed.
+
+[cols="1,1,1,1",options="header"]
+|===
+|Theme |Existing baseline |Lighter |Lightest
+|GREEN |1 |3 |4
+|AMBER |2 |5 |6
+|===
+
+Only papers 1..3 change between levels; base paper, inks and UI colors stay
+identical within each family. Switching 1/3/4 or 2/5/6 therefore isolates the
+background differences. These are deliberately small RGB565-visible steps,
+not exact perceptual percentage increases. Slots remain PAPER defaults until
+the optional definitions are installed; the tester cannot query that state.
+
+== Verification
+
+`python3 src/7xtgv-vt100-runcpm/tools/test_vtpal_basic.py` runs the installed
+CP/M MBASIC.COM and this ASCII program in disposable Linux RunCPM storage.
+It verifies all 64 matrix color combinations, sixteen paired samples, four
+pair-page backgrounds, all ten selectors, page changes, redraw and clean exit.
+It also checks source lines fit 80 columns and escape output has no inserted
+line breaks. All checks passed on 260923.
+
+The first run caught BASIC's own WIDTH 80 wrapping *inside* ANSI sequences.
+The program now uses WIDTH 255 to disable automatic wrapping while retaining
+an explicitly positioned 80x24 screen layout. This is guest-program behavior,
+not a change to physical/logical terminal geometry.
+
+The optional INI excerpt passes the production configuration parser with zero
+errors. Linux RunCPM verifies BASIC execution and bytes only, not the embedded
+7xtgv renderer or the visual quality of the new background levels. Those
+remain for device testing.

@@ -1,0 +1,6 @@
+= 7xtgv KBD CORE KEYS CONTROL  -- Screenshot_20260921_180114
+:source-highlighter: highlight.js
+
+7xtgv core-key layout: red hexadecimal labels identify the sixteen low-nibble positions. The F assignment remained a design choice.
+
+image::images/260921-18 7xtgv KBD CORE KEYS CONTROL  -- Screenshot_20260921_180114.png[7xtgv KBD CORE KEYS CONTROL  -- Screenshot_20260921_180114]

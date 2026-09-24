@@ -1,4 +1,6 @@
 {
+  "display_id": "ES3_35",
+  "description": "ESP32-S3 JC8048W535 AXS15231B 3.5-inch",
   "method": "arduino-cli",
   "profile": "jc8048w535",
   "port": "/dev/ttyACM0"

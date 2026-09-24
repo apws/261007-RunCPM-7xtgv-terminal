@@ -1,0 +1,138 @@
+= W535 backlight minimum calibration
+:source-highlighter: highlight.js
+
+Petr reports W535's first lit level is too bright with the inherited 51/255 duty
+floor. Full ON seems acceptable; he does not hear the PWM-related whine observed
+on W550. These are observations, not evidence that the modules share electrical
+or perceptual backlight characteristics.
+
+== Logical meaning
+
+* Level 0: OFF.
+* Level 1: the module's lowest usable visible light, to be chosen by eye.
+* Levels 2..30: intermediate brightness steps defined by that HAL.
+* Level 31: full ON.
+
+Do not describe this interface as a universal 20..100 percent brightness scale.
+PWM duty ratios describe the electrical command, not calibrated emitted or
+perceived light. Even equal duties need not look alike on different displays.
+Manual/readme and shortcut comments were corrected; shortcut bindings themselves
+were not changed.
+
+== Temporary W535-only sweep
+
+`hardware/arduino_7xtgv/jc8048w535_backlight.h` now uses
+`round(255 * level / 31)` for the 32 table entries:
+
+[source,text]
+----
+level  0..15:   0   8  16  25  33  41  49  58  66  74  82  90  99 107 115 123
+level 16..31: 132 140 148 156 165 173 181 189 197 206 214 222 230 239 247 255
+----
+
+This is an electrical test sweep, not the final perceptually shaped ladder.
+W550 and RP2350 tables remain byte-for-byte unchanged. PWM frequency, polarity,
+OFF/full-ON handling and the shared CRT ramp logic are unchanged.
+The same remembered logical value now has a different W535 duty: for example
+level 16 becomes 132 rather than 145. No INI editing or transfer is required.
+
+== Human test after requested rebuild/reflash
+
+. Use the existing backlight chord (Ctrl+Shift+PgDn or Alt+Shift+PgDn) to reach
+  the first lit level. Holding down stops at level 1, not OFF.
+. From that bottom, increase one step at a time using the corresponding PgUp
+  chord. Report the first comfortably usable level; one upward tap means level 2.
+. If level 1 is still too bright, report that and try a later finer 1..8 duty
+  sweep. If it is too dim, increase until text is comfortably visible.
+. We can then set that chosen electrical minimum as the final logical level 1
+  and distribute the remaining lit steps up to full ON, with further tuning
+  if useful. Do not automatically choose it without Petr's visual judgment.
+
+Brightness changes still use the existing delayed save of the global logical
+level. Moving the card carries that number, not a measured brightness value.
+
+== State
+
+Implemented in source only. Six host test variants passed: all three HAL tables
+with normal and inverted polarity, including monotonic endpoints, W535 linear
+entries, hold/release, remembered level, ramp timing/wraparound and cancellation.
+No build, flash, device input or INI change was performed for this adjustment.
+Await the next explicit rebuild/reflash and Petr's minimum-light observation.
+
+== Requested rebuild
+
+W535 build `260924-1532` succeeded and is staged as `new`; `current` remains
+unchanged. Flash usage is 630036 bytes; static RAM is 171328 bytes, leaving
+156352 bytes. The staged binary's build stamp and W535/ES3_35 identifiers were
+verified. Build preserved Arduino USB/core/PSRAM flags. No flash or INI change
+was performed; the linear sweep is ready for the next requested reflash.
+
+== Follow-up: probe the smallest nonzero duty
+
+Petr reports level 1 is still too bright and requests duty 1 instead of 8.
+Changed only W535 table index 1 to `1/255`; entries 2..31 remain unchanged.
+This deliberately leaves a larger jump to level 2 (duty 16): it is a minimum
+probe, not final curve tuning. OFF is still zero and full ON remains 255.
+The six HAL/polarity variants pass with the updated endpoint assertion.
+This adjustment is source-only, pending the next requested rebuild/reflash;
+candidate `260924-1532` still contains duty 8. No INI change is required.
+
+Requested rebuild completed as W535 `260924-1538`, staged as `new`, with level 1
+duty 1/255. Flash/static RAM remain 630036/171328 bytes. Staged stamp and target
+identifiers verified; `current` unchanged. No upload or INI modification performed.
+
+== Minimum confirmed; first perceptual curve trial
+
+Petr confirms duty 1 remains visible and usable in total darkness, for white paper
+and current green/amber CRT palettes. With the mostly linear electrical sweep,
+levels 1..8 brighten too quickly while 16..31 change little to his eye.
+
+Keep minimum 1 and full ON 255. The new W535-only trial table uses the following
+offline formula for lit levels `L=1..31`:
+
+[source,text]
+----
+duty = max(L, 1 + round(254 * ((L - 1) / 30)^2.2))
+
+level  0..15:   0   1   2   3   4   5   6   8  11  15  19  24  29  35  41  48
+level 16..31:  56  65  74  84  94 105 117 129 143 156 171 186 202 219 237 255
+----
+
+This power curve spends more steps at low duty and takes wider steps at high
+duty. Gamma 2.2 is an initial tuning choice, not a measurement of this module's
+brightness response. The minimum `L` floor avoids duplicate rounded duties and
+ineffective keypresses near the bottom. Eight-bit PWM still limits low-end
+resolution; we are not changing PWM frequency or resolution here.
+
+[cols="1,1,1",options="header"]
+|===
+|Logical level |Previous duty |New trial duty
+|1 |1 |1
+|2 |16 |2
+|4 |33 |4
+|8 |66 |11
+|16 |132 |56
+|24 |197 |143
+|31 |255 |255
+|===
+
+The remembered logical level is unchanged, so intermediate settings will initially
+look dimmer after this update. Existing ramp/shortcut logic automatically uses the
+new table. W550 and RP2350 tables remain unchanged, as do INI syntax and persistence.
+Six HAL/polarity host test variants pass, including the formula, strict monotonicity
+and ramp/cancellation checks. No automatic rebuild or flash: source awaits the
+next requested build. Petr should compare single steps over the low, middle and
+high range after deployment; final perceptual acceptance remains open.
+
+Requested gamma-curve rebuild succeeded as W535 `260924-1549`, staged as `new`.
+Flash/static RAM remain 630036/171328 bytes; staged stamp and target identifiers
+verified. No flash, promotion or INI change performed. Ready for Petr's reflash
+and visual comparison of the finer low-end steps.
+
+== Hardware acceptance
+
+Petr confirms the gamma-2.2 W535 curve is satisfactory: "this is it Ari, perfect".
+Record the minimum and step progression as user-confirmed on hardware, 260924,
+following candidate `260924-1549`. This is visual acceptance, not instrumented
+photometric calibration. Keep this W535 table; other modules retain their own
+tables. No promotion to `current` was requested or performed.

@@ -1,0 +1,6 @@
+= GPT56 COSTS, PERFORMANCE -- creenshot_20260911_220221
+:source-highlighter: highlight.js
+
+Historical screenshot accompanying the model cost/performance discussion. Its contents describe the situation when captured.
+
+image::images/260911-22 GPT56 COSTS, PERFORMANCE -- creenshot_20260911_220221.png[GPT56 COSTS PERFORMANCE -- creenshot_20260911_220221]

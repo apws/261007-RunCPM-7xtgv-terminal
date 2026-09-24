@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "display_policy.h"
 #include "key_chords.h"
+#include "text_palette.h"
 
 namespace vt {
 
@@ -63,6 +64,7 @@ struct HistoryProfile {
     // Mid-green paper stays distinct from the pale active-line overlay while
     // its glyph still uses the pale active-line ink.
     uint8_t cursorRGB[3] = {0, 150, 40};
+    bool activeLineOverride = false, cursorOverride = false;
     uint16_t historyRetypeDelayMs = 0;
     // This deliberately narrow adapter is for BASIC-80's modal EDIT command.
     // It is off for every other CP/M application.
@@ -79,6 +81,8 @@ struct HistoryProfile {
 
 enum GlobalKey : uint8_t { GlobalKeyNone, GlobalKeyDualAltEscape, GlobalKeyDualAltDelete };
 struct GlobalProfile {
+    uint8_t modePalette = 0;
+    bool gutterOverride = false, activeGutterOverride = false;
     OutputMode mode = OutputAnsi;
     uint8_t consoleBits = 7;
     GlobalKey exitKey = GlobalKeyDualAltEscape;
@@ -87,6 +91,7 @@ struct GlobalProfile {
     // Last non-off brightness. Zero is never persisted: PgUp/PgDn from off
     // restores this value before making another adjustment.
     uint8_t backlightLevel = 16;
+    uint16_t crtRampupMs = 0; // boot-only logical-level ramp, 0 = immediate
     // The compact layout leaves a full-height gutter on the side opposite the
     // physical panel frame: left at the default viewport, right when panned.
     uint8_t viewportGutterRGB[3] = {128, 128, 128};
@@ -107,6 +112,7 @@ struct DisplayProfile {
 class HistoryProfiles {
   public:
     static constexpr uint8_t Banks = 10;
+    static constexpr uint8_t Palettes = 10;
     static constexpr uint8_t MaxOverrides = 128;
     static constexpr uint8_t MaxErrorLines = 10;
     static constexpr size_t MaxErrorText = 191;
@@ -119,6 +125,7 @@ class HistoryProfiles {
     const HistoryProfile &get(uint8_t bank) const;
     const GlobalProfile &global() const;
     const DisplayProfile &display() const;
+    const TextPalette &palette(uint8_t index) const;
     OutputMode modeFor(uint8_t bank) const;
     Geometry geometryFor(uint8_t bank, uint8_t zoom) const;
     Geometry geometryFor(uint8_t bank, uint8_t zoom, Geometry displayGeometry) const;
@@ -142,6 +149,7 @@ class HistoryProfiles {
         GlobalProfile global;
         DisplayProfile display;
         HistoryProfile banks[Banks];
+        TextPalette palettes[Palettes];
         uint32_t explicitKeys[Banks] = {};
         ScopedBinding overrides[MaxOverrides] = {};
         uint8_t overrideCount = 0;

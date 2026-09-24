@@ -1,0 +1,125 @@
+= CRT boot ramp and per-module backlight tables
+:source-highlighter: highlight.js
+
+== Approval and baseline
+
+On 260924 Petr confirmed the W550 boot-flash fix in candidate `260924-1231`:
+"it works, perfect". This records hardware confirmation of that boot gate,
+not promotion of the candidate to `current`.
+
+Petr then requested an optional CRT-style boot illumination ramp, a 32-state
+brightness model (OFF=0, full ON=31), and independent per-module HAL tables for
+future retesting, including ESP32-P4. This document follows
+link:260924-12%20boot%20backlight%20hold%20until%20themed%20frame.adoc[the startup hold implementation].
+It supersedes that note's statement that renumbering was not yet approved.
+
+== Configuration and behavior
+
+[source,ini]
+----
+[global]
+crt_rampup_ms=1500
+----
+
+The accepted duration is 0..60000 milliseconds. Default 0 preserves immediate
+illumination after the themed frame and scanout guard; 1500 is an example, not a
+new default. This optional effect applies to any palette.
+
+Once the existing startup gate releases, the HAL ramps from logical level 0 to
+the configured `backlight_level` (compiled default 16). It uses elapsed time,
+not blocking delays, and writes only changed physical steps. Logical/remembered
+brightness remains the target throughout, so intermediate steps never dirty or
+rewrite the INI. The ramp duration itself is user-authored and preserved by the
+normal settings writer. Explicit brightness controls cancel the ramp and apply
+the user's requested level immediately. Palette switches do not restart it.
+
+This is a stepped warm-up through the module duty table, not interpolation of
+arbitrary PWM values or a perceptually calibrated fade. The first lit level is
+still approximately 20 percent; low target levels provide fewer visible steps.
+Polling reaches the endpoint on the first runtime iteration at/after the duration.
+
+== Canonical levels and compatibility
+
+* Level 0: OFF, using table entry 0 through the normal HAL apply function.
+* Levels 1..30: intermediate PWM; level 1 remains duty 51, level 30 duty 253.
+* Level 31: full ON, duty 255 in the current tables.
+* PgUp/PgDn stay within 1..31; from OFF they first restore remembered brightness.
+* INI `backlight_level` remains a remembered non-off setting, canonical range 1..31.
+  Legacy 32 is accepted and interpreted as 31. Runtime OFF is not persisted as 0.
+* Private control `CSI >63;32v` remains a full-ON alias. Commands 33/34 still mean
+  increment/decrement; there is no protocol opcode renumbering.
+* Host Python, Konsole and Kitty full-ON presets now emit 31. Already installed
+  mappings emitting 32 remain compatible.
+
+The previous 33-entry table was reduced to 32 by removing duty 251: levels 0..28
+retain their duties; 29=252, 30=253, 31=255. Default level 16 is unchanged.
+Existing levels 29/30/31 therefore acquire the new top-end meanings; old maximum
+32 retains full ON via the compatibility alias. No INI is automatically rewritten
+merely to canonicalize 32; the next normal brightness save emits its canonical level.
+
+== Hardware boundary
+
+Separate 32-entry constexpr tables now live beside the board-specific hardware
+headers in `src/7xtgv-vt100-runcpm/hardware/arduino_7xtgv/`:
+
+* `jc8048w550_backlight.h`
+* `jc8048w535_backlight.h`
+* `pico_rp2350_touch_lcd_2_backlight.h`
+
+Initially all tables contain identical duties; this is not a claim that their
+perceived brightness curves have been calibrated. The shared `backlight.h`
+selects the target table, checks its size, and handles startup gating, ramp
+timing, remembered state, physical output and polarity. The terminal sees only
+logical levels. Future unusual drivers, power-enable pins or special OFF/ON
+operations belong in this HAL apply path, not in the terminal renderer/parser.
+No hypothetical hardware commands have been invented for current modules.
+
+For W550, the installed ESP32 3.1.0 core uses LEDC through `analogWrite`:
+0 is zero duty and 255 is promoted to continuous ON at 8-bit resolution.
+There is no separate panel ON/OFF command in the current backlight path.
+The early startup inactive GPIO latch remains necessary before attaching PWM.
+Frequency, resolution, pin assignment and polarity have not been changed here.
+
+P4 is not an implemented terminal target yet; its table/driver will be added with
+its HAL. Retest every actual module for endpoints, minimum useful light, audible
+PWM effects, polarity and boot timing, as previously recorded in the feature ledger.
+
+== Verification and deployment boundary
+
+Passed:
+
+* HAL ramp/gate tests for all three target tables, each with normal and inverted
+  polarity: every target level, 0/1/60000 ms cases, timer wraparound, endpoints,
+  preserved logical brightness, cancellation and legacy maximum handling.
+* Parser tests: accepted duration bounds and malformed/out-of-range values,
+  compiled default 0, and INI level 32 canonicalization.
+* Production runtime against peripheral stubs: ramp starts only after the themed
+  frame gate, reaches configured brightness, and does not request INI autosave.
+  Direct and deferred-flush startup paths pass.
+* Existing runtime and terminal tests under AddressSanitizer/UndefinedBehaviorSanitizer.
+* All 48 Python tests, including preservation of `crt_rampup_ms` by the settings writer.
+
+No new target firmware build, flash, device operation or INI transfer was
+performed for this extension. Following Petr's permission to update the INI,
+the local `cpmdrive/A0 - CP-M core/7XTGVTRM.INI` now contains
+`crt_rampup_ms=1500`; its existing `backlight_level=16` was retained.
+There were no private brightness sequences in that INI needing conversion.
+CRLF and Ctrl-Z bytes were preserved: removing the single added line reproduces
+the original file's SHA-256 exactly. The new key requires the new
+firmware; do not add it to an older running build and expect that parser to know it.
+Next: explicit rebuild/reflash, then configure a duration and visually check the ramp.
+
+== Requested build and INI deployment
+
+Petr subsequently requested both rebuild and INI transfer to A0. W550 candidate
+`260924-1259` built successfully and was staged under
+`build/7xtgv-vt100-runcpm/jc8048w550/new`; its stamp was verified in the binary.
+Program storage is 587196 bytes (18 percent), static RAM 190416 bytes (58 percent),
+leaving 137264 bytes. `current` was not promoted or replaced.
+
+The prepared local INI with `crt_rampup_ms=1500` was sent to device
+`A0:7XTGVTRM.INI`. The device acknowledged `SAVED 7XTGVTRM.INI 13440` (CP/M
+record-rounded size). Transfer cleanup completed and the visible Konsole mirror
+was relaunched. The device was at CCP before transfer; no application was interrupted.
+No firmware flashing was performed. The new ramp requires candidate `260924-1259`;
+the previous `260924-1231` parser does not recognize the new INI key.

@@ -287,6 +287,9 @@ const HistoryProfile &HistoryProfiles::get(uint8_t bank) const {
 const GlobalProfile &HistoryProfiles::global() const {
     return sets_[active_.load(std::memory_order_acquire)].global;
 }
+const TextPalette &HistoryProfiles::palette(uint8_t index) const {
+    return sets_[active_.load(std::memory_order_acquire)].palettes[index < Palettes ? index : 0];
+}
 const DisplayProfile &HistoryProfiles::display() const {
     return sets_[active_.load(std::memory_order_acquire)].display;
 }
@@ -555,6 +558,9 @@ void HistoryProfiles::finishLoad() {
 void HistoryProfiles::parseLine() {
     if (overflow_) {
         line_[length_] = 0;
+        const char *heading = line_;
+        while (*heading == ' ' || *heading == '\t') ++heading;
+        if (*heading == '[') { section_ = -1; setSectionLabel("[invalid]"); }
         recordError(line_);
         overflow_ = false;
         length_ = 0;
@@ -568,24 +574,39 @@ void HistoryProfiles::parseLine() {
     char *text = trim(line_);
     if (!*text || *text == '#' || *text == ';') return;
     if (equalNoCase(text, "[global]")) { section_ = -2; setSectionLabel("[global]"); return; }
+    if (startsNoCase(text, "[palette")) {
+        if (strlen(text) == 10 && text[8] >= '0' && text[8] <= '9' && text[9] == ']') {
+            section_ = Banks + text[8] - '0';
+            setSectionLabel(raw);
+        } else { section_ = -1; setSectionLabel("[invalid]"); fail(); }
+        return;
+    }
     if (startsNoCase(text, "[display:") && text[strlen(text) - 1] == ']') {
         text[strlen(text) - 1] = 0;
         section_ = equalNoCase(text + 9, hal_->id) ? -3 : -4;
         setSectionLabel(raw);
         return;
     }
-    int bank = -1; char tail = 0;
-    if (sscanf(text, "[bank%d]%c", &bank, &tail) == 1) {
+    int bank = -1, headingLength = -1;
+    if (sscanf(text, "[bank%d]%n", &bank, &headingLength) == 1 &&
+        headingLength > 0 && !text[headingLength]) {
         if (bank >= 0 && bank < Banks) { section_ = bank; setSectionLabel(raw); }
         else { section_ = -1; setSectionLabel("[invalid]"); fail(); }
         return;
     }
+    // An unrecognized/malformed heading must not leave the previous section
+    // active: following settings belong to neither that bank nor that display.
+    if (*text == '[') { section_ = -1; setSectionLabel("[invalid]"); fail(); return; }
     char *equals = strchr(text, '=');
     if (!equals) { fail(); return; }
     *equals = 0;
     char *keyName = trim(text), *value = trim(equals + 1);
     if (section_ == -2) {
-        if (!strcmp(keyName, "mode")) {
+        if (!strcmp(keyName, "mode_palette")) {
+            if (strlen(value) == 1 && value[0] >= '0' && value[0] <= '9')
+                sets_[loading_].global.modePalette = uint8_t(value[0] - '0');
+            else fail();
+        } else if (!strcmp(keyName, "mode")) {
             if (!parseOutputMode(value, sets_[loading_].global.mode)) fail();
         } else if (!strcmp(keyName, "console_bits")) {
             if (!strcmp(value, "7")) sets_[loading_].global.consoleBits = 7;
@@ -608,13 +629,28 @@ void HistoryProfiles::parseLine() {
             if (sscanf(value, "%u%c", &level, &tail) != 1 || level < 1 || level > 32)
                 fail();
             else
-                sets_[loading_].global.backlightLevel = uint8_t(level);
+                // Legacy full-on value 32 remains accepted, canonicalized to 31.
+                sets_[loading_].global.backlightLevel = uint8_t(level > 31 ? 31 : level);
+        } else if (!strcmp(keyName, "crt_rampup_ms")) {
+            char tail = 0;
+            unsigned duration = 0;
+            if (sscanf(value, "%u%c", &duration, &tail) != 1 || duration > 60000)
+                fail();
+            else
+                sets_[loading_].global.crtRampupMs = uint16_t(duration);
         } else if (!strcmp(keyName, "viewport_gutter_rgb")) {
-            if (!parseRGB(value, sets_[loading_].global.viewportGutterRGB)) fail();
+            if (!strcmp(value, "palette")) sets_[loading_].global.gutterOverride = false;
+            else if (parseRGB(value, sets_[loading_].global.viewportGutterRGB))
+                sets_[loading_].global.gutterOverride = true;
+            else fail();
         } else if (!strcmp(keyName, "viewport_active_gutter_rgb")) {
-            if (!strcmp(value, "active_line")) {
+            if (!strcmp(value, "palette")) {
+                sets_[loading_].global.activeGutterOverride = false;
+            } else if (!strcmp(value, "active_line")) {
+                sets_[loading_].global.activeGutterOverride = true;
                 sets_[loading_].global.viewportActiveGutterFollowsLine = true;
             } else if (parseRGB(value, sets_[loading_].global.viewportActiveGutterRGB)) {
+                sets_[loading_].global.activeGutterOverride = true;
                 sets_[loading_].global.viewportActiveGutterFollowsLine = false;
             } else {
                 fail();
@@ -625,6 +661,31 @@ void HistoryProfiles::parseLine() {
             if (!parseKeyChordName(keyName, chord) || !parseBinding(value, binding) ||
                 !addOverride(sets_[loading_], Banks, chord, binding))
                 fail();
+        }
+        return;
+    }
+    if (section_ >= Banks) {
+        TextPalette &palette = sets_[loading_].palettes[section_ - Banks];
+        mixworx::RGB *color = nullptr;
+        const size_t keyLength = strlen(keyName);
+        if (keyLength == 6 && !strncmp(keyName, "paper", 5) && keyName[5] >= '0' && keyName[5] <= '3')
+            color = &palette.paper[keyName[5] - '0'];
+        else if (keyLength == 5 && !strncmp(keyName, "ink", 3) &&
+                 keyName[3] >= '0' && keyName[3] <= '1' && keyName[4] >= '0' && keyName[4] <= '9') {
+            const unsigned index = (keyName[3] - '0') * 10 + keyName[4] - '0';
+            if (index < 16) color = &palette.ink[index];
+        } else if (!strcmp(keyName, "active_line_rgb")) color = &palette.activeLine;
+        else if (!strcmp(keyName, "cursor_rgb")) color = &palette.cursor;
+        else if (!strcmp(keyName, "viewport_gutter_rgb")) color = &palette.gutter;
+        else if (!strcmp(keyName, "viewport_active_gutter_rgb")) {
+            if (!strcmp(value, "active_line")) { palette.activeGutterFollowsLine = true; return; }
+            color = &palette.activeGutter;
+        }
+        uint8_t rgb[3];
+        if (!color || !parseRGB(value, rgb)) fail();
+        else {
+            *color = {rgb[0], rgb[1], rgb[2]};
+            if (color == &palette.activeGutter) palette.activeGutterFollowsLine = false;
         }
         return;
     }
@@ -754,8 +815,11 @@ void HistoryProfiles::parseLine() {
         return;
     }
     if (!strcmp(keyName, "active_line_rgb") || !strcmp(keyName, "cursor_rgb")) {
-        if (!parseRGB(value, !strcmp(keyName, "active_line_rgb") ? profile.activeLineRGB
-                                                                  : profile.cursorRGB)) fail();
+        const bool lineColor = !strcmp(keyName, "active_line_rgb");
+        bool &overrideColor = lineColor ? profile.activeLineOverride : profile.cursorOverride;
+        if (!strcmp(value, "palette")) overrideColor = false;
+        else if (parseRGB(value, lineColor ? profile.activeLineRGB : profile.cursorRGB)) overrideColor = true;
+        else fail();
         return;
     }
     KeyChord chord;

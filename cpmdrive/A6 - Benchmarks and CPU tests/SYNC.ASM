@@ -19,3 +19,4 @@ start:  mvi     a,1
 
 errmsg: db      'SYNC: history save failed',13,10,'$'
         end     start
+

@@ -1,8 +1,10 @@
 {
+  "display_id": "ES3_5",
+  "description": "ESP32-S3 JC8048W550 ST7262 RGB 5-inch",
   "method": "arduino-cli",
   "profile": "jc8048w550",
   "port": "/dev/ttyUSB0",
   "build_properties": {
-    "build.extra_flags": "-DRUNCPM_TARGET_JC8048W550 -DESP32 -DCORE_DEBUG_LEVEL=0"
+    "build.extra_flags": "-DRUNCPM_TARGET_JC8048W550"
   }
 }

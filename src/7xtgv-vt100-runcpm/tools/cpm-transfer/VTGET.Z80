@@ -9,6 +9,8 @@
  ld de,0080h
  ld c,26
  call 5
+ ld de,clear
+ call puts
 readrec:
  ld de,005ch
  ld c,20
@@ -28,7 +30,7 @@ readrec:
  call 5
  jp 0
 page:
- ld de,clear
+ ld de,pagehome
  call puts
  ld de,heading
  call puts
@@ -46,6 +48,12 @@ byte:
  call hexbyte
  inc hl
  djnz byte
+ push hl
+ ld a,':'
+ call putc
+ ld hl,(record)
+ call hexword
+ pop hl
  ld de,newline
  call puts
  pop bc
@@ -84,7 +92,7 @@ acknowledged:
  ld (record),hl
  jp readrec
 record: dw 0
-heading: db 'REC','$'
+heading: db 'R2C','$'
 ready: db 'READY','$'
 pctprompt: db 'PCT ','$'
 done: db 13,10,'END','$'

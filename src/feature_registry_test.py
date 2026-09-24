@@ -1,14 +1,52 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
+from html.parser import HTMLParser
 import re
+import shutil
+import subprocess
 import tempfile
 import unittest
 
 import feature_registry as registry
 
 
+class TableContents(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.cells = []
+        self.links = []
+        self.current = None
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "td":
+            self.current = []
+        if tag == "a":
+            self.links.append(dict(attrs).get("href"))
+
+    def handle_data(self, data):
+        if self.current is not None:
+            self.current.append(data)
+
+    def handle_endtag(self, tag):
+        if tag == "td":
+            self.cells.append("".join(self.current).strip())
+            self.current = None
+
+
 class FeatureRegistryTests(unittest.TestCase):
+    def render_html(self, source):
+        if not shutil.which("asciidoctor"):
+            self.skipTest("optional Asciidoctor integration check")
+        result = subprocess.run(
+            ["asciidoctor", "-s", "-o", "-", "-"], input=source,
+            text=True, capture_output=True, check=True,
+        )
+        self.assertEqual(result.stderr, "")
+        parsed = TableContents()
+        parsed.feed(result.stdout)
+        return parsed
+
     def test_canonical_registry_validates(self) -> None:
         records = registry.read_registry(registry.DEFAULT_STORE)
         self.assertEqual([], registry.validate(records, registry.DEFAULT_STORE))
@@ -67,7 +105,7 @@ class FeatureRegistryTests(unittest.TestCase):
             summary="Generated row",
         )
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "FEATURES.md"
+            path = Path(directory) / "FEATURES.adoc"
             path.write_text(
                 "before\n"
                 + registry.BEGIN_MARKER
@@ -80,7 +118,52 @@ class FeatureRegistryTests(unittest.TestCase):
             result = path.read_text(encoding="utf-8")
         self.assertTrue(result.startswith("before\n"))
         self.assertTrue(result.endswith("\nafter\n"))
-        self.assertIn("| 260922 | Test | **I** | Generated row |", result)
+        self.assertIn("| 260922 | pass:[Test] | *I* | pass:[Generated row] |", result)
+
+    def test_asciidoc_reports_preserve_literal_data(self) -> None:
+        values = [
+            "A | B", "*bold* _italic_ `code` {attribute} [label]",
+            r"send:\^K\^D and \x81", "<script>& \"quoted\"",
+            "pass:[literal] ++plus++ ^caret^ ~tilde~ #hash#",
+            "https://example.com (C) -- ... ->", "&#124; &#93; &amp;", "",
+        ]
+        records = [{"title": value, "state": "D"} for value in values]
+        report = registry.render_asciidoc(records, ["title", "state"])
+        rendered = self.render_html(report)
+        self.assertEqual(rendered.cells, [cell for value in values for cell in (value, "D")])
+        self.assertEqual(rendered.links, [])
+
+    def test_asciidoc_ledger_links_and_all_rows_render(self) -> None:
+        records = registry.read_registry(registry.DEFAULT_STORE)
+        rendered = self.render_html(registry.render_ledger_region(records))
+        expected = registry.sort_records(records, ["group", "idea_date", "title"])
+        self.assertEqual(len(rendered.cells), 5 * len(records))
+        self.assertEqual(rendered.cells[1::5], [record["title"] for record in expected])
+        self.assertEqual(len(rendered.links), sum(len(list(filter(None, r["docs"].split(";")))) for r in records))
+        for href in rendered.links:
+            self.assertNotIn(" ", href)
+        # Macro-looking punctuation in filenames must not corrupt labels/targets.
+        link = registry.doc_link("docs/a [b]|{c} & _d_.adoc")
+        rendered = self.render_html('[cols="1"]\n|===\n| ' + link + '\n|===\n')
+        self.assertEqual(rendered.cells, ["a [b]|{c} & _d_.adoc"])
+        self.assertEqual(rendered.links, ["a%20%5Bb%5D%7C%7Bc%7D%20%26%20_d_.adoc"])
+
+    def test_empty_asciidoc_report(self) -> None:
+        rendered = self.render_html(registry.render_asciidoc([], ["title", "state"]))
+        self.assertEqual(rendered.cells, [])
+
+    def test_asciidoc_cli_aliases(self) -> None:
+        parser = registry.build_parser()
+        for name in ("asciidoc", "adoc", "markdown", "tsv", "text"):
+            args = parser.parse_args(["report", "--format", name])
+            self.assertEqual(args.format, name)
+
+    def test_ledger_markers_out_of_order_report_error(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "FEATURES.adoc"
+            path.write_text(registry.END_MARKER + "\n" + registry.BEGIN_MARKER)
+            with self.assertRaisesRegex(registry.RegistryError, "out of order"):
+                registry.update_ledger(path, [], dry_run=False)
 
 
 if __name__ == "__main__":
