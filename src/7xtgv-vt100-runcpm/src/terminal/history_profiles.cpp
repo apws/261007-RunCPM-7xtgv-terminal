@@ -1,6 +1,7 @@
 #include "history_profiles.h"
 #include <ctype.h>
 #include <initializer_list>
+#include <new>
 #include <stdio.h>
 #include <string.h>
 
@@ -341,7 +342,11 @@ bool HistoryProfiles::addOverride(Set &set, uint8_t bank, KeyChord chord,
 }
 
 void HistoryProfiles::defaults(Set &set) {
-    set = Set{};
+    // Reset in place: Set{} assignment materializes an ~12 KB temporary on
+    // RP2350, exceeding the SD/CP-M core's 8 KB stack during INI loading.
+    // Value initialization here preserves all default member initializers.
+    set.~Set();
+    new (&set) Set{};
     for (uint8_t bank = 0; bank < Banks; ++bank) {
         HistoryProfile &profile = set.banks[bank];
         strncpy(profile.name, Defaults[bank].name, HistoryProfile::MaxName);

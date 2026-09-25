@@ -1,0 +1,156 @@
+= RP2_147 visual checks, backlight caution and delayed save stalls
+:source-highlighter: highlight.js
+
+== Hardware observations on 260925-1156
+
+Petr confirms panning, nominal orientation and zoom work. Rounded corners
+partially hide corner characters and the original top-left disk indicator.
+Keep80x16; moving only the temporary indicator is preferred over reducing
+the terminal to15 rows.
+
+The same microSD card used on RP2_2 is installed. After entering a line or
+adjusting backlight, a stall starts roughly1-2 seconds later and lasts about
+4 seconds; cursor blinking and input responsiveness stop. Not observed on
+the other tested modules. This does not yet establish a board-specific cause.
+
+Reported benchmarks:
+
+----
+VTCPU active: 13015509 T-states in 599336 us = 21.72 MHz
+VTCPU quiet : 13015509 T-states in 566702 us = 22.97 MHz
+VTDRV write: 32768 bytes in 2091630 us = 15.30 KiB/s
+VTDRV read : 32768 bytes in 735533 us = 43.51 KiB/s
+VTDRV verify: PASS
+----
+
+== Backlight proposal and vendor warning
+
+Petr proposes the present logical level9 as the new lowest lit level.
+The current table maps level9 to duty17/255, not duty9. No curve change
+has been made: settle the maximum before rescaling.
+
+The supplied local vendor PDF
+`docs/nukedc-recovery-from-chytgpt/ESP32-C6-LCD-1.47 _ WaveShare Documentation Platform.pdf`
+explicitly recommends brightness at50% or lower and warns that prolonged
+high brightness can overheat the screen and produce dark shadows. It advises
+cooling an affected board and using firmware with lower brightness.
+The https://docs.waveshare.com/ESP32-C6-LCD-1.47?variant=ESP32-C6-LCD-1.47[live page]
+was inaccessible to the browser during this check; the supplied PDF is the
+evidence. No matching thermal warning was found in the supplied RP2350 PDF.
+That absence is not proof of full-brightness safety on RP2350, nor proof of
+identical panel/backlight electrical conditions across the two boards.
+
+Advised avoiding prolonged maximum brightness on these tiny panels pending
+clarification. Logical level31 may ultimately need to mean the module's safe
+maximum, not universal duty255; no such policy change is implemented yet.
+
+== Bounded stall diagnosis, not a fix
+
+`terminalHistorySaveDue()` starts an autosave after2000ms;
+`terminalConfigSaveDue()` starts after1500ms. This matches Petr's observed
+delay and the two triggering operations. Both storage-poll functions in
+`7xtgv-vt100-runcpm.ino` call `terminalPause(true)` across their complete
+filesystem transactions. While paused, `terminalLoop()` returns before
+input/render/cursor work. History writes, flushes, verifies CRC, rotates files
+and removes the backup. Config copies/updates the INI, flushes, verifies its
+tail and rotates files. Both only resume the terminal at the end.
+
+This is a strong explanation of the freeze mechanism, not a measured
+explanation of why this board takes4 seconds. The two RP targets use the same
+150MHz ARM profile, Arduino-Pico5.4.4, SdFat2.3.0 and12MHz SD setting, but
+different SD pin assignments/connectors. VTDRV bulk throughput does not
+measure these metadata/flush/replacement transactions. No SD fault, fixed
+timeout, history size or failing save has been established.
+
+Next proposed diagnostic: per-stage timings of pause acquisition, write,
+flush/close, verification and replacement, before changing persistence or
+verification. No instrumentation, save-policy change, automated device
+commands or SD transfers were performed in this task.
+
+== Implemented disk indicator HAL offset, awaiting rebuild
+
+`DisplayHalDefaults::diskIndicatorYOffset` is0 on W550, W535 and RP2_2;
+30 on RP2_147. The6x6 indicator moves from physical y1 to y31 without
+changing text geometry. Rendering and removal use the same offset; removal
+restores every intersected text cell, including a cell boundary at any zoom,
+or the gutter/paper. Plot-start retirement uses that same restoration path.
+
+Host tests pass for the zero-offset default and RP2_147 at all four zooms
+and both pan edges, checking exact framebuffer restoration after expiry and
+before plot ownership. RP2_147 also passes ASan/UBSan. Target metadata tests
+check every HAL's offset. Firmware rebuild/reflash remains separately requested;
+the running260925-1156 image has the original indicator position.
+
+== Requested rebuild: 260925-1314
+
+Target-aware RP2_147 build completed and staged as `new`. Compiled identity
+and stamp were checked in the ELF. Program size281128 bytes; static RAM158516
+bytes (30%), leaving365772 bytes before runtime allocations/stacks.
+
+UF2 SHA-256:
+
+----
+2d7058e45c7754e4aec93db01381874331769a576f8e79ec45c656c843d84ab9
+----
+
+This candidate includes the indicator offset/restoration changes. Backlight
+table and autosave behavior are unchanged; no save timing instrumentation
+was added. No flash, serial interaction, INI transfer or promotion performed.
+
+== Subsequent requested flash
+
+Verified the same BOOTSEL serial D60D9318CF30A586, mounted RP2350 INFO_UF2,
+and the260925-1314 UF2 hash above. Stopped the shared mirror and copied the
+candidate successfully. Serial returned at its expected by-id; reopened
+visible Konsole with the explicit RP2_147 target. The mirror confirms SD
+initialization, profile/history OK and A0. Petr was already typing, so no
+additional command or reset was sent. No SD files transferred; candidate
+remains `new`. Restart ended any prior CP/M application state.
+Indicator visibility/cleanup awaits Petr's visual confirmation; the stall
+and backlight behavior remain unchanged in this deployed build.
+
+== Follow-up: indicator at10px, backlight maximum decision
+
+Petr confirms the deployed30px indicator is visible and requests10px instead.
+HAL offset and metadata expectation changed to10; production overlay host
+tests pass at all zooms and both pan edges. This remains unbuilt/unflashed.
+
+Petr requests the backlight adjustment. Minimum duty17 (old level9) is agreed;
+asked whether to provisionally cap the upper endpoint near50% PWM or retain
+full duty255. The C6 thermal warning is not a verified RP2350 safe limit.
+Backlight table remains unchanged pending that choice.
+
+== Further read-only save-path review
+
+After acceptance of260925-1419's backlight, Petr requests another stall check.
+Confirmed the active Arduino compile commands use pinned SdFat2.3.0, not the
+other SdFat copy bundled in Arduino-Pico. Both RP targets use the same save
+functions, library version,150MHz ARM setup and configured12MHz SPI1 SD bus.
+
+Concrete INI inefficiency: `writeConfigSettings()` alternates small reads
+from the source file with small writes to the replacement. SdFat's
+`FatPartition` has one shared data `FsCache`; its separate FAT cache, when
+enabled, is not a second file-data cache. `FatFile::read/write` use that
+shared cache for partial sectors. `FsCache::prepare()` syncs dirty data and
+loads another sector on a cache miss. Thus source/output alternation causes
+repeated sector traffic, potentially even at CR/LF boundaries. A brightness
+change rewrites the full INI rather than a single sector/key in place.
+
+This establishes an avoidable access pattern, not a measured4s contribution.
+History serialization is different: it writes every retained entry across all
+ten banks, then rereads for CRC verification. It does not have the same
+two-file alternating copy loop, so the INI finding alone cannot explain the
+reported Enter freezes. No present device history size was fetched or assumed;
+the old local mirror is not evidence of current device contents.
+
+No module-specific4s timer was found in the reviewed save code. The built-in
+save delays are responsive debounce periods, not intentional UI stalls.
+Actual blocking occurs during `terminalPause(true)` and synchronous storage.
+Failure re-arms history after2s or config after1.5s; asked Petr whether stalls
+repeat while completely idle to distinguish retry loops from successful saves.
+
+Next useful measurement remains per-stage durations and success/failure for
+history and config, reported only after terminal resume so the diagnostic
+cannot block a paused output consumer. No firmware, library or device changes
+were made during this review. Do not remove CRC/transaction safety or blame
+the new module based on bulk VTDRV results alone.

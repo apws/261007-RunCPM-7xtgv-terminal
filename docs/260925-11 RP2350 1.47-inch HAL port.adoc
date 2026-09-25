@@ -1,0 +1,126 @@
+= RP2350-LCD-1.47-A: small HAL port checkpoint
+:source-highlighter: highlight.js
+
+== Scope and evidence
+
+Petr requested the RP2350-LCD-1.47-A as a proof of porting before ESP32-C6
+and ESP32-P4. The board is connected in manual BOOTSEL. This checkpoint
+adds source/configuration and host tests only; no firmware build, upload,
+serial access, SD transfer, host-default change or artifact promotion.
+The previous RP2_2 work remains uncommitted; a separate commit checkpoint
+is recommended once this new port has been tested, without inventing a
+split of previously interdependent work.
+
+Sources:
+
+* Local saved vendor page:
+  `docs/nukedc-recovery-from-chytgpt/RP2350-LCD-1.47-A - Waveshare Wiki.pdf`.
+* https://www.waveshare.com/wiki/RP2350-LCD-1.47-A[Vendor wiki]
+  (live page returned HTTP 403; used the supplied PDF).
+* https://files.waveshare.com/wiki/RP2350-LCD-1.47/RP2350-LCD-1.47-A.pdf[Vendor schematic],
+  inspected including its GPIO net table and backlight circuit.
+* Existing 1.47-inch branch in the terminal's `7xtgv-gfxsetup.h`, inherited
+  from Petr's earlier prototype. Retain its rotation and controller offsets
+  until physical validation.
+
+== Target and flat HAL integration
+
+Canonical target: `rp2350-lcd-1-47-a`; display/settings ID: `RP2_147`.
+The new JSON selects an explicit build define. Its separate sketch profile
+pins the same Arduino-Pico 5.4.4, GFX 1.6.4, SdFat 2.3.0, ARM Cortex-M33,
+150 MHz and 16 MB flash configuration as RP2_2.
+
+New flat storage and backlight headers live under
+`src/7xtgv-vt100-runcpm/hardware/arduino_7xtgv/`:
+
+* `pico_rp2350_lcd_1_47_a_sd_spi.h`: SPI1, SCK10, MOSI11, MISO12, CS15;
+  conservative 12 MHz. CP/M core owns storage exclusively.
+* `pico_rp2350_lcd_1_47_a_backlight.h`: independent 32-entry trial table,
+  minimum duty3, gamma2.2, OFF0/full255. Start from the accepted RP2_2 curve,
+  but do not claim its visual acceptance applies to this panel.
+
+The existing display branch uses ST7789, native 172x320, rotation3,
+column offsets34, LCD DC16/CS17/SCK18/MOSI19/RST20/BL21. The installed
+`Arduino_RPiPicoSPI` uses hardware SPI0, not PIO. It unconditionally calls
+`gpio_set_function` on MISO; retain the prototype's otherwise unused GPIO4
+instead of passing -1. The LCD schematic has no MISO connection. Do not use
+GPIO4 for another peripheral without addressing that driver behavior.
+
+The existing common backlight gate/ramp and RP2350 whole-chip reboot are
+reused. Compiled firmware identity and display policy have explicit branches.
+No emulator, scheduler, VT parser or renderer changes were needed.
+
+== Geometry and shared INI
+
+The vendor page specifies 172x320, not 170 or176. Landscape is 320x172.
+Petr chose zoom1 terminal80x16 with horizontal panning. The physical view
+holds52 columns; the two edge views overlap and cover all80 columns.
+The terminal can support17 rows, but defaults to16. Zoom2/3/4 defaults are
+40x8,26x5,20x4 respectively, all fitting vertically.
+
+`[display:RP2_147]` is independent of `[display:RP2_2]`. When absent, HAL
+defaults apply; no INI transfer is required just to try the port. Existing
+application-profile geometry overrides still apply. Later INI edits must
+start with the explicitly requested live fetch, not a stale host copy.
+
+== Checks and next gate
+
+All75 Python host tests pass, including compiling target identity/display
+metadata for all four targets. A dedicated host test checks the new geometry,
+SD and LCD pin constants, controller offsets and display setup selection.
+Both normal/inverted backlight tests pass, including endpoints, monotonic
+steps, startup gate, ramp and cancellation. These do not prove real hardware
+or a complete Arduino firmware build.
+
+On Petr's `rebuild` request, use from the sketch directory:
+
+[source,sh]
+----
+python3 tools/reflash.py --target rp2350-lcd-1-47-a --build-only
+----
+
+Then, on a separate reflash request, verify the intended BOOTSEL device and
+copy only this target's staged UF2. Select the new target explicitly for the
+visible mirror; RP2350 USB-family matching is not physical board detection.
+
+First physical checks: boot/SD/profile/history, orientation and all edges,
+80x16 panning, palettes/DEC, zoom sizes, minimum/full backlight and boot ramp.
+No SD files need to be replaced. ESP32-C6 is a later, separate RISC-V port
+with its own scheduling review, not part of this ARM checkpoint.
+
+== Requested rebuild: 260925-1156
+
+The target-aware build completed successfully using the pinned profile above.
+Candidate staged under `build/7xtgv-vt100-runcpm/rp2350-lcd-1-47-a/new/`.
+Program size: 280872 bytes. Static RAM: 158516 bytes, leaving 365772 bytes
+before runtime allocations and stacks. UF2 size: 604672 bytes.
+
+UF2 SHA-256:
+
+----
+6eddcbe1d9652430e0c4553722a7b4d703ab50886b447de9df8d6fafd030208c
+----
+
+No upload, serial access, mirror change, INI transfer or promotion.
+Next gate is Petr's separate reflash request and the physical tests above.
+
+== Requested flash and first hardware confirmation
+
+The first USB check found only an Espressif device and no RP2350 bootloader.
+Stopped without writing or interrupting the mirror; Petr confirmed the similar
+looking other board was connected, then connected the intended RP2350.
+
+Verified BOOTSEL by-id `usb-RPI_RP2350_D60D9318CF30A586-0:0-part1`, its
+RP2350 INFO_UF2 and the candidate hash above. Mounted the volume, stopped the
+old mirror and copied the RP2_147 UF2 successfully. The board restarted as
+`usb-Generic_RP2350_D60D9318CF30A586-if00`. BOOTSEL identifies the MCU, not the
+LCD board variant; physical target selection relied on Petr's confirmation.
+
+Restored visible Konsole with the explicit target and serial by-id. Changed
+`tools/terminal.conf` default to `rp2350-lcd-1-47-a` for this device session.
+The mirror shows profile/history OK and CP/M at A0. Petr confirms output on
+both the device and mirror. This is first-boot/display smoke evidence, not
+acceptance of all geometry, panning, palettes or backlight behavior.
+
+No SD files were transferred and no image was promoted; candidate remains
+`new`. Firmware restarted the device, so any prior application state was lost.

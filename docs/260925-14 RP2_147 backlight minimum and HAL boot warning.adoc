@@ -1,0 +1,83 @@
+= RP2_147 minimum duty17 and optional per-HAL boot warning
+:source-highlighter: highlight.js
+
+== Decision
+
+Following `260925-12 RP2_147 visual checks and delayed save stalls.adoc`,
+Petr explicitly chose to retain full maximum PWM. The requested minimum is
+the former logical level9, which means electrical duty17/255. Indicator
+offset10px was already prepared following acceptance of the30px placement.
+
+Only the RP2_147 backlight table is changed. Level0 remains OFF; levels1-31
+use gamma2.2 across17..255 with a rising floor to keep every level distinct:
+
+----
+max(17 + level - 1, 17 + round(238 * ((level - 1) / 30)^2.2))
+0,17,18,19,20,21,22,24,27,30,34,38,43,49,55,62,
+69,77,85,94,104,115,126,137,150,163,176,191,206,221,238,255
+----
+
+This changes the electrical meaning of existing saved logical levels; no INI
+value is rewritten or transferred. The current running firmware remains
+260925-1314 until a separately requested rebuild and flash.
+
+== Generic module warning
+
+`DisplayHalDefaults::bootWarning` is optional plain text for every HAL.
+Existing W550, W535 and RP2_2 defaults are null. RP2_147 supplies:
+
+----
+WARNING: avoid prolonged max backlight.
+----
+
+This is a requested precaution, not a claim that the C6 vendor thermal warning
+establishes a tested maximum for this RP2350 board. The actual C6 warning and
+its source are recorded in the preceding note. Full PWM remains selectable.
+
+The sketch emits the notice once after the initial CCP version header and
+before the first prompt; warm boots and VER do not repeat it. ANSI mode uses
+implicit ink on red paper, clears the remainder of that line in red, then
+resets attributes before CR/LF. VT52 mode emits plain text. Headless builds
+are unchanged. The ordinary output path also carries it to the PC mirror.
+At narrow zooms the message may wrap; no geometry or mode switching is added.
+
+== Validation and boundaries
+
+All four HAL backlight tests pass for both polarities (eight runs), covering
+endpoint duties, strict monotonicity, gamma formula, startup hold, timed ramp
+and cancellation. Ten host target tests pass. The boot-warning test uses the
+production terminal parser to verify red paper across the line and ordinary
+paper on the following prompt; null/empty notices and VT52 fallback pass.
+
+No rebuild, flash, promotion or SD transfer. The autosave stall is not fixed
+or instrumented by this change. Next: requested rebuild/reflash, then Petr's
+visual checks of the new minimum, step spacing, warning and10px indicator.
+
+== Requested rebuild: 260925-1419
+
+Target-aware build succeeded and staged as `new`. Program281296 bytes;
+static RAM158516 bytes (30%), leaving365772 bytes before runtime allocations.
+ELF confirms target, build stamp and warning text. UF2 SHA-256:
+
+----
+66efb481d689613ceacd0de1cccac9c7f435c9e2664ef752275d92473f38afb5
+----
+
+Includes duty17..255 curve,10px indicator and boot warning. No flash,
+promotion or SD transfer. Petr plans to compare maximum brightness with C6
+and may lower it afterward; no further cap selected yet. Visual comparison
+alone does not establish thermal safety. Autosave stalls remain unresolved.
+
+== Requested deployment
+
+Verified BOOTSEL serial D60D9318CF30A586, RP2350 INFO_UF2 and the candidate
+hash above. Copied260925-1419 successfully, then restored visible Konsole
+using the board's serial by-id and explicit RP2_147 target. Mirror confirms
+profile/history OK, the new warning after the version header, and A0 prompt.
+No SD files transferred or image promoted. Restart ended prior application
+state. Physical backlight/indicator acceptance remains for Petr to check;
+the autosave stall has not been changed.
+
+Petr subsequently confirms the deployed changes and reports good backlight
+levels. Record visual acceptance of the duty17..255 curve, not thermal
+validation of prolonged maximum output.

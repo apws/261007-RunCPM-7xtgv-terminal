@@ -1,0 +1,94 @@
+= RP2_2 target switch and rebuild
+:source-highlighter: highlight.js
+
+== Selection and scope
+
+After checkpoint `fb0f609` was pushed, Petr connected the two-inch module and
+requested target change/rebuild. USB enumerated as Generic RP2350, with the
+target's by-id serial pattern resolving to `/dev/ttyACM0`. This corroborates
+the user-selected architecture; USB alone does not identify display wiring.
+
+Changed `tools/terminal.conf` from `jc8048w535` to `rp2350-touch-lcd-2`
+(`RP2_2`). Replaced the old W535-configured tmux mirror with a visible Konsole
+session using explicit RP2350 target/by-id port. No guest commands, reset,
+firmware upload, INI transfer or history overwrite were performed.
+
+== Small build-tool correction
+
+The common dispatcher formerly rejected `bootsel-uf2` even with `--build-only`.
+It now permits that offline build/stage path, using the selected Arduino
+profile, preserved build flags and a fresh boot stamp. Build-only does not
+resolve or open a serial port. Normal upload, build-and-upload, promotion/upload
+and restore/upload remain rejected for BOOTSEL targets.
+
+Petr confirms this module requires *manual BOOTSEL*. Do not attempt automatic
+reset into it. Firmware upload remains a separately requested manual workflow;
+this change does not integrate RP2350 upload into the identity guard.
+
+== Staged result
+
+Command from the sketch directory:
+
+[source,shell]
+----
+python3 tools/reflash.py --target rp2350-touch-lcd-2 --build-only
+----
+
+Build `260924-2343` succeeded with Arduino-Pico 5.4.4, Arduino_GFX 1.6.4 and
+SdFat 2.3.0 from the selected profile. Reported program storage: 279,320 bytes;
+static RAM: 161,324 bytes, leaving 362,964 bytes (not a runtime free-heap claim).
+
+Candidate: `build/7xtgv-vt100-runcpm/rp2350-touch-lcd-2/new/7xtgv-vt100-runcpm.ino.uf2`.
+UF2 size: 601,600 bytes. SHA-256:
+
+----
+7b14951462a8cd2ca5f4d5325fd459682ce0bffdffbe931496023605ba471ef5
+----
+
+ELF strings confirm `RP2_2`, `rp2350-touch-lcd-2` and `260924-2343`.
+Existing legacy artifacts and other targets were not replaced; no promotion
+to `current` was performed. All 75 Python host tests pass, including the new
+offline BOOTSEL build/stage and continued upload-refusal test.
+
+== Next gate
+
+Await a flash request and manual BOOTSEL. Then upload only this target's UF2,
+restore the visible RP2_2 mirror and let Petr test boot/ramp, backlight endpoints,
+palette/UI colors, zoom/pan and both DEC pages. Six missing DEC control pictures
+and approximate TFT pi/pound remain known limitations, not regressions proven
+fixed by this build. Current RP2_2 hardware acceptance is still pending.
+
+Host tooling/configuration and this note are a small new uncommitted checkpoint;
+the earlier push does not include them. No automatic commit/push is implied.
+
+== Subsequent manual flash and startup failure, 260925
+
+On Petr's explicit reflash request, mounted the user-entered RP2350 BOOTSEL
+volume, checked INFO_UF2 and the candidate hash above, stopped the shared mirror,
+and copied the 601,600-byte UF2 successfully. BOOTSEL disconnected and the same
+RP2350 returned as USB serial. The visible RP2_2 mirror was relaunched, but both
+TFT and mirror stayed black/blank with the card inserted. No INI/history files
+were uploaded or modified by the host. Previous CP/M program state was lost
+on the firmware restart. Copy completion was not treated as boot acceptance.
+
+Reseating/power-cycling did not resolve it. Petr then reports the latest firmware
+boots *without* the card. This isolates the failure to a path exercised with SD,
+rather than an unsuccessful UF2 copy or unconditional backlight failure.
+
+Read-only inspection of the exact staged ELF found a definite stack-budget bug:
+`HistoryProfiles::defaults(Set &set)` uses `set = Set{};`. Its ARM prologue pushes
+36 bytes and subtracts 11,904 + 12 bytes: 11,952 bytes for this frame alone.
+Arduino-Pico 5.4.4 allocates only 0x2000 (8,192) bytes for the separately stacked
+core 1. `runCPM` calls `terminalConfigBegin` on that core when the INI exists,
+which calls `beginLoad` and `defaults`. The no-card path skips this call.
+
+This is strong source/binary evidence for the observed SD-dependent startup
+failure; a repaired hardware run is still required to confirm the diagnosis.
+Proposed correction: reconstruct/reset the existing configuration set in place,
+preserving its default member initializers without creating the large temporary.
+Then check the RP-target stack frame and parser tests before rebuilding.
+No firmware fix, new rebuild, automatic reset or repeat flash was performed
+as part of this diagnosis. Current-state RP2_2 hardware acceptance remains open.
+
+Subsequent approved repair and successful SD boot are recorded separately in
+link:260925-00%20RP2_2%20INI%20initialization%20stack%20repair.adoc[the stack repair report].

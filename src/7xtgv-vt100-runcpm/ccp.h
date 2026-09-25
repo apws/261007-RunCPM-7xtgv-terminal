@@ -1133,6 +1133,9 @@ void _ccp_cmdError() {
 
 // Reads input, either from the $$$.SUB or console
 void _ccp_readInput(void) {
+#ifdef RUNCPM_CONFIG_GUEST_IDLE
+    RUNCPM_CONFIG_GUEST_IDLE();
+#endif
     uint8 i;
     uint8 chars;
 

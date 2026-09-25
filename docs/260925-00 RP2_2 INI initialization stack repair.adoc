@@ -1,0 +1,195 @@
+= RP2_2 INI initialization stack repair
+:source-highlighter: highlight.js
+
+== Failure and cause
+
+Follow-up to link:260924-23%20RP2_2%20target%20switch%20and%20rebuild.adoc[the target switch and first flash].
+Build 260924-2343 stayed black with SD inserted, while Petr confirmed it booted
+without the card. INI loading on core 1 calls `HistoryProfiles::defaults`.
+Its `set = Set{};` assignment materialized a large temporary: the staged ARM
+ELF showed a 11,952-byte stack frame, exceeding Arduino-Pico's separately
+allocated 8,192-byte core-1 stack before accounting for callers/callees.
+
+== Repair and tests
+
+Destroy/reconstruct the existing `Set` in place with placement new, rather
+than constructing an assignment temporary. This retains value initialization
+and all default member initializers; no palette values, HAL brightness tables,
+stack allocation, SD wiring or INI syntax changed.
+
+The new palette test dirties both configuration slots, reloads empty settings
+into each, and checks restored global/profile defaults and all ten palettes.
+Palette and terminal/parser/keyboard/bounds/fuzz/queue tests passed with
+AddressSanitizer and UndefinedBehaviorSanitizer outside the sandbox.
+
+Target-aware build 260925-0011 succeeded. Inspection of that exact ARM ELF
+shows `defaults` now uses 36 bytes of saved registers plus 108 local bytes:
+*144 bytes*, down from 11,952. This is that function's frame, not a full
+call-chain stack high-water measurement.
+
+Program storage: 279,368 bytes; static RAM: 161,324 bytes. The RP2350 profile
+still uses Arduino-Pico 5.4.4, Arduino_GFX 1.6.4 and SdFat 2.3.0.
+Candidate UF2 is 601,600 bytes at:
+
+----
+build/7xtgv-vt100-runcpm/rp2350-touch-lcd-2/new/7xtgv-vt100-runcpm.ino.uf2
+----
+
+SHA-256:
+
+----
+c25af8563b7e8c0abd147c45bcc4d02218767970d4f65406707668fdfe5255b2
+----
+
+The failed preceding candidate was automatically archived under
+`rp2350-touch-lcd-2/260925-0011 unverified/`. Do not use it for recovery: the
+archive's prefix is its replacement time, not its embedded 260924-2343 build.
+No candidate was promoted to `current`.
+
+== Manual flash and hardware evidence
+
+Petr explicitly requested fix/rebuild/flash and prepared manual BOOTSEL.
+Verified the RP2350 by-id disk and INFO_UF2, mounted it, stopped the old shared
+mirror and copied the repaired UF2. After restart, restored the visible
+Konsole mirror with explicit RP2350 target/by-id port. No INI/history or other
+SD files were transferred. Prior CP/M program state was lost on restart.
+
+Petr reports "yup, we are green". The restored mirror independently shows:
+
+----
+Build 7xtgv-runcpm-v2 / 260925-0011
+Terminal profile .....OK
+Terminal history .....OK
+A0>
+----
+
+This confirms the corrected firmware boots through SD/INI/history loading to
+CCP and the display is visible. It is not yet complete RP2_2 regression of all
+palettes, backlight/ramp levels, zoom/pan or DEC graphics. Those remain the
+next short user test checklist. W535/W550 were not rebuilt in this repair.
+
+This fix and the preceding RP2_2 host-target/build-only changes are a natural
+small follow-up commit checkpoint; no commit or push has been performed here.
+
+== New-device retest checklist, updated 260925
+
+This makes the earlier broad checklist concrete. A successful boot does not
+complete these checks, and acceptance on W535 does not transfer to RP2_2.
+
+[cols="1,3,5",options="header"]
+|===
+|Priority |Check |Evidence or remaining observation
+|1 |Correct target and SD startup
+|RP2350 USB identity, RP2_2 target build, 260925-0011 banner, profile/history OK
+and CCP prompt confirmed. Keep exact upload target distinct from shared INI
+display ID; manual BOOTSEL and a target-matched UF2 remain required.
+|1 |Backlight usable range and curve
+|Pending tuning: OFF=0 genuinely dark; level 1 dim but legible; monotonic,
+usefully spaced steps through 30; only 31 full ON. PgDn/PgUp stop at 1/31.
+Check white and dark paper, especially in darkness; observe any flicker/jump.
+|1 |Boot and saved brightness
+|After normal shutdown/power-cycle with SD: no bright flash before the theme,
+configured ramp duration and final saved brightness. Test a low and a high
+target; a brightness key during ramp must cancel it without corrupting the
+saved setting. This timing/visual coverage is not established by the boot smoke.
+|1 |Shared-card geometry and HAL display
+|Petr confirms horizontal panning works at zoom 1 on 260925. Higher zooms
+and the remaining geometry checks are still pending: correct RP2_2 section,
+rotation, clipping and row count at each configured
+zoom. Check both pan edges and gutter/cursor placement. Logical width controls
+application layout; the physical viewport may be narrower. Existing pan is
+edge-to-edge, not stepped access to every middle region of a very narrow view.
+|2 |Palettes and DEC
+|All six presets: sixteen inks against four papers, plus cursor, active line
+and pan gutter. VTESTS item 4: continuous joins, junctions, scanlines/patterns,
+all 32 positions and TFT/mirror agreement. Six control pictures and approximate
+pi/pound remain known limitations; do not count them as newly broken glyphs.
+|2 |Input, profiles and history
+|Ordinary input, main-row/keypad shortcuts, zoom and pan keys, MBASIC/TP profile
+selection, recall and history persistence. Check that encoded host events do
+not appear as literal CP/M command text as they did with the old firmware.
+|2 |Transfers, redraw and SD writes
+|Send/receive a disposable file on an 80-column logical terminal; no repeated
+full clears, correct target name/DU, and original profile/RAW state restored.
+No routine full readback is required. Do not overwrite INI/history for this test.
+Reattach the mirror and check that device use without the PC remains possible.
+|===
+
+=== Backlight observation and proposed next trial
+
+Petr reports the RP2_2 curve also needs adjustment and suggests W535's curve.
+The current RP2_2 HAL still has the original ladder: level 1 is duty *51/255*,
+level 30 is 253, and level 31 is 255. It has not inherited W535 tuning.
+W535's accepted table starts at *1/255*, follows a gamma-2.2 approximation with
+a distinct-step floor, and uses 237 at level 30 and 255 at level 31.
+
+Recommendation: use the W535 table as an RP2_2-only trial, then confirm whether
+duty 1 is actually legible on this panel and whether the steps feel even. These
+are electrical duty values, not measured percentages of perceived brightness.
+If minimum 1 is too dim or steps bunch up, tune the RP2_2 table independently;
+do not modify the accepted W535 table or palette RGB values to compensate.
+No backlight table, INI or firmware artifact was changed during this checklist
+update. Applying the trial and rebuilding/flashing remain a next task.
+
+=== Approved curve trial rebuilt, not yet flashed
+
+Petr subsequently approved trying the W535 curve and requested a rebuild.
+Copied its 32 values into the independent RP2_2 HAL table; W535/W550 tables
+and INI are unchanged. All three HAL selections pass the backlight test with
+both normal and inverted polarity (six runs), covering monotonic steps,
+endpoints, startup hold, ramp/timer wrap and cancellation.
+
+Target-aware build *260925-0045* succeeded and is staged as RP2_2 `new`.
+Program storage/static RAM remain 279,368 / 161,324 bytes. UF2 SHA-256:
+
+----
+c858067aa9418e147c52f3a00ead990161500de1a12605f31f3791eb69beeeea
+----
+
+The preceding successfully booted 260925-0011 candidate is retained under
+`rp2350-touch-lcd-2/260925-0045 unverified/`; the archive suffix is the generic
+dispatcher label and does not revoke its recorded boot smoke result.
+No flash/reset/transfer or mirror interruption occurred during this rebuild.
+After a separately requested manual BOOTSEL flash, check minimum-level
+legibility, step spacing, full ON and CRT ramp. Curve acceptance is pending.
+
+== Petr's RP2_2 benchmark sample, 260925
+
+Reported while 260925-0011 was still running, before the curve-trial flash:
+
+----
+VTDRV write: 32768 bytes in 2779994 us = 11.51 KiB/s
+VTDRV read : 32768 bytes in 1082384 us = 29.56 KiB/s
+VTDRV verify: PASS
+VTCPU active: 13015509 T-states in 565913 us = 23.00 MHz
+VTCPU quiet : 13015509 T-states in 565844 us = 23.00 MHz
+----
+
+MHz is effective emulated Z80 T-state throughput, not the RP2350 physical
+clock. Active/quiet differ by only 69 us in this sample and round to the same
+rate; it does not prove that display work is free under every workload.
+VTDRV measures the 32 KiB BDOS/storage path, not raw SD bus throughput.
+This is user-reported test evidence, not an agent-run repeated benchmark.
+Petr recalls W535 at approximately 19 MHz for both VTCPU modes. Compared with
+this RP2_2 sample's 23 MHz, that is roughly 21 percent higher effective Z80
+throughput. The W535 figure is approximate and conditions were not rechecked;
+this is not a controlled cross-target benchmark or a general speed guarantee.
+
+== Curve-trial flash and REFLASH feedback follow-up
+
+Petr subsequently requested flashing 260925-0045 and entered manual BOOTSEL.
+Verified the RP2350 disk and matching candidate hash, mounted it, stopped the
+shared mirror and copied the UF2. Restored the visible RP2_2 Konsole mirror;
+it reports build 260925-0045, profile/history OK and A0 prompt. Petr confirms
+reflashed and is testing. Curve visual acceptance is still pending. No INI/SD
+file transfer or promotion; prior CP/M session ended on the restart.
+
+Petr found device-triggered REFLASH's silent return confusing and suggested
+an explanatory message. Record a follow-up, not an implemented change:
+keep the shared REFLASH.COM hardware-neutral, and show a clear manual-BOOTSEL
+instruction from a layer that already knows the target (compiled firmware or
+host target metadata). Do not put a physical target into the shared card INI.
+A new guest query/API is not needed solely to display this explanation.
+Where the message appears on TFT/mirror and how host refusal remains visible
+need a small implementation decision; automatic RP2350 reset/upload remains
+outside the current supported path.

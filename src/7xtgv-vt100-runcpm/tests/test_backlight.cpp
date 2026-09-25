@@ -1,4 +1,4 @@
-// Build twice: ordinary polarity and -DGFX_BL_INVERTED=1.
+// Build for each HAL target, ordinary polarity and -DGFX_BL_INVERTED=1.
 #define GFX_BL 15
 #include "../hardware/arduino_7xtgv/backlight.h"
 #include <iostream>
@@ -35,14 +35,23 @@ int main() {
     assert(xtgvBacklightDuty(0) == 0 && xtgvBacklightDuty(31) == 255);
     for (uint8_t level = 1; level <= 31; ++level)
         assert(xtgvBacklightDuty(level) > xtgvBacklightDuty(level - 1));
-#if defined(RUNCPM_TARGET_JC8048W535) && !defined(RUNCPM_TARGET_JC8048W550)
-    assert(xtgvBacklightDuty(1) == 1);
-    for (uint8_t level = 1; level <= 31; ++level) {
-        const int shaped = 1 + int(std::lround(254 * std::pow(double(level - 1) / 30, 2.2)));
-        assert(xtgvBacklightDuty(level) == (shaped < level ? level : shaped));
-    }
-#else
+#if defined(RUNCPM_TARGET_JC8048W550)
     assert(xtgvBacklightDuty(1) == 51 && xtgvBacklightDuty(30) == 253);
+#else
+#if defined(RUNCPM_TARGET_JC8048W535)
+    constexpr int minimum = 1;
+#elif defined(RUNCPM_TARGET_RP2350_LCD_1_47_A)
+    constexpr int minimum = 17;
+#else // RP2_2, including the host-default HAL selection
+    constexpr int minimum = 3;
+#endif
+    assert(xtgvBacklightDuty(1) == minimum);
+    for (uint8_t level = 1; level <= 31; ++level) {
+        const int shaped = minimum + int(std::lround(
+            (255 - minimum) * std::pow(double(level - 1) / 30, 2.2)));
+        const int floor = minimum + level - 1;
+        assert(xtgvBacklightDuty(level) == (shaped < floor ? floor : shaped));
+    }
 #endif
     // Ramp uses HAL table entries; logical/remembered target never traverses
     // transient values. Check all targets and timer wraparound.

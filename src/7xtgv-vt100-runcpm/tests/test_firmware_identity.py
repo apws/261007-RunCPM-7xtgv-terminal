@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import pty
+import subprocess
 import sys
 import tempfile
 import threading
@@ -148,6 +149,34 @@ class DispatcherTests(unittest.TestCase):
             self.assertEqual(self.invoke('--dry-run'), 0)
             guard.assert_not_called()
             cli.assert_not_called()
+
+    def test_bootsel_build_only_is_offline_but_upload_paths_remain_blocked(self):
+        target = 'rp2350-touch-lcd-2'
+        (self.targets / (target + '.json')).write_text(json.dumps({
+            'method': 'bootsel-uf2', 'profile': target}))
+        calls = []
+        def cli(command, **kwargs):
+            if '--show-properties=expanded' in command:
+                return subprocess.CompletedProcess(command, 0, 'build.extra_flags=\n', '')
+            calls.append(command[1])
+            output = Path(command[command.index('--output-dir') + 1])
+            output.mkdir(parents=True)
+            (output / 'test.uf2').write_bytes(b'fixture')
+            return subprocess.CompletedProcess(command, 0)
+        with patch.object(reflash, 'resolve_port') as port, \
+                patch.object(reflash, 'require_target') as guard, \
+                patch.object(reflash.subprocess, 'run', side_effect=cli):
+            self.assertEqual(self.invoke('--target', target, '--build-only'), 0)
+            port.assert_not_called()
+            guard.assert_not_called()
+        self.assertEqual(calls, ['compile'])
+        self.assertTrue((self.images.parent / target / 'new/test.uf2').is_file())
+        with patch.object(reflash.subprocess, 'run') as runner:
+            for args in ((), ('--build',), ('--current',), ('--promote-new',),
+                         ('--restore', 'archive')):
+                with self.subTest(args=args), self.assertRaises(SystemExit):
+                    self.invoke('--target', target, *args)
+            runner.assert_not_called()
 
     def test_manual_target_must_match_selected_target(self):
         with self.assertRaises(SystemExit):

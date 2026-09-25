@@ -7,6 +7,8 @@
 #include "jc8048w550_backlight.h"
 #elif defined(RUNCPM_TARGET_JC8048W535)
 #include "jc8048w535_backlight.h"
+#elif defined(RUNCPM_TARGET_RP2350_LCD_1_47_A)
+#include "pico_rp2350_lcd_1_47_a_backlight.h"
 #else
 #include "pico_rp2350_touch_lcd_2_backlight.h"
 #endif

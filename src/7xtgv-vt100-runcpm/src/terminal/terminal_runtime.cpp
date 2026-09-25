@@ -1217,7 +1217,6 @@ static void diskActivityIndicatorPoll() {
     diskIndicatorVisible = visible;
     diskIndicatorDirty = true;
     if (!visible && !plotOwns) {
-        terminal.dirty[terminal.index(terminal.viewport, 0)] = true;
         terminal.indicatorDirty = true;
     }
 }
@@ -1565,6 +1564,13 @@ static void showHistoryBank(uint8_t bank, bool peek) {
     writeHistoryNotice();
 }
 static void setRawInputMode(bool enabled) {
+    // The host enters RAW before VTPUT/VTGET. Queue sync on the storage
+    // owner; never touch SD from this display/input core. Direct INI access
+    // additionally forces a synchronous save in the filesystem abstraction.
+    if (enabled) {
+        terminalConfigForceSave();
+        terminalHistoryForceSave();
+    }
     rawControlLength = 0;
     rawInputMode = enabled;
     if (history)
@@ -1610,6 +1616,25 @@ static void drawIndicator() {
         : (global.gutterOverride ? profileRGB(global.viewportGutterRGB) : terminal.palette.gutter);
     gfx->fillRect(x, GFX_OFS_Y, presentationGutter, gfx->height(), rgb565(color));
 }
+static void restoreDiskIndicatorBacking() {
+    // Restore all cells touched by the fixed-pixel 6x6 overlay, including
+    // row/column boundaries at any zoom. Its HAL offset is not a text row.
+    const int y = 1 + vt::displayHalDefaults().diskIndicatorYOffset;
+    const int origin = terminal.viewport ? 0 : presentationGutter;
+    gfx->fillRect(GFX_OFS_X + 1, GFX_OFS_Y + y, 6, 6,
+                  rgb565(terminal.palette.paper[0]));
+    if (presentationGutter && !terminal.viewport)
+        drawIndicator();
+    const int width = 6 * terminal.zoom, height = 10 * terminal.zoom;
+    const int left = std::max(0, 1 - origin);
+    const int right = std::min(7 - origin, terminal.visibleCols * width);
+    for (int row = y / height; row <= (y + 5) / height && row < terminal.rows; ++row)
+        for (int col = left / width; left < right && col <= (right - 1) / width; ++col) {
+            const int covered = terminal.index(terminal.viewport + col, row);
+            drawCell(covered);
+            terminal.dirty[covered] = false;
+        }
+}
 static void retireDiskIndicatorForPlot() {
     if (!diskIndicatorVisible)
         return;
@@ -1619,13 +1644,7 @@ static void retireDiskIndicatorForPlot() {
     diskIndicatorDirty = false;
     if (!displayOK)
         return;
-    if (presentationGutter && !terminal.viewport) {
-        drawIndicator();
-    } else {
-        const int covered = terminal.index(terminal.viewport, 0);
-        drawCell(covered);
-        terminal.dirty[covered] = false;
-    }
+    restoreDiskIndicatorBacking();
     requestDisplayFlush();
 }
 static void renderBatch() {
@@ -1673,21 +1692,16 @@ static void renderBatch() {
         terminal.indicatorDirty = false;
     }
     if (!diskIndicatorVisible && diskIndicatorDirty && !plotOwnsPixels()) {
-        // Restore whichever surface lies under the fixed top-left LED.
-        if (presentationGutter && !terminal.viewport) {
-            drawIndicator();
-        } else {
-            const int covered = terminal.index(terminal.viewport, 0);
-            drawCell(covered);
-            terminal.dirty[covered] = false;
-        }
+        restoreDiskIndicatorBacking();
         requestDisplayFlush();
     }
     // Compact displays have no taskbar, so overlay one plain, bright 6x6
-    // top-left activity LED. Its expiry above restores the underlying gutter
+    // HAL-positioned activity LED. Its expiry restores the underlying gutter
     // or text cell immediately; retained graphics plots are never touched.
     if (diskIndicatorVisible && (diskIndicatorDirty || drawn)) {
-        gfx->fillRect(GFX_OFS_X + 1, GFX_OFS_Y + 1, 6, 6, 0xf800);
+        gfx->fillRect(GFX_OFS_X + 1,
+                      GFX_OFS_Y + 1 + vt::displayHalDefaults().diskIndicatorYOffset,
+                      6, 6, 0xf800);
         requestDisplayFlush();
     }
     diskIndicatorDirty = false;

@@ -11,7 +11,7 @@ inline void runCPMHardwareReboot() {
     ESP.restart();
 }
 
-#elif defined(RUNCPM_TARGET_RP2350_TOUCH_LCD_2)
+#elif defined(RUNCPM_TARGET_RP2350_TOUCH_LCD_2) || defined(RUNCPM_TARGET_RP2350_LCD_1_47_A)
 
 inline void runCPMHardwareReboot() {
     // Arduino-Pico implements this as a watchdog whole-chip warm reboot.

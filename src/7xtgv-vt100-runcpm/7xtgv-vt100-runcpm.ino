@@ -6,6 +6,8 @@
 #if !defined(RUNCPM_HEADLESS)
 #include "src/terminal/terminal_runtime.h"
 #include "src/terminal/display_policy.h"
+#include "src/terminal/boot_warning.h"
+#include "src/terminal/ini_text.h"
 #endif
 
 //TODO MIXWORX
@@ -22,10 +24,11 @@
 #include "hardware/arduino_7xtgv/jc8048w535_sdmmc.h"
 #elif defined(RUNCPM_TARGET_JC8048W550)
 #include "hardware/arduino_7xtgv/jc8048w550_sd_spi.h"
+#elif defined(RUNCPM_TARGET_RP2350_LCD_1_47_A)
+#include "hardware/arduino_7xtgv/pico_rp2350_lcd_1_47_a_sd_spi.h"
 #else
 #include "hardware/arduino_7xtgv/pico_rp2350_touch_lcd_2_sd_spi.h" // WAVESHARE-rp2350-touch-lcd-2
 #endif
-//#include "hardware/arduino_7xtgv/pico_rp2350_lcd_1_47_sd_spi.h" // WAVESHARE-rp2350-lcd-1-47
 
 
 
@@ -132,6 +135,7 @@ static File openTerminalHistory() {
 static bool writeTerminalHistoryByte(void *context, uint8_t byte) {
     return static_cast<File *>(context)->write(byte) == 1;
 }
+
 bool terminalHistoryStoragePoll() {
     if (!terminalHistorySaveDue())
         return true;
@@ -173,128 +177,94 @@ bool terminalHistoryStoragePoll() {
     return saved;
 }
 
-static bool configEqualNoCase(const char *left, const char *right) {
-    while (*left && *right) {
-        char a = *left++, b = *right++;
-        if (a >= 'A' && a <= 'Z') a = char(a - 'A' + 'a');
-        if (b >= 'A' && b <= 'Z') b = char(b - 'A' + 'a');
-        if (a != b) return false;
+// Accessed only by the RunCPM/storage owner. Runtime keeps the small parsed
+// settings snapshot; this buffer preserves the complete human-authored file.
+static vt::IniText terminalConfigText;
+static bool terminalConfigGuestWriting = false;
+
+static bool readTerminalConfigText(File &source) {
+    const size_t size = source ? source.size() : 0;
+    uint8_t *data = terminalConfigText.beginLoad(size);
+    if (!data) return false;
+    for (size_t offset = 0; offset < size;) {
+        const size_t count = size - offset < 512 ? size - offset : 512;
+        if (source.read(data + offset, count) != int(count)) return false;
+        offset += count;
     }
-    return !*left && !*right;
+    terminalConfigText.finishLoad();
+    return true;
 }
 
-static bool configLineIsKey(const char *line, const char *key) {
-    while (*line == ' ' || *line == '\t') ++line;
-    while (*key) {
-        if (!*line) return false;
-        char a = *line++, b = *key++;
-        if (a >= 'A' && a <= 'Z') a = char(a - 'A' + 'a');
-        if (a != b) return false;
-    }
-    while (*line == ' ' || *line == '\t') ++line;
-    return *line == '=';
+static bool loadTerminalConfigText() {
+    File source = SD.open(TerminalConfigPath, FILE_READ);
+    const bool loaded = (bool(source) || !SD.exists(TerminalConfigPath)) &&
+                        readTerminalConfigText(source);
+    if (source) source.close();
+    if (!loaded) terminalConfigText.invalidate();
+    return loaded;
 }
 
-static bool writeConfigSettings(File &source, File &target, uint8_t level,
-                                uint8_t zoom, const char *displayId, uint8_t palette) {
-    char line[192];
-    size_t length = 0;
-    bool valid = true;
-    bool overlong = false, skippedCR = false;
-    bool logicalEof = false;
-    bool wroteZoom = false, wroteBacklight = false, wrotePalette = false;
-    size_t bytesRead = 0;
-    enum Section : uint8_t { Other, Global, Display } section = Other;
-    char displaySection[24];
-    snprintf(displaySection, sizeof(displaySection), "[display:%s]", displayId);
-    auto flushLine = [&](int ending) {
-        line[length] = 0;
-        const char *text = line;
-        while (*text == ' ' || *text == '\t') ++text;
-        size_t textLength = strlen(text);
-        while (textLength && (text[textLength - 1] == ' ' || text[textLength - 1] == '\t'))
-            --textLength;
-        if (!overlong && *text == '[' && textLength < sizeof(line)) {
-            char heading[sizeof(line)];
-            memcpy(heading, text, textLength);
-            heading[textLength] = 0;
-            section = configEqualNoCase(heading, "[global]") ? Global :
-                      configEqualNoCase(heading, displaySection) ? Display : Other;
-        }
-        const bool backlightKey = !overlong && section == Global &&
-                                  configLineIsKey(line, "backlight_level");
-        const bool zoomKey = !overlong && section == Display &&
-                             configLineIsKey(line, "view_zoom");
-        const bool paletteKey = !overlong && section == Global && configLineIsKey(line, "mode_palette");
-        const bool duplicate = (backlightKey && wroteBacklight) || (zoomKey && wroteZoom) ||
-                               (paletteKey && wrotePalette);
-        if ((backlightKey || zoomKey || paletteKey) && !duplicate) {
-            char replacement[48];
-            const int count = backlightKey
-                ? snprintf(replacement, sizeof(replacement), "backlight_level=%u", unsigned(level))
-                : paletteKey ? snprintf(replacement, sizeof(replacement), "mode_palette=%u", unsigned(palette))
-                             : snprintf(replacement, sizeof(replacement), "view_zoom=%u", unsigned(zoom));
-            valid = valid && count > 0 && size_t(count) < sizeof(replacement) &&
-                    target.write(reinterpret_cast<const uint8_t *>(replacement), size_t(count)) == size_t(count);
-            if (ending >= 0) valid = valid && target.write(uint8_t(ending)) == 1;
-            if (backlightKey) wroteBacklight = true;
-            else if (paletteKey) wrotePalette = true;
-            else wroteZoom = true;
-        } else if (!duplicate) {
-            valid = valid && target.write(reinterpret_cast<const uint8_t *>(line), length) == length;
-            if (ending >= 0) valid = valid && target.write(uint8_t(ending)) == 1;
-        }
-        length = 0;
-        overlong = false;
-        return duplicate;
-    };
-    while (source.available() && valid) {
-        const int byte = source.read();
-        if (byte < 0) { valid = false; break; }
-        ++bytesRead;
-        if (byte == 0x1a) { logicalEof = true; break; }
-        if (byte == '\n' && skippedCR) { skippedCR = false; continue; }
-        if (byte == '\r' || byte == '\n') {
-            skippedCR = flushLine(byte) && byte == '\r';
-        } else if (length + 1 < sizeof(line)) {
-            skippedCR = false;
-            line[length++] = char(byte);
-        } else {
-            // Existing INI lines are parser-limited to this size. Preserve an
-            // unexpected overlong line rather than truncating it silently.
-            valid = valid && target.write(reinterpret_cast<const uint8_t *>(line), length) == length &&
-                    target.write(uint8_t(byte)) == 1;
-            length = 0;
-            overlong = true;
-            skippedCR = false;
-        }
+static bool updateConfigSettings(vt::IniText &text, uint8_t level,
+                                 uint8_t zoom, const char *displayId, uint8_t palette) {
+    char display[24], value[4];
+    snprintf(display, sizeof(display), "display:%s", displayId);
+    snprintf(value, sizeof(value), "%u", unsigned(zoom));
+    if (!text.set(display, "view_zoom", value)) return false;
+    snprintf(value, sizeof(value), "%u", unsigned(level));
+    if (!text.set("global", "backlight_level", value)) return false;
+    snprintf(value, sizeof(value), "%u", unsigned(palette));
+    return text.set("global", "mode_palette", value);
+}
+
+static bool writeTerminalConfigText(File &target) {
+    for (size_t offset = 0; offset < terminalConfigText.size();) {
+        const size_t remaining = terminalConfigText.size() - offset;
+        const size_t count = remaining < 512 ? remaining : 512;
+        if (target.write(terminalConfigText.data() + offset, count) != count) return false;
+        offset += count;
     }
-    if (source && !logicalEof && bytesRead != source.size())
-        valid = false;
-    if (valid && length) flushLine(-1);
-    if (!wroteZoom) {
-        char saved[64];
-        const int count = snprintf(saved, sizeof(saved),
-                                   "\r\n[display:%s]\r\nview_zoom=%u\r\n",
-                                   displayId, unsigned(zoom));
-        valid = valid && count > 0 && size_t(count) < sizeof(saved) &&
-                target.write(reinterpret_cast<const uint8_t *>(saved), size_t(count)) == size_t(count);
+    return target.write(uint8_t(0x1a)) == 1;
+}
+
+static bool verifyTerminalConfigText(File &source) {
+    if (!source || source.size() != terminalConfigText.size() + 1) return false;
+    uint8_t block[512];
+    for (size_t offset = 0; offset < terminalConfigText.size();) {
+        const size_t remaining = terminalConfigText.size() - offset;
+        const size_t count = remaining < sizeof(block) ? remaining : sizeof(block);
+        if (source.read(block, count) != int(count) ||
+            memcmp(block, terminalConfigText.data() + offset, count)) return false;
+        offset += count;
     }
-    if (!wroteBacklight) {
-        char saved[48];
-        const int count = snprintf(saved, sizeof(saved),
-                                   "\r\n[global]\r\nbacklight_level=%u\r\n", unsigned(level));
-        valid = valid && count > 0 && size_t(count) < sizeof(saved) &&
-                target.write(reinterpret_cast<const uint8_t *>(saved), size_t(count)) == size_t(count);
+    return source.read() == 0x1a;
+}
+
+// Called before guest access, including VTPUT/VTGET's ordinary BDOS calls.
+// Flush before the first read/mutation; never save over an open guest writer.
+static bool terminalConfigFileAccess(const char *path, bool writing) {
+    if (!vt::IniText::samePath(path, TerminalConfigPath)) return true;
+    if (!terminalConfigGuestWriting) {
+        terminalConfigForceSave();
+        if (!terminalConfigStoragePoll()) return false;
     }
-    if (!wrotePalette) {
-        char saved[48];
-        const int count = snprintf(saved, sizeof(saved),
-                                   "\r\n[global]\r\nmode_palette=%u\r\n", unsigned(palette));
-        valid = valid && count > 0 && size_t(count) < sizeof(saved) &&
-                target.write(reinterpret_cast<const uint8_t *>(saved), size_t(count)) == size_t(count);
+    if (writing) {
+        terminalConfigText.invalidate();
+        terminalConfigGuestWriting = true;
     }
-    return valid && target.write(uint8_t(0x1a)) == 1;
+    return true;
+}
+
+static void terminalConfigFileClosed(const char *path) {
+    if (!vt::IniText::samePath(path, TerminalConfigPath) || !terminalConfigGuestWriting) return;
+    terminalConfigGuestWriting = false;
+    loadTerminalConfigText(); // text only; live profiles still reload on reboot
+}
+
+static void terminalConfigGuestIdle() {
+    // Also covers ERA, rename-based editors and programs which warm-boot
+    // without closing their FCB. Never reload a partial transfer at a key wait.
+    terminalConfigGuestWriting = false;
+    if (!terminalConfigText.valid()) loadTerminalConfigText();
 }
 
 static bool writeTerminalConfigErrorReport() {
@@ -336,6 +306,8 @@ bool terminalConfigStoragePoll() {
     uint8_t level = 0, zoom = 0, palette = 0;
     if (!terminalConfigSaveDue(level, zoom, &palette))
         return true;
+    if (terminalConfigGuestWriting)
+        return false; // defer even explicit SYNC until guest close/CCP
     terminalPause(true);
     // A last key could have arrived between the due check and pause. Recheck
     // the settled snapshot now that its producing core cannot mutate it.
@@ -344,18 +316,18 @@ bool terminalConfigStoragePoll() {
         return true;
     }
     terminalDiskActivity(true);
-    if (SD.exists(TerminalConfigNewPath))
-        SD.remove(TerminalConfigNewPath);
-    File source = SD.open(TerminalConfigPath, FILE_READ);
-    File target = SD.open(TerminalConfigNewPath, O_CREAT | O_WRITE);
-    bool saved = bool(target) && (!SD.exists(TerminalConfigPath) || bool(source)) &&
-                 writeConfigSettings(source, target, level, zoom, vt::displayHalDefaults().id, palette);
-    if (source) source.close();
+    bool saved = (terminalConfigText.valid() || loadTerminalConfigText()) &&
+                 updateConfigSettings(terminalConfigText, level, zoom, vt::displayHalDefaults().id, palette);
+    // Do not open/truncate any destination until the complete RAM edit exists.
+    if (saved && SD.exists(TerminalConfigNewPath))
+        saved = SD.remove(TerminalConfigNewPath);
+    File target;
+    if (saved) target = SD.open(TerminalConfigNewPath, O_CREAT | O_WRITE);
+    saved = saved && bool(target) && writeTerminalConfigText(target);
     if (target) { target.flush(); target.close(); }
     if (saved) {
         File verification = SD.open(TerminalConfigNewPath, FILE_READ);
-        saved = bool(verification) && verification.size() > 0 &&
-                verification.seek(verification.size() - 1) && verification.read() == 0x1a;
+        saved = verifyTerminalConfigText(verification);
         if (verification) verification.close();
     }
     if (saved) {
@@ -543,11 +515,20 @@ static void runCPM() {
             SD.rename(TerminalConfigBackupPath, TerminalConfigPath);
         terminalPause(true);
         File profileFile = SD.open(TerminalConfigPath, FILE_READ);
+        const bool cached = (bool(profileFile) || !SD.exists(TerminalConfigPath)) &&
+                            readTerminalConfigText(profileFile);
         if (profileFile) {
             profileLoaded = true;
             terminalConfigBegin();
-            while (profileFile.available())
-                terminalConfigFeed(uint8_t(profileFile.read()));
+            if (cached) {
+                for (size_t i = 0; i < terminalConfigText.size(); ++i)
+                    terminalConfigFeed(terminalConfigText.data()[i]);
+            } else if (profileFile.seek(0)) {
+                // Low-memory/oversize fallback may still load the profile;
+                // autosave must wait for a successful full cache load.
+                while (profileFile.available())
+                    terminalConfigFeed(uint8_t(profileFile.read()));
+            }
             profileFile.close();
             profileErrors = terminalConfigEnd();
             mask8bit = terminalConfiguredConsoleBits() == 8 ? 0xff : 0x7f;
@@ -632,6 +613,8 @@ static void runCPM() {
         } else {
             _puts("COMPILED DEFAULTS\r\n");
         }
+        if (!terminalConfigText.valid())
+            _puts("INI RAM cache unavailable; autosave will retry.\r\n");
         _puts("Terminal history .....");
         _puts(historyLoaded ? "OK\r\n" : "EMPTY\r\n");
 #endif
@@ -653,6 +636,10 @@ static void runCPM() {
             {
                 if (firstCCPStart) {
                     _puts(CCPHEAD);
+#if !defined(RUNCPM_HEADLESS)
+                    vt::writeBootWarning(_puts, vt::displayHalDefaults().bootWarning,
+                                         terminalConfigUsesAnsi());
+#endif
                     firstCCPStart = false;
                 }
                 _PatchCPM();

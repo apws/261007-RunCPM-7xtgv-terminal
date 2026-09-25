@@ -1,0 +1,115 @@
+= Autosave stage timing diagnostic
+:source-highlighter: highlight.js
+
+Petr authorized continuing the stall investigation and agreed to the timing
+test. Background: `260925-12 RP2_147 visual checks and delayed save stalls.adoc`.
+
+== Implementation
+
+Temporary `RUNCPM_TRACE_SAVES=1` is enabled only in the RP2_147 target JSON.
+Other targets compile without timing capture or output. No INI setting,
+new guest command, SD log or transfer is involved. Remove the flag after
+diagnosis; the instrumentation is reusable on RP2_2 if comparison is requested.
+
+Both existing storage polls capture microsecond durations without printing
+while the terminal is paused. After `terminalPause(false)` acknowledges
+resume, they enqueue ordinary terminal output, visible on TFT and mirror.
+The printed total excludes the reporting itself and autosave debounce delay.
+It includes acquiring/releasing the pause and the storage transaction.
+Unsigned subtraction handles microsecond-clock wrap for these short intervals.
+
+Example layout (illustrative values, not device measurements):
+
+----
+SAVE CFG OK bytes=14923 total=4012ms
+ wait=1 open=10 write=3800 ms
+ flush=100 verify=20 ms
+ replace=80 resume=1 ms
+----
+
+`CFG` is INI/settings; `HIST` is the complete retained history file.
+`OK/FAIL` reports the existing save function's result, without strengthening
+or weakening its checks. `SKIP` means a config save ceased being due between
+the first due check and terminal pause. Bytes is the replacement file's
+reported size before close, not cumulative physical sector traffic.
+
+Stages:
+
+* `wait`: terminal pause acquisition.
+* `open`: temporary-file cleanup and opening source/destination as applicable.
+* `write`: serialization or INI copy/update (including its existing source
+  existence check); no altered buffering.
+* `flush`: existing flush/close calls, including source close for config.
+* `verify`: existing reread checks and verification-file close.
+* `replace`: backup/delete/rename/rollback path; config completion bookkeeping.
+* `resume`: terminal resume acknowledgement.
+
+History completion bookkeeping and final activity pulse/report are outside
+the measured interval. The two original transaction orders and file-safety
+checks are preserved. Reports may move the visible prompt because they are
+temporary diagnostic output; no bytes are injected into CP/M keyboard input.
+
+== Host validation
+
+All76 Python tests pass. The new test extracts the actual production save
+poll functions, compiles them with fake storage with tracing off/on, and
+checks identical storage-operation sequences for success, write failure and
+config recheck/skip. Its output sink asserts the terminal is never paused
+when diagnostic output is emitted. A C++ helper test verifies stage arithmetic,
+clock wrap, total/format and failure output. No hardware measurement yet.
+
+== Deployment and user test gate
+
+Changes are not rebuilt or flashed. On a requested rebuild and separate
+manual BOOTSEL flash:
+
+. After startup, allow any initial save report to finish.
+. At CCP enter one simple command, then wait several seconds without typing.
+  Capture the `HIST` timing report (and any `CFG` report).
+. Change backlight by one level, stop touching keys, and capture the `CFG`
+  report after its pause.
+. Note whether more reports/freezes recur when left completely idle.
+
+No extra VTDRV run is necessary. Do not clear history, alter the card,
+disable verification or optimize either save path before reading the results.
+
+== Requested rebuild: 260925-1543
+
+RP2_147 target-aware build succeeded with `RUNCPM_TRACE_SAVES=1` and staged
+as `new`. ELF confirms target, build stamp and timing format string.
+Program282888 bytes; static RAM158516 bytes (30%), leaving365772 bytes before
+runtime allocations and stacks. UF2 SHA-256:
+
+----
+f24adbd9a2d755aec17716acad1868e98c1f609350b82c186c8942b5097b2e92
+----
+
+Not flashed or promoted. No serial access, mirror interruption or SD transfer.
+
+== Subsequent requested flash
+
+Verified BOOTSEL serial D60D9318CF30A586, INFO_UF2 and the hash above;
+copied260925-1543 successfully after stopping the mirror. Serial returned
+at the expected by-id. Restored visible Konsole for RP2_147; mirror shows
+profile/history OK, boot warning and A0. No test commands or SD files sent.
+Candidate remains `new`; restart ended prior CP/M application state.
+Await Petr's command/history and backlight/config timing reports.
+
+== Received measurements and follow-up
+
+Petr subsequently reported CFG14956bytes/3720ms, of which3657ms was write;
+HIST21227 and21230bytes both took163ms, of which54ms was write. The diagnosis
+and approved RAM-backed INI implementation are in
+`260925-16 RAM-backed INI and sequential autosave.adoc`. These are measurements
+of the diagnostic build, not measurements of the new fix. Keep the diagnostic
+flag enabled for the next requested build/hardware comparison.
+
+== Post-fix comparison and retirement
+
+The deployed RAM-backed build produced CFG14957bytes/95ms total/15ms write.
+History remained21229bytes/163ms total/53ms write. Petr confirms the behavior
+is much better and authorized removal of the testing code. The temporary trace
+header, sketch instrumentation, target flag and trace-specific tests were then
+removed. Historical measurements and this document remain as evidence. The
+running build260925-1640 still contains tracing until a separately requested
+trace-free rebuild/reflash; source and target metadata no longer enable it.

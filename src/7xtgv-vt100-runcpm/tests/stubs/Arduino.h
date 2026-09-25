@@ -11,6 +11,8 @@ inline uint32_t micros() { return fakeTime * 1000U; }
 inline void delay(int n) { fakeTime += n; }
 constexpr int OUTPUT = 1, HIGH = 1, LOW = 0;
 inline int backlight = -1;
+struct FakeRP2040 { void restart() { assert(false && "unexpected hardware reboot"); } };
+inline FakeRP2040 rp2040;
 inline void pinMode(int, int) {}
 inline void digitalWrite(int, int) {}
 inline void analogWrite(int pin, int value) {

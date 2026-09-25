@@ -1,0 +1,74 @@
+= RP2_2 backlight minimum duty 3 trial
+:source-highlighter: highlight.js
+
+Follow-up to link:260925-00%20RP2_2%20INI%20initialization%20stack%20repair.adoc[the boot repair and first curve trial].
+
+Petr reports that about level 3 on the deployed 260925-0045 curve is the lowest
+usefully readable full-color setting. On that table level 3 is PWM duty 3.
+Photos show VTPAL PAPER at both pan edges, at full backlight and at this low
+setting. Camera ISO differs (50 versus 200), so they are not a calibrated
+brightness comparison. Low settings are intended for dark surroundings.
+Some light-theme color contrasts remain imperfect but are accepted for now;
+no palette adjustment was requested or made.
+
+Requested change: make logical level 1 use duty 3 and redistribute the remaining
+lit levels up to full ON=255, retaining gamma 2.2 and unique ascending steps.
+
+[source,text]
+----
+duty(0) = 0
+duty(level) = max(level + 2,
+                  3 + round(252 * ((level - 1) / 30)^2.2)), level = 1..31
+
+0, 3, 4, 5, 6, 7, 8, 10, 13, 17, 21, 25, 31, 37, 43, 50,
+58, 66, 75, 85, 95, 106, 118, 130, 143, 157, 172, 187, 203,
+220, 237, 255
+----
+
+Only the RP2_2 HAL table changes. W535 retains its minimum 1 curve; W550 retains
+its minimum 51 table. All values are normalized 8-bit duties before polarity,
+not percentages of perceived luminance. No floating-point calculation is added
+to firmware runtime. INI, palette RGB, saved logical brightness and other device
+state are untouched; after flashing, the same saved level uses the new curve.
+
+All six target/polarity host checks pass, covering endpoints, strict monotonicity,
+startup hold, ramps, timer wraparound and cancellation. The updated test checks
+each module's own minimum and rescaling formula. Rebuild requested; flash is a
+separate manual BOOTSEL step. Visual acceptance of the recalculated curve remains
+pending, especially the new level 1 and spacing through levels 2..10.
+
+Build *260925-0111* succeeded and is staged under
+`build/7xtgv-vt100-runcpm/rp2350-touch-lcd-2/new/` (UF2/ELF/BIN/MAP).
+ELF strings confirm target RP2_2 and this stamp. Program storage/static RAM
+remain 279,368 / 161,324 bytes. UF2 SHA-256:
+
+----
+2d87aa7aefc0d036c509e9d7b2e972630b2381a37fb6d110051deb03276f13d4
+----
+
+Not flashed or promoted. Previous candidate 260925-0045 is archived by the
+dispatcher as `260925-0111 unverified`; the device remains on that earlier
+firmware. Mirror was not interrupted. No commit or push in this task.
+
+== Subsequent requested flash
+
+Petr entered manual BOOTSEL and requested reflash. Verified the RP2350 by-id
+disk, INFO_UF2 and candidate hash above; mounted it, stopped the shared mirror
+and copied 260925-0111. Restored the visible RP2_2 Konsole mirror. Its completed
+boot screen confirms build 260925-0111, profile/history OK and A0 prompt.
+No INI/history or other SD files were transferred; prior CP/M session ended
+on restart. Candidate remains `new`, not promoted. Minimum-duty-3 curve is now
+deployed; visual acceptance of legibility and spacing is still pending.
+
+== Visual acceptance
+
+On 260925 Petr confirmed the deployed curve: "I confirm, its perfect".
+This records visual acceptance of the RP2_2 minimum-duty-3 curve in build
+260925-0111, not instrument calibration or completion of all module retests.
+The candidate remains `new`; no promotion or further hardware work was done.
+
+For a later session Petr proposed two smaller modules ahead of ESP32-P4:
+https://www.waveshare.com/wiki/RP2350-LCD-1.47-A[RP2350-LCD-1.47-A] and
+https://docs.waveshare.com/ESP32-C6-LCD-1.47?variant=ESP32-C6-LCD-1.47[ESP32-C6-LCD-1.47].
+These are user-supplied, unreviewed references; Petr will add specifications.
+No port implementation was started.

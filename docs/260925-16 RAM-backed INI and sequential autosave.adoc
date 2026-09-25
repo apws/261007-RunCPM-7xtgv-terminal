@@ -1,0 +1,233 @@
+= RAM-backed INI and sequential autosave
+:source-highlighter: highlight.js
+
+== Measured cause and scope
+
+Follow-up to `260925-15 autosave stage timing diagnostic.adoc` and
+`260925-12 RP2_147 visual checks and delayed save stalls.adoc`.
+Petr supplied these measurements from RP2_147 build260925-1543:
+
+[cols="1,1,1,1,1,1,1,1,1",options="header"]
+|===
+|Save |Bytes |Total ms |Wait |Open |Write |Flush |Verify |Replace/resume
+|CFG |14956 |3720 |1 |13 |3657 |4 |5 |37/1
+|HIST |21227 |163 |1 |9 |54 |4 |54 |37/1
+|HIST |21230 |163 |1 |9 |54 |4 |54 |37/1
+|===
+
+The old INI writer alternated byte/line reads of the original with partial
+writes of its replacement. Installed SdFat2.3.0 uses a volume-shared data
+sector cache: switching back to a source sector evicts/flushes the dirty
+destination sector repeatedly. This is an SD filesystem cache, not a CPU
+cache or a cross-core race. The timings isolate the expensive copy/write
+stage; improvement still needs measurement after the fix is deployed.
+Both RP2350 ports use this backend. No measured RP2_2 comparison establishes
+that the defect was exclusive to RP2_147; ESP32 storage backends differ.
+
+Petr approved keeping the complete INI text in RAM, lazy synchronization,
+and considering synchronization before transfers. No firmware build,
+flash, card-file transfer, commit or promotion is implied by this change.
+
+== Representation and ownership
+
+`src/terminal/ini_text.h` provides a reusable `vt::IniText` with one owned,
+growable byte array. It is not a map/registry of all parsed keys. Existing
+runtime structures still hold parsed profiles and immediately updated
+backlight/zoom/palette values. Those three values are folded into the text
+when a debounced or forced save runs; the same storage-owner call then
+writes that text. No string formatting or SD access is added to key handling.
+
+* Load once at boot, parse from RAM, retain the text. Subsequent normal saves
+  do not reopen/read the original INI.
+* Allocate approximately file size plus256-byte growth rounding, not a
+  permanent64KiB block. Current INI needs roughly15KiB plus small headroom.
+* The defensive maximum is64KiB, including room needed for edits; all
+  allocation failures are checked. Oversize/read/allocation failure keeps the
+  cache invalid and refuses destructive save. Boot can still try the existing
+  streaming parser and reports unavailable cache; saves retry later.
+* Perform linear scans and in-place edits (`memmove`), without a second full
+  INI allocation. Preserve comments, unrelated sections/keys and existing
+  CR/LF/CRLF. Replace the first managed key, remove duplicates, append missing
+  sections/keys. Preserve overlong lines, but do not interpret them as keys.
+* Exclude the first Ctrl-Z and any following CP/M record padding from the
+  in-memory logical text. Serialized files end with one Ctrl-Z.
+* Only RunCPM's storage owner accesses this buffer. Runtime's small settings
+  snapshot remains atomic; terminal pause protects save snapshot/completion.
+* Existing1500ms settings debounce and2000ms history debounce remain. History
+  serialization is not changed; its measured163ms transaction is separate.
+
+== Save safety and cache coherence
+
+Write RAM sequentially in512-byte chunks to `A0:7XTCFG.NEW`, flush/close, then
+read that file sequentially and compare its complete length/content/EOF
+against RAM. This strengthens the old EOF-only INI check without alternating
+reads and writes. Keep the existing `.BAK` rename/rollback and boot recovery.
+An unsuccessful edit/write/verify/rename never replaces the original with a
+partial buffer. Pending settings remain retryable.
+
+Guest access to `A/0/7XTGVTRM.INI` is recognized case-insensitively, including
+the optional `./` or `/` prefix. Other DUs/files are unaffected.
+
+. Before the first guest open or mutation, force pending INI settings to disk.
+  Failed sync refuses that access. This includes the existing VTPUT/VTGET
+  helpers' normal BDOS file operations; no new COM binary is required.
+. Invalidate the text when a guest creates, writes, extends, truncates,
+  deletes or renames the INI. Defer autosave, including explicit SYNC, while
+  a guest writer is active. A record-level host close is *not* a guest close.
+. Refresh text after the modified INI's logical BDOS close. Returning to the
+  internal CCP also refreshes invalid text, covering ERA, rename-style editors
+  and aborted programs without a close. Failed refresh leaves cache invalid.
+. This refresh only updates the preserved text, not active terminal profiles
+  or palettes. `REBOOT` still applies an uploaded/edited INI. Later setting
+  changes continue to persist current runtime zoom/backlight/palette values.
+
+Entering RAW (normal host-transfer preparation) also requests early settings
+and history sync on the storage owner. That request is asynchronous; the INI
+filesystem access guard is the synchronous guarantee for that file. It is
+not a Linux `sync` command, does not require `SYNC.COM` on the card, and is
+not a new acknowledged generic transfer protocol. `--no-raw` still gets the
+INI file-access guard. The CCP fallback is for the supported internal CCP;
+an external CCP would need an equivalent abort/idle boundary.
+
+== Future file split (note, not implemented)
+
+The shared INI may later be split into several files. Reuse this text-buffer
+handling with one instance/dirty lifecycle per loaded file, appropriate size
+limits and transaction names, and the same external-write invalidation rules.
+Do not introduce separate ad-hoc parsers or read/write alternation for each
+file. No split, new schema or general registry is implemented now.
+
+== Host checks and pending hardware gate
+
+All80 Python tests pass, including the production settings edits and storage
+polls compiled against fake storage: repeated saves without source rereads,
+comment/other-HAL preservation, duplicates, line endings, Ctrl-Z padding,
+oversize/open/short-read/write/verify/rename failures, rollback, forced sync,
+other-DU isolation, partial-upload deferral, close refresh and CCP fallback.
+Trace-enabled/disabled storage operation parity also passes.
+
+The new buffer test passes AddressSanitizer/UndefinedBehaviorSanitizer,
+including failed growth without partial edits and1000 changes without repeat
+allocation. Production runtime compiles against peripheral stubs; disk LED
+restoration test passes. The RAW-sync runtime test is recorded after execution
+below. This is not a firmware build or proof of free heap on physical boards.
+
+The RAW-sync runtime test also passes: entering RAW forces pending settings
+and requests history sync; failed forced saves return to the normal retry
+delay, successful saves clear pending state, and RAW-off creates no save.
+
+Petr asked whether this is still all text internally: no. The existing typed
+runtime structures already hold parsed settings, profiles, palettes and key
+bindings for fast use. `IniText` is the preserved serialization source, not
+the renderer/input lookup mechanism. No binary registry file is needed.
+
+The first requested RP2_147 rebuild/reflash kept `RUNCPM_TRACE_SAVES=1` for
+one comparison. Petr's short hardware checklist was:
+
+. Confirm normal boot/profile/history and no unavailable-cache warning.
+. Change backlight, wait for CFG; compare total/write time with3720/3657ms.
+. Repeat a change to confirm the original file is not reread on normal saves.
+. Enter one command and confirm ordinary HIST save still works.
+. At a separately approved transfer, fetch pending settings; upload an INI
+  with an unrelated comment/setting and confirm a later autosave preserves it.
+  Repeat with an on-device editor if convenient. Reboot applies that INI.
+
+Do not mark this fix hardware-tested until the new timings arrive. Terminal
+pause remains around the transaction; removing it is a separate concurrency
+change, not needed to eliminate the alternating-cache access pattern.
+
+== Requested rebuild: 260925-1640
+
+Target-aware RP2_147 build succeeded with `RUNCPM_TRACE_SAVES=1`, staged as
+`build/7xtgv-vt100-runcpm/rp2350-lcd-1-47-a/new`. ELF strings confirm the
+fresh build stamp, timing output and INI-cache failure diagnostic.
+Program283720 bytes; static RAM158544 bytes (30%). The displayed365744-byte
+remainder precedes runtime history/cache allocations and stacks.
+
+UF2 SHA-256:
+
+----
+1560ff850187ff134bea1b4d5746562f94599518e95ceb5681ef08e5a58c7346
+----
+
+No flash, promotion, serial access, mirror interruption or SD-file transfer.
+Manual BOOTSEL and a separate `reflash` request remain the next hardware step.
+
+== Subsequent requested flash
+
+Petr placed the confirmed RP2_147 (`D60D9318CF30A586`) in manual BOOTSEL.
+After stopping the shared mirror, the staged UF2 with the hash above was copied
+to its `RP2350` volume. BOOTSEL exited, but USB did not enumerate again until
+Petr performed one manual power-cycle. The expected serial identity then
+returned as `ttyACM0`, and the visible Konsole mirror was restored.
+
+The restored boot reports12MHz SD, terminal profile `OK`, terminal history
+`OK`, the RP2_147 maximum-backlight warning and `A0>`. It does not report the
+new `INI RAM cache unavailable` warning, so the boot cache load succeeded.
+The candidate remains staged as `new`, not promoted. No CP/M command, file
+transfer or post-fix save timing was generated by the agent. Petr's next
+hardware observation is one backlight change followed by the `SAVE CFG` line.
+
+== Hardware result and diagnostic removal
+
+Petr measured the deployed RAM-backed build:
+
+----
+SAVE HIST OK bytes=21229 total=163ms
+ wait=1 open=9 write=53 ms
+ flush=4 verify=54 ms
+ replace=38 resume=1 ms
+
+SAVE CFG OK bytes=14957 total=95ms
+ wait=1 open=15 write=15 ms
+ flush=6 verify=18 ms
+ replace=37 resume=1 ms
+----
+
+Against the pre-fix CFG14956-byte result of3720ms total/3657ms write, the
+nearly identical14957-byte save is39.2 times faster overall and243.8 times
+faster in its write stage. History remains163ms, as expected. Petr confirms
+the new behavior is much better. This validates the diagnosis and the
+performance outcome on RP2_147; it does not establish timings on every HAL.
+
+At Petr's request, the temporary save-stage implementation, output header and
+its C++/Python trace tests were removed, together with
+`RUNCPM_TRACE_SAVES=1` in the RP2_147 target metadata. The transactional INI
+implementation and its failure/coherence tests remain. The resulting suite is
+79 Python tests plus the INI AddressSanitizer/UndefinedBehaviorSanitizer test.
+No final trace-free rebuild or flash was requested yet; the running1640 image
+still contains the now-finished diagnostic output.
+
+== Requested trace-free rebuild: 260925-1823
+
+The target-aware RP2_147 rebuild succeeded after removal of the temporary
+timing instrumentation and was staged as `new`. Program282056 bytes; static
+RAM158544 bytes (30%). ELF strings confirm build stamp260925-1823 and the
+retained INI-cache failure diagnostic; `SAVE CFG` and `SAVE HIST` strings are
+absent. UF2 SHA-256:
+
+----
+ec7f6c0071918b539279b4fc8726bc4fda80e93c6bf278ee5f08ba97366d9eeb
+----
+
+No flash, promotion, serial access, mirror interruption or SD-file transfer.
+Manual BOOTSEL plus a separate `reflash` request remain required.
+
+== Trace-free flash and final boot
+
+At Petr's request, the confirmed RP2_147 entered manual BOOTSEL. The staged
+260925-1823 UF2 with the hash above was copied after stopping the shared
+mirror. This time USB serial returned without a power-cycle as
+`D60D9318CF30A586`/`ttyACM0`. The visible Konsole mirror was restored; it shows
+12MHz SD, profile/history `OK`, the expected module warning and `A0>`. Petr
+also confirms the device is back. No timing diagnostic text remains in this
+source/build, and the candidate remains `new`, not promoted.
+
+The UF2 format/copy is not intrinsically complicated. Current ceremony comes
+from serial-owner cleanup, manual BOOTSEL mounting, staged-artifact/hash checks,
+USB re-enumeration and restoring the visible mirror. Generic RP2350 BOOTSEL
+identifies a unique chip serial but not the board/display model; current
+`reflash.py` therefore leaves `bootsel-uf2` uploads manual. A future bounded
+tooling improvement may register the BOOTSEL serial against the selected target
+and automate mount/copy/wait/mirror after Petr presses BOOTSEL. It must retain
+the target guard because RP2_2 and RP2_147 accept the same UF2 family.

@@ -6,6 +6,8 @@ inline const char *xtgvFirmwareTarget() {
     return "jc8048w550";
 #elif defined(RUNCPM_TARGET_JC8048W535)
     return "jc8048w535";
+#elif defined(RUNCPM_TARGET_RP2350_LCD_1_47_A)
+    return "rp2350-lcd-1-47-a";
 #elif defined(RUNCPM_TARGET_RP2350_TOUCH_LCD_2) || !defined(ARDUINO)
     return "rp2350-touch-lcd-2";
 #else

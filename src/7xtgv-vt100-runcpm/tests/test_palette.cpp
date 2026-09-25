@@ -56,6 +56,29 @@ int main() {
     load(p,"[global]\nviewport_active_gutter_rgb=1,2,3\n"
            "viewport_active_gutter_rgb=palette\n[bank0]\ncursor_rgb=1,2,3\ncursor_rgb=palette\n");
     assert(!p.errors() && !p.global().activeGutterOverride && !p.get(0).cursorOverride);
+    // Dirty both staging slots, then reuse each. In-place reconstruction must
+    // restore nonzero defaults as well as clear old palette/profile overrides.
+    for (int slot = 0; slot < 2; ++slot) {
+        load(p,"[global]\nmode_palette=9\nbacklight_level=3\ncrt_rampup_ms=900\n"
+               "[palette9]\nink00=1,2,3\npaper0=4,5,6\n"
+               "[bank3]\nname=CHANGED\ncursor_rgb=1,2,3\n");
+        assert(!p.errors() && p.global().modePalette == 9);
+    }
+    for (int slot = 0; slot < 2; ++slot) {
+        load(p,"");
+        assert(!p.errors());
+        assert(p.global().modePalette == 0 && p.global().backlightLevel == 16);
+        assert(p.global().crtRampupMs == 0 && p.global().cursorBlinkMs == 500);
+        assert(!strcmp(p.get(3).name,"TURBO") && !p.get(3).cursorOverride);
+        assert(p.get(1).inputAdapter == vt::InputAdapterMbasicNative);
+        assert(p.get(3).editingSurface == vt::EditingSurfaceScreen);
+        for (uint8_t palette = 0; palette < vt::HistoryProfiles::Palettes; ++palette) {
+            for (uint8_t ink = 0; ink < 16; ++ink)
+                assert(equal(p.palette(palette).ink[ink],mixworx::Ink[ink]));
+            for (uint8_t paper = 0; paper < 4; ++paper)
+                assert(equal(p.palette(palette).paper[paper],mixworx::Paper[paper]));
+        }
+    }
     t.setControlSink(control,nullptr);
     for (bool ansi : {true,false}) {
         t.setMode(ansi); selected=-1; feed(t,"\033[>69;9v"); assert(selected==9);

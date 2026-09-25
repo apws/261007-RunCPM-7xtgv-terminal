@@ -1,4 +1,4 @@
-"""Compile the actual sketch settings writer with a memory-only File adapter."""
+"""Compile the actual settings edits against the owned in-memory INI text."""
 from pathlib import Path
 import subprocess
 import tempfile
@@ -13,8 +13,8 @@ class ConfigSettingsTests(unittest.TestCase):
         cls.directory = tempfile.TemporaryDirectory(prefix="xtgv-config-test-")
         cls.binary = Path(cls.directory.name) / "writer"
         sketch = SKETCH.read_text()
-        functions = sketch.split("static bool configEqualNoCase", 1)[1].split(
-            "static bool writeTerminalConfigErrorReport", 1)[0]
+        functions = sketch.split("static bool updateConfigSettings", 1)[1].split(
+            "static bool writeTerminalConfigText", 1)[0]
         source = r'''
 #include <cstdint>
 #include <cstdio>
@@ -22,33 +22,27 @@ class ConfigSettingsTests(unittest.TestCase):
 #include <iostream>
 #include <iterator>
 #include <string>
-struct File {
-    std::string bytes;
-    size_t pos=0;
-    bool fail=false;
-    explicit operator bool() const { return true; }
-    bool available() const { return pos < bytes.size(); }
-    int read() { return available() ? uint8_t(bytes[pos++]) : -1; }
-    size_t size() const { return bytes.size(); }
-    size_t write(uint8_t byte) { if (fail) return 0; bytes+=char(byte); return 1; }
-    size_t write(const uint8_t *p,size_t n) {
-        if (fail) return 0;
-        bytes.append(reinterpret_cast<const char *>(p),n); return n;
-    }
-};
-''' + "static bool configEqualNoCase" + functions + r'''
+#include "src/terminal/ini_text.h"
+bool failAllocation=false;
+void *resize(void *p,size_t n) { return failAllocation ? nullptr : realloc(p,n); }
+''' + "static bool updateConfigSettings" + functions + r'''
 int main(int argc, char **) {
-    File input,output;
-    input.bytes=std::string(std::istreambuf_iterator<char>(std::cin),{});
-    output.fail=argc>1;
-    if (!writeConfigSettings(input,output,17,2,"rp2_2",3)) return 1;
-    std::cout << output.bytes;
+    const std::string input(std::istreambuf_iterator<char>(std::cin),{});
+    vt::IniText text(resize);
+    failAllocation=argc>1;
+    uint8_t *data=text.beginLoad(input.size());
+    if (!data) return 1;
+    memcpy(data,input.data(),input.size());
+    text.finishLoad();
+    if (!updateConfigSettings(text,17,2,"rp2_2",3)) return 1;
+    std::cout.write(reinterpret_cast<const char *>(text.data()),text.size());
+    std::cout << char(0x1a);
 }
 '''
         path = Path(cls.directory.name) / "writer.cpp"
         path.write_text(source)
         subprocess.run(["g++", "-std=c++17", "-Wall", "-Wextra", "-Werror",
-                        str(path), "-o", str(cls.binary)], check=True)
+                        "-I", str(SKETCH.parent), str(path), "-o", str(cls.binary)], check=True)
 
     @classmethod
     def tearDownClass(cls):
@@ -97,9 +91,18 @@ int main(int argc, char **) {
             self.assertIn(long_line+ending,output)
             self.assertIn(b"mode_palette=3"+ending,output)
 
-    def test_write_failure(self):
+    def test_allocation_failure(self):
         result = subprocess.run([str(self.binary),"fail"],input=b"[global]\nmode_palette=1\n",capture_output=True)
         self.assertEqual(result.returncode,1)
+
+    def test_size_bound(self):
+        result = subprocess.run([str(self.binary)],input=b'x' * 65537,capture_output=True)
+        self.assertEqual(result.returncode,1)
+
+    def test_whitespace_case_and_unterminated_last_key(self):
+        output = self.rewrite(b" [GLOBAL] \n MODE_PALETTE \t=0")
+        self.assertIn(b"mode_palette=3", output)
+        self.assertNotIn(b"=0", output)
 
 
 if __name__ == "__main__":

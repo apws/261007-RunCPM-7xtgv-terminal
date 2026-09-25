@@ -25,7 +25,7 @@ implemented here yet; the current Arduino_GFX painter belongs to the terminal.
 From this directory:
 
 ```sh
-/home/falken/.local/bin/arduino-cli compile --profile rp2350-touch-lcd-2 --output-dir ../../build/build-vt100-runcpm .
+python3 tools/reflash.py --target rp2350-touch-lcd-2 --build-only
 ```
 
 The profile pins Arduino-Pico 5.4.4, Arduino_GFX 1.6.4, SdFat 2.3.0, RP2350A,
@@ -35,14 +35,37 @@ eight-pixel full-height grey gutter on the left at the default viewport (and
 on the right after the right-edge pan). Its RGB value is configured by
 `viewport_gutter_rgb` in `A0:7XTGVTRM.INI`.
 
-Copy `../../build/build-vt100-runcpm/7xtgv-vt100-runcpm.ino.uf2` to the RP2350 BOOTSEL
-volume. The device restarts automatically. Keep the existing CP/M SD card
-inserted. No SD files are changed by firmware installation.
+This stamps and stages the candidate under
+`../../build/7xtgv-vt100-runcpm/rp2350-touch-lcd-2/new/`, without touching the
+device or requiring a serial port. Previous candidates are archived; `current`
+is not changed. Automatic upload remains blocked for this BOOTSEL target.
+
+On a separate flash request, manually enter BOOTSEL and copy that target's
+`new/7xtgv-vt100-runcpm.ino.uf2` to the RP2350 volume. Petr confirms this module
+requires manual BOOTSEL; do not attempt an automatic reset to enter it.
+The device restarts after the copy. Keep the existing CP/M SD card inserted.
+No SD files are changed by firmware installation.
 
 The prior firmware remains at
 `../../build/build-runcpm-backlight/7xtgv_RunCPM.ino.uf2` for rollback.
 
 ## PC keyboard and mirror
+
+### RP2350-LCD-1.47-A port (hardware test pending)
+
+Use `python3 tools/reflash.py --target rp2350-lcd-1-47-a --build-only` for
+this board, never the 2-inch target's UF2. Its separate `new` directory is
+under `build/7xtgv-vt100-runcpm/rp2350-lcd-1-47-a/`. Upload is manual BOOTSEL.
+The same pinned ARM core and libraries are used, with separate SD wiring,
+backlight table and compiled identity. `RP2_147` selects its INI display section.
+Defaults: landscape 320x172, zoom1 terminal 80x16 with a 52-column panned view;
+zoom2/3/4 terminal sizes 40x8, 26x5, 20x4. No INI edit is needed for these defaults
+when the new section is absent. An existing section or application profile's
+explicit geometry can override them. The host's current target is not changed
+merely by adding this port; select it explicitly when launching its mirror.
+See [port notes](../../docs/260925-11%20RP2350%201.47-inch%20HAL%20port.adoc).
+
+### Shared launchers
 
 Enlarge Kitty or Konsole to at least 80×24. The recommended launchers create or
 attach to one shared `tmux` session, so one wrapper owns the serial port while

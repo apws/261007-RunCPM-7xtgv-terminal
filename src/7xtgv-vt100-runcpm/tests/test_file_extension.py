@@ -19,6 +19,7 @@ std::vector<uint8> bytes;
 int writes = 0, closes = 0;
 bool failOpen = false, shortWrite = false, activity = false;
 void _diskActivity(bool value) { activity = value; }
+bool _sys_configAccess(const char *, bool) { return true; }
 struct File {
     bool opened = false;
     operator bool() const { return opened; }

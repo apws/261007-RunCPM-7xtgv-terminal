@@ -78,6 +78,18 @@ typedef struct {
 
 static DirFat_t fileDirEntry;
 
+// Host files are normally opened/closed per 128-byte record, not per guest
+// FCB. The terminal INI cache therefore needs the logical BDOS close too.
+#if !defined(RUNCPM_HEADLESS)
+#define RUNCPM_CONFIG_FILE_CLOSED(path) terminalConfigFileClosed(path)
+#define RUNCPM_CONFIG_GUEST_IDLE() terminalConfigGuestIdle()
+static bool _sys_configAccess(const char *path, bool writing) {
+    return terminalConfigFileAccess(path, writing);
+}
+#else
+static bool _sys_configAccess(const char *, bool) { return true; }
+#endif
+
 bool _sys_exists(uint8 *filename) {
     _diskActivity(true);
     const bool exists = SD.exists((const char *)filename);
@@ -86,6 +98,7 @@ bool _sys_exists(uint8 *filename) {
 }
 
 File _sys_fopen_w(uint8 *filename) {
+    if (!_sys_configAccess((const char *)filename, true)) return File();
     _diskActivity(true);
     File file = SD.open((char *)filename, O_CREAT | O_WRITE);
     _diskActivity(false);
@@ -132,6 +145,7 @@ long _sys_filesize(uint8 *filename) {
 }
 
 int _sys_openfile(uint8 *filename) {
+    if (!_sys_configAccess((const char *)filename, false)) return 0;
     File f;
     int result = 0;
 
@@ -147,6 +161,7 @@ int _sys_openfile(uint8 *filename) {
 }
 
 int _sys_makefile(uint8 *filename) {
+    if (!_sys_configAccess((const char *)filename, true)) return 0;
     File f;
     int result = 0;
 
@@ -161,6 +176,7 @@ int _sys_makefile(uint8 *filename) {
 }
 
 int _sys_deletefile(uint8 *filename) {
+    if (!_sys_configAccess((const char *)filename, true)) return 0;
     _diskActivity(true);
     const int result = SD.remove((char *)filename);
     _diskActivity(false);
@@ -168,6 +184,8 @@ int _sys_deletefile(uint8 *filename) {
 }
 
 int _sys_renamefile(uint8 *filename, uint8 *newname) {
+    if (!_sys_configAccess((const char *)filename, true) ||
+        !_sys_configAccess((const char *)newname, true)) return 0;
     File f;
     int result = 0;
 
@@ -202,6 +220,7 @@ void _sys_logbuffer(uint8 *buffer) {
 #endif
 
 bool _sys_extendfile(char *fn, unsigned long fpos) {
+    if (!_sys_configAccess(fn, true)) return false;
     bool result = true;
     File f;
 
@@ -465,6 +484,7 @@ uint8 _findfirstallusers(uint8 isdir) {
 }
 
 uint8 _Truncate(char *filename, uint8 rc) {
+    if (!_sys_configAccess(filename, true)) return 0;
     File f;
     int result = 0;
 

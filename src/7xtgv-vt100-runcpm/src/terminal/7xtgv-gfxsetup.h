@@ -35,6 +35,8 @@ Arduino_GFX *gfx;
 #define JC8048W535_AXS15231
 #elif defined(RUNCPM_TARGET_JC8048W550)
 #define JC8048W550_ST7262
+#elif defined(RUNCPM_TARGET_RP2350_LCD_1_47_A)
+#define WAVESHARE_RP2350_LCD_1_47
 #else
 #define WAVESHARE_RP2350_LCD_2
 #endif
@@ -187,7 +189,9 @@ Arduino_GFX *gfx;
   #define GFX_SCK  18
   #define GFX_DC   16
   #define GFX_MOSI 19
-  #define GFX_MISO  4 //-1
+  // LCD is write-only, but Arduino_RPiPicoSPI 1.6.4 unconditionally sets
+  // MISO's GPIO function. Keep the prototype's unused SPI0 RX pin, not -1.
+  #define GFX_MISO 4
 
   #define SD_CS    15
 

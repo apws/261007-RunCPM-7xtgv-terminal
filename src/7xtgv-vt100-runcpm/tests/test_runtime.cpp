@@ -140,15 +140,16 @@ int main(int argc, char **argv) {
     assert(ready && backlight == 0 && displayOK);
     terminalBootConfigComplete();
     for (int n = 0; n < 300; ++n) { fakeTime++; terminalLoop(); }
-    assert(ready && backlight == 145 && displayOK);
+    assert(ready && backlight == xtgvBacklightDuty(16) && displayOK);
     // Keep the original regression suite's blink-phase time origin.
     fakeTime = blinkAt = 0;
     cursorPhase = true;
     const int plotBaseX = 0, plotBaseY = 0; // physical panel origin, not text origin
     xtgvBacklightSet(0); assert(backlight == 0);
-    xtgvBacklightAdjust(1); assert(xtgvBacklightGet() == 16 && backlight == 145);
+    xtgvBacklightAdjust(1);
+    assert(xtgvBacklightGet() == 16 && backlight == xtgvBacklightDuty(16));
     xtgvBacklightSet(0);
-    xtgvBacklightSet(1); assert(backlight == 51);
+    xtgvBacklightSet(1); assert(backlight == xtgvBacklightDuty(1));
     xtgvBacklightSet(32); assert(backlight == 255);
     // 32 states include OFF and 31 strictly increasing lit levels. Only the
     // final level is full-on; one step down skips the near-DC duty 254.
@@ -159,9 +160,8 @@ int main(int argc, char **argv) {
         assert(backlight == xtgvBacklightDuty(level));
         if (level < XTGV_BACKLIGHT_MAX_LEVEL) assert(backlight <= 253);
     }
-    assert(xtgvBacklightDuty(29) == 252 && xtgvBacklightDuty(30) == 253);
     xtgvBacklightAdjust(-1);
-    assert(xtgvBacklightGet() == 30 && backlight == 253);
+    assert(xtgvBacklightGet() == 30 && backlight == xtgvBacklightDuty(30));
     xtgvBacklightAdjust(1);
     assert(xtgvBacklightGet() == 31 && backlight == 255);
     for (int i = 0; i < 40; ++i) xtgvBacklightAdjust(1);
@@ -169,13 +169,13 @@ int main(int argc, char **argv) {
     terminalBacklight(32); // legacy protocol full ON
     assert(xtgvBacklightGet() == 31 && backlight == 255);
     for (int i = 0; i < 40; ++i) xtgvBacklightAdjust(-1);
-    assert(xtgvBacklightGet() == 1 && backlight == 51);
+    assert(xtgvBacklightGet() == 1 && backlight == xtgvBacklightDuty(1));
     xtgvBacklightSet(0);
     assert(backlight == 0 && xtgvBacklightGetRemembered() == 1);
     xtgvBacklightAdjust(-1);
-    assert(xtgvBacklightGet() == 1 && backlight == 51);
+    assert(xtgvBacklightGet() == 1 && backlight == xtgvBacklightDuty(1));
     assert(xtgvBacklightDuty(255) == 255);
-    xtgvBacklightSet(16); assert(backlight == 145);
+    xtgvBacklightSet(16); assert(backlight == xtgvBacklightDuty(16));
     // CP/M's A0:REFLASH.COM output event is removed from the TFT terminal
     // stream and forwarded verbatim, between completed mirror updates only.
     Serial.online = true;
@@ -770,7 +770,8 @@ int main(int argc, char **argv) {
     emit("\033[HSTALLED PC STILL DRAWS");
     for (int i = 0; i < 200; i++)
         terminalLoop();
-    assert(output.available() == 0 && terminal.charRAM[0] == 'S' && backlight == 145);
+    assert(output.available() == 0 && terminal.charRAM[0] == 'S' &&
+           backlight == xtgvBacklightDuty(16));
     // Deliberately hostile report flood: replies bounded, output still drains.
     for (int i = 0; i < 400; i++)
         emit("\033[6n");
@@ -810,13 +811,13 @@ int main(int argc, char **argv) {
     xtgvBacklightSet(16);
     for (uint8_t b : std::string("\033[>63;33v")) Serial.rx.push_back(b);
     terminalLoop();
-    assert(xtgvBacklightGet() == 17 && backlight == 158);
+    assert(xtgvBacklightGet() == 17 && backlight == xtgvBacklightDuty(17));
     for (uint8_t b : std::string("\033[>63;34v")) Serial.rx.push_back(b);
     terminalLoop();
-    assert(xtgvBacklightGet() == 16 && backlight == 145);
+    assert(xtgvBacklightGet() == 16 && backlight == xtgvBacklightDuty(16));
     for (uint8_t b : std::string("\033[>63;0v\033[>63;33v")) Serial.rx.push_back(b);
     terminalLoop();
-    assert(xtgvBacklightGet() == 16 && backlight == 145);
+    assert(xtgvBacklightGet() == 16 && backlight == xtgvBacklightDuty(16));
     Serial.rx.push_back('D');
     terminalLoop();
     assert(virtualRead() == 'D');

@@ -73,10 +73,11 @@ def main():
         _, definition = load_target(args.target, TARGETS)
     except RuntimeError as error:
         parser.error(str(error))
-    if definition.get("method") != "arduino-cli":
+    if definition.get("method") != "arduino-cli" and not (
+            args.build_only and definition.get("method") == "bootsel-uf2"):
         parser.error(f"{args.target} requires {definition.get('method', 'an unspecified')} upload workflow")
     try:
-        port = resolve_port(args.port, args.target, definition)
+        port = None if args.build_only else resolve_port(args.port, args.target, definition)
         cli = arduino_cli()
     except RuntimeError as error:
         parser.error(str(error))
@@ -126,8 +127,9 @@ def main():
     upload_dir = candidate_dir if building else (
         current_dir if args.current or args.promote_new or args.restore or not candidate_dir.is_dir()
         else candidate_dir)
-    upload_command = [cli, "upload", "--profile", definition["profile"],
-                      "--port", port, "--input-dir", str(upload_dir), str(ROOT)]
+    upload_command = [] if args.build_only else [
+        cli, "upload", "--profile", definition["profile"],
+        "--port", port, "--input-dir", str(upload_dir), str(ROOT)]
     if building:
         print("7xtgv reflash build:", " ".join(compile_command), flush=True)
     if args.promote_new:
@@ -190,7 +192,8 @@ def main():
             candidate_dir.rename(archive_dir)
         staging_dir.rename(candidate_dir)
         build_dir = candidate_dir
-        upload_command[upload_command.index("--input-dir") + 1] = str(build_dir)
+        if not args.build_only:
+            upload_command[upload_command.index("--input-dir") + 1] = str(build_dir)
     elif not build_dir.is_dir():
         parser.error(f"no stable image for {args.target}: run host reflash with --build first")
     if args.build_only:

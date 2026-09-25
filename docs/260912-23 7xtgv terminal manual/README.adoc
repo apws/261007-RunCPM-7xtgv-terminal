@@ -339,6 +339,23 @@ INI recognition and host delivery are distinct. The supplied Konsole/Kitty keyma
 
 `++7XTGVTRM.INI++` is deliberately CP/M-text friendly: its loader accepts CR, LF, or CR/LF line endings and treats a CP/M Ctrl{plus}Z (`++1Ah++`) as logical end of file. It can therefore be edited as `++A0:7XTGVTRM.INI++` with a CP/M editor, then reloaded by `++REBOOT++`. A delayed, verified transaction updates only the active HAL's `++view_zoom++` and global `++backlight_level++`/`++mode_palette++` after a zoom, brightness or palette change; other settings and other HAL sections remain user-authored. The saved zoom is applied before the CP/M boot banner. The host transfer tool's `++--cpm-text++` mode writes the same CR/LF-plus-Ctrl{plus}Z convention. This applies only to the INI file: do not edit the checksummed native history files (`++7XTGVTRM.BUF++`, `++.NEW++`, or `++.BAK++`) from CP/M.
 
+The firmware retains the INI text in RAM, alongside the existing parsed runtime
+structures. Lazy saves edit that text and write it sequentially through the
+verified temporary-file/backup transaction; normal saves do not reread the
+original INI. Comments and unrelated sections are preserved. Allocation is
+file-sized with small growth room (64KiB defensive ceiling, not a64KiB
+reservation). If a complete cache cannot be loaded, autosave refuses to
+overwrite the file and retries later; boot reports the unavailable cache.
+
+Guest INI access forces pending settings to disk before the first read/write.
+While a guest writes that file, autosave is deferred until logical close or
+return to the internal CCP; the preserved text is then refreshed. This prevents
+stale cached text from undoing an upload/editor change. It does not apply the
+new profiles live: reboot still reloads those settings. Entering RAW for normal
+host transfers also requests early history/settings sync; it is not Linux
+`sync` or a new guest utility requirement. See
+link:../260925-16%20RAM-backed%20INI%20and%20sequential%20autosave.adoc[implementation and pending hardware validation].
+
 === INI diagnostics and syntax limits
 
 Boot continues after recoverable line errors and reports
@@ -412,11 +429,25 @@ There are 32 logical states: OFF=0, intermediate PWM=1..30, full ON=31.
 Each current target has its own HAL duty table. The ramp traverses logical
 levels over the configured duration; it is a stepped effect, not a calibrated
 linear-light fade. Level 1 is intended to mean the lowest usable visible light,
-chosen per display, not a common brightness percentage. W550/RP2350 retain a
+chosen per display, not a common brightness percentage. W550 retains a
 51/255 PWM duty; W535's visually confirmed minimum is 1/255. Its gamma-2.2
 table allocates finer electrical steps near the bottom. Candidate 260924-1549
 was deployed and Petr accepted the curve. This is a visual tuning result,
 not measured perceptual calibration or evidence for other display modules.
+RP2_2 candidate 260925-0045 now tries the same 1/255 gamma-2.2 ladder in its
+own independent HAL table; it is deployed and boots, with visual acceptance pending.
+The preceding RP2_2 build 260925-0011 still uses minimum duty 51/255.
+Following low-light testing, RP2_2 build 260925-0111 rescales gamma 2.2 to a
+minimum duty of 3/255. It is deployed and boots; Petr visually accepted this
+curve on 260925. See
+link:../260925-01%20RP2_2%20backlight%20minimum%20duty%203%20trial.adoc[the curve and deployment status].
+RP2_147 candidate260925-1419 (deployed; visual retest pending) sets its lit
+range to duty17..255, with level0 OFF. Its optional HAL boot warning advises
+avoiding prolonged maximum brightness, once after the CCP header and before
+the first prompt. ANSI uses red paper; VT52 prints plain text. Other current
+HALs have no warning. This precaution is not a verified thermal limit for
+RP2350; see
+link:../260925-14%20RP2_147%20backlight%20minimum%20and%20HAL%20boot%20warning.adoc[the decision and tests].
 With a low target there are
 correspondingly fewer visible steps.
 Normal PgUp/PgDn adjustments stay within 1..31; from OFF they first restore
