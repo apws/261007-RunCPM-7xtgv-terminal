@@ -67,9 +67,10 @@ static void testBoot(const std::string &mode) {
             checkedFrame = true;
             assert(backlight == 0);
             assert(!terminal.compositionDirty);
-            for (int y = 0; y < terminal.rows; ++y)
+            for (int y = 0; y < terminal.visibleRows; ++y)
                 for (int x = 0; x < terminal.visibleCols; ++x)
-                    assert(!terminal.dirty[terminal.index(x + terminal.viewport, y)]);
+                    assert(!terminal.dirty[terminal.index(x + terminal.viewport,
+                                                          y + terminal.rowViewport)]);
             assert(activePalette == (configured ? 1 : 0));
             assert(gfx->framebuffer[319 + 239 * 320] == rgb565(terminal.palette.paper[0]));
 #if defined(GFX_BUFFERED_CANVAS) || defined(GFX_DEFERRED_FLUSH)
@@ -926,6 +927,24 @@ int main(int argc, char **argv) {
             assert(gfx->framebuffer[(y + 1) * 320 + x] == pixel);
             assert(gfx->framebuffer[(y + 1) * 320 + x + 1] == pixel);
         }
+    // A logical height larger than the panel remains intact and can be
+    // panned independently of the full-plane PC mirror.
+    assert(terminal.setGeometry(40, 24, 26, 12, 2));
+    terminal.reset();
+    const int lowerCell = terminal.index(0, 12);
+    terminal.attrRAM[lowerCell] = 0x10;
+    terminal.dirty[lowerCell] = true;
+    terminal.panVertical(1);
+    for (int i = 0; i < 1000; ++i) terminalLoop();
+    assert(terminal.rowViewport == 12);
+    assert(gfx->framebuffer[(GFX_OFS_Y + 5) * 320 + presentationGutter +
+                            GFX_OFS_X + 5] == rgb565(terminal.palette.paper[1]));
+    keyboardKeyEvent(nullptr, {vt::KeyHome, uint8_t(vt::KeyCtrl | vt::KeyShift |
+                                                    vt::KeyAlt)}, nullptr, 0);
+    for (int i = 0; i < 1000; ++i) terminalLoop();
+    assert(terminal.rowViewport == 0);
+    assert(terminal.setGeometry(40, 12, 26, 12, 2));
+    terminal.reset();
     // A selected profile can narrow the logical grid without expanding the
     // fixed physical gutter; the unused panel area remains default paper.
     selectedBank = 0;

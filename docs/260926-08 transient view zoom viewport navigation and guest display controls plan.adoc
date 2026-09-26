@@ -1,0 +1,419 @@
+= Transient view zoom, viewport navigation and guest display controls plan
+:source-highlighter: highlight.js
+
+*Status:* proposed implementation plan, ready for approval +
+*Date:* 260926 +
+*Scope:* separate physical viewing from logical terminal geometry, reorganize
+the compact-view keyboard controls, and add CP/M-visible display diagnostics
+and temporary geometry selection.
+
+== 1. Reason for the change
+
+The first zoom implementation coupled three operations:
+
+* changing the physical glyph scale;
+* selecting the `+zoomN_terminal+` logical geometry;
+* saving the selected `+view_zoom+` back to `+7XTGVTRM.INI+`.
+
+That made the original transition deterministic, but it is inconvenient for
+an installed CP/M application. An 80x24 Turbo Pascal screen does not become a
+different terminal merely because the user temporarily magnifies its pixels.
+Changing the logical geometry underneath such an application can make cursor
+addressing, wrapping and full-screen repaint assumptions disagree.
+
+Petr's RP2_147 test confirms the useful model: retain a complete logical
+terminal, magnify a smaller physical window, and inspect it by manual panning.
+INI geometry remains valuable as a boot preset and as an intentionally selected
+application preset; it must not be an unavoidable side effect of every zoom key.
+
+This plan supersedes the persistence and transition parts of the earlier
+zoom plan where they conflict. It does not replace the integer renderer, HAL
+display identities, statically bounded backing store, per-bank geometry or
+complete PC mirror.
+
+== 2. State model and terminology
+
+Keep these states independent:
+
+[cols="1,3",options="header"]
+|===
+|State |Meaning
+
+|Configured preset
+|The resolved `+view_zoom+` and four `+zoomN_terminal+` values produced from
+HAL defaults, the matching `+[display:ID]+` section and an optional selected
+bank override.
+
+|Logical terminal
+|The active columns and rows seen by the parser and CP/M application. Cursor
+addressing, wrapping, scrolling margins and the complete PC mirror use this
+geometry.
+
+|Physical view zoom
+|The 1x..4x integer scale used only by the TFT renderer.
+
+|Viewport
+|The logical column and row offsets currently visible on the TFT.
+
+|Persistent preferences
+|Settings deliberately written back to INI. Backlight and palette remain
+persistent. Ordinary view zoom and panning become session-temporary.
+|===
+
+`+view_zoom+` remains the boot view zoom. The corresponding configured
+`+zoomN_terminal+` supplies the boot logical geometry. Missing keys continue
+to use HAL defaults, although explicitly listing every target's four presets
+in the shared INI is clearer for humans.
+
+== 3. View-only keyboard zoom
+
+Keyboard zoom changes only the physical scale:
+
+* preserve active columns and rows;
+* preserve all cells, cursor and saved cursor;
+* preserve scrolling margins, tab stops, modes and pending wrap state;
+* recompute visible columns and rows from panel pixels and the new scale;
+* preserve the viewport's top-left logical cell where possible, clamping each
+  offset only when the enlarged visible window makes the old offset invalid;
+* invalidate and repaint the TFT composition;
+* leave the complete PC mirror unchanged because its logical plane did not
+  change;
+* abort or retire an active retained pixel plot before changing scale;
+* do not mark the INI dirty.
+
+This requires a view-only runtime operation separate from
+`+Terminal::setGeometry+`. The latter deliberately clears cells outside the
+old/new intersection and resets margins, tabs, parser state and viewports; it
+must remain the logical-resize path and must not be used for simple
+magnification.
+
+Relative private controls retain their existing numbers and direction:
+
+[source,text]
+----
+CSI > 66 v    zoom in, toward larger glyphs
+CSI > 67 v    zoom out, toward smaller glyphs
+----
+
+Absolute output-side `+CSI > 68 ; z v+` becomes the corresponding temporary
+view-only selection. Values outside 1..4 remain ignored.
+
+== 4. Viewport controls
+
+The primary one-handed view group becomes:
+
+[cols="2,3",options="header"]
+|===
+|Chord |Action
+
+|Ctrl+Shift+Left/Right
+|Previous/next calculated horizontal viewport position.
+
+|Ctrl+Shift+Up/Down
+|Previous/next calculated vertical viewport position.
+
+|Ctrl+Shift+Home/End
+|Previous/next position in a complete row-major viewport scan.
+
+|Ctrl+Shift+PgUp/PgDn
+|Temporary view zoom out/in.
+|===
+
+The existing evenly distributed axis positions remain authoritative. They
+include both exact edges and use enough positions to cover the complete
+logical plane.
+
+For the Home/End overview, combine the horizontal and vertical position arrays
+in row-major order. End advances left-to-right and then top-to-bottom; Home
+does the exact reverse. Both clamp at the first or last view and never wrap.
+On a one-dimensional surface this naturally reduces to the existing stepped
+axis behaviour. Directional arrows change only their own axis.
+
+The controls are global and are consumed before application-profile bindings.
+This intentionally reserves the four Ctrl+Shift arrow chords. The existing
+`+Ctrl+] a/e+` fallback and `+Alt+Shift+Home/End+` compatibility alias remain
+horizontal-only; changing their meaning would silently alter established
+fallback behaviour.
+
+Ctrl+Alt arrows are not selected as the primary mapping. Desktop workspace
+shortcuts and national-layout AltGr handling make them less reliable than the
+final Ctrl+Shift grouping.
+
+No automatic cursor-follow panning is added. The PC mirror continues to show
+the whole logical terminal.
+
+== 5. Backlight control relocation
+
+Fine backlight adjustment moves one modifier farther away because it is used
+less often:
+
+[cols="2,3",options="header"]
+|===
+|Chord |Action
+
+|Ctrl+Shift+Alt+PgUp
+|Raise the backlight one logical level.
+
+|Ctrl+Shift+Alt+PgDn
+|Lower the backlight one logical level.
+|===
+
+The user intends left Alt for this two-hand chord. Konsole cannot distinguish
+left and right Alt in its keytab syntax, so documentation must retain that
+physical-key qualification. Coarse Ctrl+Shift+digit backlight presets remain
+unchanged.
+
+The embedded backlight protocol remains stable:
+
+[source,text]
+----
+CSI > 63 ; 33 v    one level brighter
+CSI > 63 ; 34 v    one level darker
+----
+
+Only host chord-to-control mappings change. Konsole, both Kitty configurations,
+the generator comments and the manual must remain synchronized.
+
+== 6. Persistence separation
+
+Ordinary zoom and pan actions become temporary. A reboot reloads the configured
+`+view_zoom+` and its resolved geometry.
+
+The current settings transaction always serializes backlight, zoom and palette
+together. Merely stopping the zoom key from setting `+configSavePending+` is
+insufficient: a later backlight change could still write the temporary active
+zoom. Replace the implicit bundle with explicit dirty fields or an equivalent
+mask:
+
+* backlight dirty;
+* palette dirty;
+* persistent zoom dirty, reserved for a future explicit save operation.
+
+The RAM-backed INI editor must update only dirty managed keys. A backlight or
+palette save must preserve the existing textual `+view_zoom+` byte-for-byte.
+No `+VTZOOM SAVE+` operation is included in this delivery; editing the INI
+remains the explicit way to change boot defaults.
+
+SYNC, transfer and reflash continue to force only already-pending persistent
+changes. Temporary view state never creates storage work.
+
+== 7. Deliberate logical geometry changes
+
+Logical resizing remains available, but becomes explicit. It continues to use
+the existing safe geometry transition:
+
+* validate against the target's logical backing limits;
+* preserve the old/new cell intersection and blank excluded/new cells;
+* clamp cursor and saved cursor;
+* reset margins, tabs, wrapping, plots and both viewport offsets;
+* rebuild the TFT and complete PC mirror.
+
+This operation is inherently visible to applications. CP/M supplies no general
+SIGWINCH-like notification and full-screen applications normally retain their
+installed terminal dimensions. Temporary geometry should therefore normally
+be selected at CCP before launching such an application, or while that
+application is known to support a redraw.
+
+== 8. Guest private controls
+
+Reserve new output-side private controls without changing existing numbers:
+
+[source,text]
+----
+CSI > 72 v                    query 7xtgv display/view information
+CSI > 73 ; z v                load resolved preset z temporarily
+CSI > 73 ; z ; cols ; rows v  set temporary zoom and logical geometry
+----
+
+`+z+` is 1..4. Columns must be even and within the compiled logical maximum;
+rows must be within its maximum. Malformed or unsafe requests are ignored and
+must not partially change state.
+
+`+CSI >72v+` returns a bounded 7-bit DCS record through the ordinary terminal
+reply queue to the CP/M console. Version the record from its first release:
+
+[source,text]
+----
+ESC P 7xtgv-info;1;DISPLAY;TARGET;BUILD;PW;PH;Z;COLS;ROWS;
+      VCOLS;VROWS;PANX;PANY;BANK;Z1C;Z1R;...;Z4C;Z4R ESC \
+----
+
+The actual record is contiguous; the displayed line break is explanatory.
+Fields report:
+
+* the short display/INI ID such as `+RP2_147+`;
+* the exact firmware target and build stamp;
+* physical pixels;
+* current view zoom, logical geometry, visible geometry and pan offsets;
+* selected history/profile bank;
+* the four effective configured presets after HAL, display and selected-bank
+  resolution.
+
+The query reports resolved runtime values, not whether each value originated
+in compiled defaults or a particular INI line. Raw-source provenance would
+require additional parser metadata and is not needed for safe operation.
+
+The existing host-only `+CSI >62v+` identity request remains unchanged. It is
+an input-side mirror/upload safeguard and is not repurposed as the guest
+query.
+
+== 9. CP/M commands
+
+Add two small project-owned Intel 8080 helpers for Digital Research ASM.
+Maintain their ASCII `+.ASM+` sources in the CP/M mirror and build `+.COM+`
+with `+ASM+` plus `+LOAD+`.
+
+=== VTINFO
+
+`+VTINFO+` emits `+CSI >72v+`, reads the versioned DCS reply with a bounded
+timeout and prints this compact report:
+
+[source,text]
+----
+Display : RP2_147
+Target  : rp2350-lcd-1-47-a
+Panel   : 320x172
+Build   : 260925-2025
+View    : zoom 2, logical 80x24, visible 26x8
+
+Resolved presets:
+1x: 80x24
+2x: 80x24
+3x: 26x5
+4x: 20x4
+----
+
+The values above are an illustrative RP2_147 result, not hard-coded output.
+`+Display+` is the short display/INI identity, while `+Target+` is the exact
+firmware build target. `+View+` deliberately distinguishes physical glyph
+zoom, the logical terminal seen by CP/M and the currently visible TFT window.
+
+The resolved-preset table documents the current HAL/INI compatibility model.
+Per-zoom logical sizes remain useful for deliberate `+VTZOOM n+` selection,
+but they are provisional: ordinary keyboard zoom no longer selects them, and
+the design may later replace them with logical terminal presets independent
+of physical zoom. Do not make the VTINFO protocol depend on their remaining
+the permanent configuration model.
+
+On a terminal without this extension it exits with a clear `+NOT SUPPORTED+`
+message rather than waiting forever. It must preserve unrelated type-ahead as
+far as practical and reject malformed/oversized replies.
+
+=== VTZOOM
+
+Command syntax:
+
+[source,text]
+----
+VTZOOM                 show the current view, using the same query
+VTZOOM n               load resolved preset n temporarily
+VTZOOM n COLSxROWS     set temporary zoom n and explicit logical geometry
+VTZOOM DEFAULT         restore the INI/HAL boot preset
+----
+
+`+VTZOOM n+` deliberately differs from the keyboard zoom keys: it selects the
+configured geometry associated with preset `+n+`. The explicit geometry form
+does not alter the stored preset. `+DEFAULT+` restores both the boot zoom and
+its resolved geometry; firmware must retain that boot selection separately
+from later temporary view state.
+
+After sending a change, `+VTZOOM+` queries the resulting state and prints what
+was actually accepted. No form writes `+7XTGVTRM.INI+`.
+
+== 10. Existing per-bank geometry
+
+`+[bankN] zoom1_terminal+` through `+zoom4_terminal+` already provide
+application-specific resolved presets. Explicitly selecting a bank may apply
+that bank's geometry for the current configured preset, as it does today.
+
+The temporary view zoom must not cause a bank geometry lookup on every PgUp or
+PgDn. A deliberate bank selection, `+VTZOOM n+`, `+VTZOOM DEFAULT+`, or an
+explicit geometry command is the boundary where logical geometry may change.
+
+The plan does not attempt to infer the running CP/M application or
+automatically select its bank/geometry.
+
+== 11. Host and firmware implementation sequence
+
+. Add a view-only terminal/runtime operation and tests while retaining the
+  current mappings.
+. Separate persistent settings dirty fields; prove that backlight/palette
+  saves no longer rewrite `+view_zoom+`.
+. Add four directional pan actions and row-major previous/next overview.
+. Change Konsole/Kitty mappings: Ctrl+Shift arrows/Home/End/PgUp/PgDn become
+  view controls; triple-modifier Page keys become fine backlight controls.
+. Add the guest info query and temporary preset/geometry parser.
+. Add and host-test `+VTINFO.ASM+` and `+VTZOOM.ASM+`; deploy only on explicit
+  transfer approval.
+. Update the terminal manual, README, feature ledger and protocol reference.
+. Build and hardware-test one target at a time; do not combine target switching,
+  INI upload and firmware flashing into one implicit operation.
+
+== 12. Required host tests
+
+View-only zoom tests prove:
+
+* all four scales retain logical columns/rows, cells, cursor, saved cursor,
+  margins, tabs and modes;
+* visible dimensions and gutter are recalculated correctly;
+* pan offsets are preserved or clamped, never made invalid;
+* no mirror reset or INI dirty state is produced;
+* active/retained plots are safely retired.
+
+Navigation tests prove:
+
+* directional arrows traverse every calculated position and preserve the
+  other axis;
+* Home/End enumerate the exact row-major Cartesian product in both directions;
+* endpoints clamp and exact final offsets remain reachable;
+* global view chords win over profile bindings, while unreserved chords retain
+  their fallbacks;
+* RAW and prefix fallbacks retain their documented behaviour.
+
+Persistence and protocol tests prove:
+
+* backlight-only and palette-only saves preserve textual `+view_zoom+`;
+* temporary zoom, pan and guest geometry create no INI write;
+* malformed, odd, oversized and partial private commands are atomic no-ops;
+* the info reply is bounded, versioned and reports current plus resolved state;
+* VTINFO/VTZOOM accept valid replies, reject malformed replies and time out.
+
+Run the existing parser, renderer, mirror, plot, disk-indicator, INI-storage,
+keyboard-generator and target-metadata suites after the focused tests.
+
+== 13. Hardware acceptance
+
+Test RP2_147 first because it exercises both axes most strongly:
+
+. Boot from the INI preset and record VTINFO output.
+. Start an 80x24 Turbo configuration on an 80x24 logical terminal.
+. Use keyboard zoom 1x..4x and confirm Turbo still sees 80x24.
+. Reach every horizontal and vertical view by arrows and by Home/End overview.
+. Confirm zoom/pan causes no SD activity or delayed INI save.
+. Use `+VTZOOM 2 40x12+` at CCP, launch a matching application, and confirm the
+  deliberate geometry transition and mirror rebuild.
+. Reboot and confirm the original INI boot preset returns.
+. Confirm triple-modifier fine backlight and unchanged digit presets.
+
+Then regress RP2_2, ES3_35 and ES3_5. Pay particular attention to controller
+canvas/framebuffer repaint, gutter placement, disk-indicator restoration,
+boot defaults and host key capture. Ctrl+Shift arrow availability must be
+checked in the actual KDE/Konsole environment, not assumed from generated
+configuration alone.
+
+== 14. Boundaries
+
+This change does not add:
+
+* automatic cursor-follow panning;
+* application detection or automatic TINST reconfiguration;
+* a standard claim for the private resize protocol;
+* scrollback or a reduced bird's-eye renderer;
+* automatic INI materialization or upload;
+* persistent `+VTZOOM SAVE+`;
+* device flashing, CP/M file deployment or target switching as part of the
+  implementation edit.
+
+The current device INI has been edited after the last host fetch. Any later
+request to edit or deploy that file must first use the established fresh-fetch
+workflow so Petr's RP2_147 settings are preserved.

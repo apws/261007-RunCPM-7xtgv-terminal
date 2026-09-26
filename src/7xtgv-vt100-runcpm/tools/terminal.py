@@ -43,8 +43,8 @@ HOST_REFLASH_REQUEST = b'\x1b[>64v'
 COMMANDS = {
     ord('1'): b'\x1b[>1v', ord('2'): b'\x1b[>2v',
     ord('a'): b'\x1b[1;3H', ord('e'): b'\x1b[1;3F',
-    # Preserve the old prefix chords as harmless no-ops. Partial 4-column
-    # panning has been retired in favour of the two global edge jumps.
+    # Preserve the old prefix chords as harmless no-ops. View positions are
+    # now calculated from the logical terminal and physical viewport sizes.
     ord('h'): b'', ord('l'): b'',
     ord('r'): b'\x1b[>0v', PREFIX: bytes([PREFIX]),
     ord('g'): b'\x1b[>4v',
@@ -1030,10 +1030,10 @@ def run(port, mode, reflash_command=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, epilog=(
-        'Ctrl+] then q: exit; 1: ANSI; 2: VT52; a/e: left/right edge; '
+        'Ctrl+] then q: exit; 1: ANSI; 2: VT52; a/e: previous/next horizontal view; '
         'r: redraw; g: xterm256 GCLS; p/n: history; [/]: history bank; '
         '#: toggle RAW; x: profile exit; c: profile clear; m: VTPUT/VTGET panel; Ctrl+] again: literal Ctrl+]. '
-        'Ctrl+Shift+Home/End jump to viewport edges; '
+        'Ctrl+Shift+Home/End pan horizontally; add Alt to pan vertically; '
         'Ctrl+Alt+Shift+PgDn zooms in, PgUp zooms out.'))
     parser.add_argument('--port', help='Serial device; otherwise XTGV_PORT or selected target data')
     parser.add_argument('--target', help='Target for port defaults; otherwise XTGV_TARGET')

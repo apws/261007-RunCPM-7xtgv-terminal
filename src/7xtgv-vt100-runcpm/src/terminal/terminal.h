@@ -30,8 +30,9 @@ class Terminal {
     // Original 7xtgv planes and packed GGPPIIII attributes.
     uint8_t paperRAM[MaxCells], charRAM[MaxCells], attrRAM[MaxCells], flags[MaxCells];
     bool dirty[MaxCells], mirrorDirty[MaxRows];
-    int x = 0, y = 0, viewport = 0;
-    int cols = MaxCols, rows = MaxRows, visibleCols = MaxVisible, zoom = 1;
+    int x = 0, y = 0, viewport = 0, rowViewport = 0;
+    int cols = MaxCols, rows = MaxRows, visibleCols = MaxVisible,
+        visibleRows = MaxRows, zoom = 1;
     bool ansi = true, cursorVisible = true, applicationCursor = false, applicationKeypad = false;
     bool mirrorCursorDirty = true, indicatorDirty = true, compositionDirty = true;
     unsigned bells = 0;
@@ -53,12 +54,17 @@ class Terminal {
     void reset();
     // Change only the active terminal surface; backing memory always retains
     // the MaxCols stride.  The overlapping old/new rectangle is preserved.
-    bool setGeometry(int activeCols, int activeRows, int visible, int scale);
+    bool setGeometry(int activeCols, int activeRows, int visibleColumns,
+                     int visibleRowCount, int scale);
     int index(int column, int row) const { return row * MaxCols + column; }
     int viewportLimit() const { return cols > visibleCols ? cols - visibleCols : 0; }
+    int rowViewportLimit() const { return rows > visibleRows ? rows - visibleRows : 0; }
     void feed(uint8_t c);
     void setMode(bool ansiMode);
     void pan(int offset);
+    void panRows(int offset);
+    void panHorizontal(int direction);
+    void panVertical(int direction);
     void invalidate();
     void invalidateMirror();
     void setPlotSink(Plot plot, void *context) { plot_ = plot; plotContext_ = context; }

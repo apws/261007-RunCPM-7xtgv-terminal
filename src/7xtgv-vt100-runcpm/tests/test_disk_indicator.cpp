@@ -13,11 +13,13 @@ int main() {
     for (int zoom = 1; zoom <= 4; ++zoom) {
         const int visible = vt::evenVisibleCols(hal.physicalWidth, zoom);
         const int rows = vt::visibleRows(hal.physicalHeight, zoom);
-        for (bool right : {false, true}) {
-            assert(terminal.setGeometry(80, rows, visible, zoom));
+        const int logicalRows = std::min(vt::MaxRows, rows * 2);
+        for (bool right : {false, true}) for (bool bottom : {false, true}) {
+            assert(terminal.setGeometry(80, logicalRows, visible, rows, zoom));
             terminal.cursorVisible = false;
             presentationGutter = hal.physicalWidth - visible * 6 * zoom;
             terminal.pan(right ? terminal.viewportLimit() : 0);
+            terminal.panRows(bottom ? terminal.rowViewportLimit() : 0);
             for (int i = 0; i < vt::MaxCells; ++i) terminal.charRAM[i] = 'X';
             for (int n = 0; n < 1000; ++n) renderBatch();
             const std::vector<uint16_t> before(std::begin(gfx->framebuffer),
@@ -41,5 +43,5 @@ int main() {
     }
     delete gfx;
     delete bus;
-    std::cout << "Disk indicator offset/restoration passed at all zooms and pan edges\n";
+    std::cout << "Disk indicator restoration passed at all zooms and 2D pan edges\n";
 }

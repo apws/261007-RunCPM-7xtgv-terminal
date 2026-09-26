@@ -913,6 +913,11 @@ static void keyboardAction(void *, vt::Keyboard::Action action) {
 }
 static void keyboardKeyEvent(void *, vt::KeyChord chord, const uint8_t *fallback,
                              size_t fallbackLength) {
+    if (chord.modifiers == (vt::KeyCtrl | vt::KeyShift | vt::KeyAlt) &&
+        (chord.base == vt::KeyHome || chord.base == vt::KeyEnd)) {
+        terminal.panVertical(chord.base == vt::KeyHome ? -1 : 1);
+        return;
+    }
     if (historyNoticeActive) return;
     const int legacy = vt::appKeyForChord(chord);
     if (legacy >= 0) {
@@ -1167,11 +1172,14 @@ static void applyDisplayProfile(const vt::DisplayProfile &profile) {
     const int fitCols = vt::evenVisibleCols(width, zoom);
     const int fitRows = vt::visibleRows(height, zoom);
     if (geometry.cols < 2 || geometry.cols > vt::MaxCols || geometry.rows < 1 ||
-        geometry.rows > vt::MaxRows || geometry.rows > fitRows)
+        geometry.rows > vt::MaxRows)
         geometry = hal.zoomGeometry[zoom - 1];
     geometry.cols &= ~1u;
     const int visible = std::min<int>(geometry.cols, fitCols);
-    if (visible < 1 || !terminal.setGeometry(geometry.cols, geometry.rows, visible, zoom))
+    const int visibleRowCount = std::min<int>(geometry.rows, fitRows);
+    if (visible < 1 || visibleRowCount < 1 ||
+        !terminal.setGeometry(geometry.cols, geometry.rows, visible,
+                              visibleRowCount, zoom))
         return;
     activeDisplayProfile = profile;
     activeDisplayProfile.viewZoom = uint8_t(zoom);
@@ -1465,6 +1473,7 @@ static uint8_t graphicsRow(uint8_t c, int y) {
 static void drawCell(int i) {
     int sourceColumn = i % vt::MaxCols, row = i / vt::MaxCols;
     int column = sourceColumn - terminal.viewport;
+    const int displayRow = row - terminal.rowViewport;
     uint8_t bank = (terminal.attrRAM[i] >> 6) & 3, ch = terminal.charRAM[i];
     vt::RGB foreground = terminal.foreground(i), background = terminal.background(i);
     const vt::HistoryProfile &profile = profiles.get(history ? history->activeBank() : 0);
@@ -1508,7 +1517,8 @@ static void drawCell(int i) {
     // precedes the text, while at the right edge it follows the text.
     const int origin = terminal.viewport ? 0 : presentationGutter;
     gfx->draw16bitRGBBitmap(origin + column * width + GFX_OFS_X,
-                             row * height + GFX_OFS_Y, scaledPixels, width, height);
+                             displayRow * height + GFX_OFS_Y,
+                             scaledPixels, width, height);
 }
 static void writeHistoryNotice() {
     int first = terminal.index(0, historyNoticeRow);
@@ -1628,9 +1638,12 @@ static void restoreDiskIndicatorBacking() {
     const int width = 6 * terminal.zoom, height = 10 * terminal.zoom;
     const int left = std::max(0, 1 - origin);
     const int right = std::min(7 - origin, terminal.visibleCols * width);
-    for (int row = y / height; row <= (y + 5) / height && row < terminal.rows; ++row)
+    for (int displayRow = y / height;
+         displayRow <= (y + 5) / height && displayRow < terminal.visibleRows;
+         ++displayRow)
         for (int col = left / width; left < right && col <= (right - 1) / width; ++col) {
-            const int covered = terminal.index(terminal.viewport + col, row);
+            const int covered = terminal.index(terminal.viewport + col,
+                                               terminal.rowViewport + displayRow);
             drawCell(covered);
             terminal.dirty[covered] = false;
         }
@@ -1668,16 +1681,17 @@ static void renderBatch() {
     }
     int drawn = 0, pixelsDrawn = 0;
 #if defined(GFX_BUFFERED_CANVAS)
-    const int DrawBudgetPixels = terminal.visibleCols * terminal.rows * 6 * 10 * terminal.zoom * terminal.zoom;
+    const int DrawBudgetPixels = terminal.visibleCols * terminal.visibleRows *
+                                 6 * 10 * terminal.zoom * terminal.zoom;
 #else
     constexpr int DrawBudgetPixels = 12 * 6 * 10;
 #endif
-    const int visibleCells = terminal.visibleCols * terminal.rows;
+    const int visibleCells = terminal.visibleCols * terminal.visibleRows;
     const int cellPixels = 6 * 10 * terminal.zoom * terminal.zoom;
     for (int checked = 0; checked < visibleCells && pixelsDrawn < DrawBudgetPixels; checked++) {
         int view = scanCell++ % visibleCells;
         int i = terminal.index(view % terminal.visibleCols + terminal.viewport,
-                               view / terminal.visibleCols);
+                               view / terminal.visibleCols + terminal.rowViewport);
         if (terminal.dirty[i]) {
             drawCell(i);
             terminal.dirty[i] = false;
@@ -2106,9 +2120,10 @@ static void terminalBootBacklightPoll() {
             return;
         // Rendering is budgeted: applying the palette is not proof that every
         // visible cell has actually been repainted yet.
-        for (int y = 0; y < terminal.rows; ++y)
+        for (int y = 0; y < terminal.visibleRows; ++y)
             for (int x = 0; x < terminal.visibleCols; ++x)
-                if (terminal.dirty[terminal.index(x + terminal.viewport, y)])
+                if (terminal.dirty[terminal.index(x + terminal.viewport,
+                                                  y + terminal.rowViewport)])
                     return;
 #if defined(GFX_BUFFERED_CANVAS) || defined(GFX_DEFERRED_FLUSH)
         gfx->flush();

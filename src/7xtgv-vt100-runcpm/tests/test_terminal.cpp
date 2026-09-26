@@ -229,7 +229,7 @@ static void testLineEditing() {
     vt::Terminal t;
     std::vector<PlotRecord> plots;
     t.setPlotSink(collectPlot, &plots);
-    assert(t.setGeometry(8, 6, 4, 2));
+    assert(t.setGeometry(8, 6, 4, 6, 2));
     t.pan(3);
     feed(t, "\033[2;5r"); // the first and last screen rows stay outside the margins
     auto clean = [&]() {
@@ -536,13 +536,13 @@ int main() {
     // retain the maximum row stride rather than repacking the planes.
     t.reset();
     feed(t, "KEEP");
-    assert(t.setGeometry(40, 12, 26, 2));
+    assert(t.setGeometry(40, 12, 26, 12, 2));
     assert(t.cols == 40 && t.rows == 12 && t.visibleCols == 26 && t.zoom == 2);
     assert(t.charRAM[t.index(0, 0)] == 'K');
     t.charRAM[t.index(39, 11)] = 'X';
-    assert(t.setGeometry(20, 6, 16, 3));
+    assert(t.setGeometry(20, 6, 16, 6, 3));
     assert(t.charRAM[t.index(0, 0)] == 'K');
-    assert(t.setGeometry(80, 24, 52, 1));
+    assert(t.setGeometry(80, 24, 52, 24, 1));
     assert(t.charRAM[t.index(39, 11)] == ' ');
     std::string input;
     vt::Keyboard k(t, collect, &input);
@@ -550,6 +550,22 @@ int main() {
     assert(t.viewport == 0 && input.empty());
     keys(k, "\033[1;3F");
     assert(t.viewport == 28);
+    // Wider logical planes use evenly distributed manual views rather than a
+    // near-duplicate sliver at the far edge. Vertical views use the matching
+    // private controls emitted by Ctrl+Shift+Alt+Home/End.
+    assert(t.setGeometry(80, 24, 26, 10, 1));
+    assert(t.viewport == 0 && t.rowViewport == 0);
+    keys(k, "\033[1;3F"); assert(t.viewport == 18);
+    keys(k, "\033[1;3F"); assert(t.viewport == 36);
+    keys(k, "\033[1;3F"); assert(t.viewport == 54);
+    keys(k, "\033[1;3F"); assert(t.viewport == 54);
+    keys(k, "\033[1;3H"); assert(t.viewport == 36);
+    keys(k, "\033[>71;1v"); assert(t.rowViewport == 7);
+    keys(k, "\033[>71;1v"); assert(t.rowViewport == 14);
+    keys(k, "\033[>71;1v"); assert(t.rowViewport == 14);
+    keys(k, "\033[>71;0v"); assert(t.rowViewport == 7);
+    keys(k, "\033[>71;0v"); assert(t.rowViewport == 0);
+    assert(t.setGeometry(80, 24, 52, 24, 1));
     keys(k, "\033[>2v\033[A");
     assert(input == "\033[A" && !t.ansi); // fallback is independent of output mode
     input.clear();
@@ -748,15 +764,15 @@ int main() {
     legacyProfiles.beginLoad();
     for (uint8_t c : legacyIni) legacyProfiles.feed(c);
     legacyProfiles.finishLoad();
-    assert(legacyProfiles.errors() == 1); // 24 rows cannot fit at 3x.
+    assert(legacyProfiles.errors() == 0); // 24 rows use a vertical 3x viewport.
     assert(legacyProfiles.global().consoleBits == 8 &&
            legacyProfiles.modeFor(0) == vt::OutputVT52 &&
            legacyProfiles.modeFor(2) == vt::OutputAnsi &&
            legacyProfiles.modeFor(3) == vt::OutputVT52);
     assert(legacyProfiles.geometryFor(2, 1).cols == 78 &&
            legacyProfiles.geometryFor(2, 1).rows == 20 &&
-           legacyProfiles.geometryFor(2, 3).cols ==
-               legacyProfiles.display().geometry[2].cols);
+           legacyProfiles.geometryFor(2, 3).cols == 80 &&
+           legacyProfiles.geometryFor(2, 3).rows == 24);
     assert(legacyProfiles.get(2).keys[vt::AppUp].length == 3 &&
            legacyProfiles.get(2).keys[vt::AppUp].bytes[1] == '[');
     assert(legacyProfiles.get(2).keys[vt::AppLeft].bytes[0] == 0x13 &&

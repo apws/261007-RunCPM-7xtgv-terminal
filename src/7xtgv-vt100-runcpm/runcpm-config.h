@@ -17,7 +17,9 @@
 #define RUNCPM_TERM_ROWS 32
 #define RUNCPM_TERM_VISIBLE_COLS 80
 #elif defined(RUNCPM_TARGET_RP2350_LCD_1_47_A)
-#define RUNCPM_TERM_ROWS 17
+// The 172px panel shows at most 17 1x rows, but the backing terminal retains
+// the conventional 24-row plane so higher zooms can pan vertically.
+#define RUNCPM_TERM_ROWS 24
 #define RUNCPM_TERM_VISIBLE_COLS 52
 #elif defined(ARDUINO_ARCH_RP2040)
 #define RUNCPM_TARGET_RP2350_TOUCH_LCD_2 1

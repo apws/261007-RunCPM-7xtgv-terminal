@@ -19,7 +19,7 @@ static void feedOutput(const std::string &bytes) {
 int main() {
     terminalSetup();
     assert(displayOK && plotScanline);
-    assert(terminal.setGeometry(80, 12, 26, 2));
+    assert(terminal.setGeometry(80, 12, 26, 12, 2));
     presentationGutter = 8;
     Serial.online = true;
     for (int i = 0; i < 1000; ++i) {

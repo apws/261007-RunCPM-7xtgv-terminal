@@ -123,7 +123,7 @@ navigation = (
 for base, qt, kitty_key, final, number in navigation:
     for mods in (2, 3, 5, 6, 7):
         if base in ("KeyHome", "KeyEnd") and mods in (3, 6):
-            continue  # viewport edge jump
+            continue  # horizontal viewport step; modifiers 7 select vertical
         if base in ("KeyPageUp", "KeyPageDown") and mods in (3, 6, 7):
             continue  # backlight and zoom
         modifier = xterm_modifier(mods)

@@ -1,0 +1,69 @@
+= Two-dimensional stepped viewport panning
+:source-highlighter: highlight.js
+
+== Decision
+
+Petr requested that the existing `Ctrl+Shift+Home/End` viewport control cover
+more than two horizontal positions when a small display exposes only a narrow
+part of the logical terminal. Adding Alt to that chord selects the vertical
+axis. Panning remains manual: cursor movement and application output never
+move the physical view automatically.
+
+The logical CP/M terminal and PC mirror remain complete planes. Only the TFT
+renderer has column and row viewport offsets. Application Home/End bindings
+remain independent because the global chords are consumed before profile
+translation.
+
+== Calculated positions
+
+Each axis uses enough views to cover its logical extent:
+
+----
+views = ceil(logical / visible)
+position(i) = round((logical - visible) * i / (views - 1))
+----
+
+The positions are distributed evenly and include zero and the exact final
+offset. This avoids a nearly duplicate last sliver from simple
+`offset += visible` stepping. Examples:
+
+* 80 logical columns through 52 visible columns: `0, 28`.
+* 80 logical columns through 26 visible columns: `0, 18, 36, 54`.
+* 24 logical rows through 10 visible rows: `0, 7, 14`.
+
+Repeated End stops at the last position; repeated Home stops at zero. If the
+logical dimension fits, both controls are harmless no-ops.
+
+== Controls and geometry
+
+`Ctrl+Shift+Home/End` and the existing `Ctrl+] a/e` fallback step the
+horizontal viewport. `Ctrl+Alt+Shift+Home/End` arrives through the versioned
+private key event and steps the vertical viewport. The existing
+`Alt+Shift+Home/End` horizontal alternative is retained.
+
+`Terminal` now stores `visibleRows` and `rowViewport` alongside
+`visibleCols` and `viewport`. INI geometry may exceed the physical row or
+column count provided it remains within the HAL logical backing limits. The
+active view is calculated from physical pixels and zoom. RP2_147 therefore
+retains a 24-row backing plane although its 172-pixel panel shows at most 17
+rows at 1x; its default remains 80x16.
+
+The TFT scan, cell coordinates, boot-frame readiness and fixed disk-indicator
+restoration use both viewport offsets. Mirror construction continues over all
+logical rows and columns and does not follow local panning. Geometry or zoom
+changes reset both offsets to zero.
+
+== Validation
+
+Host tests cover calculated horizontal and vertical positions, clamping,
+private all-modifier Home/End routing, rendering a lower logical row at the
+top of the TFT, complete-mirror independence, plot cleanup, and disk-indicator
+restoration. Parser/runtime sanitizer suites pass. No firmware build, flash,
+or hardware acceptance is recorded by this implementation step.
+
+== Boundary
+
+There is no automatic cursor-follow mode and no new scrollback. The existing
+full-height gutter remains a horizontal cue only; no vertical edge ornament
+was added. RAW input continues to bypass interactive pan interception by
+design.

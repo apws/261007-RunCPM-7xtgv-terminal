@@ -78,7 +78,7 @@ The commands below are intercepted by the host bridge or terminal before ordinar
 |`++Ctrl+] 2++` |Select VT52 interpretation.
 |`++Ctrl+] r++` |Repaint normal terminal text on the TFT and PC. This also ends an active xterm256 plot.
 |`++Ctrl+] g++` |GCLS: arm the direct xterm256 graphics canvas below terminal cells.
-|`++Ctrl+] a++` / `++e++` |Move the viewport to its left / right edge.
+|`++Ctrl+] a++` / `++e++` |Move to the previous / next calculated horizontal viewport position.
 |`++Ctrl+] p++` / `++n++` |Previous / next history entry of the active effective bank. A token before the cursor filters entries beginning with it.
 |`++Ctrl+] d++` |Delete the currently recalled history entry, when one is selected.
 |`++Ctrl+] +++` / `++Ctrl+] -++` |Increase / decrease glyph zoom.
@@ -116,10 +116,11 @@ The PC key tables provide the more natural shortcuts:
 |`++Ctrl+Shift++` or `++Alt+Shift++` {plus} `++PgUp++` / `++PgDn++` |Raise / lower one of 32 backlight levels.
 |`++LAlt+Ctrl+Shift+PgDn++` / `++PgUp++` |Zoom in (1x toward 4x) / zoom out (toward 1x).
 |`++LAlt+Ctrl+Shift+1++` / `++2++` |Select ANSI/VT100 / VT52 terminal output interpretation.
-|`++Ctrl+Shift++` or `++Alt+Shift++` {plus} `++Home++` / `++End++` |Global viewport jump to the left / right edge.
+|`++Ctrl+Shift++` or `++Alt+Shift++` {plus} `++Home++` / `++End++` |Move to the previous / next calculated horizontal viewport position.
+|`++LAlt+Ctrl+Shift+Home++` / `++End++` |Move to the previous / next calculated vertical viewport position.
 |===
 
-`++Alt+Esc++` and `++Alt+Backspace++` are configured globally in `++7XTGVTRM.INI++` as dual-Alt gestures. Their generated commands, and the Ctrl{plus}Shift viewport jumps, are handled before application-profile bindings and are not saved in history. The last non-off brightness and selected glyph zoom are safely persisted in the INI file after input settles.
+`++Alt+Esc++` and `++Alt+Backspace++` are configured globally in `++7XTGVTRM.INI++` as dual-Alt gestures. Their generated commands, and the horizontal/vertical viewport controls, are handled before application-profile bindings and are not saved in history. The last non-off brightness and selected glyph zoom are safely persisted in the INI file after input settles.
 
 == Histories, banks, and the active line
 
@@ -476,14 +477,17 @@ selector. Host target data records both names and tools display them together.
 |===
 |Setting |Meaning
 |`view_zoom` |1..4, scaling the 6x10 glyph cells. Changes via ZOOM or host chords persist here.
-|`zoom1_terminal` through `zoom4_terminal` |Logical `COLSxROWS` for each zoom. Odd column counts round down to even. Rows must physically fit and both dimensions must fit HAL limits.
+|`zoom1_terminal` through `zoom4_terminal` |Logical `COLSxROWS` for each zoom. Odd column counts round down to even. Both dimensions must fit the HAL's logical backing limits; either may exceed the physical viewport and use manual panning.
 |`render_flush_hz` |0..60; 0 removes the software flush interval. This is not the physical panel refresh rate.
 |`rgb_refresh_hz` |Accepted compatibility placeholder only; physical RGB timing remains compile-time.
 |===
 
 A bank can override `zoom1_terminal` through `zoom4_terminal`. Logical width
-may exceed the visible width; viewport edge jumps expose its left/right parts.
-The visible width depends on panel size and zoom, not always 80 columns.
+or height may exceed the physical view. Horizontal Home/End panning uses
+Ctrl{plus}Shift; adding Alt selects vertical panning. Positions are distributed
+evenly, always include both exact edges, and are recalculated for the current
+zoom and configured terminal geometry. The visible dimensions depend on panel
+size and zoom; the PC mirror still represents the complete logical terminal.
 Bank overrides are shared across displays too: an oversized override is reported
 and rejected on a smaller HAL, which retains its display geometry. Omitted display
 settings retain each HAL's defaults, even when multiple HALs share one profile ID.

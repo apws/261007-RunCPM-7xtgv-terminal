@@ -26,7 +26,7 @@ class TargetMetadataTests(unittest.TestCase):
 #include "hardware/arduino_7xtgv/target_identity.h"
 int main() {
     const auto &hal = vt::displayHalDefaults();
-    assert(hal.maxCols == vt::MaxCols && hal.maxRows == vt::MaxRows);
+    assert(hal.logicalMaxCols == vt::MaxCols && hal.logicalMaxRows == vt::MaxRows);
     assert(hal.diskIndicatorYOffset + 7 <= hal.physicalHeight);
 #if !defined(RUNCPM_TARGET_RP2350_LCD_1_47_A)
     assert(hal.diskIndicatorYOffset == 0);
@@ -44,8 +44,8 @@ int main() {
 #endif
     for (int i = 0; i < 4; ++i) {
         const auto &g = hal.zoomGeometry[i];
-        assert(g.cols >= 2 && !(g.cols & 1) && g.cols <= hal.maxCols);
-        assert(g.rows >= 1 && g.rows <= hal.maxRows);
+        assert(g.cols >= 2 && !(g.cols & 1) && g.cols <= hal.logicalMaxCols);
+        assert(g.rows >= 1 && g.rows <= hal.logicalMaxRows);
         assert(g.rows * 10 * (i + 1) <= hal.physicalHeight);
     }
     std::printf("%s\n%s\n", xtgvFirmwareTarget(), hal.id);

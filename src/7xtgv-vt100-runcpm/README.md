@@ -1,8 +1,9 @@
 # 7xtgv VT100/VT52 + RunCPM
 
 An isolated RP2350-Touch-LCD-2 sketch: CP/M on core 1, USB keyboard input and
-an ANSI/VT52 screen on core 0. The TFT displays a manually panned 52×24 viewport
-of an 80×24 terminal. The PC displays the complete interpreted 80×24 screen.
+an ANSI/VT52 screen on core 0. Compact TFTs display a manually panned viewport
+of the configured logical terminal. The PC displays the complete interpreted
+screen independently of the local viewport.
 
 The original demos are separate. This terminal uses the 6x10 QL font and
 7xtgv's four paper and sixteen ink colors, but its visible-cell arrays are
@@ -121,8 +122,9 @@ exclusive access; do not run picocom or a second direct helper alongside it.
 | Alt+PageUp / Alt+PageDown | Select previous/next history list |
 | Ctrl+Shift or Alt+Shift+0 ... 9 | Backlight: off, then coarse module-specific levels up to full ON |
 | Ctrl+Shift or Alt+Shift+PageUp / PageDown | Increase / decrease one of 32 brightness levels |
-| Ctrl+] then a / e | Same edge jumps; works without Alt mappings |
-| Ctrl+Shift or Alt+Shift+Home / End | Global viewport jump to left / right edge |
+| Ctrl+] then a / e | Previous / next calculated horizontal view; works without modifier mappings |
+| Ctrl+Shift or Alt+Shift+Home / End | Previous / next calculated horizontal view |
+| Ctrl+Alt+Shift+Home / End | Previous / next calculated vertical view |
 | Ctrl+Alt+Shift+PgDn / PgUp | Zoom in (toward 4x) / out (toward 1x) |
 | Ctrl+] then 1 / 2 | Select ANSI / VT52 locally |
 | Ctrl+] then g or Shift+Alt+Backspace | GCLS: arm one local xterm-256 pixel plot without clearing the TFT |
@@ -162,9 +164,13 @@ the effect. Ramp steps follow the target HAL's 32-entry duty table and do not
 alter the remembered brightness or write the INI. Explicit brightness controls
 cancel the ramp immediately. PgUp/PgDn stay within lit levels 1..31.
 
-Panning is manual, with only left/right edge jumps, even when the cursor moves
-off-screen. The hidden-content side is a full-height configurable-grey gutter,
-not an unused controller margin: left at the default edge, right after panning.
+Panning is manual, even when the cursor moves off-screen. Home/End moves through
+enough evenly distributed positions to cover the configured logical width or
+height and always includes both exact edges. Thus an 80-column plane through a
+26-column window uses columns 0, 18, 36, and 54; an 80-through-52 view remains
+0 and 28. The PC mirror continues to show the whole logical plane. The
+horizontal hidden-content side is a full-height configurable-grey gutter, not
+an unused controller margin: left at the default position, right after panning.
 A 6×6
 red square at the top-left is the short-latched SD activity indicator. It is a
 fixed display overlay, so scrolling cannot move it; retained plots suppress it.
@@ -217,8 +223,9 @@ ESC). Remove conflicting mappings in that profile if necessary.
 
 | Key | Konsole output | Bytes |
 | --- | --- | --- |
-| Ctrl+] then `a` / `e` | private helper action | Viewport left/right edge |
-| Ctrl+Shift or Alt+Shift+Home / End | global viewport action | Viewport left/right edge |
+| Ctrl+] then `a` / `e` | private helper action | Previous/next horizontal view |
+| Ctrl+Shift or Alt+Shift+Home / End | global viewport action | Previous/next horizontal view |
+| Ctrl+Alt+Shift+Home / End | global viewport action | Previous/next vertical view |
 | Ctrl+Shift or Alt+Shift+0 ... 9 | local terminal action | Backlight off / coarse module-specific levels up to full ON |
 | Ctrl+Shift or Alt+Shift+PageUp / PageDown | local terminal action | Raise / lower one of 32 levels |
 

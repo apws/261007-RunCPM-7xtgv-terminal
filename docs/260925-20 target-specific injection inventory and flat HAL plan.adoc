@@ -1,0 +1,131 @@
+= Target-specific injection inventory and flat HAL plan
+:source-highlighter: highlight.js
+
+== Purpose
+
+Petr reaffirmed that every supported module should have one compile-time target
+header, including explicit empty/default entries. That header should document
+all injection points and keep the common RunCPM and terminal code free of board
+names. This is static polymorphism: one firmware image still targets one board,
+and no virtual dispatch or runtime hardware probing is required.
+
+The current tree is functionally target-aware but not yet flat. This document
+records the exact distribution before a later mechanical cleanup. It does not
+authorize or perform that refactor.
+
+== Current target-dependent locations
+
+`runcpm-config.h`::
+Selects compile-time terminal backing sizes and currently infers W535 from the
+ESP32-S3 architecture when no more specific target is defined. These sizes are
+needed before terminal arrays are declared, so they must remain compile-time
+constants. RP2_147 now distinguishes its 24-row *logical backing limit* from
+its 17 physically visible 1x rows and its default 80x16 geometry.
+
+`src/terminal/display_policy.h`::
+Contains the short display/profile ID, descriptive name, physical width and
+height, logical maximum columns and rows, default zoom geometries, flush/refresh
+defaults, disk-indicator offset, and optional boot warning. The renamed
+`logicalMaxCols` / `logicalMaxRows` fields are RAM/geometry limits, not panel
+dimensions. This file is a common policy interface but still contains one
+preprocessor branch per target.
+
+`src/terminal/7xtgv-gfxsetup.h`::
+Selects and constructs the Arduino_GFX bus, controller, canvas/direct-render
+path, pins, rotation, controller offsets and target-specific initialization.
+It contains substantial inherited multi-board setup code and is the largest
+remaining display-specific switch rather than one small per-target factory.
+
+`hardware/arduino_7xtgv/*`::
+Already holds separate SD pin/configuration headers and separate backlight
+duty tables. Common `backlight.h`, `reboot.h`, and `target_identity.h` still
+dispatch through target macros. Reboot behavior is architecture-family based;
+identity strings are exact-target based.
+
+`7xtgv-vt100-runcpm.ino`::
+Selects the per-board SD header and the different ESP32/RP2350 storage object,
+initialization path, task/core model, and boot diagnostic text. W535 SD_MMC and
+W550 SPI details are printed directly here. These are the clearest target
+leaks into the common sketch and should move behind the target contract.
+
+`cpu1.h`::
+The Z80 dispatcher has a W535-only `IRAM_ATTR` plus `optimize("O2")` branch.
+It was introduced because the dual-core S3 terminal could evict the hot Z80
+dispatcher from shared flash cache. This is a real target-specific execution
+policy, not a general Z80 semantic difference, but it currently injects the
+exact board name into RunCPM core source. A flat HAL must express this as a
+target capability/attribute macro, including an explicitly empty definition
+for targets which need no placement override.
+
+`abstraction_arduino_7xtgv.h`::
+Contains architecture-family selection such as ESP32 versus RP2040 HostOS.
+That is portable platform abstraction rather than display-module data and can
+remain architecture-based. Disk activity already calls a generic terminal
+hook when the terminal is present.
+
+`tools/targets/*.json`, `sketch.yaml`::
+Host-side target records choose Arduino profiles, ports, exact firmware target
+flags, display-group IDs and upload methods. This is necessarily separate from
+compiled C++, but metadata consistency tests must continue to compare it with
+the compiled identity and display policy.
+
+== Proposed per-target contract
+
+Create one header for every exact build target, for example:
+
+----
+hardware/arduino_7xtgv/targets/jc8048w535.h
+hardware/arduino_7xtgv/targets/jc8048w550.h
+hardware/arduino_7xtgv/targets/rp2350_touch_lcd_2.h
+hardware/arduino_7xtgv/targets/rp2350_lcd_1_47_a.h
+----
+
+A single `target.h` dispatcher includes exactly one of them. Every target
+header provides the complete contract, even where a value is a no-op:
+
+* exact firmware ID, display-group ID and descriptive name;
+* physical pixels, logical backing maxima and four default geometries;
+* display bus/controller factory, pins, rotation, offsets and buffered/direct
+  rendering capabilities;
+* storage backend type, pins, bus/frequency, initialization, and diagnostic
+  description;
+* 32-entry backlight table, polarity/defaults and optional warning;
+* disk-indicator offset and any other fixed overlay safe area;
+* reboot/BOOTSEL capability and implementation hook;
+* task/core ownership and stack requirements;
+* CPU hot-code placement/optimization attributes, explicitly empty when not
+  required;
+* target-specific build assertions.
+
+Common code should then refer only to stable names such as
+`XTGV_TARGET_CPU_HOT_ATTR`, `targetDisplayPolicy()`, `TargetStorage`, and
+`targetStorageBegin()`. Empty/default declarations are important: absence must
+mean an intentional no-op recorded in the module header, not an accidental
+fall-through to another board.
+
+== Migration order
+
+. Introduce `target.h` and per-target capability constants without changing
+  behavior; keep compile-time metadata tests for all targets.
+. Move identity, logical capacities, display policy, boot warning and backlight
+  selection first. These are data-only and low risk.
+. Wrap display construction and SD initialization behind target factories and
+  remove their board-name branches from the sketch.
+. Replace the W535 name in `cpu1.h` with a target-provided hot-code attribute;
+  verify W535 active/quiet VTCPU speed and every other target's build.
+. Move task/core policy and boot diagnostics last, because ESP32 and RP2350
+  ownership models genuinely differ.
+. Rebuild and hardware-smoke every existing module before using the same
+  contract for ESP32-C6 and ESP32-P4.
+
+== Boundaries
+
+One header per exact module does not mean forcing electrical differences into
+runtime data or making Arduino_GFX objects type-erased. The implementation may
+remain macros, inline functions and compile-time types. Shared architecture
+helpers remain appropriate where behavior truly depends on ESP32, RP2350 or
+FreeRTOS rather than a particular display board.
+
+The immediate panning work only clarified the logical-limit field names. No
+HAL relocation, W535 optimization change, storage change, or target build is
+part of this inventory.

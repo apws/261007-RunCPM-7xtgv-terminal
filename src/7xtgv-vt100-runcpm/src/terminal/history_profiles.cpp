@@ -127,10 +127,10 @@ static bool parseGeometry(const char *value, Geometry &result) {
     return true;
 }
 
-static bool geometryFitsDisplay(const Geometry &geometry, uint8_t zoom,
+static bool geometryFitsDisplay(const Geometry &geometry, uint8_t,
                                 const DisplayHalDefaults &hal) {
-    return geometry.cols >= 2 && geometry.rows >= 1 && geometry.cols <= hal.maxCols &&
-           geometry.rows <= hal.maxRows && geometry.rows * 10u * zoom <= hal.physicalHeight;
+    return geometry.cols >= 2 && geometry.rows >= 1 &&
+           geometry.cols <= hal.logicalMaxCols && geometry.rows <= hal.logicalMaxRows;
 }
 
 static bool hexDigit(char c, uint8_t &value) {

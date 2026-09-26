@@ -25,8 +25,9 @@ key PgDown    -Shift-Alt+Ctrl : "\E[>51v"
 key Backspace -Shift-Alt+Ctrl : "\x18"
 key Backspace +Shift-Alt+Ctrl : "\E[>65v"
 
-# Global compact-viewport edge jumps. These bypass the active application
-# profile and are handled before its profile-specific key bindings.
+# Global compact-viewport horizontal steps. These bypass the active application
+# profile and are handled before its profile-specific key bindings. Adding Alt
+# is generated below as a private chord and steps the vertical viewport.
 key Home      +Shift-Alt+Ctrl : "\E[1;3H"
 key End       +Shift-Alt+Ctrl : "\E[1;3F"
 key Home      +Shift+Alt-Ctrl : "\E[1;3H"
@@ -364,7 +365,8 @@ key Escape     -Shift+Alt-Ctrl : "\E[>60v"
 key Backspace  -Shift+Alt-Ctrl : "\E[>61v"
 key Backspace  +Shift+Alt-Ctrl : "\E[>4v"
 
-# Application-profile Alt keys. Viewport edge jumps are Ctrl+Shift+Home/End.
+# Application-profile Alt keys. Viewport panning uses Ctrl+Shift+Home/End;
+# adding Alt changes the pan axis to vertical.
 key Left      -Shift+Alt-Ctrl : "\E[>52v"
 key Right     -Shift+Alt-Ctrl : "\E[>53v"
 key Home      -Shift+Alt-Ctrl : "\E[>54v"

@@ -83,7 +83,7 @@ void Terminal::abortPlot() {
 }
 void Terminal::reset() {
     abortPlot();
-    x = y = viewport = top = 0;
+    x = y = viewport = rowViewport = top = 0;
     bottom = rows - 1;
     ansi = cursorVisible = autowrap = true;
     applicationCursor = applicationKeypad = origin = wrapPending = bold = g0 = g1 = useG1 = false;
@@ -101,15 +101,18 @@ void Terminal::reset() {
     save();
     invalidate();
 }
-bool Terminal::setGeometry(int activeCols, int activeRows, int visible, int scale) {
+bool Terminal::setGeometry(int activeCols, int activeRows, int visibleColumns,
+                           int visibleRowCount, int scale) {
     if (activeCols < 1 || activeCols > MaxCols || activeRows < 1 || activeRows > MaxRows ||
-        visible < 1 || visible > activeCols || scale < 1 || scale > 4)
+        visibleColumns < 1 || visibleColumns > activeCols ||
+        visibleRowCount < 1 || visibleRowCount > activeRows || scale < 1 || scale > 4)
         return false;
     abortPlot();
     const int oldCols = cols, oldRows = rows;
     cols = activeCols;
     rows = activeRows;
-    visibleCols = visible;
+    visibleCols = visibleColumns;
+    visibleRows = visibleRowCount;
     zoom = scale;
     // Cells outside the preserved intersection must never reappear after a
     // later enlargement.  Reset them to ordinary terminal blanks.
@@ -127,7 +130,7 @@ bool Terminal::setGeometry(int activeCols, int activeRows, int visible, int scal
     savedY = std::max(0, std::min(rows - 1, savedY));
     top = 0;
     bottom = rows - 1;
-    viewport = 0;
+    viewport = rowViewport = 0;
     compositionDirty = true;
     wrapPending = false;
     state = Ground;
@@ -150,6 +153,44 @@ void Terminal::pan(int offset) {
         std::fill(dirty, dirty + Cells, true);
         indicatorDirty = compositionDirty = true;
     }
+}
+void Terminal::panRows(int offset) {
+    offset = std::max(0, std::min(rowViewportLimit(), offset));
+    if (offset != rowViewport) {
+        rowViewport = offset;
+        std::fill(dirty, dirty + Cells, true);
+        indicatorDirty = compositionDirty = true;
+    }
+}
+static int steppedViewport(int current, int total, int visible, int direction) {
+    const int limit = total > visible ? total - visible : 0;
+    if (!limit || !direction)
+        return 0;
+    // Use enough evenly distributed views to cover the logical plane. This
+    // avoids a nearly duplicate final sliver when total is not a multiple of
+    // visible, while always including both exact edges.
+    const int views = (total + visible - 1) / visible;
+    const int segments = views - 1;
+    if (direction > 0) {
+        for (int step = 1; step <= segments; ++step) {
+            const int position = (limit * step + segments / 2) / segments;
+            if (position > current)
+                return position;
+        }
+        return limit;
+    }
+    for (int step = segments - 1; step >= 0; --step) {
+        const int position = (limit * step + segments / 2) / segments;
+        if (position < current)
+            return position;
+    }
+    return 0;
+}
+void Terminal::panHorizontal(int direction) {
+    pan(steppedViewport(viewport, cols, visibleCols, direction));
+}
+void Terminal::panVertical(int direction) {
+    panRows(steppedViewport(rowViewport, rows, visibleRows, direction));
 }
 RGB Terminal::foreground(int i) const {
     return (flags[i] & Reverse) ? palette.paper[(attrRAM[i] >> 4) & 3] : palette.ink[attrRAM[i] & 15];
@@ -826,10 +867,14 @@ void Keyboard::finish() {
     }
     else if (!strcmp(s, "\033[1;3H") || !strcmp(s, "\033[1;3~") || !strcmp(s, "\033[7;3~") ||
         !strcmp(s, "\033\033[H"))
-        t_.pan(0);
+        t_.panHorizontal(-1);
     else if (!strcmp(s, "\033[1;3F") || !strcmp(s, "\033[4;3~") || !strcmp(s, "\033[8;3~") ||
              !strcmp(s, "\033\033[F"))
-        t_.pan(t_.viewportLimit());
+        t_.panHorizontal(1);
+    else if (!strcmp(s, "\033[>71;0v"))
+        t_.panVertical(-1);
+    else if (!strcmp(s, "\033[>71;1v"))
+        t_.panVertical(1);
     else if (!strcmp(s, "\033[>0v")) {
         t_.abortPlot();
         t_.invalidate();
