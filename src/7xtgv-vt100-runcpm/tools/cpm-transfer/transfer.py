@@ -26,6 +26,10 @@ def user_area(value):
         raise argparse.ArgumentTypeError('CP/M user area must be one hexadecimal digit: 0 through F')
     return int(value, 16)
 
+CCP_PROMPT = re.compile(
+    r'(?:[A-P](?:[0-9]|1[0-5]|[A-F])?|/[a-pA-P]/[A-Za-z0-9_-]{1,8})>'
+)
+
 class Link:
     def __init__(self, port=None, raw=True, *, fd=None):
         self.owns_fd = fd is None
@@ -72,7 +76,7 @@ class Link:
         self.screen = smoke.Mirror()
         self.send('\x1b[>62v')
         self.pump(.5)
-        self.until(lambda t: re.fullmatch(r'[A-P](?:[0-9]|1[0-5]|[A-F])?>',
+        self.until(lambda t: CCP_PROMPT.fullmatch(
                    ''.join(self.screen.rows[self.screen.y]).strip()) is not None,
                    timeout=3, check_errors=False)
 
@@ -166,9 +170,20 @@ class Link:
         # A verified lazy-history save temporarily pauses RunCPM. Slow SD
         # targets can therefore echo the drive/user command well before CCP
         # gets a chance to print its new prompt.
-        self.until(lambda t: re.fullmatch(
-            rf'{drive}(?:{user}|{user:X})?>',
-            ''.join(self.screen.rows[self.screen.y]).strip()) is not None, timeout=60)
+        self.until(lambda t: CCP_PROMPT.fullmatch(
+            ''.join(self.screen.rows[self.screen.y]).strip()) is not None,
+            timeout=60)
+        # DN and drive-only prompts do not identify the numeric user area.
+        # Ask the CCP itself before any transfer and verify its exact DU.
+        self.fresh_screen()
+        self.command('CD')
+        def selected_du(_text):
+            rows = [''.join(row).strip() for row in self.screen.rows]
+            prefix = f'{drive}{user}: /{drive.lower()}/'
+            numeric = f'{drive}{user}:'
+            return (any(row == numeric or row.startswith(prefix) for row in rows)
+                    and CCP_PROMPT.fullmatch(rows[self.screen.y]) is not None)
+        self.until(selected_du, timeout=60)
 
     def get(self, name, progress=None):
         assert re.fullmatch(r'[A-Z0-9_-]{1,8}\.[A-Z0-9]{1,3}', name)

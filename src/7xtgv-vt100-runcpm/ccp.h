@@ -20,7 +20,7 @@
 
 // CCP Configuration and State
 #define DEFAULT_PAGE_SIZE 22
-#define PROMPT_SIZE       8
+#define PROMPT_SIZE       16
 #define FCB_SIZE          36
 #define SEC_SIZE          128
 #define MAX_USER          15
@@ -29,7 +29,8 @@
 typedef enum {
     CCP_PROMPT_DECIMAL, // A15> (default)
     CCP_PROMPT_HEX,     // AF>
-    CCP_PROMPT_DRIVE    // A>
+    CCP_PROMPT_DRIVE,   // A>
+    CCP_PROMPT_NAMED    // /a/mbasic>
 } CCPPromptMode;
 
 // CCP global variables
@@ -501,43 +502,6 @@ uint8 _ccp_user(void) {
     return (error);
 } // _ccp_user
 
-// CCPP command - choose how the internal CCP displays drive and user.
-// This changes neither the selected user area nor command-line syntax.
-uint8 _ccp_promptMode(void) {
-    const uint8 first = _RamRead(ParFCB + 1);
-    const uint8 second = _RamRead(ParFCB + 2);
-    const uint8 third = _RamRead(ParFCB + 3);
-
-    if (first == ' ' && _RamRead(SecFCB + 1) == ' ') {
-        _puts("\r\nCCP prompt: ");
-        _puts(ccpPromptMode == CCP_PROMPT_DECIMAL ? "DD" :
-              ccpPromptMode == CCP_PROMPT_HEX ? "DH" : "D");
-        return FALSE;
-    }
-
-    // The first FCB holds the mode. Reject extensions, drive qualifiers,
-    // longer names and extra arguments instead of silently accepting them.
-    if (!_RamRead(ParFCB) && _RamRead(ParFCB + 9) == ' ' &&
-        !_RamRead(SecFCB) && _RamRead(SecFCB + 1) == ' ') {
-        CCPPromptMode requested;
-        if (first == 'D' && second == 'D' && third == ' ')
-            requested = CCP_PROMPT_DECIMAL;
-        else if (first == 'D' && second == 'H' && third == ' ')
-            requested = CCP_PROMPT_HEX;
-        else if (first == 'D' && second == ' ')
-            requested = CCP_PROMPT_DRIVE;
-        else {
-            _puts("\r\nUsage: CCPP DD|DH|D");
-            return FALSE;
-        }
-        ccpPromptMode = requested;
-        return FALSE;
-    }
-
-    _puts("\r\nUsage: CCPP DD|DH|D");
-    return FALSE;
-} // _ccp_promptMode
-
 // CLS command - clears the screen
 uint8 _ccp_cls(void) {
     _clrscr();
@@ -696,13 +660,13 @@ uint8 _ccp_dump(void) {
     }
 } // _ccp_dump
 
-// VOL command - shows the volume INFO.TXT information
+// VOL command - shows the area DIR.7XF information
 uint8 _ccp_vol(void) {
     uint8 error = FALSE;
     uint8 letter = _RamRead(ParFCB) ? '@' + _RamRead(ParFCB) : 'A' + currentDrive;
     uint8 folder[5] = {letter, FOLDERCHAR, '0', FOLDERCHAR, 0};
-    uint8 filename[13] = {letter, FOLDERCHAR, '0', FOLDERCHAR, 'I', 'N', 'F',
-                          'O', '.', 'T', 'X', 'T', 0};
+    uint8 filename[13] = {letter, FOLDERCHAR, '0', FOLDERCHAR, 'D', 'I', 'R',
+                          '.', '7', 'X', 'F', 0};
     uint8 bytesread;
     uint8 i, j;
 
@@ -731,6 +695,28 @@ uint8 _ccp_vol(void) {
     }
     return (error);
 } // _ccp_vol
+
+#include "ccp_catalog.h"
+
+// 7XF selects the CCP prompt style; LS/LL own one-shot catalog capture.
+uint8 _ccp_7xf(void) {
+    char arg[128];
+    if (!_ccp_catArgument(arg, sizeof arg)) return 1;
+    if (!arg[0]) {
+        ccpPromptMode = CCP_PROMPT_NAMED;
+        return FALSE;
+    }
+    if (_ccp_strEqual(arg, "DD") || _ccp_strEqual(arg, "DH") ||
+        _ccp_strEqual(arg, "D") || _ccp_strEqual(arg, "DN")) {
+        ccpPromptMode = _ccp_strEqual(arg, "DD") ? CCP_PROMPT_DECIMAL :
+                        _ccp_strEqual(arg, "DH") ? CCP_PROMPT_HEX :
+                        _ccp_strEqual(arg, "D") ? CCP_PROMPT_DRIVE :
+                        CCP_PROMPT_NAMED;
+        return FALSE;
+    }
+    _puts("\r\n Usage: 7XF [DD|DH|D|DN]");
+    return FALSE;
+}
 
 // COPY command - copies a file
 // Usage: COPY <src> <dest>
@@ -850,29 +836,39 @@ uint8 _ccp_poke(void) {
 
 // ?/Help command
 uint8 _ccp_hlp(void) {
-    _puts("\r\nCCP Commands:\r\n");
-    _puts(" ?                  - Shows this list of commands\r\n");
-    _puts(" CCPP [DD|DH|D]     - Sets CCP prompt: decimal, hex, drive only\r\n");
-    _puts(" CLS                - Clears the screen\r\n");
-    _puts(" COPY <src> <dst>   - Copies a file\r\n");
-    _puts(" DEL [<patt>]       - Alias to ERA\r\n");
-    _puts(" DIR [<patt>]       - Lists file directory\r\n");
-    _puts(" DUMP <addr|file>   - Hex+ASCII dump of memory or file\r\n");
-    _puts("                      addr = 4 hex digits\r\n");
-    _puts(" ECHO <text>        - Prints text to console\r\n");
-    _puts(" ERA [<patt>]       - Erases files\r\n");
-    _puts(" EXIT               - Terminates RunCPM\r\n");
-    _puts(" LDIR [<patt>] [/C] - Lists file directory with sizes\r\n");
-    _puts("                      /C option includes 16 bit checksum\r\n");
-    _puts(" PAGE [<n>]         - Sets the paging size for TYPE and LDIR\r\n");
-    _puts("                      n = 0 to 255, 0 disables paging\r\n");
-    _puts(" POKE <addr> <val>  - Writes a byte to memory (hex)\r\n");
-    _puts(" REN <new>=<old>    - Renames files\r\n");
-    _puts(" SAVE <n> <file>    - Saves memory pages (256 bytes) to file\r\n");
-    _puts(" TYPE <file>        - Displays file contents\r\n");
-    _puts(" USER <n>           - Changes user area\r\n");
-    _puts(" VER                - Displays the current CCP version\r\n");
-    _puts(" VOL [<drv>]        - Shows the volume INFO.TXT information\r\n");
+    static const char *const lines[] = {
+        " CCP Commands:",
+        " ?                  - Shows this list of commands",
+        " COPY <src> <dst>   - Copies a file",
+        " DEL [<patt>]       - Alias to ERA",
+        " DIR [<patt>]       - Lists file directory",
+        " ECHO <text>        - Prints text to console",
+        " ERA [<patt>]       - Erases files",
+        " EXIT               - Terminates RunCPM",
+        " LDIR [<patt>] [/C] - Lists files with sizes; /C adds checksum",
+        " PAGE [<n>]         - Paging for TYPE, LDIR, LS and help; 0=off",
+        " POKE <addr> <val>  - Writes a byte to memory (hex)",
+        " REN <new>=<old>    - Renames files",
+        " SAVE <n> <file>    - Saves memory pages (256 bytes) to file",
+        " TYPE <file>        - Displays file contents",
+        " USER <n>           - Changes user area",
+        " VER                - Displays the current CCP version",
+        " CLS                - Clears the screen",
+        " DUMP <addr|file>   - Hex+ASCII dump of memory or file",
+        " VOL [<drv>]        - Shows the area DIR.7XF information",
+        "",
+        " 7xtgv extended:",
+        " 7XF [DD|DH|D|DN]    - Select prompt style",
+        " LS [-L] [-O file] [path] - Named catalog",
+        " LL [-O file] [path]      - Alias to LS -L",
+        " CD [name|/D|/D/name] - Select named area"
+    };
+    _puts("\r\n");
+    uint16 pageLines = 0;
+    for (uint8 i = 0; i < sizeof(lines) / sizeof(lines[0]); ++i) {
+        _puts(lines[i]);
+        if (!_ccp_catEol(&pageLines)) break;
+    }
     return (FALSE);
 }
 
@@ -889,9 +885,12 @@ static const Command Commands[] = {
 
     // Extra CCP commands
     {"CLS", _ccp_cls},
-    {"CCPP", _ccp_promptMode},
+    {"7XF", _ccp_7xf},
     {"COPY", _ccp_copy},
     {"LDIR", _ccp_ldir},
+    {"LS", _ccp_ls},
+    {"LL", _ccp_ls},
+    {"CD", _ccp_cd},
     {"DEL", _ccp_era},
     {"ECHO", _ccp_echo},
     {"EXIT", _ccp_exit},
@@ -1281,8 +1280,17 @@ void _ccp(void) {
             sprintf(userText, "%u", (unsigned int)currentUser);
         else if (ccpPromptMode == CCP_PROMPT_HEX)
             sprintf(userText, "%X", (unsigned int)currentUser);
-        sprintf((char *)prompt, compactPrompt ? "%c%s%c" : "\r\n%c%s%c",
-                'A' + currentDrive, userText, submitFlag ? '$' : '>');
+        if (ccpPromptMode == CCP_PROMPT_NAMED) {
+            char alias[13], description[81];
+            if (!_ccp_catArea(currentDrive, currentUser, alias, description))
+                sprintf(alias, "%u", (unsigned int)currentUser);
+            sprintf((char *)prompt, compactPrompt ? "/%c/%s%c" :
+                    "\r\n/%c/%s%c", 'a' + currentDrive, alias,
+                    submitFlag ? '$' : '>');
+        } else {
+            sprintf((char *)prompt, compactPrompt ? "%c%s%c" : "\r\n%c%s%c",
+                    'A' + currentDrive, userText, submitFlag ? '$' : '>');
+        }
         ccpSuppressNextPromptNewline = FALSE;
         if (!bufferLen) {
             _puts((char *)prompt);

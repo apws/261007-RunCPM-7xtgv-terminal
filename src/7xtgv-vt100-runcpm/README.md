@@ -121,11 +121,12 @@ exclusive access; do not run picocom or a second direct helper alongside it.
 | Alt+# or Ctrl+] then # | Toggle temporary `## RAW` input bypass |
 | Alt+PageUp / Alt+PageDown | Select previous/next history list |
 | Ctrl+Shift or Alt+Shift+0 ... 9 | Backlight: off, then coarse module-specific levels up to full ON |
-| Ctrl+Shift or Alt+Shift+PageUp / PageDown | Increase / decrease one of 32 brightness levels |
+| Ctrl+Alt+Shift+PageUp / PageDown | Increase / decrease one of 32 brightness levels |
 | Ctrl+] then a / e | Previous / next calculated horizontal view; works without modifier mappings |
-| Ctrl+Shift or Alt+Shift+Home / End | Previous / next calculated horizontal view |
-| Ctrl+Alt+Shift+Home / End | Previous / next calculated vertical view |
-| Ctrl+Alt+Shift+PgDn / PgUp | Zoom in (toward 4x) / out (toward 1x) |
+| Ctrl+Shift+arrows | Pan horizontally or vertically by one calculated position |
+| Ctrl+Shift+Home / End | Previous / next view in row-major overview |
+| Alt+Shift+Home / End | Older horizontal-only pan alias |
+| Ctrl+Shift+PgDn / PgUp | Temporarily zoom in (toward 4x) / out (toward 1x) |
 | Ctrl+] then 1 / 2 | Select ANSI / VT52 locally |
 | Ctrl+] then g or Shift+Alt+Backspace | GCLS: arm one local xterm-256 pixel plot without clearing the TFT |
 | Ctrl+] then r | Refresh PC mirror and TFT |
@@ -154,8 +155,8 @@ Private host controls are `CSI > 15 v` (toggle), `CSI > 16 v` (on), and
 OFF (0), PWM (1..30), or full ON (31); legacy 32 aliases 31.
 `n=33` raises and `n=34` lowers one
 level. The remembered non-off value is safely written to `[global]`
-`backlight_level` in `7XTGVTRM.INI` after input settles; zoom changes also
-persist as `view_zoom` in the active HAL's display section. These sequences remain
+`backlight_level` in `7XTGVTRM.INI` after input settles. View zoom and pan
+are temporary; the logical CP/M geometry does not change. These sequences remain
 reserved even in RAW mode.
 
 Optional `[global] crt_rampup_ms=1500` gives a 1.5-second boot-only backlight
@@ -224,10 +225,12 @@ ESC). Remove conflicting mappings in that profile if necessary.
 | Key | Konsole output | Bytes |
 | --- | --- | --- |
 | Ctrl+] then `a` / `e` | private helper action | Previous/next horizontal view |
-| Ctrl+Shift or Alt+Shift+Home / End | global viewport action | Previous/next horizontal view |
-| Ctrl+Alt+Shift+Home / End | global viewport action | Previous/next vertical view |
+| Ctrl+Shift+arrows | global viewport action | Pan by one horizontal or vertical position |
+| Ctrl+Shift+Home / End | global viewport action | Previous/next view in row-major overview |
+| Alt+Shift+Home / End | global viewport action | Older horizontal-only alias |
 | Ctrl+Shift or Alt+Shift+0 ... 9 | local terminal action | Backlight off / coarse module-specific levels up to full ON |
-| Ctrl+Shift or Alt+Shift+PageUp / PageDown | local terminal action | Raise / lower one of 32 levels |
+| Ctrl+Shift+PageDown / PageUp | local terminal action | Temporary view zoom in / out |
+| Ctrl+Alt+Shift+PageUp / PageDown | local terminal action | Raise / lower one of 32 levels |
 
 ## Supported terminal subset
 

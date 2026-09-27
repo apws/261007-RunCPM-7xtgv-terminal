@@ -84,6 +84,10 @@ Send confirms every remote write; Receive confirms an existing local target.
 Y proceeds, N edits Target, C/Esc cancels. Results remain until dismissed.
 No XMODEM bytes are sent by that panel. The separate CLI `--user` option still
 explicitly switches the device to A plus that user; it is not the UI's local DU.
+The idle check accepts numeric CCP prompts and the bounded `7XF DN`
+`/drive/area>` form. After a CLI `--user` change, the helper checks bare
+`CD` for the numeric DU; it accepts both old `A7:` and new `A7: /a/mbasic`
+output while devices are upgraded.
 
 
 Uploads are one-way by default: `cpmdrive/` is the source mirror and VTPUT

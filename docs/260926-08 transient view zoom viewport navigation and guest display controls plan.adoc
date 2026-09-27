@@ -1,7 +1,7 @@
 = Transient view zoom, viewport navigation and guest display controls plan
 :source-highlighter: highlight.js
 
-*Status:* proposed implementation plan, ready for approval +
+*Status:* implemented and host-tested; firmware/device acceptance pending +
 *Date:* 260926 +
 *Scope:* separate physical viewing from logical terminal geometry, reorganize
 the compact-view keyboard controls, and add CP/M-visible display diagnostics
@@ -223,6 +223,7 @@ Reserve new output-side private controls without changing existing numbers:
 CSI > 72 v                    query 7xtgv display/view information
 CSI > 73 ; z v                load resolved preset z temporarily
 CSI > 73 ; z ; cols ; rows v  set temporary zoom and logical geometry
+CSI > 73 ; 0 v                restore the boot view and logical geometry
 ----
 
 `+z+` is 1..4. Columns must be even and within the compiled logical maximum;
@@ -413,6 +414,25 @@ This change does not add:
 * persistent `+VTZOOM SAVE+`;
 * device flashing, CP/M file deployment or target switching as part of the
   implementation edit.
+
+== 15. Host implementation checkpoint (260926)
+
+The runtime has a view-only operation which preserves logical terminal state,
+cells and mirror dimensions. Ctrl{plus}Shift arrows pan one axis; Home/End scan
+all calculated views in row-major order. Ctrl{plus}Shift Page keys zoom the TFT
+without resizing CP/M. Fine backlight uses the three-modifier Page chord.
+
+Pending configuration saves now carry explicit dirty fields. A backlight or
+palette save updates only its own INI key, preserving a hand-edited
+`+view_zoom+` line exactly. The private `+CSI >72v+` query and `+CSI >73+`
+temporary geometry requests are implemented in the parser/runtime. A0 has
+Intel 8080 `+VTINFO.ASM/COM+` and `+VTZOOM.ASM/COM+`.
+
+Host terminal/runtime/config tests pass. The guest tools assemble under
+Digital Research ASM/LOAD in disposable native RunCPM, and tests cover valid,
+malformed and unanswered replies. No firmware build, device flash or A0
+transfer has been performed for this change; hardware acceptance remains the
+next step after Petr requests rebuild/reflash and device-side installation.
 
 The current device INI has been edited after the last host fetch. Any later
 request to edit or deploy that file must first use the established fresh-fetch

@@ -10,7 +10,8 @@ static void load(vt::HistoryProfiles &p, const char *s) {
     p.beginLoad(); while (*s) p.feed(uint8_t(*s++)); p.finishLoad();
 }
 static int selected = -1;
-static void control(void *, vt::Terminal::ControlEvent event, uint8_t value) {
+static void control(void *, vt::Terminal::ControlEvent event, uint8_t value,
+                    uint16_t, uint16_t) {
     assert(event == vt::Terminal::Palette); selected = value;
 }
 int main() {

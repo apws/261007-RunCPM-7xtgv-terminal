@@ -23,18 +23,22 @@ class ConfigSettingsTests(unittest.TestCase):
 #include <iterator>
 #include <string>
 #include "src/terminal/ini_text.h"
+#include "src/terminal/terminal_runtime.h"
 bool failAllocation=false;
 void *resize(void *p,size_t n) { return failAllocation ? nullptr : realloc(p,n); }
 ''' + "static bool updateConfigSettings" + functions + r'''
-int main(int argc, char **) {
+int main(int argc, char **argv) {
     const std::string input(std::istreambuf_iterator<char>(std::cin),{});
     vt::IniText text(resize);
-    failAllocation=argc>1;
+    failAllocation=argc>1 && strcmp(argv[1],"fail")==0;
     uint8_t *data=text.beginLoad(input.size());
     if (!data) return 1;
     memcpy(data,input.data(),input.size());
     text.finishLoad();
-    if (!updateConfigSettings(text,17,2,"rp2_2",3)) return 1;
+    const uint8_t dirty=argc>1 && strcmp(argv[1],"backlight")==0
+        ? ConfigBacklightDirty
+        : ConfigBacklightDirty | ConfigPaletteDirty | ConfigZoomDirty;
+    if (!updateConfigSettings(text,17,2,"rp2_2",3,dirty)) return 1;
     std::cout.write(reinterpret_cast<const char *>(text.data()),text.size());
     std::cout << char(0x1a);
 }
@@ -48,8 +52,17 @@ int main(int argc, char **) {
     def tearDownClass(cls):
         cls.directory.cleanup()
 
-    def rewrite(self, data):
-        return subprocess.run([str(self.binary)], input=data, capture_output=True, check=True).stdout
+    def rewrite(self, data, mode=None):
+        command = [str(self.binary)] + ([mode] if mode else [])
+        return subprocess.run(command, input=data, capture_output=True, check=True).stdout
+
+    def test_backlight_save_preserves_zoom_text(self):
+        source = (b"[global]\r\nbacklight_level=16\r\nmode_palette=2\r\n"
+                  b"[display:rp2_2]\r\nview_zoom = 4  ; chosen by hand\r\n")
+        result = self.rewrite(source, "backlight")
+        self.assertIn(b"backlight_level=17", result)
+        self.assertIn(b"view_zoom = 4  ; chosen by hand\r\n", result)
+        self.assertIn(b"mode_palette=2\r\n", result)
 
     def test_preserves_palettes_comments_and_other_displays(self):
         palette = b"[palette3]\r\n; keep me\r\npaper0=1,2,3\r\nink08=9,8,7\r\n"

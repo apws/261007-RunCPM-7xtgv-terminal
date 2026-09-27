@@ -544,9 +544,9 @@ int main(int argc, char **argv) {
     assert(std::string(savedAppLine, savedAppLength) == "print 7");
     history->select(0);
     selectedBank = 0;
-    // All three internal-CCP prompt formats must activate the CCP history
-    // bank. A drive-only prompt has no user digit, unlike the old detector.
-    for (const char *ccpPrompt : {"A15>", "AF>", "A>"}) {
+    // Numeric, drive-only and bounded named prompts activate CCP history.
+    for (const char *ccpPrompt : {"A15>", "AF>", "A>",
+                                  "/a/mbasic>", "/a/7>"}) {
         terminal.reset();
         ccpPromptLive = false;
         emit(ccpPrompt);
@@ -557,6 +557,11 @@ int main(int argc, char **argv) {
     terminal.reset();
     ccpPromptLive = false;
     emit("AG>");
+    while (output.available()) terminalLoop();
+    assert(!ccpPromptLive && cpmPromptEndColumn() < 0);
+    terminal.reset();
+    ccpPromptLive = false;
+    emit("/a/overlong9>");
     while (output.available()) terminalLoop();
     assert(!ccpPromptLive && cpmPromptEndColumn() < 0);
     terminal.reset();
@@ -871,28 +876,28 @@ int main(int argc, char **argv) {
     assert(gfx->framebuffer[(GFX_OFS_Y + 3 * 20 + 5) * 320 + GFX_OFS_X + 5] ==
            rgb565(vt::Paper[1]));
     // Rapid zoom keys advance from the pending view but compose only once.
+    configSavePending.store(false);
+    configSaveDirty.store(0);
     requestZoom(1);
     requestZoom(1);
     terminalLoop();
     assert(terminal.zoom == 2);
     fakeTime += 150;
     terminalLoop();
-    assert(terminal.zoom == 4 && terminal.cols == 20 && terminal.rows == 6);
+    assert(terminal.zoom == 4 && terminal.cols == 40 && terminal.rows == 12);
     requestZoom(-1);
     fakeTime += 150;
     terminalLoop();
-    assert(terminal.zoom == 3 && terminal.cols == 26 && terminal.rows == 8);
+    assert(terminal.zoom == 3 && terminal.cols == 40 && terminal.rows == 12);
     assert(!terminalConfigSaveDue(savedBacklight, savedZoom));
     fakeTime += 1500;
-    assert(terminalConfigSaveDue(savedBacklight, savedZoom));
-    assert(savedZoom == 3 && savedBacklight == xtgvBacklightGetRemembered());
-    terminalConfigSaveComplete(true);
     assert(!terminalConfigSaveDue(savedBacklight, savedZoom));
     // SYNC/REFLASH bypass the lazy INI delay only for a pending change. A
     // failed forced save resumes the normal delay rather than retrying hot.
     terminalConfigForceSave();
     configSaveBacklight.store(7);
     configSaveZoom.store(2);
+    configSaveDirty.store(ConfigBacklightDirty | ConfigZoomDirty);
     configChangedAt.store(millis());
     configSavePending.store(true);
     assert(!terminalConfigSaveDue(savedBacklight, savedZoom));
@@ -915,6 +920,7 @@ int main(int argc, char **argv) {
     fakeTime += 150;
     terminalLoop();
     assert(terminal.zoom == 2);
+    terminal.pan(0);
     terminal.cursorVisible = false;
     terminal.charRAM[terminal.index(0, 0)] = 'A';
     terminal.attrRAM[terminal.index(0, 0)] = 8;
@@ -939,8 +945,7 @@ int main(int argc, char **argv) {
     assert(terminal.rowViewport == 12);
     assert(gfx->framebuffer[(GFX_OFS_Y + 5) * 320 + presentationGutter +
                             GFX_OFS_X + 5] == rgb565(terminal.palette.paper[1]));
-    keyboardKeyEvent(nullptr, {vt::KeyHome, uint8_t(vt::KeyCtrl | vt::KeyShift |
-                                                    vt::KeyAlt)}, nullptr, 0);
+    keyboardKeyEvent(nullptr, {vt::KeyUp, uint8_t(vt::KeyCtrl | vt::KeyShift)}, nullptr, 0);
     for (int i = 0; i < 1000; ++i) terminalLoop();
     assert(terminal.rowViewport == 0);
     assert(terminal.setGeometry(40, 12, 26, 12, 2));
@@ -1040,6 +1045,25 @@ int main(int argc, char **argv) {
     assert(activePalette==2 && requestedPalette==1);
     terminal.abortPlot(); fakeTime+=200; terminalLoop(); terminalLoop();
     assert(activePalette==1);
+    configSavePending.store(false);
+    configSaveDirty.store(0);
+    for (uint8_t c : std::string("\033[>73;2;80;24v")) terminal.feed(c);
+    assert(terminal.zoom == 2 && terminal.cols == 80 && terminal.rows == 24);
+    for (uint8_t c : std::string("\033[>73;2;79;24v\033[>73;2;80;999v")) terminal.feed(c);
+    assert(terminal.zoom == 2 && terminal.cols == 80 && terminal.rows == 24);
+    while (replies.available()) { uint8_t discard; replies.pop(discard); }
+    for (uint8_t c : std::string("\033[>72v")) terminal.feed(c);
+    std::string info;
+    uint8_t replyByte;
+    while (replies.pop(replyByte)) info.push_back(char(replyByte));
+    assert(info.find("\033P7xtgv-info;1;RP2_2;rp2350-touch-lcd-2;") == 0);
+    assert(info.find(";2;80;24;26;12;") != std::string::npos);
+    assert(std::count(info.begin(), info.end(), ';') == 22);
+    assert(info.size() > 2 && info.substr(info.size() - 2) == "\033\\");
+    for (uint8_t c : std::string("\033[>73;0v")) terminal.feed(c);
+    assert(terminal.zoom == bootDisplayProfile.viewZoom &&
+           terminal.cols == bootGeometry.cols && terminal.rows == bootGeometry.rows);
+    assert(!terminalConfigSaveDue(savedLight, themeZoom, &savedPalette));
     std::cout << "runtime render/mirror, slow/disconnected USB, queue saturation, and reconnect "
                  "tests passed\n";
 }

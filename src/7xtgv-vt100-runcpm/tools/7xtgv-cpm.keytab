@@ -25,29 +25,22 @@ key PgDown    -Shift-Alt+Ctrl : "\E[>51v"
 key Backspace -Shift-Alt+Ctrl : "\x18"
 key Backspace +Shift-Alt+Ctrl : "\E[>65v"
 
-# Global compact-viewport horizontal steps. These bypass the active application
-# profile and are handled before its profile-specific key bindings. Adding Alt
-# is generated below as a private chord and steps the vertical viewport.
-key Home      +Shift-Alt+Ctrl : "\E[1;3H"
-key End       +Shift-Alt+Ctrl : "\E[1;3F"
+# Ctrl+Shift arrows and Home/End use generated private key events. The
+# Alt+Shift Home/End compatibility alias remains horizontal-only.
 key Home      +Shift+Alt-Ctrl : "\E[1;3H"
 key End       +Shift+Alt-Ctrl : "\E[1;3F"
-# Zoom deliberately requires all three modifiers, leaving Ctrl+Shift PgUp/Dn
-# for fine backlight control. Konsole's keytab syntax does not distinguish
-# left/right Alt, so LAlt is the intended ergonomic physical key.
-# PgDown zooms in; PgUp zooms out. Protocol 66=in, 67=out is unchanged.
-key PgUp      +Shift+Alt+Ctrl : "\E[>67v"
-key PgDown    +Shift+Alt+Ctrl : "\E[>66v"
+# PgDown zooms in; PgUp zooms out. The three-modifier chord controls
+# backlight, with left Alt intended; Konsole cannot distinguish Alt sides.
+key PgUp      +Shift-Alt+Ctrl : "\E[>67v"
+key PgDown    +Shift-Alt+Ctrl : "\E[>66v"
+key PgUp      +Shift+Alt+Ctrl : "\E[>63;33v"
+key PgDown    +Shift+Alt+Ctrl : "\E[>63;34v"
 # One-hit terminal output interpretation selection.
 key 1         +Shift+Alt+Ctrl : "\E[>1v"
 key 2         +Shift+Alt+Ctrl : "\E[>2v"
 
 # Global backlight: Ctrl+Shift+digit presets are OFF, then module-specific levels.
-# Ctrl+Shift/Alt+Shift PgUp/PgDn use lit levels 1..31 (0 is separate OFF).
-key PgUp      +Shift-Alt+Ctrl : "\E[>63;33v"
-key PgDown    +Shift-Alt+Ctrl : "\E[>63;34v"
-key PgUp      +Shift+Alt-Ctrl : "\E[>63;33v"
-key PgDown    +Shift+Alt-Ctrl : "\E[>63;34v"
+# Fine adjustment uses lit levels 1..31 (0 is separate OFF).
 key 0         +Shift-Alt+Ctrl : "\E[>63;0v"
 key 1         +Shift-Alt+Ctrl : "\E[>63;4v"
 key 2         +Shift-Alt+Ctrl : "\E[>63;7v"
@@ -106,9 +99,11 @@ key Down       -Shift+Alt+Ctrl-KeyPad : "\E[>70;1;8;5;027091049059055066v"
 key Down       +Shift+Alt-Ctrl-KeyPad : "\E[>70;1;8;6;027091049059052066v"
 key Down       +Shift+Alt+Ctrl-KeyPad : "\E[>70;1;8;7;027091049059056066v"
 key Home       +Shift-Alt-Ctrl-KeyPad : "\E[>70;1;3;2;027091049059050072v"
+key Home       +Shift-Alt+Ctrl-KeyPad : "\E[>70;1;3;3;027091049059054072v"
 key Home       -Shift+Alt+Ctrl-KeyPad : "\E[>70;1;3;5;027091049059055072v"
 key Home       +Shift+Alt+Ctrl-KeyPad : "\E[>70;1;3;7;027091049059056072v"
 key End        +Shift-Alt-Ctrl-KeyPad : "\E[>70;1;4;2;027091049059050070v"
+key End        +Shift-Alt+Ctrl-KeyPad : "\E[>70;1;4;3;027091049059054070v"
 key End        -Shift+Alt+Ctrl-KeyPad : "\E[>70;1;4;5;027091049059055070v"
 key End        +Shift+Alt+Ctrl-KeyPad : "\E[>70;1;4;7;027091049059056070v"
 key Delete     +Shift-Alt-Ctrl-KeyPad : "\E[>70;1;5;2;027091051059050126v"
@@ -123,8 +118,10 @@ key Insert     +Shift+Alt-Ctrl-KeyPad : "\E[>70;1;6;6;027091050059052126v"
 key Insert     +Shift+Alt+Ctrl-KeyPad : "\E[>70;1;6;7;027091050059056126v"
 key PgUp       +Shift-Alt-Ctrl-KeyPad : "\E[>70;1;9;2;027091053059050126v"
 key PgUp       -Shift+Alt+Ctrl-KeyPad : "\E[>70;1;9;5;027091053059055126v"
+key PgUp       +Shift+Alt-Ctrl-KeyPad : "\E[>70;1;9;6;027091053059052126v"
 key PgDown     +Shift-Alt-Ctrl-KeyPad : "\E[>70;1;10;2;027091054059050126v"
 key PgDown     -Shift+Alt+Ctrl-KeyPad : "\E[>70;1;10;5;027091054059055126v"
+key PgDown     +Shift+Alt-Ctrl-KeyPad : "\E[>70;1;10;6;027091054059052126v"
 key F1         -Shift-Alt-Ctrl-KeyPad : "\E[>70;1;15;0;027079080v"
 key F1         -Shift-Alt+Ctrl-KeyPad : "\E[>70;1;15;1;027091049059053080v"
 key F1         +Shift-Alt-Ctrl-KeyPad : "\E[>70;1;15;2;027091049059050080v"

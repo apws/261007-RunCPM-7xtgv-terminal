@@ -205,15 +205,23 @@ static bool loadTerminalConfigText() {
 }
 
 static bool updateConfigSettings(vt::IniText &text, uint8_t level,
-                                 uint8_t zoom, const char *displayId, uint8_t palette) {
+                                 uint8_t zoom, const char *displayId, uint8_t palette,
+                                 uint8_t dirty) {
     char display[24], value[4];
-    snprintf(display, sizeof(display), "display:%s", displayId);
-    snprintf(value, sizeof(value), "%u", unsigned(zoom));
-    if (!text.set(display, "view_zoom", value)) return false;
-    snprintf(value, sizeof(value), "%u", unsigned(level));
-    if (!text.set("global", "backlight_level", value)) return false;
-    snprintf(value, sizeof(value), "%u", unsigned(palette));
-    return text.set("global", "mode_palette", value);
+    if (dirty & ConfigZoomDirty) {
+        snprintf(display, sizeof(display), "display:%s", displayId);
+        snprintf(value, sizeof(value), "%u", unsigned(zoom));
+        if (!text.set(display, "view_zoom", value)) return false;
+    }
+    if (dirty & ConfigBacklightDirty) {
+        snprintf(value, sizeof(value), "%u", unsigned(level));
+        if (!text.set("global", "backlight_level", value)) return false;
+    }
+    if (dirty & ConfigPaletteDirty) {
+        snprintf(value, sizeof(value), "%u", unsigned(palette));
+        if (!text.set("global", "mode_palette", value)) return false;
+    }
+    return true;
 }
 
 static bool writeTerminalConfigText(File &target) {
@@ -303,21 +311,22 @@ static bool writeTerminalConfigErrorReport() {
 }
 
 bool terminalConfigStoragePoll() {
-    uint8_t level = 0, zoom = 0, palette = 0;
-    if (!terminalConfigSaveDue(level, zoom, &palette))
+    uint8_t level = 0, zoom = 0, palette = 0, dirty = 0;
+    if (!terminalConfigSaveDue(level, zoom, &palette, &dirty))
         return true;
     if (terminalConfigGuestWriting)
         return false; // defer even explicit SYNC until guest close/CCP
     terminalPause(true);
     // A last key could have arrived between the due check and pause. Recheck
     // the settled snapshot now that its producing core cannot mutate it.
-    if (!terminalConfigSaveDue(level, zoom, &palette)) {
+    if (!terminalConfigSaveDue(level, zoom, &palette, &dirty)) {
         terminalPause(false);
         return true;
     }
     terminalDiskActivity(true);
     bool saved = (terminalConfigText.valid() || loadTerminalConfigText()) &&
-                 updateConfigSettings(terminalConfigText, level, zoom, vt::displayHalDefaults().id, palette);
+                 updateConfigSettings(terminalConfigText, level, zoom,
+                                      vt::displayHalDefaults().id, palette, dirty);
     // Do not open/truncate any destination until the complete RAM edit exists.
     if (saved && SD.exists(TerminalConfigNewPath))
         saved = SD.remove(TerminalConfigNewPath);

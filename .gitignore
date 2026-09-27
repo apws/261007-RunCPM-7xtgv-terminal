@@ -1,4 +1,9 @@
 nukedc-recovery-mostly-corrupted-some-valid/
+# Local material deliberately kept outside the published repository.
+/private/
+/docs/private/
+# Ad-hoc backup archives in the repository root only.
+/*.[zZ][iI][pP]
 **/build/
 **/.build/
 **/.vscode/c_cpp_properties.json

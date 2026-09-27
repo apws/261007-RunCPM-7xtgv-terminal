@@ -1,0 +1,164 @@
+= Three-guide terminal documentation split and ownership plan
+:source-highlighter: highlight.js
+
+*Status:* proposed documentation migration; no guide files moved yet. +
+*Date:* 260926 +
+*Source:* Petr's request for a simple User Guide, exact Reference Guide and
+code-facing Technical Reference; the earlier direction in
+link:260924-23%20uncommitted%20work%20and%20documentation%20checkpoint.adoc[the documentation checkpoint].
+
+== Purpose and file layout
+
+The current link:260912-23%207xtgv%20terminal%20manual/README.adoc[combined
+manual] is 685 lines and mixes first-use instructions, exact settings tables,
+protocol internals and dated hardware observations. Preserve its stable path
+as a short landing page, then create three sibling files:
+
+[cols="2,4",options="header"]
+|===
+|File under `docs/260912-23 7xtgv terminal manual/` |Reader and question answered
+|`README.adoc` |Entry page: which guide to open, current shipped scope, and links to the feature ledger and dated evidence. No duplicated command tables.
+|`user-guide.adoc` |A CP/M user asks: how do I start, use, transfer, adjust, and recover?
+|`reference-guide.adoc` |A user configuring an application asks: what exact keys, commands, fields, ranges and limitations exist?
+|`technical-reference.adoc` |A maintainer asks: how do the firmware, HAL, host mirror, storage and private protocols work?
+|===
+
+The root repository README remains a repository entry point; the sketch README
+remains a build/test entry point. Both link to these guides instead of becoming
+additional copies. Dated design, port and test reports stay historical evidence,
+not chapters that an ordinary user must read.
+
+== Content and intended depth
+
+=== User Guide: short, task-first, current behavior
+
+Open with a one-screen orientation: device TFT versus complete PC mirror,
+current CP/M drive/user versus local transfer DU, logical terminal versus
+physical zoom/viewport. Then provide worked paths in this order:
+
+. Check/select the attached target in `tools/terminal.conf`; launch Konsole or
+  Kitty and reach the CCP prompt. Do not promise automatic hardware detection.
+. Use profiles, history, RAW, the important global shortcuts, zoom and pan.
+  Give only the everyday key subset; link to the full key table.
+. Run `VTINFO`, use temporary `VTZOOM`, and explain the full-screen application
+  size caveat with a small 80x24 example.
+. Send and receive one file with VTPUT/VTGET. Explain that the dialog's DU is
+  *local*, the device uses its current DU, overwrite requires confirmation,
+  an 80-column *logical* terminal is needed, and bytes are not converted.
+. Edit an INI safely: fetch the live copy first, edit, send with approval and
+  reboot; never treat the repository copy as necessarily current.
+. Basic troubleshooting: wrong target/no serial port, BOOTSEL, stalled helper,
+  missing/invalid INI, mismatched application geometry, and the safe reset or
+  relaunch action. Link to exact diagnostics instead of teaching the uploader.
+
+Include only short examples and the minimum warning needed at the point of
+use. No parser byte tables, HAL source maps, old build stamps or exhaustive
+palette arithmetic. A new reader should be able to finish ordinary tasks
+without opening another guide, while unusual options point to the Reference.
+
+=== Reference Guide: one authoritative implemented-behavior catalogue
+
+Own complete user-visible syntax and semantics:
+
+* Host launch/configuration variables and all global/profile key chords,
+  including which are reserved before profile overrides and host-layout limits.
+* Ten profiles, history/RAW behavior, application adapters, CP/M DU and command
+  tables (A0, A6, A7 and other maintained areas). Include `VTINFO`, `VTZOOM`,
+  `ZOOM`, `VTPAL`, GCLS, REFLASH, SYNC and transfer helpers in the right areas.
+* VTPUT/VTGET dialog and CLI options, source/target/overwrite rules, record
+  padding, 80-column requirement, text-format rules and ZIP/UNZIP157 usage.
+* The actual ANSI/VT100, VT52, DEC graphics and xterm256 subset and deliberate
+  omissions. Keep supported versus approximate glyphs and mirror/TFT behavior
+  explicit; do not claim full standards conformance.
+* The entire `7XTGVTRM.INI` grammar: global/display/bank/palette sections,
+  keys, accepted values, defaults/ranges, inheritance, diagnostic messages,
+  persistence rules and reload timing. One canonical ANSI-to-internal-palette
+  mapping table belongs here, not in all three guides.
+* Per-target *user-facing* display ID, physical pixels, maximum logical
+  geometry, configured boot presets, and where to inspect the running values
+  with `VTINFO`. Distinguish compiled maxima from editable INI presets.
+
+This guide is comprehensive rather than introductory. It records the shipped
+behavior and known limitations, but detailed memory ownership and source-level
+reasoning belong in the Technical Reference. For each command or setting,
+state whether a change is temporary, lazy-persisted or boot-only.
+
+=== Technical Reference: implementation and protocol contract
+
+Own the explanations needed to change code safely:
+
+* RunCPM/terminal separation, core and SD ownership, queues, parser,
+  renderer/compositor, full mirror snapshot, input adapters and host bridge.
+  Provide a compact data-flow diagram only where it clarifies ownership.
+* Flat per-target HAL headers, `display_policy.h`, `runcpm-config.h`, target
+  JSON and build-stamp roles. Document the present split of logical maxima
+  between compile-time allocation and HAL policy; a future one-definition
+  cleanup is a design boundary, not a claim already implemented.
+* Cell planes, bounded geometry, zoom versus logical size, viewport steps,
+  gutter, retained plot and display flush behavior. Explain why a viewport
+  change does not resize CP/M or rebuild the complete mirror.
+* INI parse/cache/edit/save transactions, dirty-field mask, history CRC and
+  recovery, guest-write collision handling and synchronization points.
+* Exact private `CSI`/`DCS` contracts (including identity, transfer,
+  `VTINFO`/`VTZOOM`, backlight, palette, plot and reflash), framing, bounds,
+  failure handling and host/device responsibilities. Reference-level command
+  usage links here instead of duplicating the byte protocol.
+* Build/stage/promote/flash safety, RP2350 manual BOOTSEL, target identity
+  guard, source locations and host-versus-hardware test boundaries.
+
+Separate *implemented VT behavior* from *planned native 7xtgv*. Link the
+native specifications and feature ledger, but do not present their planned
+four-plane colors, editable fonts or other future semantics as shipped APIs.
+Historical candidate stamps, timings and visual observations remain in dated
+reports; this guide states the current mechanism and points to that evidence.
+
+== Migration map from the combined manual
+
+[cols="3,2,3",options="header"]
+|===
+|Current section |Primary destination |Only the necessary shorter companion
+|Starting mirror; VTPUT/VTGET |User Guide |Reference owns every dialog/CLI rule; Technical owns transfer framing and serial ownership.
+|Global keys; histories; profiles; editing |Reference |User Guide gets common tasks and shortcuts; Technical explains routing, adapters and persistence.
+|CP/M commands and user areas; visual tests; ZIP |Reference |User Guide gets selected worked examples; dated test inventories stay linked evidence.
+|xterm256 graphics |Reference |User Guide gets a short `GCLS` example; Technical owns pixel pipeline and protocol.
+|Configuration, diagnostics, geometry, palette |Reference |User Guide gets safe edit procedure; Technical owns parser/cache/HAL and exact internal mapping rationale.
+|Source references, build/upload safeguard |Technical Reference |User Guide gets target-selection and recovery warnings; Reference lists user-visible commands/variables.
+|===
+
+The present `VTINFO` report is placed beneath the A6 helper section although
+the command belongs to A0. Move it into A0 in the Reference and use only a
+small example in the User Guide.
+
+== Accuracy audit before moving prose
+
+Do not copy a stale assertion into three new places. Compare each affected
+claim to source and the running `VTINFO` where appropriate. Known examples in
+the current combined manual are the statement that a zoom change updates
+`view_zoom` (keyboard zoom is now temporary), an old W535 host-target snapshot
+presented near source references, and the A0 inventory preceding the new
+`VTINFO`/`VTZOOM` helpers. Dated RP2_147 backlight/build observations should
+remain evidence rather than undated current-device defaults. The INI on the
+physical card may differ from the local mirror; use the live-fetch workflow
+before asserting its exact settings.
+
+== Incremental execution and acceptance
+
+. Create the landing page and User Guide first while leaving the complete old
+  manual available. Its first tasks should be tested by a reader using RP2_147.
+. Move exact tables into the Reference and replace the old combined text with
+  links, not copies. Preserve the existing manual URL and explicit section
+  anchors with short compatibility links where needed.
+. Build the Technical Reference from current source and the sketch README;
+  remove duplicated internals from the other two guides.
+. Audit every moved command/setting against source and current target metadata;
+  label known hardware-test scope and unresolved behavior rather than guessing.
+. Search incoming links/anchors, render AsciiDoc, run the feature-registry check
+  and update generated ledger links. No firmware build, flash, INI deployment
+  or device-file overwrite is part of a documentation split.
+
+Acceptance means: the User Guide suffices for normal use; the Reference has
+one exact answer per implemented setting/chord/command; the Technical
+Reference explains the source/protocol boundaries without claiming proposed
+native behavior; all old entry links still work; and the three guides do not
+contradict one another. Manual review is independent of feature hardware
+status `H`; this plan does not add a new registry state or schema field.

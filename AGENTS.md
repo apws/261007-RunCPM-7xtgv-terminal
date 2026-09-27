@@ -49,6 +49,13 @@
   for privileged or outside-sandbox commands. `reflash` alone does not authorize
   a rebuild, image promotion, target change, CP/M file overwrite, or unrelated
   device tests.
+  For a registered RP2350 already in manual BOOTSEL, absence of its normal
+  serial port is expected. Match the BOOTSEL disk's unique chip ID to the
+  recorded target, check its RP2350 UF2 identity, mount it, stop the mirror
+  once, copy that target's staged `new` UF2, wait for the same chip ID to
+  reappear as serial, restore the port ACL if needed, and relaunch the visible
+  mirror. Treat this as one `reflash` workflow; ask only for required system
+  approval, an unrecognized/mismatched chip, or a real failure.
   The opt-in monitor protocol is now reserved as guest output `CSI > 64 v`
   (`ESC[>64v`), emitted by `A0:REFLASH.COM`; it must only invoke an explicitly
   configured target-specific host uploader. The common host dispatcher is

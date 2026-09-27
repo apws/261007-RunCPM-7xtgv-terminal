@@ -16,9 +16,9 @@ font, the Mixworx color palette, and console file-transfer helpers.
 | [`src/`](src/) | Current firmware and earlier demo/source projects |
 | [`build/`](build/) | Generated Arduino build output; ignored by Git |
 | [`cpmdrive/`](cpmdrive/README.md) | Documented mirror of CP/M drive A user areas |
-| [`cpm-languages/`](cpm-languages/SOURCES.md) | Language-package sources and provenance |
 | [`docs/`](docs/) | [Central feature ledger](docs/FEATURES.adoc), recovery notes, reference material, and archived experiments |
 | `backups/` | Local generated backups; ignored by Git |
+| `private/`, `docs/private/` | Local-only material; ignored by Git and absent from a fresh clone |
 
 ## Feature registry
 

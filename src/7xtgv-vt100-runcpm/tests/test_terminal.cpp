@@ -221,9 +221,17 @@ static void collectPlot(void *p, vt::Terminal::PlotEvent event, uint16_t color) 
 }
 static int lastBacklight = -1;
 static int lastZoom = -1;
-static void control(void *, vt::Terminal::ControlEvent event, uint8_t value) {
+static int lastGuestEvent = -1, lastGuestCols = 0, lastGuestRows = 0;
+static void control(void *, vt::Terminal::ControlEvent event, uint8_t value,
+                    uint16_t cols, uint16_t rows) {
     if (event == vt::Terminal::Backlight) lastBacklight = value;
     if (event == vt::Terminal::Zoom) lastZoom = value;
+    if (event >= vt::Terminal::QueryInfo) {
+        lastGuestEvent = event;
+        lastZoom = value;
+        lastGuestCols = cols;
+        lastGuestRows = rows;
+    }
 }
 static void testLineEditing() {
     vt::Terminal t;
@@ -337,6 +345,15 @@ int main() {
     assert(lastZoom == 3);
     feed(t, "\033[>68;0v");
     assert(lastZoom == 3);
+    feed(t, "\033[>72v");
+    assert(lastGuestEvent == vt::Terminal::QueryInfo);
+    feed(t, "\033[>73;2v");
+    assert(lastGuestEvent == vt::Terminal::LoadPreset && lastZoom == 2);
+    feed(t, "\033[>73;2;80;24v");
+    assert(lastGuestEvent == vt::Terminal::SetGuestGeometry &&
+           lastGuestCols == 80 && lastGuestRows == 24);
+    feed(t, "\033[>73;2;79;24v\033[>73;2;80;999v");
+    assert(lastGuestCols == 80 && lastGuestRows == 24);
     feed(t, "\033[24;80HX");
     assert(t.x == 79 && t.y == 23 && t.charRAM[1919] == 'X');
     feed(t, "Y");
@@ -565,6 +582,22 @@ int main() {
     keys(k, "\033[>71;1v"); assert(t.rowViewport == 14);
     keys(k, "\033[>71;0v"); assert(t.rowViewport == 7);
     keys(k, "\033[>71;0v"); assert(t.rowViewport == 0);
+    t.charRAM[t.index(70, 20)] = 'Z';
+    feed(t, "\033[20;70H\0337");
+    assert(t.setView(12, 6, 2));
+    assert(t.cols == 80 && t.rows == 24 && t.zoom == 2 &&
+           t.charRAM[t.index(70, 20)] == 'Z' && t.x == 69 && t.y == 19);
+    t.pan(68);
+    t.panRows(18);
+    t.panOverview(-1);
+    assert(t.rowViewport == 18 && t.viewport < 68);
+    t.pan(68);
+    t.panRows(12);
+    t.panOverview(1);
+    assert(t.rowViewport == 18 && t.viewport == 0);
+    assert(t.setView(26, 10, 1));
+    feed(t, "\0338");
+    assert(t.x == 69 && t.y == 19 && t.charRAM[t.index(70, 20)] == 'Z');
     assert(t.setGeometry(80, 24, 52, 24, 1));
     keys(k, "\033[>2v\033[A");
     assert(input == "\033[A" && !t.ansi); // fallback is independent of output mode

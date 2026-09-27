@@ -1,0 +1,84 @@
+= Forced COM warm-return key plan
+:source-highlighter: highlight.js
+
+*Status:* design only; no key binding or firmware behavior implemented +
+*Date:* 260927 +
+*Scope:* a deliberate escape from a running CP/M transient program that does
+not honor ordinary Ctrl+C. This is not a hardware reset or a generic way to
+kill all firmware activity.
+
+== Reason and existing behavior
+
+Ordinary Ctrl+C sends CP/M character `03h`. RunCPM's BDOS buffered line input
+recognizes it at the beginning of a line, but a COM program can ignore it,
+interpret it as data, or run forever without reading the console. The
+host Konsole/Kitty maps already encode key identity and modifiers in the
+private `CSI >70;1;...v` input event. The terminal decodes that event before
+sending the fallback bytes to CP/M. RunCPM's external-COM launcher already
+returns to the internal CCP after the Z80 runner ends with
+`STATUS_RESTART`; BIOS WBOOT and BDOS function 0 use that status.
+
+The proposed action is therefore an *emulator-level forced warm return*,
+not a second `03h` sent to the guest and not a CCP command. It should work
+when guest Z80 code loops without accepting keyboard input, provided the
+terminal and emulator cores are still running.
+
+== Proposed interaction
+
+* Reserve Ctrl+Alt+C as the emergency key on both Konsole and Kitty. Encode
+  its modifier-aware key event distinctly from Ctrl+C; never let its `03h`
+  fallback reach the guest when the emergency action is recognized.
+* Honor it only while an external COM is active. At a CCP prompt, during an
+  internal CCP command, and outside a running guest program, leave it inert
+  or show a short status notice. Keep ordinary Ctrl+C unchanged.
+* Request a warm return to the current CCP session, preserving drive/user,
+  terminal configuration, selected history profile and view. Clear any
+  pending guest input belonging to the aborted program so it cannot become
+  an accidental command at the next prompt. Show a one-line `FORCED WARM
+  RETURN` notice after control actually reaches the CCP.
+* Do not automatically reboot the MCU, remount the SD card, or replay the
+  program. Decide before implementation whether an active `$$$.SUB` chain
+  must also be stopped; silently continuing a batch after its COM was
+  forcibly aborted would be surprising.
+
+== Implementation boundary
+
+The terminal thread should set a thread-safe *request* flag; it must not
+write RunCPM's `Status` directly from that thread. The CPU thread checks the
+request in the Z80 execution path and takes the existing `STATUS_RESTART`
+return path. Check at a bounded interval rather than adding avoidable cost
+to every instruction; measure any VTCPU regression on RP2_147 and W535.
+
+The request also needs a wake/unwind path when the CPU thread is blocked
+waiting for console input. Cover BIOS console input, BDOS character input
+and BDOS buffered input explicitly. A pure instruction-loop poll is
+insufficient there. Decode the chord in both normal and RAW terminal-input
+modes; RAW currently forwards the key-event fallback bytes. Keep the handler
+above application-profile bindings so a COM cannot consume the emergency
+chord through a profile script.
+
+Never interrupt a host filesystem call in the middle of a write, rename or
+flush. Defer the request until that call returns to the CPU-side safe point.
+This is still an *unclean* termination from the application's point of view:
+open files may lack their final records or directory update, and unsaved
+editor data is lost. It cannot rescue a wedged MCU, terminal thread or
+storage driver; physical reset remains the fallback.
+
+== Acceptance tests before enabling by default
+
+* Existing Ctrl+C semantics remain unchanged at CCP and in applications.
+* A CPU-bound infinite-loop COM returns promptly to the same drive/user CCP
+  without a firmware reboot; no queued emergency-key bytes appear at prompt.
+* A COM blocked in each supported BIOS/BDOS console-read path can return.
+* A request during an SD write waits for that host operation to finish; test
+  file integrity and report that application-level completion is not promised.
+* Konsole and Kitty distinguish Ctrl+Alt+C from Ctrl+C, including RAW mode
+  and every input profile. Device and PC mirror show the same final prompt.
+* Test the chosen `$$$.SUB` behavior explicitly and benchmark all compiled
+  Z80 runner variants. Reject a measurable normal-emulation slowdown.
+
+== Open decisions
+
+Confirm whether the single chord is sufficiently deliberate or should need
+a second press/confirmation, and define the `$$$.SUB` policy before coding.
+No automatic forced exit should be inferred from ordinary Ctrl+C.

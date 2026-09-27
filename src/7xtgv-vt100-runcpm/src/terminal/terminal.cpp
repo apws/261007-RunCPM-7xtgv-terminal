@@ -139,6 +139,22 @@ bool Terminal::setGeometry(int activeCols, int activeRows, int visibleColumns,
     invalidate();
     return true;
 }
+bool Terminal::setView(int visibleColumns, int visibleRowCount, int scale) {
+    if (visibleColumns < 1 || visibleColumns > cols ||
+        visibleRowCount < 1 || visibleRowCount > rows || scale < 1 || scale > 4)
+        return false;
+    if (visibleCols == visibleColumns && visibleRows == visibleRowCount && zoom == scale)
+        return true;
+    abortPlot();
+    visibleCols = visibleColumns;
+    visibleRows = visibleRowCount;
+    zoom = scale;
+    viewport = std::min(viewport, viewportLimit());
+    rowViewport = std::min(rowViewport, rowViewportLimit());
+    compositionDirty = indicatorDirty = true;
+    std::fill(dirty, dirty + Cells, true);
+    return true;
+}
 void Terminal::setMode(bool a) {
     abortPlot();
     ansi = a;
@@ -191,6 +207,19 @@ void Terminal::panHorizontal(int direction) {
 }
 void Terminal::panVertical(int direction) {
     panRows(steppedViewport(rowViewport, rows, visibleRows, direction));
+}
+void Terminal::panOverview(int direction) {
+    if (!direction) return;
+    const int nextX = steppedViewport(viewport, cols, visibleCols, direction);
+    if (nextX != viewport) {
+        pan(nextX);
+        return;
+    }
+    const int nextY = steppedViewport(rowViewport, rows, visibleRows, direction);
+    if (nextY != rowViewport) {
+        panRows(nextY);
+        pan(direction > 0 ? 0 : viewportLimit());
+    }
 }
 RGB Terminal::foreground(int i) const {
     return (flags[i] & Reverse) ? palette.paper[(attrRAM[i] >> 4) & 3] : palette.ink[attrRAM[i] & 15];
@@ -421,6 +450,17 @@ void Terminal::dispatchPrivate(uint8_t f) {
             control(Zoom, uint8_t(params[1]));
         else if (f == 'v' && count == 2 && params[0] == 69 && params[1] >= 0 && params[1] <= 9)
             control(Palette, uint8_t(params[1]));
+        else if (f == 'v' && count == 1 && params[0] == 72)
+            control(QueryInfo, 0);
+        else if (f == 'v' && count == 2 && params[0] == 73 &&
+                 params[1] >= 0 && params[1] <= 4)
+            control(LoadPreset, uint8_t(params[1]));
+        else if (f == 'v' && count == 4 && params[0] == 73 &&
+                 params[1] >= 1 && params[1] <= 4 &&
+                 params[2] >= 2 && params[2] <= MaxCols && !(params[2] & 1) &&
+                 params[3] >= 1 && params[3] <= MaxRows)
+            control(SetGuestGeometry, uint8_t(params[1]),
+                    uint16_t(params[2]), uint16_t(params[3]));
     }
 }
 void Terminal::dispatch(uint8_t f) {

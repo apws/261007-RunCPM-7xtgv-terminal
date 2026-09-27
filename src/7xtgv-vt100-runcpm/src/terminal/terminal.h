@@ -45,17 +45,18 @@ class Terminal {
         PlotBegin, PlotSample, PlotRow, PlotEnd, PlotAbort, PlotScroll
     };
     using Plot = void (*)(void *, PlotEvent, uint16_t);
-    // Private `CSI >68;n v` is output-side terminal view control. It lets a
-    // CP/M transient request an absolute 1x..4x zoom without pretending that
-    // keyboard-only private controls are part of application output.
-    enum ControlEvent : uint8_t { Backlight, Zoom, FullClear, Palette };
-    using Control = void (*)(void *, ControlEvent, uint8_t);
+    // Private `CSI >68;n v` changes only the TFT view. Guest `>72/73` controls
+    // query the display or deliberately select logical geometry.
+    enum ControlEvent : uint8_t { Backlight, Zoom, FullClear, Palette,
+                                  QueryInfo, LoadPreset, SetGuestGeometry };
+    using Control = void (*)(void *, ControlEvent, uint8_t, uint16_t, uint16_t);
     explicit Terminal(Reply reply = nullptr, void *context = nullptr);
     void reset();
     // Change only the active terminal surface; backing memory always retains
     // the MaxCols stride.  The overlapping old/new rectangle is preserved.
     bool setGeometry(int activeCols, int activeRows, int visibleColumns,
                      int visibleRowCount, int scale);
+    bool setView(int visibleColumns, int visibleRowCount, int scale);
     int index(int column, int row) const { return row * MaxCols + column; }
     int viewportLimit() const { return cols > visibleCols ? cols - visibleCols : 0; }
     int rowViewportLimit() const { return rows > visibleRows ? rows - visibleRows : 0; }
@@ -65,6 +66,7 @@ class Terminal {
     void panRows(int offset);
     void panHorizontal(int direction);
     void panVertical(int direction);
+    void panOverview(int direction);
     void invalidate();
     void invalidateMirror();
     void setPlotSink(Plot plot, void *context) { plot_ = plot; plotContext_ = context; }
@@ -123,7 +125,9 @@ class Terminal {
     void dispatchPrivate(uint8_t final);
     void sgr();
     void plot(PlotEvent event, uint16_t value = 0);
-    void control(ControlEvent event, uint8_t value) { if (control_) control_(controlContext_, event, value); }
+    void control(ControlEvent event, uint8_t value, uint16_t cols = 0, uint16_t rows = 0) {
+        if (control_) control_(controlContext_, event, value, cols, rows);
+    }
     static uint16_t xterm565(int index);
     void save();
     void restore();

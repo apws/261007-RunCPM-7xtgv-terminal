@@ -1,0 +1,129 @@
+= XC commander return path and 7XF output boundary
+:source-highlighter: highlight.js
+
+*Date:* 260926-2336 +
+*Status:* design note only. XC launcher/return protocol is not implemented.
+The current 7XF source is host-tested but has not been rebuilt, flashed, or
+tested on a device.
+
+== The useful part of internal 7XF
+
+RunCPM's `CCP-INTERNAL` executes in native firmware, outside the emulated Z80
+TPA. Its built-in `LS`/`LL` read `DIR.7XF` and `VOL.7XF` and can produce a
+described catalog. `LS -O FILE.7XF [path]` (also `LL`) replaces that exact
+file in the current DU with *one* listing and closes it before returning to
+CCP. Only this listing uses the output sink and skips `PAGE` prompts; prompt,
+command echo, `CD`, other built-ins, and `.COM` program output remain on the
+terminal. No redirection setting persists between commands or to disk.
+`CD` may still change DU and update `DRV.7XF`, a separate on-disk setting.
+A normal CP/M warm return to this native CCP does not restart firmware.
+
+That narrowly scoped capture can be useful interactively or in a `SUBMIT`
+sequence. For example, a future XC could arrange commands equivalent to:
+
+----
+LS -O PANE.7XF /A/MBASIC
+XC /RESUME
+----
+
+Here the pane file is a deliberate on-disk snapshot. XC decides when it is
+stale; mere pane movement or `CD` need not regenerate it. This is *not* a
+general redirection facility, nor a good portable core for XC: `LS -O` is a
+RunCPM CCP extension, and a running CP/M `.COM` cannot call its C++ handler
+as a subroutine.
+
+== Why generic output capture is a dead route for now
+
+External `.COM` programs write through CP/M BDOS/BIOS (and may use different
+console paths). The current `LS`/`LL` sink sees none of those bytes.
+Capturing all such output would require an explicit console-output interception
+layer spanning guest execution, with defined treatment of direct BIOS calls,
+echo, errors, prompts, and interactive input. Persisting a filename in native
+RAM does not provide this. Do not describe `LS -O` as shell-wide redirection
+or rely on it to capture arbitrary internal commands such as `TYPE`, `VOL`,
+`CD`, `PAGE`, or external programs. `PAGE` itself is not temporarily changed:
+only that captured `LS`/`LL` invocation skips its paging prompt.
+
+The one-command `LS -O PANE.7XF ...` syntax is current source but not yet
+rebuilt or tested on a device. It replaces its named file without a Y/N/C
+question; a future UI must not silently point it at a valuable file. An
+append option or generic internal-command wrapper has no current use case.
+
+== XC leaving and regaining the TPA
+
+A normal CP/M `.COM` executes in the TPA. Loading another `.COM` at `0100h`
+may overwrite XC completely. On conventional CP/M 2.2 a warm start may also
+reload an overwritten CCP; on our RunCPM the internal CCP stays in native
+firmware. Neither case is a hardware reset. XC need not itself become an
+alternative CCP, but it must persist its pane/navigation state before yielding
+the TPA and arrange a later `XC /RESUME` command.
+
+`SUBMIT`'s `$$$.SUB` is a possible return queue: CCP consumes one command,
+the launched program exits normally, and CCP consumes the next command that
+restarts XC. A tiny XC launcher could create such a queue and request a CP/M
+warm return; it must use the selected CCP's exact queue format/location,
+refuse to overwrite an existing submit job, and recover from cancellation or
+command failure. RunCPM currently looks for a submit queue on drive A (the
+`BATCHA` setting), reads 128-byte records from the end, and removes the file
+after the last record. These are *implementation details*, not a portable
+`$$$.SUB` file API. RomWBW's actual CP/M/CCP combination needs separate
+verification before choosing its adapter. `XSUB` is unnecessary for merely
+running a command and restarting XC; it serves input to programs within a
+submit stream.
+
+The two similarly named files must not be confused. A user-authored `JOB.SUB`
+is ordinary text passed to `SUBMIT.COM`; that program converts it into the
+special `$$$.SUB` queue consumed by CCP. `$$$.SUB` is not simply lines of
+ASCII commands: in our RunCPM CCP, each 128-byte record starts with a length
+byte and contains a command line, and records are consumed from the *end* of
+the file. A direct XC writer would have to create the records in reverse
+physical order to run, for example, `PROGRAM ...` followed by `XC /RESUME`.
+The exact padding, location, user area, and failure semantics must be checked
+against the selected CCP before implementing such a writer. The Digital
+Research manual documents the `SUBMIT` to `$$$.SUB` to CCP loop, but direct
+writing of the queue is the proposed, implementation-specific XC shortcut.
+
+The complete proposed launch/return loop is:
+
+. While XC owns the TPA, it saves its pane cache and a small resume record
+  (selected paths, cursor positions, pending action) to disk.
+. Its CCP-specific launcher refuses to replace an existing submit queue,
+  prepares commands for the external program followed by `XC /RESUME`, and
+  exits via an ordinary CP/M warm return (BDOS function 0 or the equivalent
+  jump to address zero). This does *not* reset the MCU, display, or firmware.
+. CCP takes the first queued line and launches the external `.COM` into the
+  TPA, overwriting XC if necessary. No XC trampoline needs to remain in RAM.
+. When that program exits normally, control returns to CCP. CCP takes the
+  next queued line and launches `XC /RESUME`.
+. XC reloads its state and existing pane cache, refreshing only what the
+  completed action may have changed. If the external program aborts the
+  queue, a command fails, or power is lost, automatic resumption is not
+  guaranteed; a manual `XC` start must recover safely from the saved state.
+
+The same mechanism could queue `LS -O PANE.7XF ...` before `XC /RESUME` when
+XC deliberately wants a fresh RunCPM pane snapshot. Ordinary navigation
+inside XC need not queue anything or rewrite the cache.
+
+For a portable XC core, prefer BDOS directory enumeration plus `DIR.7XF`
+description parsing inside XC, writing pane snapshots only when XC chooses.
+Keep the launch/return mechanism behind a small CCP-specific adapter. A
+RunCPM-only native resume hook could be simpler than `$$$.SUB`, but must not
+become a hidden requirement of the generic CP/M commander.
+
+== RunCPM fork boundary
+
+The project modifies RunCPM's native `ccp.h`; this is an experimental fork,
+not an unchanged upstream CCP. Most catalog parsing, `LS`/`LL`, `CD`, and
+one-command capture live in `ccp_catalog.h`. `ccp.h` still integrates the
+command table, named prompt, help, and `VOL` filename. Keep those seams small
+and host-tested, while allowing the VMEX/ASLIX playground to explore native
+CCP facilities. XC's core should remain BDOS-based and treat `LS -O`, named
+paths, and any later native resume hook as optional RunCPM adapters.
+
+No XC launcher, submit queue writer, or generic console interception is
+authorized by this note; each needs its own design and test.
+
+== References
+
+* Digital Research, https://bitsavers.org/pdf/digitalResearch/cpm/CPM_Operating_System_Manual_Jul82.pdf[CP/M Operating System Manual], sections on transient programs and `SUBMIT`.
+* Project implementation: `src/7xtgv-vt100-runcpm/ccp.h` (`_ccp_readInput`, `_ccp_cnum`) and `ccp_catalog.h` (the LS/LL-scoped output sink).

@@ -28,11 +28,14 @@ static vt::HistoryProfiles profiles;
 // live zoom level instead of repeatedly starting from the INI default.
 static vt::DisplayProfile activeDisplayProfile;
 static vt::DisplayProfile pendingDisplayProfile;
+static vt::DisplayProfile bootDisplayProfile;
+static vt::Geometry bootGeometry{};
 static std::atomic<bool> displayProfilePending{false};
 static std::atomic<bool> displayProfileApplied{true};
 static bool zoomRequestPending = false;
 static uint32_t zoomRequestedAt = 0;
 static std::atomic<bool> ready{false};
+static std::atomic<uint16_t> logicalColumns{80};
 static std::atomic<bool> bootConfigComplete{false};
 static bool bootFrameReady = false;
 static uint32_t bootFrameFlushedAt = 0;
@@ -74,9 +77,10 @@ static uint32_t historyObservedGeneration = 0;
 static uint32_t historyChangedAt = 0;
 static bool historySavePending = false;
 static std::atomic<bool> historyForceSaveRequested{false};
-// The RunCPM/storage core owns INI writes. Publish one settled snapshot after
-// either a brightness or zoom change; the off state is deliberately not saved.
+// The RunCPM/storage core owns INI writes. Publish only dirty persistent
+// fields after brightness or palette changes; view zoom is temporary.
 static std::atomic<bool> configSavePending{false};
+static std::atomic<uint8_t> configSaveDirty{0};
 static std::atomic<bool> configForceSaveRequested{false};
 static std::atomic<uint8_t> configSaveBacklight{16};
 static std::atomic<uint8_t> configSaveZoom{1};
@@ -182,6 +186,22 @@ static int cpmPromptEndColumn() {
     int start = 0;
     while (start < terminal.x && start < 4 && terminal.charRAM[first + start] == ' ')
         ++start;
+    if (start < terminal.x && terminal.charRAM[first + start] == '/') {
+        if (start + 4 >= terminal.x) return -1;
+        const uint8_t drive = terminal.charRAM[first + start + 1];
+        if (!((drive >= 'a' && drive <= 'p') ||
+              (drive >= 'A' && drive <= 'P')) ||
+            terminal.charRAM[first + start + 2] != '/') return -1;
+        int col = start + 3, length = 0;
+        while (col < terminal.x && length < 8) {
+            const uint8_t c = terminal.charRAM[first + col];
+            if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                  (c >= '0' && c <= '9') || c == '_' || c == '-')) break;
+            ++col; ++length;
+        }
+        return length && col < terminal.x &&
+               terminal.charRAM[first + col] == '>' ? col : -1;
+    }
     const uint8_t drive = terminal.charRAM[first + start];
     if (drive < 'A' || drive > 'P')
         return -1;
@@ -710,7 +730,10 @@ static void mbasicEditPoll() {
 static void requestMirrorSnapshot();
 static void requestHostIdentity();
 static void requestZoomLevel(uint8_t zoom);
-static void applyDisplayProfile(const vt::DisplayProfile &profile);
+static void applyDisplayProfile(const vt::DisplayProfile &profile,
+                                const vt::Geometry *overrideGeometry = nullptr);
+static void applyViewZoom(uint8_t zoom);
+static void replyDisplayInfo();
 static void terminalBacklight(uint8_t value) {
     const uint8_t before = xtgvBacklightGetRemembered();
     if (value <= 32) // old protocol full-on 32 aliases canonical level 31
@@ -723,16 +746,38 @@ static void terminalBacklight(uint8_t value) {
     if (remembered != before) {
         configSaveBacklight.store(remembered, std::memory_order_release);
         configChangedAt.store(millis(), std::memory_order_release);
+        configSaveDirty.fetch_or(ConfigBacklightDirty, std::memory_order_acq_rel);
         configSavePending.store(true, std::memory_order_release);
     }
 }
-static void terminalControl(void *, vt::Terminal::ControlEvent event, uint8_t value) {
+static void terminalControl(void *, vt::Terminal::ControlEvent event, uint8_t value,
+                            uint16_t cols = 0, uint16_t rows = 0) {
     if (event == vt::Terminal::Backlight)
         terminalBacklight(value);
     else if (event == vt::Terminal::Zoom)
         requestZoomLevel(value);
     else if (event == vt::Terminal::Palette)
         requestedPalette = value;
+    else if (event == vt::Terminal::QueryInfo)
+        replyDisplayInfo();
+    else if (event == vt::Terminal::LoadPreset) {
+        zoomRequestPending = false;
+        displayProfilePending.store(false, std::memory_order_release);
+        if (!value)
+            applyDisplayProfile(bootDisplayProfile, &bootGeometry);
+        else {
+            vt::DisplayProfile selected = activeDisplayProfile;
+            selected.viewZoom = value;
+            applyDisplayProfile(selected);
+        }
+    } else if (event == vt::Terminal::SetGuestGeometry) {
+        zoomRequestPending = false;
+        displayProfilePending.store(false, std::memory_order_release);
+        vt::DisplayProfile selected = activeDisplayProfile;
+        selected.viewZoom = value;
+        const vt::Geometry geometry{cols, rows};
+        applyDisplayProfile(selected, &geometry);
+    }
     else if (event == vt::Terminal::FullClear)
         terminal.compositionDirty = true;
 }
@@ -913,10 +958,16 @@ static void keyboardAction(void *, vt::Keyboard::Action action) {
 }
 static void keyboardKeyEvent(void *, vt::KeyChord chord, const uint8_t *fallback,
                              size_t fallbackLength) {
-    if (chord.modifiers == (vt::KeyCtrl | vt::KeyShift | vt::KeyAlt) &&
-        (chord.base == vt::KeyHome || chord.base == vt::KeyEnd)) {
-        terminal.panVertical(chord.base == vt::KeyHome ? -1 : 1);
-        return;
+    if (chord.modifiers == (vt::KeyCtrl | vt::KeyShift)) {
+        switch (chord.base) {
+        case vt::KeyLeft: terminal.panHorizontal(-1); return;
+        case vt::KeyRight: terminal.panHorizontal(1); return;
+        case vt::KeyUp: terminal.panVertical(-1); return;
+        case vt::KeyDown: terminal.panVertical(1); return;
+        case vt::KeyHome: terminal.panOverview(-1); return;
+        case vt::KeyEnd: terminal.panOverview(1); return;
+        default: break;
+        }
     }
     if (historyNoticeActive) return;
     const int legacy = vt::appKeyForChord(chord);
@@ -1161,12 +1212,13 @@ static void requestMirrorSnapshot() {
 
 static void requestDisplayFlush();
 static void retireDiskIndicatorForPlot();
-static void applyDisplayProfile(const vt::DisplayProfile &profile) {
+static void applyDisplayProfile(const vt::DisplayProfile &profile,
+                                const vt::Geometry *overrideGeometry) {
     const vt::DisplayHalDefaults &hal = vt::displayHalDefaults();
     int zoom = profile.viewZoom;
     if (zoom < 1 || zoom > 4) zoom = hal.defaultZoom;
-    vt::Geometry geometry = profiles.geometryFor(selectedBank, uint8_t(zoom),
-                                                 profile.geometry[zoom - 1]);
+    vt::Geometry geometry = overrideGeometry ? *overrideGeometry :
+        profiles.geometryFor(selectedBank, uint8_t(zoom), profile.geometry[zoom - 1]);
     const int width = displayOK ? gfx->width() : hal.physicalWidth;
     const int height = displayOK ? gfx->height() : hal.physicalHeight;
     const int fitCols = vt::evenVisibleCols(width, zoom);
@@ -1181,6 +1233,8 @@ static void applyDisplayProfile(const vt::DisplayProfile &profile) {
         !terminal.setGeometry(geometry.cols, geometry.rows, visible,
                               visibleRowCount, zoom))
         return;
+    logicalColumns.store(uint16_t(terminal.cols), std::memory_order_release);
+    plotCapture = plotCanvasValid = plotEndCleanupPending = false;
     activeDisplayProfile = profile;
     activeDisplayProfile.viewZoom = uint8_t(zoom);
     // The gutter is only the panel's residual edge strip. A deliberately
@@ -1195,6 +1249,47 @@ static void applyDisplayProfile(const vt::DisplayProfile &profile) {
     terminal.compositionDirty = true;
     requestDisplayFlush();
     requestMirrorSnapshot();
+}
+static void replyDisplayInfo() {
+    const vt::DisplayHalDefaults &hal = vt::displayHalDefaults();
+    char response[320];
+    int length = snprintf(response, sizeof(response),
+        "\033P7xtgv-info;1;%s;%s;%s;%u;%u;%u;%u;%u;%u;%u;%u;%u;%u",
+        hal.id, xtgvFirmwareTarget(), xtgvFirmwareBuild(),
+        unsigned(hal.physicalWidth), unsigned(hal.physicalHeight),
+        unsigned(terminal.zoom), unsigned(terminal.cols), unsigned(terminal.rows),
+        unsigned(terminal.visibleCols), unsigned(terminal.visibleRows),
+        unsigned(terminal.viewport), unsigned(terminal.rowViewport), unsigned(selectedBank));
+    if (length < 0 || size_t(length) >= sizeof(response)) return;
+    for (uint8_t zoom = 1; zoom <= 4; ++zoom) {
+        const vt::Geometry geometry = profiles.geometryFor(selectedBank, zoom);
+        const int added = snprintf(response + length, sizeof(response) - length,
+                                   ";%u;%u", unsigned(geometry.cols), unsigned(geometry.rows));
+        if (added < 0 || size_t(added) >= sizeof(response) - length) return;
+        length += added;
+    }
+    if (size_t(length) + 2 >= sizeof(response)) return;
+    response[length++] = '\033';
+    response[length++] = '\\';
+    terminalReply(nullptr, reinterpret_cast<const uint8_t *>(response), size_t(length));
+}
+static void applyViewZoom(uint8_t zoom) {
+    if (zoom < 1 || zoom > 4) return;
+    const vt::DisplayHalDefaults &hal = vt::displayHalDefaults();
+    const int width = displayOK ? gfx->width() : hal.physicalWidth;
+    const int height = displayOK ? gfx->height() : hal.physicalHeight;
+    const int fitCols = vt::evenVisibleCols(width, zoom);
+    const int visible = std::min(terminal.cols, fitCols);
+    const int visibleRows = std::min(terminal.rows, vt::visibleRows(height, zoom));
+    if (!terminal.setView(visible, visibleRows, zoom)) return;
+    plotCapture = plotCanvasValid = plotEndCleanupPending = false;
+    activeDisplayProfile.viewZoom = zoom;
+    presentationGutter = width - fitCols * 6 * zoom;
+    scanCell = 0;
+    activeRow = -1;
+    activeRowBank = 255;
+    std::fill(plotActiveRows, plotActiveRows + vt::MaxRows, false);
+    requestDisplayFlush();
 }
 
 static void requestDisplayFlush() {
@@ -2041,6 +2136,8 @@ void terminalSetup() {
     // Compiled policy applies before RunCPM mounts the SD card.  A matching
     // shared-card display section is queued later by terminalConfigEnd().
     applyDisplayProfile(profiles.display());
+    bootDisplayProfile = profiles.display();
+    bootGeometry = profiles.geometryFor(0, bootDisplayProfile.viewZoom);
     configSaveBacklight.store(xtgvBacklightGetRemembered(), std::memory_order_release);
     configSaveZoom.store(activeDisplayProfile.viewZoom, std::memory_order_release);
     if (!displayOK) {
@@ -2054,6 +2151,8 @@ void terminalConfigBegin() { profiles.beginLoad(vt::displayHalDefaults()); }
 void terminalConfigFeed(uint8_t byte) { profiles.feed(byte); }
 unsigned terminalConfigEnd() {
     profiles.finishLoad();
+    bootDisplayProfile = profiles.display();
+    bootGeometry = profiles.geometryFor(0, bootDisplayProfile.viewZoom);
     terminal.setMode(profiles.global().mode == vt::OutputAnsi);
     pendingDisplayProfile = profiles.display();
     xtgvBacklightSet(profiles.global().backlightLevel);
@@ -2082,26 +2181,33 @@ void terminalConfigForceSave() {
     if (configSavePending.load(std::memory_order_acquire))
         configForceSaveRequested.store(true, std::memory_order_release);
 }
-bool terminalConfigSaveDue(uint8_t &backlightLevel, uint8_t &zoomLevel, uint8_t *paletteIndex) {
+bool terminalConfigSaveDue(uint8_t &backlightLevel, uint8_t &zoomLevel,
+                           uint8_t *paletteIndex, uint8_t *dirtyFields) {
     if (!configSavePending.load(std::memory_order_acquire) ||
+        !configSaveDirty.load(std::memory_order_acquire) ||
         (!configForceSaveRequested.load(std::memory_order_acquire) &&
          uint32_t(millis() - configChangedAt.load(std::memory_order_acquire)) < 1500))
         return false;
     backlightLevel = configSaveBacklight.load(std::memory_order_acquire);
     zoomLevel = configSaveZoom.load(std::memory_order_acquire);
     if (paletteIndex) *paletteIndex = configSavePalette.load(std::memory_order_acquire);
+    if (dirtyFields) *dirtyFields = configSaveDirty.load(std::memory_order_acquire);
     return true;
 }
 void terminalConfigSaveComplete(bool saved) {
     configForceSaveRequested.store(false, std::memory_order_release);
-    if (saved)
+    if (saved) {
+        configSaveDirty.store(0, std::memory_order_release);
         configSavePending.store(false, std::memory_order_release);
-    else
+    } else
         configChangedAt.store(millis(), std::memory_order_release);
 }
 void terminalWaitDisplayProfileApplied() {
     while (!displayProfileApplied.load(std::memory_order_acquire))
         delay(1);
+}
+uint16_t terminalLogicalColumns() {
+    return logicalColumns.load(std::memory_order_acquire);
 }
 void terminalWaitReady() {
     while (!ready.load(std::memory_order_acquire))
@@ -2283,12 +2389,8 @@ void terminalLoop() {
             terminal.palette = profiles.palette(activePalette);
             requestedPalette = -1;
         }
-        applyDisplayProfile(pendingDisplayProfile);
-        if (userZoom) {
-            configSaveZoom.store(activeDisplayProfile.viewZoom, std::memory_order_release);
-            configChangedAt.store(millis(), std::memory_order_release);
-            configSavePending.store(true, std::memory_order_release);
-        }
+        if (userZoom) applyViewZoom(pendingDisplayProfile.viewZoom);
+        else applyDisplayProfile(pendingDisplayProfile);
         displayProfileApplied.store(true, std::memory_order_release);
     }
     if (requestedPalette >= 0 && !terminal.plotting() && !plotCapture && !plotEndCleanupPending) {
@@ -2301,6 +2403,7 @@ void terminalLoop() {
             terminal.compositionDirty = true;
             configSavePalette.store(next, std::memory_order_release);
             configChangedAt.store(millis(), std::memory_order_release);
+            configSaveDirty.fetch_or(ConfigPaletteDirty, std::memory_order_acq_rel);
             configSavePending.store(true, std::memory_order_release);
         }
     }

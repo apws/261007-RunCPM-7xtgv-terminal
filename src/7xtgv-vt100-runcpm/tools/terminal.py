@@ -1033,8 +1033,8 @@ def main():
         'Ctrl+] then q: exit; 1: ANSI; 2: VT52; a/e: previous/next horizontal view; '
         'r: redraw; g: xterm256 GCLS; p/n: history; [/]: history bank; '
         '#: toggle RAW; x: profile exit; c: profile clear; m: VTPUT/VTGET panel; Ctrl+] again: literal Ctrl+]. '
-        'Ctrl+Shift+Home/End pan horizontally; add Alt to pan vertically; '
-        'Ctrl+Alt+Shift+PgDn zooms in, PgUp zooms out.'))
+        'Ctrl+Shift+arrows pan; Home/End scan all views; '
+        'Ctrl+Shift+PgDn zooms in, PgUp zooms out; add Alt for backlight.'))
     parser.add_argument('--port', help='Serial device; otherwise XTGV_PORT or selected target data')
     parser.add_argument('--target', help='Target for port defaults; otherwise XTGV_TARGET')
     parser.add_argument('--mode', choices=('ansi', 'vt52'), help='Select mode on connection; otherwise preserve it')

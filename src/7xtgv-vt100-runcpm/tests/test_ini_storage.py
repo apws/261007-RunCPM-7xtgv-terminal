@@ -23,6 +23,7 @@ class IniStorageTests(unittest.TestCase):
 #include <vector>
 #include "src/terminal/ini_text.h"
 #include "src/terminal/display_policy.h"
+#include "src/terminal/terminal_runtime.h"
 const char *TerminalConfigPath="A/0/7XTGVTRM.INI";
 const char *TerminalConfigNewPath="A/0/7XTCFG.NEW";
 const char *TerminalConfigBackupPath="A/0/7XTCFG.BAK";
@@ -72,8 +73,9 @@ uint8_t level=17;
 void terminalPause(bool value) { paused=value; }
 void terminalDiskActivity(bool) {}
 void terminalConfigForceSave() {}
-bool terminalConfigSaveDue(uint8_t &l,uint8_t &z,uint8_t *p) {
-    l=level; z=2; *p=3; return pending;
+bool terminalConfigSaveDue(uint8_t &l,uint8_t &z,uint8_t *p,uint8_t *dirty) {
+    l=level; z=2; *p=3; *dirty=ConfigBacklightDirty | ConfigPaletteDirty | ConfigZoomDirty;
+    return pending;
 }
 void terminalConfigSaveComplete(bool saved) { if (saved) pending=false; }
 bool terminalConfigStoragePoll();

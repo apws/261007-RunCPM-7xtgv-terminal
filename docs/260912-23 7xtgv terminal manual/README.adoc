@@ -113,14 +113,16 @@ The PC key tables provide the more natural shortcuts:
 |`++Alt+Shift+Backspace++` |Arm GCLS / xterm256 plotting without clearing the screen.
 |`++Alt+Shift+3++` |Toggle `++## RAW++` mode.
 |`++Ctrl+Shift+0++` … `++9++` |Backlight off, then coarse module-specific levels up to full ON.
-|`++Ctrl+Shift++` or `++Alt+Shift++` {plus} `++PgUp++` / `++PgDn++` |Raise / lower one of 32 backlight levels.
-|`++LAlt+Ctrl+Shift+PgDn++` / `++PgUp++` |Zoom in (1x toward 4x) / zoom out (toward 1x).
+|`++LAlt+Ctrl+Shift+PgUp++` / `++PgDn++` |Raise / lower one of 32 backlight levels.
+|`++Ctrl+Shift+PgDn++` / `++PgUp++` |Temporarily zoom in (1x toward 4x) / zoom out (toward 1x).
 |`++LAlt+Ctrl+Shift+1++` / `++2++` |Select ANSI/VT100 / VT52 terminal output interpretation.
-|`++Ctrl+Shift++` or `++Alt+Shift++` {plus} `++Home++` / `++End++` |Move to the previous / next calculated horizontal viewport position.
-|`++LAlt+Ctrl+Shift+Home++` / `++End++` |Move to the previous / next calculated vertical viewport position.
+|`++Ctrl+Shift+Left++` / `++Right++` |Move to the previous / next horizontal viewport position.
+|`++Ctrl+Shift+Up++` / `++Down++` |Move to the previous / next vertical viewport position.
+|`++Ctrl+Shift+Home++` / `++End++` |Scan all viewports backward / forward, left to right then top to bottom.
+|`++Alt+Shift+Home++` / `++End++` |Keep the older horizontal-only viewport alias.
 |===
 
-`++Alt+Esc++` and `++Alt+Backspace++` are configured globally in `++7XTGVTRM.INI++` as dual-Alt gestures. Their generated commands, and the horizontal/vertical viewport controls, are handled before application-profile bindings and are not saved in history. The last non-off brightness and selected glyph zoom are safely persisted in the INI file after input settles.
+`++Alt+Esc++` and `++Alt+Backspace++` are configured globally in `++7XTGVTRM.INI++` as dual-Alt gestures. Their generated commands and the Ctrl{plus}Shift view controls are handled before application-profile bindings and are not saved in history. Backlight and palette selections persist; ordinary zoom and pan do not alter the INI or resize the logical CP/M terminal.
 
 == Histories, banks, and the active line
 
@@ -174,7 +176,13 @@ BBC BASIC uses its visible `++>++` prompt as the active screen line. It tracks o
 
 This compact reference covers files added or adapted by this project. It does not repeat ordinary CP/M programs and imported language packages; use `++?++` at the CCP prompt for the internal CCP command list. An A0 command is found from other user areas by this RunCPM CCP, while files it creates normally belong to the current DU (for example `++A6>++`).
 
-The internal `++CCPP++` command changes only the displayed prompt: `++CCPP DD++` (default) shows decimal user numbers (`++A15>++`), `++CCPP DH++` shows hexadecimal digits (`++AF>++`), and `++CCPP D++` shows only the drive (`++A>++`), as on a conventional CP/M 2.2 prompt. Bare `++CCPP++` reports the mode. `++USER++` and drive/user commands still select the same actual areas; prompt formatting does not change their syntax. The setting survives ordinary program returns but resets on a full RunCPM restart. This requires firmware containing the new internal command; there is no `++CCPP.COM++` file to install.
+The internal `++7XF++` command selects the named prompt (`++/a/mbasic>++`, or `++/a/7>++` without an alias). `++7XF DD++` (the boot default) displays decimal user numbers (`++A15>++`), `++7XF DH++` uses hexadecimal (`++AF>++`), `++7XF D++` shows only the drive (`++A>++`), and `++7XF DN++` selects the named prompt. Area names are at most eight characters. The prompt style lives in memory until RunCPM restarts. There is no `++7XF.COM++` file to install.
+
+The built-in `++LS++`/`++LL++` catalog commands list the current DU; `++LS /++` lists nonempty drives with summed host-file sizes, and `++LS /A++` lists existing areas on drive A with their own totals. Short rows show comma-grouped KiB (`++k++`), rounded up, not FAT-cluster allocation. File rows omit descriptions in this short form. `++LS -L++` adds exact host-file bytes, logical 128-byte record counts, rounded-up 32-KiB DEXT equivalents, and per-file descriptions. `++LL++` is exactly `++LS -L++`. The record and DEXT columns are also summed per file for drive and area totals; DEXT is an estimate, not the count of actual CP/M directory entries or FAT allocation units. Long drive and area descriptions appear on a second line, indented by one eight-column tab; the current-area heading has its description in both forms. Names display the case stored in `++DIR.7XF++` while lookup remains case-insensitive. `++LS /A/MBASIC/*.BAS++` and `++LS A7:*.BAS++` filter files using CP/M `++*++`/`++?++` wildcards. `++LS -O PANE.7XF /A/MBASIC++` replaces that file in the current DU with one listing, sends no listing to the terminal, and suppresses `++PAGE++` pauses only for that invocation. It does not capture `++CD++`, other built-ins, or `.COM` output. All `++LS++`/`++LL++` rows clip at the selected logical terminal width. `++PAGE 0++` disables ordinary pauses in `++LS++`, `++LL++`, and `++?++`. `++LS ..++` aliases `++LS /++`.
+
+When a pattern has no dot, a stem `++*++` also spans any extension: `++LS *++` lists every file, and `++LS VT*++` includes `++VTESTS.BAS++` and `++VTPAL.BAS++`. The same applies after an area path or `++A7:++`; an explicit dot keeps its normal 8.3-field meaning. CP/M 2.2 records do not carry a general exact final-byte length. The byte count in `++LS -L++` is the underlying RunCPM FAT file length; a file written through CP/M record I/O may already have been rounded to 128 bytes. A text Ctrl-Z is an application convention, not a reliable binary length marker.
+
+Bare `++CD++` reports both numeric DU and its named view, for example `++A7: /a/mbasic++`. `++CD MBASIC++` and `++CD /A/MBASIC++` select an area; `++CD /A++` returns to the last area selected on drive A. These slash paths name flat CP/M drive/user areas, not subdirectories. Each area's `++DIR.7XF++` stores a 12-character left-aligned area/file key, one space, then a description; its first key is the area name. `++A0:VOL.7XF++` stores drive letters in column 1, one space, and descriptions from column 3. `++A0:DRV.7XF++` stores the last selected area per drive as one `++/d/name++` line per drive. `++CD++` reloads this file before selection and saves it after a new explicit selection. The project `++cpmdrive++` mirror keeps these as CRLF text ending with Ctrl-Z.
 
 [cols="1,1",options="header"]
 |===
@@ -201,7 +209,9 @@ The internal `++CCPP++` command changes only the displayed prompt: `++CCPP DD++`
 |Command |Purpose
 |`++REBOOT++` |Schedules a whole-module reboot after a three-second notice. The serial mirror disconnects, so relaunch `++tools/kon.sh++` or `++tools/kit.sh++` afterwards.
 |`++REFLASH++` |First forces and verifies the same history save as `++SYNC++`, then emits the reserved host event `++ESC[>64v++`. It flashes nothing by itself; an attached `++terminal.py++` acts only when its target-specific `++XTGV_REFLASH_COMMAND++` is explicitly configured.
-|`++ZOOM [1\|2\|3\|4]++` |Set absolute 1x..4x glyph zoom; no argument means 1x. Source: A0 `++ZOOM.ASM++`. Requires private output `++CSI >68;n v++` support.
+|`++ZOOM [1\|2\|3\|4]++` |Temporarily set 1x..4x glyph zoom without resizing CP/M; no argument means 1x. Source: A0 `++ZOOM.ASM++`.
+|`++VTINFO++` |Report display ID, exact firmware target/build, physical panel, current logical/visible view and resolved presets. Requires firmware with `++CSI >72v++` reply support.
+|`++VTZOOM++`, `++VTZOOM n++`, `++VTZOOM n COLSxROWS++`, `++VTZOOM DEFAULT++` |Inspect the view; temporarily load preset `++n++`; select explicit logical geometry; or restore the INI/HAL boot view. No form saves the INI. A full-screen application's installed dimensions should match before it starts.
 |`++VTPAL [0..9]++` |Select an editable text/UI palette; no argument selects 0. Uses private output `++CSI >69;n v++`, with lazy INI persistence. See the link:../260923-16%20palette%20presets%20manual%20and%20test%20notes.adoc[palette manual]. Requires the new firmware and helper.
 |`++UNSUB++` |Deletes a stranded `++$$$.SUB++` queue in the current DU without switching drive or user. It is silent if none exists.
 |`++VTCPU++` / `++VTCPU8X++` |Measure the RunCPM interpreter with the terminal active and paused. `++8X++` uses the 8080/8085 common instruction subset.
@@ -236,12 +246,41 @@ See link:../260924-20%20DEC%20graphics%20review%20and%20expanded%20VTESTS.adoc[t
 |===
 |Command |Purpose
 |`++GCLS [zoom [x y]]++` |Arm local xterm256 plotting without clearing or redrawing the screen. `++zoom++` is 1…4; `++x,y++` are unscaled physical pixel coordinates from the display's top-left corner, independent of terminal zoom, gutter, or pan. Bare `++GCLS++` retains `++ESC[>4v++` and defaults to 1× at `++(0,0)++`. Use `++CLS++` separately when wanted.
-|`++SYNC++` |Forces the verified terminal-history save immediately. Use before a long graphics stream or likely hardware reset.
+|`++SYNC++` |Forces pending verified terminal-history and persistent settings saves immediately. Use before a long graphics stream or likely hardware reset.
 |`++VTPAD [n]++` |Prints `++n++` CR/LF pairs; default is 18. It provides visible space where SUBMIT would discard empty script records.
 |`++VTSTART++` / `++VTSTOP++` |Save and report elapsed RunCPM uptime around a test, using `++VTIME.DAT++` in the current DU.
 |`++SUBMIT BROT_BS++` / `++SUBMIT BROT_PS++` |Recommended Brot launchers: clear, pad nine lines, start timing, sync history, arm GCLS, run the renderer, then report elapsed time.
 |`++SUBMIT VTPARG n++` |Argument-expansion test: runs `++VTPAD n++`.
 |===
+
+`++VTINFO++` prints a report like this (the actual values come from the running
+firmware and its resolved INI/profile settings):
+
+[source,text]
+----
+Display : RP2_147
+Target  : rp2350-lcd-1-47-a
+Panel   : 320x172
+Build   : 260925-2025
+View    : zoom 2, logical 80x24, visible 26x8
+
+Resolved presets:
+1x: 80x24
+2x: 80x24
+3x: 26x5
+4x: 20x4
+----
+
+The 7xtgv-private guest query is `++CSI >72v++`. Firmware returns a bounded
+version-1 `++DCS 7xtgv-info;1;... ST++` record containing display ID, exact
+target/build, panel pixels, current view, pan offsets, selected bank, and four
+resolved geometries. `++CSI >73;n v++` selects preset `++n++` (1..4) and
+`++CSI >73;n;cols;rows v++` selects temporary explicit geometry. `++n=0++`
+restores the boot view/geometry. Invalid requests do nothing. These private
+controls do not notify ordinary CP/M applications of a size change; select a
+matching logical size before launching a full-screen application. The A0
+ASCII sources are `++VTINFO.ASM++` and `++VTZOOM.ASM++`; assemble each with
+`++ASM++` then `++LOAD++` if its `++.COM++` is missing.
 
 The current card contains the assembled A6 helpers. The source mirror retains their `++.ASM++` sources (and, where available, `++.HEX++` files); after replacing a card, rebuild missing `++.COM++` files in A6 with `++ASM name++` then `++LOAD name++`. The two Brot renderers use underscores deliberately: TE treats `++-++` as an editing command separator, so use `++BROT_BS++` and `++BROT_PS++`, not hyphenated names.
 
@@ -267,7 +306,7 @@ The direct plot ends on SGR reset (`++CSI 0m++`). Rows used by status text and t
 
 == Configuration reference
 
-`++A0:7XTGVTRM.INI++` is read once at firmware boot. Its `++[global]++` section holds the global exit/clear key policy, cursor blink, `++viewport_gutter_rgb++` (the always-present full-height display gutter), `++viewport_active_gutter_rgb++` (normally `++active_line++` when horizontal panning exists), and persisted `++backlight_level++`. The matching `++[display:HAL_ID]++` section holds the persisted `++view_zoom++` and per-zoom geometry. Each `++[bankN]++` supports a name, `++on_select++`, `++exit_command++`, `++clear_command++`, key-first modifier bindings, history controls, active-line/cursor RGB values, and narrow editing options such as `++screen_line++`, `++line_prefix++`, `++activate_prefix++`, `++input_adapter++`, and `++history_retype_delay_ms++`.
+`++A0:7XTGVTRM.INI++` is read once at firmware boot. Its `++[global]++` section holds the global exit/clear key policy, cursor blink, `++viewport_gutter_rgb++` (the always-present full-height display gutter), `++viewport_active_gutter_rgb++` (normally `++active_line++` when horizontal panning exists), and persisted `++backlight_level++`. The matching `++[display:HAL_ID]++` section holds boot `++view_zoom++` and the current per-zoom logical presets. Each `++[bankN]++` supports a name, `++on_select++`, `++exit_command++`, `++clear_command++`, key-first modifier bindings, history controls, active-line/cursor RGB values, and narrow editing options such as `++screen_line++`, `++line_prefix++`, `++activate_prefix++`, `++input_adapter++`, and `++history_retype_delay_ms++`.
 
 Binding values are `++none++`, `++history_previous++`, `++history_next++`, `++send:<bytes>++`, or `++send_cancel:<bytes>++`. Escape notation accepts `++\e++`, `++\r++`, `++\n++`, `++\t++`, `++\\++`, `++\xNN++`, and `++\^X++` for an ASCII control character.
 
@@ -476,18 +515,19 @@ selector. Host target data records both names and tools display them together.
 [cols="2,3",options="header"]
 |===
 |Setting |Meaning
-|`view_zoom` |1..4, scaling the 6x10 glyph cells. Changes via ZOOM or host chords persist here.
-|`zoom1_terminal` through `zoom4_terminal` |Logical `COLSxROWS` for each zoom. Odd column counts round down to even. Both dimensions must fit the HAL's logical backing limits; either may exceed the physical viewport and use manual panning.
+|`view_zoom` |1..4, the boot scale for 6x10 glyph cells. Temporary ZOOM/keyboard changes do not rewrite it.
+|`zoom1_terminal` through `zoom4_terminal` |Current logical `COLSxROWS` presets. The boot scale selects one; `++VTZOOM n++` deliberately selects another. Ordinary keyboard zoom leaves the logical size alone. Odd column counts round down to even. Both dimensions must fit the HAL's logical backing limits.
 |`render_flush_hz` |0..60; 0 removes the software flush interval. This is not the physical panel refresh rate.
 |`rgb_refresh_hz` |Accepted compatibility placeholder only; physical RGB timing remains compile-time.
 |===
 
-A bank can override `zoom1_terminal` through `zoom4_terminal`. Logical width
-or height may exceed the physical view. Horizontal Home/End panning uses
-Ctrl{plus}Shift; adding Alt selects vertical panning. Positions are distributed
-evenly, always include both exact edges, and are recalculated for the current
-zoom and configured terminal geometry. The visible dimensions depend on panel
-size and zoom; the PC mirror still represents the complete logical terminal.
+A bank can override `zoom1_terminal` through `zoom4_terminal`. These coupled
+presets remain available for deliberate selection and may later become
+independent of physical zoom. Logical width or height may exceed the physical
+view. Ctrl{plus}Shift arrows pan by axis; Home/End scan the calculated views
+in row-major order. Positions include both exact edges and are recalculated
+for the current zoom and logical geometry. The PC mirror still represents
+the complete logical terminal.
 Bank overrides are shared across displays too: an oversized override is reported
 and rejected on a smaller HAL, which retains its display geometry. Omitted display
 settings retain each HAL's defaults, even when multiple HALs share one profile ID.

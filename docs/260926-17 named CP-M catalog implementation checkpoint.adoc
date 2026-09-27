@@ -1,0 +1,104 @@
+= Named CP/M catalog implementation checkpoint
+:source-highlighter: highlight.js
+
+*Date:* 260926 +
+*Status:* source and host tests updated; target firmware not rebuilt or flashed,
+and the new catalog files have not been sent to CP/M.
+
+This implements the reviewed design in
+link:260926-15%20CP-M%20named%20catalog%20and%20shell%20commands%20v2%20plan.adoc[the
+v2 plan]. `CCPP DN` displays `/drive/area>` with an eight-character maximum
+area alias and a numeric fallback. The 16-byte prompt buffer covers the CRLF
+prefix, longest alias, suffix and terminator. The embedded terminal and host
+transfer helper recognize the bounded named form as well as older numeric
+prompts. The transfer helper verifies the numeric DU with bare `CD` after a
+change; it accepts both the old `A7:` and new `A7: /a/mbasic` result so the
+current unflashed device remains usable.
+
+`INFO.TXT` now uses a 12-character key, a space, then the description.
+`INFOVOL.TXT` uses a one-character drive key, a space, then the description.
+The local `A0:DRIVE.TXT` was renamed to `A0:INFOVOL.TXT`; the local A7 catalog
+was reconstructed from the exact 256-byte device copy and converted to fixed
+columns, retaining every description. Its fetched original is saved locally
+as `backups/catalog/260926-A7-INFO-device-original.TXT` (ignored by Git).
+Both authored catalog files remain CRLF text ending in Ctrl-Z. Device files
+were not overwritten; the device still has the old catalog layout.
+
+`CD` accepts bare display, same-drive name, drive plus name, slash path, and
+numeric DU. `LS`/`LL` accept CP/M-style file wildcard tails and options `-S`
+and `-W`, `..` aliases `/`, and listings plus `?` help use `PAGE`. Default
+large sizes round up in 1024-byte kB; `-W` exposes exact RunCPM host bytes
+and 128-byte CP/M record count. A future generic CP/M `.COM` can only know
+record-rounded byte lengths through BDOS. The new syntax is a view over flat
+DU areas, not an on-disk directory tree. `cp`/`mv`/`rm` remain proposal only.
+
+== Host checks
+
+* `test_ccp_catalog.cpp`: fixed fields, aliases, named and numeric paths,
+  wildcard filtering, sizes, `-S`/`-W`, and Ctrl-C paging passed.
+* `test_helper.py`: 35 tests passed, including named prompts and both old/new
+  numeric DU verification outputs.
+* `test_runtime.cpp`: plain and ASan/UBSan host builds passed, including
+  named-prompt history bank checks. LeakSanitizer is unavailable in this
+  execution environment; the sanitizer run used `detect_leaks=0`.
+* `test_ccp_catalog.cpp` also passed under ASan/UBSan with leak detection off.
+
+== Pending
+
+* On a requested `rebuild`, compile and stage the current RP2_147 target.
+  On `reflash`, test `CCPP DN`, `LS` variants, `PAGE`, and VTPUT/VTGET with
+  both numeric and named prompts. Do not send the new catalog files until
+  Petr explicitly requests their transfer.
+* Once firmware and device catalog are confirmed, remove only the obsolete
+  device `A0:DRIVE.TXT` by a separately authorized operation.
+* Long descriptive host folder names under `cpmdrive/` may later return to
+  raw RunCPM `A/0`-style names, with this catalog providing the human-facing
+  labels. That tooling/layout migration is not part of this change.
+
+== Later 7XF revision (not yet rebuilt or sent)
+
+The active local catalog filenames are now `DIR.7XF` per described area and
+`A0:VOL.7XF` for drive descriptions. Both were restored from the latest
+device copies before renaming; previous local versions are retained under
+`backups/catalog/`. `A0:DRV.7XF` stores one selected area per drive as
+`/d/name`; `CD /D` uses that selection, while `CD NAME` and `CD /D/NAME`
+update it. `CD` reloads the file before each selection so a guest edit is
+visible. This is persistent catalog state, unlike one-command LS capture.
+
+The internal `CCPP` command is replaced by `7XF` for prompt styles. Bare
+`7XF` selects the named prompt. `LS -O FILE.7XF [path]` (also `LL`) replaces
+one file in the current DU with exactly one listing; it emits no listing to
+the terminal and suppresses `PAGE` prompts for that command only. No
+redirection setting survives the command, and prompts, `CD`, other CCP
+built-ins, and application output are not captured. Default `LS` file sizes are
+comma-grouped host bytes. `LS -W` adds counts of 128-byte records and
+rounded-up 32-KiB directory-extent equivalents. Root descriptions and file
+listing area descriptions appear below their path heading. The host catalog
+test and 45 Python unit tests passed after this revision; no firmware build,
+device transfer, or device test has yet been done for it.
+
+The later XC discussion is recorded separately in
+link:260926-23%20XC%20commander%20return%20path%20and%207XF%20output%20boundary.adoc[the
+XC return-path and 7XF boundary note]. In particular, `LS -O` is not
+shell-wide output redirection and cannot capture `.COM` output.
+
+== 260927 build and catalog delivery
+
+Petr requested a target-aware rebuild. The RP2_147 image stamped
+`260927-0006` compiled successfully and was staged as `new`, not flashed.
+The separate CP/M transfers reported `SAVED` for A0 `DIR.7XF`, `DRV.7XF`,
+`VOL.7XF`, and A7 `DIR.7XF`; the user-visible mirror was restored after
+each DU transfer. The running older firmware still uses its old catalog
+names, which were not removed. No hardware test of the revised 7XF, LS/LL,
+CD, or one-shot `LS -O` behavior has occurred yet.
+
+== 260927 verified BOOTSEL upload
+
+Petr requested `reflash`. The staged `new` UF2 was copied to the RP2350
+BOOTSEL drive whose USB serial `D60D9318CF30A586` matches the previously
+registered RP2_147. The bootloader's `INFO_UF2.TXT` identified an RP2350.
+After the copy, the same chip returned as USB serial; the temporary serial
+ACL was restored, and the user-visible Konsole mirror reattached. Its screen
+shows `Build 7xtgv-runcpm-v2 / 260927-0006` at `A0>`. The candidate was not
+promoted to `current`; catalog command behavior still needs Petr's hardware
+test before promotion.

@@ -128,10 +128,11 @@ class ConsoleTransferTests(unittest.TestCase):
         for prompt in ('A10>', 'AA>', 'A>'):
             def command(text):
                 commands.append(text)
-                link.screen.feed(prompt.encode())
+                response = f'A10: /a/10\r\n{prompt}' if text == 'CD' else prompt
+                link.screen.feed(response.encode())
             link.command = command
             link.user(10)
-        self.assertEqual(commands, ['A10:']*3)
+        self.assertEqual(commands, ['A10:', 'CD']*3)
 
     @unittest.skipUnless((ROOT/'build/linux_RunCPM/RunCPM').exists(), 'native RunCPM unavailable')
     def test_helpers_binary_roundtrip_and_single_clear(self):

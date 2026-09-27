@@ -1,0 +1,228 @@
+= CP/M named catalog and shell commands v2: proposal
+:source-highlighter: highlight.js
+
+*Status:* plan only; no firmware, host-tool or CP/M file changes made for
+this proposal. +
+*Date:* 260926 +
+*Source:* Petr's requests for fixed-column `INFO.TXT`, `INFOVOL.TXT`, named
+CCP prompts, `CD` and `LS` refinements, and a separate `cp`/`mv`/`rm`
+investigation. The first built-in implementation is recorded in
+link:260926-13%20RunCPM%20VOL%20and%20CP-M%20area%20catalog%20LS%20concept.adoc[the
+LS/CD checkpoint].
+
+== Existing implementation and portability boundary
+
+`CCPP` is an internal CCP command, not `CCPP.COM`. It currently has `DD`,
+`DH`, and `D`; the prompt buffer is only eight bytes and will become 16 bytes.
+The terminal's
+`cpmPromptEndColumn()` and the host transfer helper recognize only numeric
+drive/user prompts such as `A7>`/`AF>`. Merely printing `/a/mbasic>` would
+break automatic CCP history-bank selection and the VTPUT/VTGET idle check.
+
+The new `LS` reads RunCPM's SD host folders directly. That permits listing
+otherwise empty areas, but it is not a BDOS-only routine that can be copied
+unchanged into an 8080 `.COM`. `COPY` currently deletes an existing destination
+before writing, `REN` uses its special two-FCB grammar, and `ERA` can delete
+wildcard matches. They are not safe aliases for Unix `cp`, `mv`, or `rm`.
+
+The implementation should keep a small, explicit parser for catalog rows and
+`/drive/area[/file]` tokens, with BDOS-compatible 8.3 names and numeric DU
+resolution. RunCPM-only host-folder enumeration stays behind that boundary;
+future 8080 assembly can reuse the syntax and metadata convention while
+listing only BDOS-visible files/areas.
+
+RunCPM's existing `_ccp_nameToFCB()` expands `*` and `?` into FCB patterns,
+and `DIR` uses `_SearchFirst`/`_SearchNext`. `LS` currently enumerates SD host
+folders instead. Reuse the existing CP/M wildcard meaning and search
+machinery where practical, but first resolve `/D/ALIAS/FILE` to a numeric DU;
+the old filename parser cannot consume that full path. Match only CP/M-visible
+8.3 filenames, not arbitrary host-folder entries.
+
+== A. Fixed-column catalog files
+
+Use columns 1-12 for a left-justified key, column 13 as one required space,
+and column 14 onward for its description. The first `INFO.TXT` row contains
+an area alias of 1-8 ASCII characters; later rows contain canonical 8.3
+filenames. For example:
+
+[source,text]
+----
+MBASIC       MBASIC programs and visual tests
+VTESTS.BAS   ANSI and DEC terminal test menu
+VTPAL.BAS    Compare inks on four papers
+----
+
+Petr confirmed that area aliases and their prompt form are at most eight
+characters/bytes. This follows the CP/M filename stem and keeps a named
+prompt short. Case-fold matching; preserve the typed description. A
+missing description is blank. `LS` lists existing files only, so stale
+metadata entries do not invent files. An invalid first row gives a numeric
+area fallback; it must not make `InfoText` from the legacy A0 file into an
+accidental alias. Ignore blank/comment rows after the first row. Keep CRLF,
+Ctrl-Z, and the existing 80-column source limit. `VOL` can continue printing
+the first line as plain text.
+
+Rename the volume catalog to `A0:INFOVOL.TXT`. Its one-letter drive key is
+column 1, column 2 is one space, and the description begins at column 3; it
+does *not* use the 12-character filename field:
+
+[source,text]
+----
+A CP/M system, languages, tools, tests and examples
+----
+
+For a safe transition, send `INFOVOL.TXT` before firmware changes; the old
+firmware still uses `DRIVE.TXT`. After the new firmware reads `INFOVOL.TXT`
+successfully, remove only the confirmed old `A0:DRIVE.TXT`. The new CCP need
+not retain a permanent dual-file fallback. Do not overwrite the existing
+device A0 `INFO.TXT` until Petr chooses its alias and description.
+
+== B. Named prompt and CD
+
+Add `CCPP DN` while retaining `DD`, `DH`, and `D`, with `DD` still the boot
+default. Expand the prompt buffer from 8 to 16 bytes, including its existing
+CRLF prefix and terminator. Proposed named prompt is lower-case `/a/mbasic>`;
+if the current
+area has no valid alias, use `/a/7>` rather than silently changing modes.
+For a SUBMIT prompt, keep the existing trailing `$` in place of `>`.
+Read only the first `INFO.TXT` row for each prompt; measure the cost on RP2_147
+before introducing a cache that might become stale after guest edits.
+
+Update the embedded terminal's CCP-prompt recognition and the host transfer
+helper together. In addition to numeric prompts, recognize the bounded
+`/[a-p]/[alias-or-number]>` form (at most eight alias characters) while
+honoring the existing CCP-live state. A generic "starts with `/`, ends with
+`>`" match could misclassify application output. The transfer helper must
+accept a named idle prompt and verify the
+numeric DU after a drive/user change via bare `CD` output; the named prompt
+alone does not expose the user number. Preserve bank-0 recall, RAW/profile
+restoration, and the existing numeric modes in tests.
+
+Bare `CD` prints the numeric DU and named path on one line, with the one-space
+output inset used by project-owned commands, for example
+` A7: /a/mbasic`. If metadata is missing, print ` A7: /a/7`.
+The following input forms resolve to the same area:
+
+[source,text]
+----
+CD MBASIC
+CD A MBASIC
+CD /A/MBASIC
+CD A7:
+----
+
+`CD NAME` searches the current drive; `CD D NAME` searches drive D. Keep
+duplicate/missing-alias errors non-mutating. Numeric `A7:` remains useful
+without metadata. The prompt and `CD` output are views; CP/M applications
+still see the ordinary selected drive and user.
+
+== C. LS, LL, PAGE, and help
+
+`LL` is a strict alias for `LS`; `LS ..` aliases `LS /`. Retain `LS /A` for
+area listing, `LS /A/MBASIC` and `LS A7:` for file listing, and accept 8.3
+wildcard tails now, including `LS /A/MBASIC/*.*` and `LS A7:*.*`. Use the same
+`*`/`?` meaning as RunCPM `DIR` after resolving the selected DU. `LS -S`
+suppresses the description column; input remains
+case-insensitive. Both `LS` and `LL` use `PAGE`, including `PAGE 0` to disable
+pauses. Count all emitted lines, including headings, and honor Ctrl-C at a
+page break. Apply the same paging to `?` help. List inherited RunCPM commands
+first, then project-added commands at the end of help. Project-owned command
+output lines start with one space; a CCP prompt itself remains at column one.
+
+Proposed file row, using one initial space and fixed columns:
+
+[source,text]
+----
+  128  B VTESTS.BAS   ANSI and DEC terminal test menu
+   64 kB LARGE.DAT    Example larger file
+----
+
+The formatter is effectively `" %5u %2s %-12s %s"`: five right-aligned
+digits, a two-character unit slot, a 12-character filename, then description.
+Default `LS` uses the RunCPM host file's byte length when available. At 65536
+bytes, switch to rounded-up 1024-byte `kB` (for example, 65536 B becomes
+64 kB); Petr confirmed this convention. `-S` keeps the size and filename.
+`-W` changes the size portion to show the exact byte length followed by the
+count of CP/M 128-byte records, for example `65536 B  512r LARGE.DAT`.
+The record count is `ceil(bytes / 128)`; its display field is at least five
+digits and must not truncate larger values. These are CP/M records, not
+physical 512-byte SD sectors. A future generic 8080 `.COM` cannot recover
+the exact trailing byte length from BDOS alone; it may display record-rounded
+bytes and the same record count, with that limitation documented. At 40
+logical columns, long descriptions may wrap;
+`PAGE` counts emitted rows, not terminal-generated wraps, unless a later
+terminal-width query is deliberately added.
+
+== D. `cp`/`mv`/`rm` investigation only
+
+Use one small path grammar for future commands:
+
+[source,text]
+----
+/A/MBASIC/VTESTS.BAS
+/A/MBASIC/*.BAS
+A7:VTESTS.BAS
+VTESTS.BAS
+----
+
+Resolve alias to numeric drive/user, then use ordinary FCB/BDOS file
+operations. A RunCPM host path is never handed to a CP/M application.
+The first implementation should reject unrecognized options, ambiguous
+aliases, illegal 8.3 names, and same-source/destination cases before any
+write. For wildcards, only the source/pattern component is expanded; the
+destination must name an area or an explicit single 8.3 file. Catalog text
+remains manually maintained; these commands do not rewrite `INFO.TXT`.
+
+* `CP`: copy one file or a source wildcard set, preserving names into an area
+  unless a single explicit destination name is given. Never delete or
+  overwrite an existing destination by default; decide an explicit force
+  spelling and whether confirmation is needed before implementation. BDOS
+  record copy permits a later 8080 implementation.
+* `MV`: same-DU rename can use BDOS rename after a collision check. A
+  cross-DU move is copy + record verification + source delete; it must not
+  delete the source on a partial copy or failed verification. This should be
+  a separate milestone, not silently mapped to the current `REN`.
+* `RM`: one file or a wildcard set, with a visible preflight count and an
+  explicit confirmation policy. Do not let a wildcard delete the catalog
+  files without deliberate opt-in. Enumerate safely before deleting rather
+  than assuming a search cursor survives mutations.
+
+This investigation does not authorize implementing, transferring, or
+running any of these three write commands yet.
+
+`INFOVOL.TXT` may later carry optional drive/volume aliases. Together with
+the 16 per-drive `INFO.TXT` area aliases, they could present the 16 x 16 = 256
+DU spaces as a simple two-level virtual tree. The current `A description`
+format does not define a volume-alias field or `/volume-name/area-name`
+resolution yet; reserve that extension for a separately specified version
+so existing catalog readers remain unambiguous. This is a named view over
+ordinary numeric DU, not a change to CP/M's filesystem.
+
+== Suggested implementation checkpoints
+
+. Format/migrate the local catalog fixtures and rename `DRIVE.TXT` to
+  `INFOVOL.TXT`; add parser tests for column boundaries, duplicate aliases,
+  CRLF/Ctrl-Z, malformed rows, and legacy A0 fallback. Transfer only on
+  Petr's request.
+. Implement `CCPP DN` and `CD` syntax/output; update terminal and host
+  helper prompt detection in the same change. Test numeric and named prompts
+  in all three layers before a target rebuild.
+. Implement `LS`/`LL` size layout, `-S`, `-W`, wildcard file tails, `..`, and
+  PAGE integration; move the
+  added commands to the end of paged `?` help. Test 40- and 80-column
+  output and Ctrl-C paging.
+. On a requested `rebuild`/`reflash`, hardware-test RP2_147 first. Check
+  bank-0 history, profile restoration, VTPUT/VTGET, and `CD` DU changes in
+  both DD and DN modes. Later retest the other HALs opportunistically.
+. Only after these read-only/prompt changes settle, decide the collision,
+  confirmation and cross-DU rules for `cp`/`mv`/`rm` and implement them as a
+  separate feature.
+
+== Decisions before implementation
+
+* Petr confirmed area/prompt aliases are at most eight characters/bytes.
+* Petr confirmed rounded-up 1024-byte `kB` over 65535 bytes. RunCPM will use
+  actual host byte lengths; `-W` adds the CP/M 128-byte record count. The
+  eventual 8080 `.COM` will necessarily use record-rounded byte lengths.
+* Petr confirmed that `cp`/`mv`/`rm` are for investigation/proposal in this
+  pass; implementation is a later, separately approved milestone.

@@ -14,6 +14,26 @@ bridge = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bridge)
 
 class HelperTests(unittest.TestCase):
+    def test_transfer_ccp_prompt_forms(self):
+        transfer = bridge.load_console_transfer()
+        for prompt in ('A15>', 'AF>', 'A>', '/a/mbasic>', '/a/7>'):
+            self.assertIsNotNone(transfer.CCP_PROMPT.fullmatch(prompt))
+        for output in ('/a/overlong9>', '/other/path>', 'ordinary output>'):
+            self.assertIsNone(transfer.CCP_PROMPT.fullmatch(output))
+
+    def test_transfer_user_accepts_old_and_named_cd_outputs(self):
+        transfer = bridge.load_console_transfer()
+        for cd_row in (' A7:', ' A7: /a/mbasic'):
+            link = object.__new__(transfer.Link)
+            link.screen = Mock(rows=[list(cd_row), list('A7>')], y=1)
+            link.fresh_screen = Mock()
+            link.command = Mock()
+            def check(predicate, **_kwargs):
+                self.assertTrue(predicate(''))
+            link.until = check
+            link.user(7, 'A')
+            self.assertEqual(link.command.call_args_list[-1].args, ('CD',))
+
     def test_receive_overwrite_ync_and_target_prefill(self):
         prompt = self.file_prompt(b'r')
         path = prompt.directory/'EXIST.INI'
@@ -211,15 +231,21 @@ class HelperTests(unittest.TestCase):
         for key, code in [('PgDown', 66), ('PgUp', 67)]:
             lines = [line for line in konsole.splitlines()
                      if line.startswith('key ') and
-                     line.split()[1:3] == [key, '+Shift+Alt+Ctrl']]
+                     line.split()[1:3] == [key, '+Shift-Alt+Ctrl']]
             self.assertEqual(len(lines), 1)
             self.assertTrue(lines[0].endswith(f'"\\E[>{code}v"'))
         for filename in ('kitty.conf', 'kitty-cpm.conf'):
             config = (tools / filename).read_text()
             for key, code in [('page_down', 66), ('page_up', 67)]:
-                prefix = f'map ctrl+alt+shift+{key} '
+                prefix = f'map ctrl+shift+{key} '
                 lines = [line for line in config.splitlines() if line.startswith(prefix)]
                 self.assertEqual(lines, [prefix + f'send_text all \\x1b[>{code}v'])
+        for key, code in [('PgUp', 33), ('PgDown', 34)]:
+            lines = [line for line in konsole.splitlines()
+                     if line.startswith('key ') and
+                     line.split()[1:3] == [key, '+Shift+Alt+Ctrl']]
+            self.assertEqual(len(lines), 1)
+            self.assertTrue(lines[0].endswith(f'"\\E[>63;{code}v"'))
         # Semantic prefix controls retain their original directions.
         keys = bridge.Keys()
         self.assertEqual(keys.feed(b'\x1d+\x1d-'), b'\x1b[>66v\x1b[>67v')

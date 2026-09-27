@@ -5,17 +5,19 @@ bool terminalConfigStoragePoll() { return true; }
 #include <cassert>
 
 int main() {
-    uint8_t level = 0, zoom = 0, palette = 0;
+    uint8_t level = 0, zoom = 0, palette = 0, dirty = 0;
     configSavePending.store(true);
     configChangedAt.store(millis());
     configSaveBacklight.store(17);
     configSaveZoom.store(2);
     configSavePalette.store(3);
+    configSaveDirty.store(ConfigBacklightDirty | ConfigPaletteDirty);
     assert(!terminalConfigSaveDue(level, zoom, &palette));
     setRawInputMode(true);
     assert(historyForceSaveRequested.load());
-    assert(terminalConfigSaveDue(level, zoom, &palette));
+    assert(terminalConfigSaveDue(level, zoom, &palette, &dirty));
     assert(level == 17 && zoom == 2 && palette == 3);
+    assert(dirty == (ConfigBacklightDirty | ConfigPaletteDirty));
     terminalConfigSaveComplete(false);
     assert(!terminalConfigSaveDue(level, zoom, &palette)); // normal retry delay
     setRawInputMode(true);

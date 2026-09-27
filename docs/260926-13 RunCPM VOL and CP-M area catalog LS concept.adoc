@@ -1,0 +1,149 @@
+= RunCPM VOL and a small CP/M area catalog
+:source-highlighter: highlight.js
+
+*Status:* built-in `LS` and `CD` implemented in source with host tests;
+RP2_147 build `260926-1347` staged as `new` and flashed by manual BOOTSEL.
+Boot/mirror confirmed, but the new commands are not yet interactively tested.
+A0 `DRIVE.TXT` and A7 `INFO.TXT` were subsequently transferred; the existing
+A0 `INFO.TXT` was not changed. +
+*Date:* 260926 +
+*Origin:* Petr wants memorable names and short descriptions for the RunCPM
+drive/user areas and their 8.3 files, without changing CP/M's directory model.
+
+== What INFO.TXT already does
+
+Our internal RunCPM CCP has `VOL [drive]`. In
+link:../src/7xtgv-vt100-runcpm/ccp.h[ccp.h], `_ccp_vol` iterates the sixteen
+user-area folders of one drive. For each existing folder it reads the first
+128-byte record of that area's `INFO.TXT`, if present, and prints only the
+initial printable ASCII bytes. CR/LF, Ctrl-Z, a non-ASCII byte or the first
+record boundary ends the visible description. This is a RunCPM extension,
+not a general CP/M 2.2 file-description mechanism. The
+link:../cpmdrive/A0%20-%20CP-M%20core/INFO.TXT[local A0 example] contains only
+`InfoText for Drive A0:` followed by CP/M end-of-text/padding; no structured
+file descriptions are present. `VOL` does not interpret a name or any later
+lines. Its host-folder test can see even an otherwise empty user-area folder.
+
+The similarly named `A0:INFO.COM` is not a writer for that file. Its
+link:../cpmdrive/A5%20-%20CP-M%20sources%20and%20build%20files/INFO.Z80[source]
+prints RunCPM version, host, CCP and memory information. The present source
+search found no project/upstream `INFO.TXT` editor; ordinary CP/M or host text
+editing is sufficient. Do not overwrite the live A0 file merely to test this
+proposal. The existing local A0 `INFO.TXT` is still its legacy
+`InfoText for Drive A0:` line, not yet the new `SYSTEM ...` catalog format;
+it has not been overwritten implicitly.
+
+RunCPM's upstream
+https://github.com/MockbaTheBorg/RunCPM[README] describes drives A..P as host
+folders and user areas 0..15 as subfolders. Digital Research's
+https://www.cpm.z80.de/manuals/archive/cpm22htm/ch1.htm[CP/M 2.2 manual]
+describes 8.3 filenames and drive letters, but no long-name or per-file
+description field. The closest historical precedent for *named drive/user
+areas* is the Z-System/ZCPR3 named-directory facility, described in the
+https://oldcomputers.dyndns.org/public/pub/manuals/zcpr/zsystem_users_guide.pdf[Z-System
+User's Guide]. It is a more extensive CCP/environment facility, not a reason
+to adopt that machinery for this small RunCPM catalog. LBR/LU group files in
+archives; that is a different problem from annotating loose CP/M files.
+
+== Proposed plain-text convention
+
+Keep `INFO.TXT` as a normal CP/M ASCII file in each described DU. Its *first*
+line is compatible with existing `VOL`: an ASCII alias token, one space, then
+a human-readable area description. Keep this line <=80 columns and within the
+first 128-byte record. Remaining lines optionally map real 8.3 filenames to
+one-line descriptions:
+
+[source,text]
+----
+MBASIC MBASIC programs and terminal visual tests
+VTESTS.BAS ANSI, DEC and palette test menu
+VTPAL.BAS Compare every ink against the current papers
+----
+
+Here `MBASIC` is metadata, not a renamed directory. The built-in reader
+case-folds alias and filename tokens, requires an unambiguous alias within a
+drive for `CD`, treats the remainder of each line as free text, and ignores
+blank/comment lines. The first line is *always* the area label; subsequent
+lines map filenames. Missing file descriptions leave a blank description;
+stale entries do not invent files. Tokens are at most 12 characters so they
+fit the 8.3-width listing column. Alias lookup rejects duplicates on one
+drive. Use CRLF and a final Ctrl-Z for the maintained CP/M mirror. Lines may
+cross 128-byte record boundaries because the CCP streams host files.
+
+`A0:DRIVE.TXT` would be a separate simple drive catalog, one letter and
+description per line, for example:
+
+[source,text]
+----
+A CP/M system and programs
+B Working files
+----
+
+This is a 7xtgv convention, not a general RunCPM one. The current local file
+has one `A` entry. `LS /` prints cataloged entries in file order; it does
+not probe or promise a corresponding physical drive folder. A missing file
+prints `No A0:DRIVE.TXT`. Additional drive labels can be added as needed.
+
+== Built-in LS and CD behavior
+
+[cols="2,5",options="header"]
+|===
+|Command |Meaning
+|`LS` |List the current DU with names and matching descriptions; no size yet.
+|`LS /` |List drive labels from `A0:DRIVE.TXT`.
+|`LS /A` |Traverse A0..AF host folders and show each present area, using its first `INFO.TXT` line or a numeric fallback.
+|`LS /A/MBASIC` |Resolve a unique alias on drive A and list the actual matching DU, with its area description and per-file descriptions.
+|`LS A7:` |Direct numeric DU form, useful even without `INFO.TXT`.
+|`CD /A/MBASIC` |Select a uniquely named area on drive A; duplicate or unknown aliases fail without changing DU.
+|`CD A7:` |Select an existing numeric DU; a missing host folder fails without creating it.
+|`CD` |Print the current numeric DU.
+|===
+
+This slash syntax is a convenient *view* over CP/M drive/user areas, not real
+subdirectories. Since the commands are built into this RunCPM CCP, `LS`
+traverses host folders through its existing SD layer without changing BDOS
+drive/user. `CD` changes BDOS drive/user only after validating the target.
+Unlike a standalone `.COM`, `LS /A` sees even an empty host area, like `VOL`.
+This is specific to RunCPM and would need another implementation on a real
+CP/M disk. Descriptions are not automatically updated when files change.
+
+Default output uses one 12-character name field, three spaces, and a
+description beginning in column 16. The current DU listing starts with an
+area line, a blank line, then file lines; sizes remain available through
+`LDIR` and can be added to `LS` separately later:
+
+[source,text]
+----
+A7:MBASIC      MBASIC programs and visual tests
+
+VTESTS.BAS     ANSI and DEC terminal test menu
+VTPAL.BAS      Compare inks on four papers
+----
+
+No paging or physical viewport-width negotiation is implemented yet. At a
+40-column logical size, a long description can wrap.
+
+The CCP rereads `DRV_GET` and `F_USERNUM` each prompt, and the built-in `CD`
+also updates its own current drive/user state so the next prompt reflects the
+new DU. A guest `.COM` version is not needed for this first implementation.
+The current parser accepts decimal user numbers 0..15 in `A7:` form; slash
+paths require an alias. `CD` does not edit either catalog file.
+
+== Remaining checks and open choices
+
+. RP2_147 firmware candidate `260926-1347` was copied to the verified
+  BOOTSEL chip `D60D9318CF30A586`. Serial reappeared with that ID; its ACL
+  was restored, the visible mirror relaunched, and the `260926-1347` boot
+  banner, SD mount, profile/history `OK`, and `A0>` were seen. Candidate
+  remains `new`, not promoted.
+. At Petr's request, `A0:DRIVE.TXT` and `A7:INFO.TXT` transferred with
+  `SAVED` results (128 and 256 padded bytes respectively); the visible
+  mirror was relaunched. No read-back was requested. The existing device
+  A0 `INFO.TXT` remains untouched until Petr chooses a formal area label.
+. On device, check `LS /`, `LS /A`, `LS A7:`, `LS /A/MBASIC`,
+  `CD /A/MBASIC`, `CD A0:`, and that errors leave the DU unchanged.
+. Consider file sizes, paging, compact output, and an INFO writer later.
+  Plain `LDIR` remains available for sizes today.
+
+This behavior belongs in the future User Guide as a short task and in the
+Reference as exact syntax/format after hardware verification.
