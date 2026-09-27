@@ -1,0 +1,124 @@
+= 7xtgv terminal User Guide
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+
+This is the everyday path for the current RunCPM terminal. The TFT shows a
+viewport of the logical CP/M screen; the PC mirror shows that complete screen.
+The selected CP/M drive/user area is where device commands read and write.
+The VTPUT/VTGET panel's *DU* instead chooses a folder in the host
+`++cpmdrive++` mirror. Zoom changes cell size, while pan changes which part of
+the same logical screen is visible on the TFT. Neither moves CP/M files.
+
+[[starting-the-pc-mirror]]
+== Start the PC mirror
+
+Connect the intended module and check `++XTGV_TARGET++` in
+`++src/7xtgv-vt100-runcpm/tools/terminal.conf++` before using the mirror or
+requesting a flash. This is a host selection, not automatic device detection.
+From the repository root, launch one of:
+
+[source,sh]
+----
+./src/7xtgv-vt100-runcpm/tools/kon.sh
+./src/7xtgv-vt100-runcpm/tools/kit.sh
+----
+
+Both attach to the shared `++7xtgv-cpm++` tmux session. Let it own USB serial;
+do not also open a second serial terminal. Wait for the CP/M prompt. A brief
+mirror redraw after USB reconnect is normal. `++Ctrl+] q++` exits the host
+bridge. The exact host variables and port precedence are in the
+link:reference-guide.adoc[Reference Guide].
+
+== Work at the prompt and in applications
+
+Choose a profile with `++Alt+0++` through `++Alt+9++`; `++Alt+Space++` shows
+the selected profile without changing it. Up/Down normally recall its
+history, though editor profiles may reserve them and use Alt+Up/Down instead.
+At the CCP prompt, commands use the effective CP/M history bank so they do
+not enter an application's history. `++Alt+Shift+3++` toggles `++## RAW++`
+direct-input mode when an application needs unmodified keys. Switch it back
+for ordinary command work.
+
+[cols="2,3",options="header"]
+|===
+|PC key |Everyday effect
+|`++Ctrl+Shift+PgDn++` / `++PgUp++` |Zoom in / out temporarily.
+|`++Ctrl+Shift+arrows++` |Pan the TFT viewport by axis.
+|`++Ctrl+Shift+Home++` / `++End++` |Scan all viewports backward / forward.
+|`++Alt+PgUp++` / `++PgDn++` |Previous / next profile.
+|`++Ctrl+Shift+X++` |Open the transfer panel at an idle CCP prompt.
+|===
+
+The link:reference-guide.adoc#global-terminal-keys[complete key table]
+includes backlight, modes, exits, history deletion and host-layout notes.
+Normal zoom and pan do not edit the INI or resize the logical CP/M screen.
+
+== Check or change terminal size
+
+At the CP/M prompt, `++VTINFO++` reports the running display ID, exact target,
+build, panel pixels, selected logical terminal, visible viewport and resolved
+presets. `++VTZOOM++` shows the current view; `++VTZOOM 2++` loads preset 2
+temporarily. `++VTZOOM 2 80x24++` deliberately selects an 80x24 logical
+screen at 2x zoom without saving it. `++VTZOOM DEFAULT++` restores the boot
+view. Ordinary keyboard zoom only changes physical scale.
+
+A full-screen program such as Turbo Pascal may be configured for 80x24. If
+the logical terminal is smaller, the application's cursor and drawing may
+look wrong even though viewport panning works. Select matching logical
+geometry *before* launching the application, or reconfigure the application.
+An 80x24 logical terminal on a small panel is usable as several panned views;
+the PC mirror still shows all 80x24 cells. See
+link:reference-guide.adoc#display-and-per-bank-geometry[geometry rules].
+
+== Transfer one file
+
+Leave CP/M idle at its prompt in the *device* DU you want. Open the host panel
+with `++Ctrl+Shift+X++`, choose `++S++` (host to CP/M) or `++R++` (CP/M to
+host), then the *local* DU folder, source name and target name. For example,
+with the device at `++A7>++`, choose `++S++`, local `++A7:++`, source
+`++VTESTS.BAS++`, target `++VTESTS.BAS++`; confirm the device write with
+`++Y++`. To receive device A0 into a different local folder, leave CP/M at
+`++A0>++` and choose `++R++`, local `++A3:++`. The panel does not switch the
+device DU.
+
+Sending always asks before writing the device target; receiving asks before
+replacing an existing local file. Enter alone does not approve replacement.
+The transfer preserves bytes, including CP/M record padding: no newline or
+character-set conversion occurs. Use an 80-column *logical* terminal; a
+narrow physical viewport over 80 logical columns is fine. If a helper stalls
+or a transfer fails while it is still running, reset/reach a clean CCP prompt
+before retrying. Exact options and failure behavior are in
+link:reference-guide.adoc#vtput--vtget-from-the-mirror[the transfer reference].
+
+== Edit the device INI safely
+
+The device loads `++A0:7XTGVTRM.INI++` at boot. Before editing it, fetch the
+*live* A0 file using `++tools/fetch-7xtgvtrm-ini.sh++` from the sketch directory
+(specify target/port if needed). The helper archives the previous local copy
+and only replaces it after a successful fetch. Stop if fetching fails: the
+repository copy may be older than the device copy. Edit the fetched file,
+send it back with explicit overwrite approval, then reboot to apply settings
+that load only at startup. The full grammar and which selections persist are
+in link:reference-guide.adoc#configuration-reference[the INI reference].
+
+== When something looks wrong
+
+* No mirror or wrong board: recheck `++XTGV_TARGET++`, serial port and cable;
+  stop a stale shared session before relaunching. Changing the host target
+  does not identify the attached hardware automatically.
+* RP2350 firmware recovery: enter BOOTSEL manually for a requested flash.
+  Do not copy another target's UF2. Flashing is a separate operation from
+  CP/M file transfer.
+* `++LOADED WITH ERRORS++`: inspect boot diagnostics and
+  `++A0:7XTGVTRM.ERR++`; use the
+  link:reference-guide.adoc#ini-diagnostics-and-syntax-limits[INI diagnostics]
+  before editing the live file.
+* Distorted full-screen app: compare `++VTINFO++` logical size with the
+  application's installed size. Physical zoom alone will not fix a mismatch.
+* Transfer panel/helper stuck: return to a clean CCP prompt or reset, restore
+  an 80-column logical terminal, and retry. The transfer normally restores
+  the original profile and RAW state.
+
+For source-level diagnosis and flash safeguards, use the
+link:technical-reference.adoc[Technical Reference].

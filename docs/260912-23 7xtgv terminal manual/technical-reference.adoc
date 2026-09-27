@@ -1,0 +1,199 @@
+= 7xtgv terminal Technical Reference
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+
+This guide describes the *implemented* RunCPM terminal and the boundaries a
+maintainer must preserve. User-visible syntax lives in the
+link:reference-guide.adoc[Reference Guide]; first-use tasks live in the
+link:user-guide.adoc[User Guide]. The
+link:../260910-13%207xtgv%20v0.1%20native%20specification%20and%20implementation%20plan.adoc[native 7xtgv specification]
+is a separate proposal: editable fonts and native four-plane cells are not
+shipped terminal APIs. The link:../FEATURES.adoc[feature ledger] records
+feature and hardware-test status.
+
+[[source-references-and-implementation-boundaries]]
+== Code and ownership map
+
+[cols="2,3",options="header"]
+|===
+|Owner |Source and responsibility
+|RunCPM core |link:../../src/7xtgv-vt100-runcpm/7xtgv-vt100-runcpm.ino[sketch], link:../../src/7xtgv-vt100-runcpm/ccp.h[CCP], link:../../src/7xtgv-vt100-runcpm/ccp_catalog.h[catalog], BDOS/CPU/disk headers at sketch root; guest execution and SD I/O.
+|Terminal runtime |link:../../src/7xtgv-vt100-runcpm/src/terminal/terminal_runtime.cpp[terminal_runtime.cpp]; profile/input routing, rendering, mirror, saves and queues.
+|Terminal parser |link:../../src/7xtgv-vt100-runcpm/src/terminal/terminal.cpp[terminal.cpp]; ANSI/VT52/DEC parsing, private CSI, cell state and keyboard escape decoding.
+|Configuration |link:../../src/7xtgv-vt100-runcpm/src/terminal/history_profiles.cpp[history_profiles.cpp] and link:../../src/7xtgv-vt100-runcpm/src/terminal/ini_text.h[ini_text.h]; defaults, parse, diagnostics and INI editing.
+|Board policy |link:../../src/7xtgv-vt100-runcpm/src/terminal/display_policy.h[display_policy.h], `++hardware/arduino_7xtgv/*++`, `++runcpm-config.h++`; display identity/limits, storage, backlight, boot and board-specific wiring.
+|Host |`++tools/terminal.py++`, `++tools/cpm-transfer/transfer.py++`, `++tools/reflash.py++`, `++tools/targets/*.json++`; serial mirror, transfer and target-specific upload.
+|===
+
+The RP2350 arrangement places CP/M and SD ownership on core 1; terminal,
+display and USB are on core 0. The terminal side must not touch the SD
+filesystem directly. Console bytes cross fixed SPSC rings (4 KiB input,
+16 KiB output); terminal replies have a separate 1 KiB staging queue and
+take priority over new keyboard input. CP/M output backpressures instead of
+silently overrunning. The terminal continues draining output while input is
+full. No USB write occurs from the CP/M core. The sketch coordinates startup
+so CP/M does not start before display initialization. Other targets retain
+the same logical ownership but may use different board/task primitives.
+
+[source,text]
+----
+CP/M + BDOS + SD owner  --output ring-->  parser/cells --> TFT viewport
+        ^                                      |
+        |                                      +--> reconstructed full-screen mirror --> USB
+        +--input/reply rings<-- keyboard/profile routing <-- host bridge
+----
+
+The mirror is *reconstructed* ANSI, not original guest bytes. It snapshots
+rows into a bounded output buffer and coalesces when USB is slow. On connect
+or explicit refresh it sends the complete logical screen. A mirror refresh
+does not itself clear a retained TFT plot. Host serial ownership is singular:
+the shared tmux session runs one bridge; another serial client must not read
+in parallel. This reconstructed path is why ordinary XMODEM is not binary
+safe. VTPUT/VTGET use a separate text-safe protocol and explicit checks.
+
+== Terminal state, geometry and HAL
+
+The logical cell array spans the CP/M terminal dimensions; the TFT renders
+only the current visible rectangle at its zoom and pan offsets. The PC mirror
+uses the complete logical array. Zoom changes 6x10 glyph scale, not CP/M
+geometry. Pan positions are calculated from logical and visible sizes,
+including exact edges; changing a viewport does not reconfigure a running
+full-screen application. Gutter and active-line rendering are composited
+around that viewport. Direct xterm256 samples use a retained physical-pixel
+plot layer rather than normal cells; later text may paint over it and a
+scroll retires it. The current text cells plus sidecar attributes are not
+the future native four-plane 7xtgv format.
+
+Per-target storage, backlight duty mapping and boot warning are in flat
+`++hardware/arduino_7xtgv/++` headers. `++display_policy.h++` supplies the
+short display-group ID, panel dimensions, logical limits and fallback zoom
+presets; `++runcpm-config.h++` participates in compile-time allocation.
+Host target JSON supplies upload/port metadata and the *exact* target name.
+These are related but distinct selectors: a shared display ID intentionally
+shares an INI section, while firmware upload identity must match the exact
+target. Logical maxima are still split between compile-time allocation and
+HAL policy; do not claim a single authoritative definition yet. Any port
+must verify both sides and the resolved `++VTINFO++` result. See the
+link:../260924-13%20display%20profile%20selection%20and%20identity%20audit.adoc[identity audit].
+
+[[configuration-and-persistence]]
+== Configuration and persistence
+
+`++A0:7XTGVTRM.INI++` is parsed at boot. The text is held in memory for
+targeted edits; palette and backlight choices mark their fields dirty and a
+later owner-side transaction saves them. Normal keyboard zoom/pan and
+temporary `++VTZOOM++` do *not* mark boot `++view_zoom++` dirty. Explicit
+`++SYNC++` forces pending settings and history transactions before likely
+reset or long plot work. Guest writes to an INI should not be overwritten
+from a stale cache: review the cache's changed-file/collision path when
+altering storage code. Keep storage operations on the RunCPM/SD owner.
+
+Ten history banks are stored in `++A0:7XTGVTRM.BUF++`. After an idle period,
+the owner writes and verifies `++.NEW++`, rotates the previous file through
+`++.BAK++`, and uses CRC-32 on completed v2 files. Boot can reject a torn
+generation and try the alternates. These are not plain text files to edit
+with a CP/M editor. The exact syntax, persistence and boot diagnostics are
+in the link:reference-guide.adoc#configuration-reference[INI reference];
+source-level tests are `++tests/test_ini_runtime.cpp++`,
+`++tests/test_ini_text.cpp++` and `++tests/test_ini_storage.py++`.
+
+[[private-protocol-boundaries]]
+== Private protocol boundaries
+
+In this table `++CSI++` is `++ESC[++`, `++DCS++` is `++ESC P++`, and
+`++ST++` is `++ESC \\++`. These are *7xtgv-private* controls, not standard
+VT100 commands. User commands and shortcuts are documented in the
+link:reference-guide.adoc[Reference Guide]. The firmware validates the
+argument count/range and ignores invalid requests; host-only events must be
+removed from displayed output. A guest application must not assume that a
+logical-size change notifies other CP/M applications.
+
+[cols="2,2,3",options="header"]
+|===
+|Input/event |Direction |Contract
+|`++CSI >62v++` |Host to firmware |Request full PC mirror snapshot; also asks for host identity. Firmware replies `++DCS 7xtgv-id;1;<target>;<build> ST++` out of band. Older firmware may consume the query without identity.
+|`++CSI >64v++` |Guest to host via firmware |REFLASH capability request. Firmware forwards this exact event separately from reconstructed text; host dispatcher may act only when configured.
+|`++CSI >72v++` |Guest to firmware |VTINFO query. Reply is bounded version-1 `++DCS 7xtgv-info;1;... ST++`: display ID, exact target/build, panel pixels, zoom, logical and visible dimensions, column/row pan offsets, bank, then four resolved preset sizes.
+|`++CSI >73;n v++` |Guest to firmware |Load preset `++n++` (1..4); `++n=0++` restores boot view. `++CSI >73;n;cols;rows v++` selects temporary geometry, with even columns and bounds checked.
+|`++CSI >68;n v++`, `++CSI >69;n v++` |Guest to firmware |Temporary physical zoom 1..4; palette slot 0..9. Palette selection is lazily saved.
+|`++CSI >63;n v++` |Host or guest to firmware |Backlight logical state: 0 OFF, 1..31 visible, legacy 32 full ON; 33/34 step up/down. HAL maps states to duty values.
+|`++CSI >4[;zoom;x;y]v++` |Guest to firmware |Arm GCLS plot at physical origin, zoom 1..4. Indexed xterm256 samples follow; SGR reset ends the plot transaction.
+|`++CSI >70;1;base;mods;fallback-DDD...v++` |Host to firmware |Versioned keyboard event; numeric key ID and modifier bits plus decimal fallback bytes. See `++key_chords.h++` and `++terminal.py++` for the exact generated map.
+|===
+
+Profile/history and pan shortcuts also use private host-to-firmware controls
+(`++CSI >10..17v++`, `++>20..59v++`, `++>65..67v++`, `++>71;0/1v++`). Their
+user-facing meaning is in the key table; the source parser is authoritative
+for the byte dispatch. Transfer helpers use their own validated record stream;
+see link:../../src/7xtgv-vt100-runcpm/tools/cpm-transfer/README.md[transfer protocol]
+and its tests before changing either end. Reconstructing the mirror and
+serializing an out-of-band event must never interleave inside one partial
+mirror update.
+
+== RunCPM and internal CCP fork boundary
+
+The terminal sketch incorporates RunCPM-derived CPU, BDOS, disk and internal
+CCP headers. The local older `++src/7xtgv_RunCPM/ccp.h++` is useful as a
+comparison baseline, but this is not an unmodified upstream CCP. In the
+current sketch, `++ccp.h++` directly owns prompt mode and buffer size,
+dispatches `++7XF++`, `++LS++`, `++LL++`, `++CD++`, extends `++?++` and
+`++PAGE++`, adjusts `++CLS++` prompt placement, and changes `++VOL++` to
+read `++DIR.7XF++`. `++ccp_catalog.h++` isolates most catalog/path parsing,
+formatting and one-shot `++LS -O++` capture, but it still calls CCP and disk
+helpers and shares current DU state. `++DIR.7XF++`, `++VOL.7XF++` and
+`++DRV.7XF++` are project conventions layered over flat CP/M drive/user
+areas; they are not CP/M directories. The host FAT file length used by long
+listings is not a universally available CP/M exact-byte size.
+
+This is a real integration fork, not a drop-in external `.COM` collection.
+An upstreamable path would first extract a narrow catalog/metadata adapter,
+define explicit CCP hooks for prompt and command registration, remove
+terminal-specific storage assumptions, and test on both the Arduino and
+headless POSIX RunCPM builds. That is a *refactoring proposal*, not an
+available PR. Generic fixes such as prompt placement or safer help paging
+may be separable earlier, but their compatibility must be checked against
+upstream behavior. External CP/M programs still execute in the TPA and do
+not inherit the C++ CCP internals. `++$$$.SUB++` is a CP/M record queue, not
+a process-return trampoline. See the dated
+link:../260926-12%20terminal%20guide%20split%20and%20ownership%20plan.adoc[split plan]
+and the link:../260926-23%20XC%20commander%20return%20path%20and%207XF%20output%20boundary.adoc[CCP handoff notes]
+for design context; do not treat proposed commander behavior as implemented.
+
+== Build, upload and test boundary
+
+`++tools/reflash.py --target TARGET --build-only++` stages a target-specific
+candidate under `++build/7xtgv-vt100-runcpm/TARGET/new/++`; staging alone
+does not flash or promote it. Select the exact target in host configuration.
+The uploader queries compiled firmware identity and blocks a reported
+mismatch. An unidentified older firmware needs a one-shot, explicitly named
+recovery allowance, never a persistent automatic bypass. RP2350 boards use
+manual BOOTSEL/UF2 rather than an assumed auto-reset. The POSIX RunCPM build
+tests CP/M behavior but cannot validate TFT timing, SD bus, duty curves or
+hardware-specific rendering. Hardware acceptance is recorded separately in
+the feature ledger and dated reports.
+
+== Licensing and attribution inventory
+
+Licenses belong to *components*, not to the terminal as a single inherited
+license. The checked-in and locally installed notices found for this build
+are:
+
+[cols="2,2,3",options="header"]
+|===
+|Component |Evidence |Boundary
+|RunCPM-derived CPU/BDOS/CCP and POSIX baseline |link:../../src/7xtgv-vt100-runcpm/LICENSE.RunCPM[MIT notice]; link:../../src/linux_RunCPM/README.md[POSIX source baseline] |The MIT notice covers the identified RunCPM-derived parts; preserve it with those parts.
+|7xtgv QL-font header |`++src/terminal/7xtgv-QL-font.h++` states `++Copyright 2026 Petr Antos, ALL RIGHTS RESERVED (will be opened at release)++` |Do not infer an open font license from RunCPM's MIT notice.
+|SdFat 2.3.0 |Locally installed `++SdFat/LICENSE.md++` contains an MIT notice |Build dependency named in `++sketch.yaml++`; the installed package is not a blanket repository license.
+|GFX Library for Arduino 1.6.4 |Locally installed `++license.txt++` has a BSD-style Adafruit notice |Check included source/subcomponents and reproduce applicable notices for an actual distribution.
+|Arduino-Pico 5.4.4 and ESP32 Arduino core |Installed platform trees have their own license files and bundled dependencies |The top-level Arduino-Pico notice is LGPL-2.1 text; nested SDK/libraries carry additional notices. ESP32's complete dependency inventory was not audited here.
+|CP/M guest binaries, language packages and imported demos |`++cpmdrive/++` contains independently sourced material |Treat provenance and redistribution rights item by item; this guide does not grant them.
+|===
+
+This is a source-file inventory, *not* legal advice or a claim that every
+bundled artifact is redistributable. No repository-wide license was found in
+this pass. Before publishing a firmware binary, source archive or CP/M card
+image, produce a versioned component/license manifest, check transitive
+library notices, resolve the font and guest-software terms, and preserve
+required attributions. Do not label the whole project “MIT” merely because
+RunCPM is MIT-licensed.

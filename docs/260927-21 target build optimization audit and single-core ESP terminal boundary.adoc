@@ -1,0 +1,132 @@
+= Target build optimization audit and single-core ESP terminal boundary
+:source-highlighter: highlight.js
+
+== Decision and scope
+
+The intended RunCPM plus local 7xtgv-display architecture has two concurrent
+workloads. The connected RP2_147 is one working dual-core example; W535 and
+RP2_2 dual-core work predates its port. An ESP32-C6 has one high-performance
+core, so it is *not a target for that two-core partition*. This is a project
+architecture decision, not a claim that a single core could never time-slice
+an emulator and a renderer. Candidate ESP32-C5 modules belong to the same
+dedicated-terminal track, subject to board-specific verification.
+
+The C6/C5 track instead runs 7xtgv as a *standalone physical terminal*:
+display, keyboard/input and VT/7xtgv rendering locally, with bidirectional
+external UART RX/TX to the computer being served. It does not imply an on-board
+RunCPM, CP/M disk backend or second execution core. The exact board, usable
+GPIOs and serial electrical connection must be verified before a build.
+
+This note records the current source/build state and a measurement checklist.
+It changes no firmware, flags, target profiles or hardware. It does not
+authorize a broad interpreter optimization pass.
+
+== Current hot-code and build state
+
+`src/7xtgv-vt100-runcpm/cpu1.h` attaches both `IRAM_ATTR` and GCC's
+`optimize("O2")` to `Z80run()` only when `RUNCPM_TARGET_JC8048W535` is
+defined. The two controls are independent: one chooses code placement, the
+other optimization level. The reason recorded in the W535 experiment was
+instruction-cache contention between its terminal and Z80 workloads on the
+S3. The original W535 IRAM trial improved `VTCPU` active from 10.79 to
+17.21 MHz and quiet from 17.02 to 17.21 MHz. Later global `-O2`/`-O3` and
+function-only `O2` trials are recorded in
+link:260909-13%20runcpm-s3-dual-task.adoc[the S3 experiment]. They are
+W535 measurements, not a general ESP32 or RISC-V result.
+
+The installed Arduino-ESP32 3.1.0 `platform.txt` specifies `-Os` for the
+normal/release compile and `-Og -g3` for debug. Our S3 target profiles do not
+set an explicit global speed-optimization override; the W535 `Z80run()`
+attribute is a local exception. The build tool appends the target/stamp flags
+to Arduino's expanded `build.extra_flags`. An effective per-artifact compiler
+command is still needed to prove exactly which flags built a given image.
+
+`sketch.yaml` and `tools/targets/` currently define W535, W550, RP2_2 and
+RP2_147 only. The two RP2350 profiles request `opt=Optimize3`, but the
+effective compiler commands should be captured before calling that an `-O3`
+binary. There is no current C6 or C5 target profile, staged firmware or
+benchmark from this codebase. Accordingly, the question "is our C6 build
+optimized for speed?" has no current firmware build to answer for. A future
+Arduino-ESP32 C6 build would inherit its selected platform defaults unless
+the profile changes them; do not assume either W535's local attributes or a
+global speed override carries over.
+
+The existing `runcpm-config.h` also infers W535 from ESP32-S3 architecture
+when W550 is not selected. A new ESP target must get an explicit target
+identity rather than accidentally inherit that board's policy. The
+link:260925-20%20target-specific%20injection%20inventory%20and%20flat%20HAL%20plan.adoc[flat target contract]
+already calls for a per-board hot-code attribute, including an explicit
+no-op where absent. Preserve that boundary when a new module is added.
+
+`IRAM_ATTR` is available in ESP32-family toolchains, including RISC-V-based
+chips, but applicability is not the same as benefit. Internal executable RAM
+budget, flash-cache behavior, interrupt requirements, compiler output and the
+actual workload all matter. Moving `Z80run()` to IRAM also does not move its
+callees, tables or all constants automatically. For a standalone C6/C5
+terminal without `Z80run()`, the W535 optimization is simply irrelevant;
+profile the renderer and UART path independently. A future dual-core P4
+RunCPM port needs its own memory-map and cache measurements before choosing
+hot-code placement.
+
+== External-UART terminal port boundary
+
+For each exact C6/C5 display board, the target header and host target record
+must specify RX GPIO, TX GPIO, UART peripheral/instance, baud and framing,
+console/debug separation, and electrical assumptions. Connect 3.3 V TTL
+levels and common ground unless the verified board/interface provides a
+different transceiver. Keep USB flashing/debug usable; do not silently reuse
+the programming console's pins. Check LCD, SD, backlight, boot-strapping and
+other on-board pin conflicts against that board's schematic. Input sent back
+from the terminal needs a defined TX path and buffering, not only an RX demo.
+
+The Waveshare ESP32-C6-LCD-1.47 schematic exposes `RXD`/`TXD` on its header
+and identifies them with the chip's UART0 pins. That is an *inspection lead*,
+not a selected application pin pair: use of UART0 may mingle boot/debug
+traffic with the terminal stream. Choose and record final GPIO numbers only
+after reviewing the physical connection and confirming the module's usable
+alternate UART routing. No C5 pin assignment can be inferred from the C6
+board. Source: https://files.waveshare.com/wiki/ESP32-C6-LCD-1.47/ESP32-C6-LCD-1.47_schemetics.pdf[Waveshare C6 schematic].
+
+== Cross-target build and benchmark review
+
+First make a *baseline* for the four existing targets without changing
+optimization or code placement. For each staged artifact, retain exact target
+and build stamp, Arduino core/version, compiler/version, full board options,
+effective optimization and extra flags, CPU clock, flash/PSRAM configuration,
+linked flash/IRAM/internal RAM sizes, and the target-specific hot-code policy.
+This complements the existing
+link:260924-14%20W535%20shared-card%20rebuild%20checkpoint.adoc[build-provenance idea].
+
+[cols="1,2,2",options="header"]
+|===
+|Target |Current profile/policy |Baseline question
+
+|W535 |ESP32-S3; platform `-Os`; `Z80run()` IRAM plus local `O2` |Repeat active/quiet CPU and terminal-load comparison without losing IRAM budget.
+|W550 |ESP32-S3; platform `-Os`; no local dispatcher attribute |Measure whether its different renderer causes similar cache contention; do not copy W535 policy by assumption.
+|RP2_2 |RP2350; board requests `Optimize3`; no ESP IRAM attribute |Confirm effective flags and paired CPU/storage/display results.
+|RP2_147 |RP2350; board requests `Optimize3`; no ESP IRAM attribute |Confirm effective flags and compare with prior ~23 MHz `VTCPU` observation under the same test conditions.
+|C6/C5 |No current target build |Define external-UART terminal profile first; benchmark terminal throughput, latency and rendering, not RunCPM `VTCPU`.
+|P4 |Future dual-core target |After port, establish baseline before any IRAM/optimization experiment.
+|===
+
+Use a fixed benchmark fixture and record device, firmware stamp, terminal
+geometry/zoom, active display mode, backlight setting, CP/M DU and SD card.
+Run `VTCPU` active and quiet, `VTCPU8X` where available, `VTDRV` read/write
+with verification, and a repeatable terminal/render load. Keep CPU and drive
+results separate: a flag that helps the interpreter may hurt disk or graphics.
+Repeat enough runs to show noise. Only then test isolated per-function or
+global flag variants, checking binary/IRAM size, boot, display, storage and
+Z80 correctness before retaining them. No current result justifies applying
+W535's `IRAM_ATTR` or `O2` to every ESP module.
+
+== Next gates
+
+. Capture reproducible build provenance and current four-target baselines.
+. Confirm a particular C6 board's external RX/TX pins and console separation;
+  then create a terminal-only target/HAL profile and UART loopback test.
+. Select a particular C5 board separately and perform the same schematic/pin
+  review before adding its profile.
+. Keep P4's future RunCPM/terminal measurements distinct from single-core
+  terminal-only work.
+
+No device was queried, rebuilt or flashed for this note.

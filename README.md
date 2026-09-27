@@ -1,13 +1,16 @@
 # 7xtgv
 
-7xtgv is an RP2350 Touch LCD 2 project combining RunCPM with a compact
-VT100/VT52 terminal. CP/M runs on one core while the other handles USB input,
-terminal interpretation, the 320x240 TFT, and an 80x24 PC terminal mirror.
+7xtgv combines RunCPM with a compact ANSI/VT100- and VT52-style terminal on
+several RP2350 and ESP32-S3 display modules. The device TFT shows a zoomable,
+pannable viewport; the PC mirror shows the complete logical CP/M screen.
 
 The current main firmware is
-[`src/7xtgv-vt100-runcpm`](src/7xtgv-vt100-runcpm/README.md). It provides a
-52x24 panned TFT viewport, ANSI and VT52 compatibility, the QL-derived 6x10
-font, the Mixworx color palette, and console file-transfer helpers.
+[`src/7xtgv-vt100-runcpm`](src/7xtgv-vt100-runcpm/README.md). Start with the
+[User Guide](docs/260912-23%207xtgv%20terminal%20manual/user-guide.adoc); use
+the [Reference Guide](docs/260912-23%207xtgv%20terminal%20manual/reference-guide.adoc)
+for exact commands/settings and the
+[Technical Reference](docs/260912-23%207xtgv%20terminal%20manual/technical-reference.adoc)
+for the RunCPM fork, HAL, protocol and license boundaries.
 
 ## Repository layout
 
