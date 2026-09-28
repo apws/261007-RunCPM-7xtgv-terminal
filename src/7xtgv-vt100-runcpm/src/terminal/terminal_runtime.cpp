@@ -10,6 +10,7 @@
 #include "../../hardware/arduino_7xtgv/backlight.h"
 #include "../../hardware/arduino_7xtgv/target_identity.h"
 #include "../../hardware/arduino_7xtgv/reboot.h"
+#include "../../forced_warm_return.h"
 #include <Arduino.h>
 #include <algorithm>
 #include <atomic>
@@ -958,6 +959,12 @@ static void keyboardAction(void *, vt::Keyboard::Action action) {
 }
 static void keyboardKeyEvent(void *, vt::KeyChord chord, const uint8_t *fallback,
                              size_t fallbackLength) {
+    // This host-only chord is above every application-profile binding. Its
+    // fallback must never become a guest Ctrl+C or a CCP command.
+    if (chord == (vt::KeyChord{vt::KeyC, uint8_t(vt::KeyCtrl | vt::KeyAlt)})) {
+        forcedWarmReturn().request();
+        return;
+    }
     if (chord.modifiers == (vt::KeyCtrl | vt::KeyShift)) {
         switch (chord.base) {
         case vt::KeyLeft: terminal.panHorizontal(-1); return;
@@ -1017,6 +1024,21 @@ static vt::Keyboard keyboard(terminal, keyboardSend, nullptr, keyboardAction,
 static uint8_t rawControl[64];
 static uint8_t rawControlLength = 0;
 static uint32_t rawControlAt = 0;
+static size_t overflowEmergencyMatch = 0;
+static_assert(vt::KeyC == 52, "update the saturated-queue emergency event");
+static void overflowEmergencyFeed(uint8_t c) {
+    // Guest input can fill its queue if a COM spins without reading. Keep the
+    // escape reachable even then; other bytes are already unqueueable.
+    static constexpr char event[] = "\033[>70;1;52;5;v";
+    if (c == uint8_t(event[overflowEmergencyMatch]))
+        ++overflowEmergencyMatch;
+    else
+        overflowEmergencyMatch = c == uint8_t(event[0]) ? 1 : 0;
+    if (overflowEmergencyMatch == sizeof(event) - 1) {
+        overflowEmergencyMatch = 0;
+        forcedWarmReturn().request();
+    }
+}
 
 static void rawFlush() {
     for (uint8_t i = 0; i < rawControlLength; ++i)
@@ -1086,6 +1108,11 @@ static void rawFeed(uint8_t c, uint32_t now) {
         if (vt::decodePrivateKeyEvent(rawControl, rawControlLength, chord,
                                       fallback, fallbackLength)) {
             rawControlLength = 0;
+            if (chord == (vt::KeyChord{vt::KeyC,
+                                      uint8_t(vt::KeyCtrl | vt::KeyAlt)})) {
+                forcedWarmReturn().request();
+                return;
+            }
             for (size_t i = 0; i < fallbackLength; ++i) {
                 input.push(fallback[i]);
                 if (fallback[i] == 13) ccpPromptLive = false;
@@ -2329,6 +2356,7 @@ int virtualAvailable() { return input.available(); }
 uint8_t virtualRead() {
     uint8_t c;
     while (!input.pop(c)) {
+        if (forcedWarmReturn().pending()) return 0;
         // RunCPM and its filesystem live on this core. Lazy history writes
         // must never touch SdFat/SD_MMC from the terminal/display core.
         terminalConfigStoragePoll();
@@ -2339,6 +2367,12 @@ uint8_t virtualRead() {
         delay(1);
     }
     return c;
+}
+void terminalDiscardGuestInput() {
+    // Only the RunCPM task consumes this SPSC queue. The terminal task drops
+    // newly arriving bytes while the forced return is in Finishing state.
+    uint8_t discarded;
+    while (input.pop(discarded)) {}
 }
 void virtualWrite(uint8_t c) {
     while (!output.push(c))
@@ -2408,21 +2442,51 @@ void terminalLoop() {
         }
     }
     uint8_t c;
-    while (input.free() && replies.pop(c))
-        input.push(c);
-    // Reserve room for a timed-out 63-byte sequence plus the next completed key.
-    if (input.free() >= 320 && replies.available() == 0) {
-        uint32_t keyNow = millis();
-        if (rawInputMode)
-            rawTick(keyNow);
-        else
-            keyboard.tick(keyNow);
-        for (int n = 0; n < 64 && input.free() >= 128 && Serial.available(); n++) {
-            uint8_t keyByte = Serial.read();
+    if (forcedWarmReturn().suppressInput()) {
+        while (replies.pop(c)) {}
+        while (Serial.available()) Serial.read();
+        rawControlLength = 0;
+        overflowEmergencyMatch = 0;
+        if (forcedWarmReturn().finishing() && !forcedWarmReturn().inputCleaned()) {
+            // Z80run has stopped. Discard COM output already queued before
+            // the owner prints its notice; otherwise unfinished GCLS keeps
+            // treating the notice and CCP CR/LF as pixel-row separators.
+            while (output.pop(c)) {}
+            hostEventCandidateLength = 0;
+            terminal.abortTransientOutput();
+            terminal.invalidate();
+            terminal.compositionDirty = true;
+            requestDisplayFlush();
+            requestMirrorSnapshot();
+            keyboard.discardPending();
+            if (history) history->discardCurrent();
+            resetLineSession();
+            localComposeRedrawPending = false;
+            profileCommandStagedLength = 0;
+            forcedWarmReturn().terminalInputCleaned();
+        }
+    } else {
+        while (input.free() && replies.pop(c))
+            input.push(c);
+        // Reserve room for a timed-out 63-byte sequence plus the next completed key.
+        if (input.free() >= 320 && replies.available() == 0) {
+            overflowEmergencyMatch = 0;
+            uint32_t keyNow = millis();
             if (rawInputMode)
-                rawFeed(keyByte, millis());
+                rawTick(keyNow);
             else
-                keyboard.feed(keyByte, millis());
+                keyboard.tick(keyNow);
+            for (int n = 0; n < 64 && input.free() >= 128 && Serial.available(); n++) {
+                uint8_t keyByte = Serial.read();
+                if (rawInputMode)
+                    rawFeed(keyByte, millis());
+                else
+                    keyboard.feed(keyByte, millis());
+                if (forcedWarmReturn().suppressInput()) break;
+            }
+        } else if (forcedWarmReturn().externalComActive() && input.free() < 320) {
+            for (int n = 0; n < 64 && Serial.available(); ++n)
+                overflowEmergencyFeed(uint8_t(Serial.read()));
         }
     }
     // Do not overwrite new CP/M output when restoring a temporary bank overlay.
@@ -2443,14 +2507,16 @@ void terminalLoop() {
     }
     historyNoticePoll();
     updateEffectiveBank();
-    profileCommandPoll();
-    mbasicEditPoll();
-    mbasicEditBridgePoll();
+    if (!forcedWarmReturn().suppressInput()) {
+        profileCommandPoll();
+        mbasicEditPoll();
+        mbasicEditBridgePoll();
+    }
     if (localComposeRedrawPending && uint32_t(millis() - localComposeRedrawAt) >= 100) {
         localComposeRedrawPending = false;
         if (localComposeActive) redrawLocalCompose();
     }
-    recallPoll();
+    if (!forcedWarmReturn().suppressInput()) recallPoll();
     plotEndCleanupPoll(millis());
     updateActiveRow();
     uint32_t now = millis();

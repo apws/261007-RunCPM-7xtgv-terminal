@@ -240,10 +240,19 @@ static inline void Z80run(uint32 cpu_delay) {
 
     static uint32 instr_cnt = 0;
     static uint32 last_millis = 0;
+#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
+    uint16_t forcedWarmPoll = 0;
+#endif
 
     if (last_millis == 0) last_millis = millis();
 
     while (!Status) {
+#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
+        if (++forcedWarmPoll == 0 && forcedWarmReturn().cpuTakeRequest()) {
+            Status = STATUS_RESTART;
+            break;
+        }
+#endif
 
         /* Throttling to CPU_DELAY instructions */
 		if (cpu_delay != 0) {

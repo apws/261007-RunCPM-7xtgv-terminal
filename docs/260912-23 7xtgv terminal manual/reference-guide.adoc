@@ -159,6 +159,7 @@ The PC key tables provide the more natural shortcuts:
 |`++Alt+Space++` |Show the currently selected profile without changing it.
 |`++Ctrl+Shift+Backspace++` |Delete the currently recalled history entry.
 |`++Ctrl+Shift+X++` |Open the host VTPUT/VTGET dialog; not a CP/M key binding.
+|`++Ctrl+Alt+C++` |One-press forced warm return from an external COM only; RP2_147 GCLS correction flashed, behavior retest pending. Does not send guest Ctrl+C; cancels remaining `++$$$.SUB++` commands.
 |`++Alt+Up++` / `++Alt+Down++` |Profile-level alternate history controls where configured.
 |`++Alt+Esc++` |Configured profile exit.
 |`++Alt+Backspace++` |Configured profile clear.
@@ -175,6 +176,18 @@ The PC key tables provide the more natural shortcuts:
 |===
 
 `++Alt+Esc++` and `++Alt+Backspace++` are configured globally in `++7XTGVTRM.INI++` as dual-Alt gestures. Their generated commands and the Ctrl{plus}Shift view controls are handled before application-profile bindings and are not saved in history. Backlight and palette selections persist; ordinary zoom and pan do not alter the INI or resize the logical CP/M terminal.
+
+The forced-return chord also works in `++## RAW++`. It does not wait for an
+application keyboard read, but it waits for an in-progress host SD operation
+to finish. Open application files may be incomplete and unsaved work is lost.
+A stopped MCU, terminal task or SD driver still needs a physical reset.
+Konsole cannot distinguish Left Alt from AltGr in this key table; if
+AltGr{plus}C produces Ctrl{plus}Alt{plus}C on a particular host layout, it
+is unsafe during a COM. Do not rely on this shortcut until the device has
+been hardware-tested on your target. The prior RP2_147 image
+`++260928-1131++` had a prompt-layout bug after interrupting active
+GCLS/xterm-256 plotting; corrected image `++260928-1612++` has been flashed
+but awaits that interaction retest.
 
 [[histories-banks-and-the-active-line]]
 == Histories, banks, and the active line

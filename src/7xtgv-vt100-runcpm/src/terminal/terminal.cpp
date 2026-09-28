@@ -81,6 +81,11 @@ void Terminal::abortPlot() {
     plotStarted = false;
     plot(PlotAbort);
 }
+void Terminal::abortTransientOutput() {
+    abortPlot();
+    state = Ground;
+    wrapPending = false;
+}
 void Terminal::reset() {
     abortPlot();
     x = y = viewport = rowViewport = top = 0;

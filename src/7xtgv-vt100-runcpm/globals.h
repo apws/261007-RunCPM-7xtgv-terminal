@@ -1,6 +1,10 @@
 #ifndef GLOBALS_H
 #define GLOBALS_H
 
+#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
+#include "forced_warm_return.h"
+#endif
+
 /* Some definitions needed globally */
 #ifdef __MINGW32__
     #include <ctype.h>

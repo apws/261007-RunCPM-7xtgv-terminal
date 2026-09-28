@@ -1,0 +1,51 @@
+= Forced COM return during GCLS: prompt-line regression
+:source-highlighter: highlight.js
+
+*Date:* 260928 +
+*State:* RP2_147 hardware failure reproduced in source tests; fix host-tested,
+rebuilt and flashed, behavior retest pending +
+*Parent:* link:260928-11%20forced%20COM%20warm%20return%20implementation%20checkpoint.adoc[forced COM return checkpoint]
+
+Petr ran `++BROT_BS++` through `++BROT_BS.SUB++` after `++GCLS 1 30 10++`
+on flashed RP2_147 build `++260928-1131++`. Ctrl+Alt+C stopped the COM, but
+`++FORCED WARM RETURN++`, the CCP prompt and later prompts concatenated on one
+screen row. A separate MBASIC `++10 GOTO 10++` test did return cleanly to CCP;
+ordinary Ctrl+C only broke BASIC execution and left MBASIC running, as
+expected. Thus the forced CPU return worked; the unfinished graphics parser
+was the defect. The SUBMIT batch did not visibly continue, but its cancellation
+still needs an explicit multi-command test.
+
+`++Terminal::feed()++` deliberately ignores CR and treats LF as a pixel-row
+separator after the first xterm-256 sample of an active GCLS transaction.
+The initial forced-return implementation stopped Z80 execution but left that
+transaction active. CCP's normal `++\r\n++` therefore never advanced the
+text cursor. This is not a missing CR/LF in CCP or the host mirror.
+
+The revised return handshake uses the terminal task's existing `++Finishing++`
+phase, before acknowledging the RunCPM owner: it discards output already
+queued by the terminated COM, drops a partial host-control candidate,
+aborts the plot and any incomplete escape parser state, and invalidates the
+text display/mirror for a clean redraw. The owner waits for that acknowledgement
+before printing its notice. It does not reset terminal mode, geometry,
+palette, profile or history bank. The one-shot redraw intentionally replaces
+the partial graphics image after an emergency exit.
+
+`++tests/test_terminal.cpp++` now checks that an interrupted active GCLS
+followed by `++\r\nFORCED WARM RETURN\r\nA0>++` reaches a new row, and that an
+incomplete guest CSI is discarded. `++tests/test_runtime.cpp++` tests queued
+COM output disposal, plot cancellation and the resulting prompt position.
+Both C++ host suites pass under ASan/UBSan with LeakSanitizer disabled for the
+container environment. Petr requested a target-aware rebuild; RP2_147
+candidate `++260928-1612++` compiled and was staged as `++new++`. Its UF2
+SHA-256 is
+`++e280143198666fe7a42bc59067cd484903f5c2e331c0a34fdc3a09d43086d98f++`.
+The ELF contains the expected RP2_147 display ID, exact target ID and build
+stamp. Program storage is `++300072++` bytes and globals `++161876++` bytes.
+The build step did not flash. Petr then requested `++reflash++`: BOOTSEL chip
+`++D60D9318CF30A586++` and RP2350 `++INFO_UF2.TXT++` were verified, the
+staged UF2 was copied, and the same chip returned as serial. The visible
+Konsole mirror shows build `++260928-1612++`, profile/history OK and `++A0>++`.
+The previous CP/M application state was lost. No CP/M files were transferred
+and `++new++` was not promoted to `++current++`. This is boot smoke only;
+Petr's BROT_BS/GCLS forced-return retest and SUBMIT cancellation check are
+still pending.

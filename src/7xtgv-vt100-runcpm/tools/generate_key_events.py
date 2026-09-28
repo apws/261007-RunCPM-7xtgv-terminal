@@ -190,6 +190,10 @@ for index, letter in enumerate("abcdefghijklmnopqrstuvwxyz", 1):
             fallback = b"\x1b" + fallback
         add(base, letter.upper(), letter, mods, fallback)
 
+# Deliberate emulator escape. No fallback bytes: it is inert outside an
+# external COM and must never degrade to ordinary Ctrl+C or AltGr text.
+add("KeyC", "C", "c", 5, b"")
+
 # Non-dead Czech punctuation positions. Preserve the original UTF-8/ASCII
 # character whenever no device binding is present. Quote/backslash positions
 # need separate keytab-syntax probing before they can be safely intercepted.

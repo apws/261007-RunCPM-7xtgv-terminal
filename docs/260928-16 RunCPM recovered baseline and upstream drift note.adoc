@@ -1,0 +1,84 @@
+= RunCPM recovered baseline and upstream drift note
+:source-highlighter: highlight.js
+
+*Date:* 260928 +
+*Status:* provenance checkpoint and future comparison plan; no merge or port
+attempted +
+*Related:* link:260911-19%20RunCPM%20upstream%20comparison%20and%20licensing%20plan.adoc[260911 upstream comparison],
+link:260928-11%20forced%20COM%20warm%20return%20implementation%20checkpoint.adoc[forced-return fork touch points]
+
+== What is established locally
+
+The initial recovery commit `++34bb588aab8d014d550ae102cf28809f695822b6++`
+was made on `++260906++`. The recovery note already says the intact RunCPM
+headers matched *January 2026* upstream history and missing support headers
+were reconstructed from that period. The active terminal fork was added in
+the subsequent `++900ee6b++` commit on `++260907++`; it was not created by
+branching from a recorded upstream Git commit.
+
+Petr placed a local reference archive at
+`++src/260928_260126_debug_no_putch_3362319c28634a5515a797c7799683f345fb82d0_7xtgv_RunCPM.zip++`.
+Its `++ccp.h++`, `++cpm.h++`, four CPU headers, `++disk.h++`,
+`++globals.h++`, `++console.h++`, `++debug.h++`, `++ram.h++` and `++host.h++`
+are byte-identical to those paths in the first recovery commit (SHA-256
+comparison of each pair). This makes the first commit a reproducible local
+baseline for those twelve files. The ZIP also contains later-dated 7xtgv
+files, so the ZIP as a whole is not a pristine upstream checkout. Its
+`++3362319c...++` name is a *candidate upstream SHA supplied by Petr*, not
+yet authenticated against an upstream Git object. The archive is kept
+local/untracked; it is not required to reproduce the committed first-import
+headers.
+
+The existing `++260911++` audit compared our then-current tree with an
+upstream clone at `++79396be665d6ec263a2728b20b177f4149647ed8++`.
+That was a *comparison*, not a rebase or replacement of our working RunCPM
+core. Its temporary comparison checkout no longer exists here. Thus the
+fact that we looked at a newer upstream snapshot did not make the firmware
+track newer RunCPM. The active tree continued to evolve from the recovered
+local code.
+
+== Petr's new observation and its boundary
+
+Petr compared the local fork with newer MockbaTheBorg/RunCPM work and found
+substantial changes on both sides. He notes that upstream added CP/M 3
+support after the approximate `++260126++` recovered baseline. We have not
+fetched or independently identified today's upstream HEAD in this
+checkpoint; do not treat its exact date, SHA or feature set as verified here.
+The concern is architectural rather than an immediate merge request:
+7xtgv changes are not confined to flat HAL headers. CCP extensions, console
+handoff, CPU hot-path hooks and other integration code are in RunCPM-derived
+files. The current implementation is a product fork with clear local
+behavior, not a ready-made upstream pull request. This is acceptable for
+the recovery and hardware-testing phase, but should remain explicit.
+
+== Comparison to do later, without silently merging
+
+Use four named states rather than calling all of them "RunCPM":
+
+[cols="1,3",options="header"]
+|===
+|State |Purpose
+|First recovery commit `++34bb588++` |Local starting evidence: what was reconstructed and committed on 260906.
+|Candidate upstream `++3362319c...++` |Verify commit object/date and compare its core files with the recovered headers before calling it the exact upstream base.
+|Current 7xtgv `++main++` |Our accumulated terminal, HAL, CCP, BIOS/BDOS, CPU and tooling changes; track these by repository commits and feature dates.
+|Fresh pinned upstream HEAD |A new read-only upstream checkout pinned to a full SHA and fetch date; compare with both the candidate base and our current tree. Do not let a moving branch name stand in for a reproducible comparison.
+|===
+
+First classify deltas by owner: upstream bug fixes and CP/M 3 changes;
+portable RunCPM fixes; board/HAL integration; 7xtgv terminal transport;
+CCP commands and presentation; emulator/console hooks. Then identify
+collisions, tests and licensing implications per file. Look for narrow,
+unobtrusive injection seams rather than moving all local code into newer
+upstream by textual merge. Upstreamable fixes should be isolated and tested
+independently; product-specific terminal and CCP features need not become
+upstream PRs. The existing
+link:260925-20%20target-specific%20injection%20inventory%20and%20flat%20HAL%20plan.adoc[flat HAL inventory]
+and Technical Reference describe current local boundaries, not a completed
+upstream integration.
+
+Petr plans to clone this repository from its beginning and inspect these
+states in VS Code or GitHub. This note does not fetch upstream, alter any
+source, choose a merge strategy or claim that CP/M 3 belongs in the current
+firmware. A whole-feature timeline with component ownership remains a
+separate documentation audit; `++docs/features.tsv++` supplies dates but not
+yet a complete source-delta history.

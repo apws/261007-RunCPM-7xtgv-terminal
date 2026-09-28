@@ -747,6 +747,78 @@ int main(int argc, char **argv) {
     assert(!rawInputMode && history->activeBank() == 3);
     fakeTime += 1000;
     historyNoticePoll();
+    // The emergency chord is inert at CCP, unlike ordinary Ctrl+C. During a
+    // COM it carries no guest fallback, and RAW must intercept it too.
+    const std::string forceKey = "\033[>70;1;52;5;v";
+    selectedBank = 0;
+    history->select(0);
+    for (uint8_t c : forceKey) keyboard.feed(c, fakeTime);
+    assert(!forcedWarmReturn().pending() && !input.pop(rawByte));
+    for (uint8_t c : std::string("\033[>70;1;52;1;003v"))
+        keyboard.feed(c, fakeTime);
+    assert(input.pop(rawByte) && rawByte == 3 && !input.pop(rawByte));
+    forcedWarmReturn().beginExternal();
+    assert(input.push('X'));
+    for (uint8_t c : forceKey) keyboard.feed(c, fakeTime);
+    assert(forcedWarmReturn().pending());
+    assert(virtualRead() == 'X'); // pre-request input is discarded by CCP
+    assert(virtualRead() == 0);   // a blocked BIOS/BDOS read can wake
+    assert(forcedWarmReturn().cpuTakeRequest());
+    assert(forcedWarmReturn().finishExternal());
+    terminalLoop();
+    assert(forcedWarmReturn().inputCleaned());
+    terminalDiscardGuestInput();
+    assert(!input.pop(rawByte));
+    forcedWarmReturn().resumeInput();
+    assert(input.push('Y'));
+    setRawInputMode(true);
+    forcedWarmReturn().beginExternal();
+    for (uint8_t c : forceKey) rawFeed(c, fakeTime);
+    assert(forcedWarmReturn().pending());
+    assert(forcedWarmReturn().cpuTakeRequest());
+    assert(forcedWarmReturn().finishExternal());
+    terminalLoop();
+    terminalDiscardGuestInput();
+    assert(!input.pop(rawByte));
+    forcedWarmReturn().resumeInput();
+    setRawInputMode(false);
+    // A non-reading infinite COM can saturate the guest queue; the emergency
+    // envelope must still be recognized from the host serial stream.
+    forcedWarmReturn().beginExternal();
+    while (input.free() >= 320) assert(input.push('Q'));
+    for (uint8_t c : forceKey) Serial.rx.push_back(c);
+    terminalLoop();
+    assert(forcedWarmReturn().pending() && Serial.rx.empty());
+    assert(forcedWarmReturn().cpuTakeRequest());
+    assert(forcedWarmReturn().finishExternal());
+    terminalLoop();
+    terminalDiscardGuestInput();
+    assert(!input.pop(rawByte));
+    forcedWarmReturn().resumeInput();
+    // An interrupted xterm-256 COM may leave both queued samples and an
+    // unfinished GCLS parser transaction. The return discards those bytes,
+    // restores text rendering, and lets notice/prompt CRLF advance normally.
+    terminal.reset();
+    for (uint8_t c : std::string("\033[>4v\033[38;5;196m#\r\n"))
+        terminal.feed(c);
+    assert(terminal.plotting() && terminal.y == 1);
+    forcedWarmReturn().beginExternal();
+    for (uint8_t c : forceKey) keyboard.feed(c, fakeTime);
+    assert(forcedWarmReturn().pending() && output.push('Q'));
+    assert(forcedWarmReturn().cpuTakeRequest());
+    assert(forcedWarmReturn().finishExternal());
+    terminalLoop();
+    assert(forcedWarmReturn().inputCleaned() && !terminal.plotting() &&
+           output.available() == 0);
+    terminalDiscardGuestInput();
+    forcedWarmReturn().resumeInput();
+    emit("\r\nFORCED WARM RETURN\r\nA0>");
+    for (int i = 0; i < 30; ++i) terminalLoop();
+    assert(terminal.y == 3 && terminal.x == 3 &&
+           terminal.charRAM[terminal.index(0, 3)] == 'A');
+    forcedWarmReturn().beginExternal();
+    assert(!forcedWarmReturn().finishExternal());
+    assert(!forcedWarmReturn().suppressInput());
     history->select(0);
     terminal.reset();
     emit("CP/M without USB\r\nA0>");

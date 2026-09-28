@@ -45,3 +45,5 @@ uint32_t terminalTextBenchmarkChars();
 int virtualAvailable();
 uint8_t virtualRead();
 void virtualWrite(uint8_t c);
+// RunCPM task only: discard queued guest keystrokes after a forced COM return.
+void terminalDiscardGuestInput();

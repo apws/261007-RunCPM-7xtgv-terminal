@@ -436,6 +436,18 @@ int main() {
     feed(t, "\033[38;5;196m#\r\n");
     assert(plots.size() == 6 && plots[4].event == vt::Terminal::PlotSample &&
            plots[5].event == vt::Terminal::PlotRow && t.y == 2);
+    // A forced COM return must end an unfinished plot before CCP CR/LF.
+    // Otherwise every subsequent prompt stays on the same text row.
+    t.abortTransientOutput();
+    assert(!t.plotting() && plots.back().event == vt::Terminal::PlotAbort);
+    feed(t, "\r\nFORCED WARM RETURN\r\nA0>");
+    assert(t.y == 4 && t.x == 3 &&
+           t.charRAM[t.index(0, 4)] == 'A');
+    t.reset();
+    feed(t, "\033[31"); // also discard an incomplete guest escape sequence
+    t.abortTransientOutput();
+    feed(t, "Z");
+    assert(t.charRAM[0] == 'Z');
     // GCLS scale and origin are physical coordinates; omitted parts retain
     // the documented 1,0,0 defaults. Invalid scale does not arm a plot.
     plots.clear();

@@ -48,11 +48,21 @@ for ordinary command work.
 |`++Ctrl+Shift+Home++` / `++End++` |Scan all viewports backward / forward.
 |`++Alt+PgUp++` / `++PgDn++` |Previous / next profile.
 |`++Ctrl+Shift+X++` |Open the transfer panel at an idle CCP prompt.
+|`++Ctrl+Alt+C++` |Force a running external COM back to CCP if it ignores Ctrl+C (RP2_147 GCLS correction flashed; behavior retest pending).
 |===
 
 The link:reference-guide.adoc#global-terminal-keys[complete key table]
 includes backlight, modes, exits, history deletion and host-layout notes.
 Normal zoom and pan do not edit the INI or resize the logical CP/M screen.
+
+On the new RP2_147 test firmware, `++Ctrl+Alt+C++` is a one-press emergency
+exit. It cancels the external COM and any remaining SUBMIT batch commands;
+at CCP or in an internal CCP command it is inert. Ordinary Ctrl+C is
+unchanged. This is an *unclean* return: unsaved application data and final
+file writes may be lost. It cannot recover a wedged device or SD driver.
+The prior RP2_147 image `++260928-1131++` had a prompt-layout bug when an
+interrupted COM was inside GCLS/xterm-256 plotting. Corrected image
+`++260928-1612++` is flashed; its on-device retest is pending.
 
 == Check or change terminal size
 

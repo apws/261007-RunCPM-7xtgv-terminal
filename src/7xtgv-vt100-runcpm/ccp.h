@@ -41,6 +41,8 @@ uint8 currentUser = 0;                  // 0 -> 15 (Current user area to access)
 bool submitFlag = FALSE;                // Submit Flag
 uint8 submitRecords = 0;                // Number of records on the Submit file
 bool ccpSuppressNextPromptNewline = FALSE; // CLS owns the next prompt row
+bool ccpIgnoreStrandedSubmit = FALSE; // deletion failure must not resume a forced batch
+uint8 ccpStrandedSubmitPath[sizeof("A/0/$$$.SUB")] = {};
 uint8 prompt[PROMPT_SIZE] = "\r\n  >";  // Command prompt
 CCPPromptMode ccpPromptMode = CCP_PROMPT_DECIMAL;
 uint16 cmdBufferPtr, errorPtr;          // Pointer to the command buffer, and error position
@@ -927,6 +929,32 @@ const Command *_ccp_cnum(void) {
     return NULL; // External command
 } // _ccp_cnum
 
+#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
+static bool _ccp_cancelForcedSubmit() {
+    // SUBMIT's queue is an exact reserved filename, not a wildcard for all
+    // dollar-prefixed files. The COM may have just created it, so check it
+    // even if submitFlag was false when the command began. Use the owner-side
+    // host file operation: BDOS F_DELETE can stop for an interactive disk
+    // error, which must not strand the forced-return path.
+    uint8 path[] = "A/0/$$$.SUB";
+#ifdef BATCHA
+    path[0] = 'A';
+#else
+    path[0] = uint8('A' + cDrive);
+#endif
+#ifndef BATCH0
+    path[2] = uint8(toupper(tohex(userCode)));
+#endif
+    const bool removed = !_sys_exists(path) || _sys_deletefile(path);
+    submitFlag = FALSE;
+    submitRecords = 0;
+    ccpIgnoreStrandedSubmit = !removed;
+    if (!removed)
+        memcpy(ccpStrandedSubmitPath, path, sizeof(path));
+    return removed;
+}
+#endif
+
 // External (.COM) command
 uint8 _ccp_ext(void) {
     bool error = TRUE, found = FALSE;
@@ -1103,7 +1131,30 @@ uint8 _ccp_ext(void) {
         PC = loadAddr;                       // Sets CP/M application jump point
         SP = BDOSjmppage;                    // Sets the stack to the top of the TPA
 
+        // Only a loaded external COM may accept the emergency chord. The
+        // terminal task merely sets its atomic request; this core owns the
+        // eventual STATUS_RESTART and all filesystem cleanup.
+#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
+        forcedWarmReturn().beginExternal();
+#endif
         Z80run(cpuDelayInstructions); // Starts Z80 simulation
+#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
+        const bool forced = forcedWarmReturn().finishExternal();
+        if (forced) {
+            // Let the terminal task discard serial/reply bytes and reset its
+            // current line model. A dead terminal task cannot be rescued by
+            // this feature, so keep this handshake bounded.
+            for (unsigned wait = 0; wait < 200 &&
+                 !forcedWarmReturn().inputCleaned(); ++wait)
+                delay(1);
+            terminalDiscardGuestInput();
+            const bool batchRemoved = _ccp_cancelForcedSubmit();
+            _puts("\r\nFORCED WARM RETURN\r\n");
+            if (!batchRemoved)
+                _puts("SUBMIT QUEUE COULD NOT BE DELETED; BATCH HELD\r\n");
+            forcedWarmReturn().resumeInput();
+        }
+#endif
         PC = 0;   // Resets the PC/SP after command execution
         SP = 0;
 
@@ -1218,6 +1269,14 @@ void _ccp(void) {
     uint8 i;
 
     submitFlag = (bool)_ccp_bdos(DRV_ALLRESET, 0x0000);
+    if (ccpIgnoreStrandedSubmit) {
+        // A failed SD deletion must not run the next record of that batch.
+        // Keep trying on later warm returns; a cold reset clears this RAM
+        // safeguard and the warning above told the user deletion failed.
+        ccpIgnoreStrandedSubmit = _sys_exists(ccpStrandedSubmitPath) &&
+                                  !_sys_deletefile(ccpStrandedSubmitPath);
+        submitFlag = FALSE;
+    }
     _ccp_bdos(DRV_SET, currentDrive);
 
 #if defined(XTGV_ABORT_PENDING_SUBMIT_ON_BOOT)

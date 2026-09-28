@@ -20,6 +20,7 @@ feature and hardware-test status.
 |Owner |Source and responsibility
 |RunCPM core |link:../../src/7xtgv-vt100-runcpm/7xtgv-vt100-runcpm.ino[sketch], link:../../src/7xtgv-vt100-runcpm/ccp.h[CCP], link:../../src/7xtgv-vt100-runcpm/ccp_catalog.h[catalog], BDOS/CPU/disk headers at sketch root; guest execution and SD I/O.
 |Terminal runtime |link:../../src/7xtgv-vt100-runcpm/src/terminal/terminal_runtime.cpp[terminal_runtime.cpp]; profile/input routing, rendering, mirror, saves and queues.
+|Forced COM return |link:../../src/7xtgv-vt100-runcpm/forced_warm_return.h[forced_warm_return.h], `++ccp.h++`, `++cpm.h++`, `++cpu1.h++` through `++cpu4.h++`; cross-core request state, safe CPU return, blocking-console wake and SUBMIT cancellation. Source is host-tested; RP2_147 has booted the new image, behavior check pending.
 |Terminal parser |link:../../src/7xtgv-vt100-runcpm/src/terminal/terminal.cpp[terminal.cpp]; ANSI/VT52/DEC parsing, private CSI, cell state and keyboard escape decoding.
 |Configuration |link:../../src/7xtgv-vt100-runcpm/src/terminal/history_profiles.cpp[history_profiles.cpp] and link:../../src/7xtgv-vt100-runcpm/src/terminal/ini_text.h[ini_text.h]; defaults, parse, diagnostics and INI editing.
 |Board policy |link:../../src/7xtgv-vt100-runcpm/src/terminal/display_policy.h[display_policy.h], `++hardware/arduino_7xtgv/*++`, `++runcpm-config.h++`; display identity/limits, storage, backlight, boot and board-specific wiring.
@@ -35,6 +36,23 @@ silently overrunning. The terminal continues draining output while input is
 full. No USB write occurs from the CP/M core. The sketch coordinates startup
 so CP/M does not start before display initialization. Other targets retain
 the same logical ownership but may use different board/task primitives.
+
+Ctrl+Alt+C is a versioned host key event consumed before profile bindings,
+also in RAW mode. The terminal task only posts an atomic request; the RunCPM
+owner accepts it at a Z80 instruction polling boundary or after a blocked
+BIOS/BDOS console read wakes, then sets `++STATUS_RESTART++`. It never changes
+CPU status from the terminal task or interrupts an SD operation mid-call. The
+owner discards queued guest bytes, deletes the exact `+++$$$.SUB+++` queue to
+cancel the remaining batch, and prints `++FORCED WARM RETURN++`. If queue
+deletion fails, it warns and suppresses batch replay in RAM for this running
+session; the file may still require manual removal before a cold reset.
+This is not an application-safe file close: open guest files and unsaved
+editor data can be lost. A hung MCU, terminal task or storage call still
+requires physical recovery.
+The link:../260928-11%20forced%20COM%20warm%20return%20implementation%20checkpoint.adoc[implementation checkpoint]
+maps every source touch point and records what still needs a device test.
+The link:../260928-13%20forced%20COM%20return%20GCLS%20abort%20regression.adoc[GCLS abort follow-up]
+records a hardware-discovered parser cleanup defect and its source-only fix.
 
 [source,text]
 ----

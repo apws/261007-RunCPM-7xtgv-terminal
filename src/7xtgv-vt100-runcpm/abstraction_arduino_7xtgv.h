@@ -754,6 +754,7 @@ int _kbhit(void) { return virtualAvailable(); }
 uint8 _getch(void) { return virtualRead(); }
 uint8 _getche(void) {
     uint8 ch = _getch();
+    if (forcedWarmReturn().pending()) return ch; // wake token is not guest text
     virtualWrite(ch);
     return ch;
 }

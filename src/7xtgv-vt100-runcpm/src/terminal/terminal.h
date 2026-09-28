@@ -73,6 +73,9 @@ class Terminal {
     void setControlSink(Control control, void *context) { control_ = control; controlContext_ = context; }
     void beginPlot(uint8_t plotZoom = 1, uint16_t plotX = 0, uint16_t plotY = 0);
     void abortPlot();
+    // Forced COM return discards an unfinished escape or pixel transaction,
+    // but leaves the established terminal mode, geometry and cells intact.
+    void abortTransientOutput();
     bool plotting() const { return plotState != PlotOff; }
     RGB foreground(int i) const;
     RGB background(int i) const;
@@ -170,6 +173,7 @@ class Keyboard {
         : t_(t), send_(send), context_(context), act_(act), keyEvent_(keyEvent) {}
     void feed(uint8_t c, uint32_t now);
     void tick(uint32_t now);
+    void discardPending() { size_ = 0; }
 
   private:
     Terminal &t_;

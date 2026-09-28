@@ -1,0 +1,146 @@
+= Forced COM warm-return implementation checkpoint
+:source-highlighter: highlight.js
+
+*Date:* 260928 +
+*State:* implemented and host-tested; RP2_147 flashed/booted, feature tests pending +
+*Design source:* link:260927-18%20forced%20COM%20warm%20return%20key%20plan.adoc[forced COM warm-return key plan]
+
+Petr chose one Ctrl+Alt+C press, and cancellation of the remaining SUBMIT
+batch. This checkpoint records the source, built candidate and deployment.
+The new image boots; the forced-return interaction itself is not yet
+hardware-tested.
+
+== Why this crosses RunCPM
+
+An ordinary Ctrl+C is just byte `++03h++` delivered to the CP/M application.
+An application that ignores input, or never calls console input, can ignore
+that byte indefinitely. The terminal therefore cannot solve this by sending
+another guest key. Equally, the display/USB task must not asynchronously
+alter the Z80 registers, RunCPM's `++Status++`, or SD state owned by the
+RunCPM task. The new path is a small cross-core request followed by an
+owner-side warm return. It deliberately reuses RunCPM's existing
+`++STATUS_RESTART++`/CCP loop rather than introducing an MCU reset or another
+CP/M command.
+
+[source,text]
+----
+PC chord -> host CSI key event -> terminal task -> atomic request
+                                             |
+             RunCPM task: Z80 safe point or console-read wake
+                         -> STATUS_RESTART -> return from COM
+                         -> discard input, cancel $$$.SUB
+                         -> existing CCP warm-start loop and prompt
+----
+
+== Exact source touch points
+
+[cols="2,4",options="header"]
+|===
+|Layer |Change
+|Host keymaps |`++tools/generate_key_events.py++` generates one Ctrl+Alt+C event in the Konsole and two Kitty maps. The event carries key ID 52, modifiers 5, and no guest fallback byte. Existing plain Ctrl+C mappings are unchanged.
+|Terminal input |`++src/terminal/terminal_runtime.cpp++` consumes the chord before profile bindings in normal and RAW modes. It also scans host serial for the exact event when a non-reading COM has filled the guest-input queue; ordinary key decoding cannot advance with that ring full. The new `++Keyboard::discardPending()++` in `++terminal.h++` clears a partial escape sequence at return.
+|Cross-core state |New `++forced_warm_return.h++`, included via `++globals.h++`, holds an atomic Idle/ExternalCom/Requested/Finishing phase and an input-cleanup acknowledgement. The CPU-only `++taken++` flag records that a safe point accepted the request. This is a shared signal, not a second emulator or a persistent setting.
+|Guest-input bridge |`++virtualRead()++` returns a wake token when a pending request finds no queued byte. `++abstraction_arduino_7xtgv.h++` prevents that token from being echoed. The terminal task drops serial/reply bytes and partial line state while returning; `++terminalDiscardGuestInput()++` lets the RunCPM owner empty its SPSC queue. `++terminal_runtime.h++` exposes that owner-side helper.
+|Z80 execution |`++cpu1.h++` through `++cpu4.h++` add one 16-bit instruction counter local to `++Z80run()++`; the atomic request is read only at counter wrap (every 65,536 instructions). The CPU task sets the pre-existing `++STATUS_RESTART++` between instructions. The active configured runner is `++cpu1.h++`; the other variants are kept consistent but await a build/benchmark if selected.
+|Blocking console calls |`++cpm.h++` checks for the request after BIOS `++B_CONIN++`, BDOS `++C_READ++` and each read in `++C_READSTR++`. Buffered input skips saving or echoing a partial line on abort. These checks matter because a CPU-loop poll cannot run while `++_getcon()++` is blocked.
+|COM and CCP |`++ccp.h++` marks only the interval around a loaded external COM's `++Z80run()++` as eligible. After an accepted request, it waits briefly for terminal cleanup, drains the guest queue, cancels the exact SUBMIT queue, prints the notice and lets the existing CCP loop warm-start. An in-RAM guard prevents a failed SUBMIT deletion from replaying its remaining records on subsequent warm starts in this session.
+|Tests and documentation |`++tests/test_runtime.cpp++` exercises host input and request state; User, Reference and Technical guides describe the pending-device behavior. `++docs/features.tsv++` tracks implementation separately from hardware acceptance.
+|===
+
+This feature does *not* change `++disk.h++`, the CP/M filesystem format,
+guest-visible BDOS function numbers, the ANSI output parser, the HAL, the
+INI, CP/M disk files, or host upload logic. Its RunCPM-specific additions
+are limited to the Arduino 7xtgv build by `++ARDUINO && !RUNCPM_HEADLESS++`
+guards where the terminal request is used. This is nevertheless a fork
+surface: upstream RunCPM changes in CPU dispatch, console input or CCP
+launch/return should be compared against these exact hooks during a later
+upstream-delta audit. A whole-project RunCPM fork inventory has *not* been
+performed by this checkpoint.
+
+== Sequence for the future feature timeline
+
+* `++260927++`: design-only plan recorded the reason, safe-point requirement,
+  blocked-read requirement and open SUBMIT/confirmation decisions.
+* `++260928++`: Petr selected a single press and cancellation of remaining
+  SUBMIT commands; source, host keymaps, tests and guides were updated.
+* `++260928++`: RP2_147 target-aware build staged as a new candidate with
+  boot stamp `++260928-1131++`.
+* `++260928++`: the verified RP2_147 BOOTSEL chip was flashed; the same chip
+  returned as serial and the PC mirror showed the new stamp at `++A0>++`.
+* Physical-device test and performance acceptance remain separate
+  milestones. Do not infer those dates from the implementation date.
+
+The canonical `++docs/features.tsv++` already holds idea/design/plan/
+implementation/hardware-test dates, but it is not yet a component-by-component
+history of the whole fork. This source-path table is one auditable entry for
+that future chronology; reconstructing all earlier RunCPM changes is a
+separate, broader audit.
+
+== Implemented path
+
+Konsole and Kitty emit one versioned `++CSI >70;1;52;5;v++` key event.
+Normal and `++## RAW++` input consume it before application-profile mappings;
+the fallback is never sent to CP/M. At CCP or in an internal command the
+event is inert. If an external COM is running, the terminal task posts a
+cross-core atomic request. It does not write Z80 status or touch the SD card.
+
+All four Z80 runner variants check at an instruction boundary every 65,536
+instructions. Blocking BIOS console input, BDOS character input and BDOS
+buffered input also unwind when the request arrives. The RunCPM owner sets
+`++STATUS_RESTART++` at those safe points, not in a host filesystem call.
+The terminal discards serial, reply and partial-key input while the return
+completes; the owner drains already queued guest bytes. This also handles a
+full guest-input ring while a COM spins without reading it.
+
+On return, the owner deletes only the exact `+++$$$.SUB+++` queue at the
+RunCPM batch drive/user and clears the in-memory batch state. The deletion
+uses the owner-side host file API so a BDOS disk-error prompt cannot stall
+the emergency path. If deletion fails, a warning is shown and batch replay
+is suppressed in RAM while the session runs; a cold reset may still find the
+stranded queue and requires manual cleanup. The normal CCP warm-start path
+preserves the current DU and terminal settings. The visible notice is
+`++FORCED WARM RETURN++`.
+
+== Verification and remaining limits
+
+Host runtime tests cover inert-at-CCP, unchanged Ctrl+C, normal and RAW
+emergency events, a blocked console wake, and a saturated input ring. The
+existing terminal and Python host suites are also part of this checkpoint.
+The RP2_147 target-aware build succeeded and staged
+`++build/7xtgv-vt100-runcpm/rp2350-lcd-1-47-a/new++` with boot stamp
+`++260928-1131++` (`++299816++` bytes program storage,
+`++161876++` bytes globals). The ELF contains the expected target ID,
+display ID and stamp. The previous `++new++` candidate was archived by the
+build tool. No CP/M file was transferred. Only active
+`++cpu1.h++` was compiled in this target; the other runner variants still
+require their own compile and benchmark if selected.
+
+The UF2 (`++dfa3c9f0a2d37cbc0cab69f7bbbbd7e9e9d6bafdd6176e039320cc2eaadb6280++`
+SHA-256) was copied to the mounted BOOTSEL volume after verifying chip ID
+`++D60D9318CF30A586++` and `++INFO_UF2.TXT++` reporting RP2350. The same
+chip returned as `/dev/serial/by-id/usb-Generic_RP2350_D60D9318CF30A586-if00`.
+The visible Konsole/tmux mirror restarted and showed `++Build 7xtgv-runcpm-v2
+/ 260928-1131++`, profile/history OK and `++A0>++`. The previous CP/M
+program state was lost by the reflash. No candidate was promoted to
+`++current++`; `++new++` remains the deployed test image. At this checkpoint,
+no emergency-key interaction or performance result had yet been reported
+from hardware; see the later finding below.
+
+Petr should now test on RP2_147: a CPU-bound looping COM, each
+blocking console-read route, a SUBMIT batch with commands after the aborted
+COM, and no leaked characters at the returned prompt. Compare `++VTCPU++`
+and `++VTCPU8X++` with the previous image on RP2_147 and W535 before accepting
+the extra instruction-loop check. Check Konsole and Kitty, including RAW,
+and confirm the physical display and PC mirror agree. A request during SD
+I/O waits for that call to finish; open application files and unsaved edits
+are not made consistent by this feature. A hung MCU or storage driver still
+requires reset.
+
+== Later hardware finding
+
+The link:260928-13%20forced%20COM%20return%20GCLS%20abort%20regression.adoc[follow-up]
+records Petr's partial RP2_147 test: MBASIC forced return worked, but an
+interrupted BROT_BS plot left GCLS consuming CCP CR/LF. The parser cleanup
+fix was rebuilt and flashed as candidate `++260928-1612++`; its boot was
+confirmed, but the interaction retest remains pending. Do not treat this
+checkpoint's boot smoke as feature acceptance.

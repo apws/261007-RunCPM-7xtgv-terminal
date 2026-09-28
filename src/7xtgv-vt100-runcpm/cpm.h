@@ -568,7 +568,14 @@ void _Bios(void) {
         break;
     }
     case B_CONIN: { // 3 - Console input
-        SET_HIGH_REGISTER(AF, _getcon());
+        const uint8 input = _getcon();
+#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
+        if (forcedWarmReturn().cpuTakeRequest()) {
+            Status = STATUS_RESTART;
+            break;
+        }
+#endif
+        SET_HIGH_REGISTER(AF, input);
 #ifdef DEBUG
         if (HIGH_REGISTER(AF) == DEBUGKEY)
             Debug = 1;
@@ -731,6 +738,12 @@ void _Bdos(void) {
      */
     case C_READ: {
         HL = _getconE();
+#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
+        if (forcedWarmReturn().cpuTakeRequest()) {
+            Status = STATUS_RESTART;
+            break;
+        }
+#endif
     #ifdef DEBUG
         if (HL == DEBUGKEY)
             Debug = 1;
@@ -863,6 +876,7 @@ void _Bdos(void) {
     case C_READSTR: {
         uint16 i;
         uint8 j, chr;
+        bool forcedInputAbort = false;
         uint16 chrsMaxIdx = WORD16(DE);                // index to max number of characters
         uint16 chrsCntIdx = (chrsMaxIdx + 1) & 0xFFFF; // index to number of characters read
         uint16 chrsIdx = (chrsCntIdx + 1) & 0xFFFF;    // index to characters
@@ -888,6 +902,13 @@ void _Bdos(void) {
             uint8 preBS = 0, reType = 0, postBS = 0;
 
             chr = _getcon(); // input a character
+#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
+            if (forcedWarmReturn().cpuTakeRequest()) {
+                Status = STATUS_RESTART;
+                forcedInputAbort = true;
+                break;
+            }
+#endif
 
             if (chr == 1) { // ^A - Move cursor one character to the left
                 if (curCol > 0) {
@@ -1082,6 +1103,8 @@ void _Bdos(void) {
             if (chrsCnt == chrsMax) // Reached the maximum count
                 break;
         } // while (chrsMax)
+
+        if (forcedInputAbort) break; // do not save/echo the partial guest line
 
         // Save the number of characters read
         _RamWrite(chrsCntIdx, chrsCnt);
