@@ -14,10 +14,13 @@ the planned native 7xtgv terminal. The device's live
 |link:user-guide.adoc[User Guide] |Starting the mirror, everyday keys, zoom/pan, file transfer, safe INI changes, recovery.
 |link:reference-guide.adoc[Reference Guide] |Exact commands, keys, profiles, escape-sequence behavior and INI settings.
 |link:technical-reference.adoc[Technical Reference] |RunCPM/CCP fork, core and HAL ownership, protocols, persistence, build safety and licensing.
+|link:features_timeline.adoc[Features Timeline] |When implemented features, CP/M helpers, catalog files and command names entered or changed.
+|link:asciidoc%20technical%20writing%20cheatsheet.adoc[AsciiDoc Writing Examples] |How to author these guides: headings, tables, optional size roles, images and Chrome/PDF printing.
 |===
 
-The link:../FEATURES.adoc[feature ledger] records implementation and test
-status. Dated reports under `docs/` preserve experiments and hardware evidence;
+The link:../FEATURES.adoc[feature ledger] records individual implementation
+and test status; the timeline is a compact historical view. Dated reports
+under `docs/` preserve experiments and hardware evidence;
 a historical report is not automatically the current device configuration.
 For running geometry and firmware identity, use `++VTINFO++`.
 

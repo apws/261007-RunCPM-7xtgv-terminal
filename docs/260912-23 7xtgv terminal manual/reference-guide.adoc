@@ -8,6 +8,8 @@ not the proposed native 7xtgv interface. For tasks start with the
 link:user-guide.adoc[User Guide]; for code and private protocols use the
 link:technical-reference.adoc[Technical Reference]. Settings in the live
 device INI may differ from compiled defaults and from the local copy.
+The link:features_timeline.adoc[Features Timeline] tracks command and file
+name changes; syntax below is the current reference.
 
 [[starting-the-pc-mirror]]
 == Starting the PC mirror
@@ -16,14 +18,14 @@ From the repository root, launch either:
 
 [source,sh]
 ----
-./src/7xtgv-vt100-runcpm/tools/kon.sh
-./src/7xtgv-vt100-runcpm/tools/kit.sh
+./src/RunCPM_7xtgv-terminal/tools/kon.sh
+./src/RunCPM_7xtgv-terminal/tools/kit.sh
 ----
 
 Both attach to one `++tmux++` session named `++7xtgv-cpm++`. It owns the USB serial device, so do not run a second serial terminal beside it. A USB reconnect can briefly blink the PC screen while the complete terminal snapshot is redrawn. This mirror-only refresh preserves a retained xterm256 image on the TFT, which remains usable throughout.
 
 Paths such as `tools/terminal.conf` below are relative to
-`src/7xtgv-vt100-runcpm/`, the sketch directory. The launchers read that shell
+`src/RunCPM_7xtgv-terminal/`, the sketch directory. The launchers read that shell
 configuration file; it is separate from the device INI. `XTGV_TARGET` selects
 the hardware target, `XTGV_PORT` its serial node, and `XTGV_TRANSFER_ROOT` the
 local transfer-folder root. No second serial reader should run during a transfer.
@@ -159,7 +161,7 @@ The PC key tables provide the more natural shortcuts:
 |`++Alt+Space++` |Show the currently selected profile without changing it.
 |`++Ctrl+Shift+Backspace++` |Delete the currently recalled history entry.
 |`++Ctrl+Shift+X++` |Open the host VTPUT/VTGET dialog; not a CP/M key binding.
-|`++Ctrl+Alt+C++` |One-press forced warm return from an external COM only; RP2_147 GCLS correction flashed, behavior retest pending. Does not send guest Ctrl+C; cancels remaining `++$$$.SUB++` commands.
+|`++Ctrl+Alt+C++` |One-press forced warm return from an external COM only; MBASIC and xterm-256 abort confirmed on RP2_147. New retained-plot behavior awaits device test. Does not send guest Ctrl+C; cancels remaining `++$$$.SUB++` commands.
 |`++Alt+Up++` / `++Alt+Down++` |Profile-level alternate history controls where configured.
 |`++Alt+Esc++` |Configured profile exit.
 |`++Alt+Backspace++` |Configured profile clear.
@@ -256,18 +258,18 @@ When a pattern has no dot, a stem `++*++` also spans any extension: `++LS *++` l
 
 Bare `++CD++` reports both numeric DU and its named view, for example `++A7: /a/mbasic++`. `++CD MBASIC++` and `++CD /A/MBASIC++` select an area; `++CD /A++` returns to the last area selected on drive A. These slash paths name flat CP/M drive/user areas, not subdirectories. Each area's `++DIR.7XF++` stores a 12-character left-aligned area/file key, one space, then a description; its first key is the area name. `++A0:VOL.7XF++` stores drive letters in column 1, one space, and descriptions from column 3. `++A0:DRV.7XF++` stores the last selected area per drive as one `++/d/name++` line per drive. `++CD++` reloads this file before selection and saves it after a new explicit selection. The project `++cpmdrive++` mirror keeps these as CRLF text ending with Ctrl-Z.
 
-[cols="1,1",options="header"]
+[cols="1,6",options="header"]
 |===
 |DU |7xtgv additions or adapted launchers
-|A0 |`++REBOOT++`, `++REFLASH++`, `++ZOOM++`, `++VTPAL++`, `++UNSUB++`, `++UNZIP157++`, `++VTCPU++`, `++VTCPU8X++`, `++VTDRV++`, `++VTDRV8X++`, `++VTTERM++`, `++VTGET++`, and `++VTPUT++`. `++7XTGVTRM.INI++` and history generations live here.
+|A0 |`++REBOOT++`, `++REFLASH++`, `++ZOOM++`, `++VTINFO++`, `++VTZOOM++`, `++VTPAL++`, `++UNSUB++`, `++UNZIP157++`, `++VTCPU++`, `++VTCPU8X++`, `++VTDRV++`, `++VTDRV8X++`, `++VTTERM++`, `++VTGET++`, and `++VTPUT++`. `++7XTGVTRM.INI++` and history generations live here.
 |A1 |`++BBCLOWER++`, a project-built BBC BASIC accepting lowercase keywords and immediate commands only.
 |A2 |No project command; Turbo Pascal and `++TINST++` are supplied software.
 |A3 |COMAL area; supplied software and user files are not inventoried here.
 |A4 |No project command; assembler/debugger tools are supplied software.
 |A5 |No project command; imported CP/M/CCP source and its build SUB files.
 |A6 |Graphics, timing, sync, and benchmark helpers; Brot scripts and sources.
-|A7 |Maintained `++MBASIC++` visual-test workspace: ASCII `++VTESTS.BAS++` and `++VTPAL.BAS++` comparison sources.
-|A8 |`++VTDEMO.BAS++` and `++VTDEMO2.BAS++`, the 7xtgv ANSI/colour demo programs.
+|A7 |Maintained `++MBASIC++` visual-test workspace: ASCII `++VTESTS.BAS++`, `++VTPAL.BAS++`, `++VTDEMO.BAS++` and `++VTDEMO2.BAS++` sources in the local mirror.
+|A8 |No project-authored VT demo in the current local mirror.
 |A9 |No project command; Lua files are experimental supplied material.
 |AA |No project command; alternate MBASIC binaries.
 |AC |No project command; GEEK2350 source/archive material.

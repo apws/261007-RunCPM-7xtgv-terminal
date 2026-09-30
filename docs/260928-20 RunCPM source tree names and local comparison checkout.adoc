@@ -1,0 +1,65 @@
+= RunCPM source tree names and local comparison checkout
+:source-highlighter: highlight.js
+
+*Date:* 260928 +
+*State:* paths migrated; RP2_147 build and Python tests pass; no flash or
+commit/push requested for this migration
+
+Petr requested a source-layout rename so related RunCPM projects sort
+together and a local comparison against repository commit `++35fb6b1++`.
+This is a folder/sketch rename, not a RunCPM core refactor or an upstream
+merge. The current forced-return and optimization-trial changes remain in
+the working tree; the user-supplied ZIP under `++src/++` is untouched.
+
+[cols="2,2,3",options="header"]
+|===
+|Old `++src/++` path |New `++src/++` path |Notes
+|`++7xtgv_RunCPM++` |`++RunCPM_7xtgv++` |Recovered older RunCPM-based sketch; its `.ino` matches the new directory name.
+|`++7xtgv-vt100-runcpm++` |`++RunCPM_7xtgv-terminal++` |Current terminal/RunCPM fork; its `.ino` matches the new directory name.
+|`++linux_RunCPM++` |`++RunCPM_linux++` |Native POSIX comparison build; live Makefile/tool paths updated.
+|`++windows_RunCPM++` |`++RunCPM_windows++` |Previously empty and therefore invisible to Git; an empty `.gitkeep` records the directory.
+|===
+
+The ignored generated build roots for the terminal and Linux projects were
+also moved to the matching new names, preserving existing artifacts and
+CP/M work-tree data. Current launchers, tests, the feature ledger, three
+active guides, root README and AGENTS paths were updated. Historical dated
+notes retain their original path spelling as evidence of their time. The
+`++RunCPM_7xtgv++` source files were not edited beyond the sketch filename.
+
+`++src/RunCPM_comparison/++` is ignored by the root `.gitignore`. It is an
+independent local clone of this repository, detached at full commit
+`++35fb6b13317788bdd1fe9448a94c96f582c888c2++` (`++260906++`,
+"Run CP/M with second-core random print"). That commit predates the present
+`++src/++` layout; the historical tree is therefore at
+`++src/RunCPM_comparison/7xtgv_RunCPM/++`, not under another `++src/++`.
+It can be compared in VS Code with
+`++src/RunCPM_7xtgv-terminal/++` or `++src/RunCPM_7xtgv/++`.
+The checkout is not Mockba's current HEAD, and no upstream code was fetched.
+
+After this checkout was prepared, Petr copied the current core headers and
+`++ccp_catalog.h++` into its working tree for a VS Code side-by-side diff.
+This is intentional: the clone's *HEAD* remains `++35fb6b1++`, but its
+working files are not a pristine historical tree. For reproducible old
+contents use `++git -C src/RunCPM_comparison show HEAD:7xtgv_RunCPM/ccp.h++`
+(and the analogous path for each other file). Do not reset or overwrite
+Petr's comparison copies merely to make that checkout clean.
+
+Validation after the rename:
+
+* Python host suite: 83 tests passed.
+* Target-aware RP2_147 Arduino build: `++260928-2013++`, 300080 program
+  bytes, 161876 global bytes; UF2 SHA-256
+  `++f77b7b42bd846a76c6ea3b64f88f38d2538bf4ea7c84132a51be6fe0e569ec90++`.
+  It is staged as `++build/RunCPM_7xtgv-terminal/rp2350-lcd-1-47-a/new++`;
+  no upload or promotion occurred. The previous O3 trial is preserved in
+  its named archive alongside O2 and the earlier candidates.
+* A forced native Linux smoke rebuild reached the renamed core path but
+  failed because the current `++ccp_catalog.h++` uses Arduino `++File++`/
+  `++SD++` APIs under the POSIX C build. That header is byte-identical to
+  the pre-rename `++HEAD++` copy (same SHA-256); the rename did not cause
+  this incompatibility. It needs a separate, scoped portability decision.
+
+The local comparison clone and generated build artifacts are Git-ignored;
+the source renames, path references, comparison ignore rule and empty Windows
+placeholder remain uncommitted until Petr requests a checkpoint.

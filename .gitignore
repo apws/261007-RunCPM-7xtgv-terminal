@@ -2,6 +2,10 @@ nukedc-recovery-mostly-corrupted-some-valid/
 # Local material deliberately kept outside the published repository.
 /private/
 /docs/private/
+/src/RunCPM_comparison/
+# Local comparison snapshots; the committed history is the reproducible baseline.
+/src/260928_260126_RunCPM_comparison.zip
+/src/260928_260126_debug_no_putch_3362319c28634a5515a797c7799683f345fb82d0_7xtgv_RunCPM.zip
 # Ad-hoc backup archives in the repository root only.
 /*.[zZ][iI][pP]
 **/build/

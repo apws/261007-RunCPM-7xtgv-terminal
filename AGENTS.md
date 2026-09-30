@@ -14,7 +14,16 @@
   menu and its independently callable tests.
 - Preserve Z80 behavior when changing RunCPM. Measure before keeping emulator
   optimizations, and record relevant results in `docs/`.
-- Native `src/linux_RunCPM` does not run the 7xtgv terminal/parser/renderer.
+- Before editing any RunCPM-derived core file (CCP, BDOS/BIOS, CPU, disk,
+  console, globals or common abstraction), tell Petr which file and seam need
+  changing and why; ask for direction before making that core edit. Do not
+  silently treat a terminal or board task as permission to extend the core.
+  First inspect the pinned recovered source and current Mockba upstream,
+  including CP/M 3 changes, and follow the upstream file's coding and naming
+  conventions where a portable change is intended. Keep 7xtgv-specific
+  behavior behind narrow, documented hooks when practical. The audit and
+  open questions are in `docs/260928-23 RunCPM core delta and upstream seams.adoc`.
+- Native `src/RunCPM_linux` does not run the 7xtgv terminal/parser/renderer.
   Use its ordinary ANSI terminal for application-output comparisons, not as
   proof that 7xtgv display behavior works; verify terminal fixes in the host
   terminal tests and, when needed, on the real device.
@@ -59,7 +68,7 @@
   The opt-in monitor protocol is now reserved as guest output `CSI > 64 v`
   (`ESC[>64v`), emitted by `A0:REFLASH.COM`; it must only invoke an explicitly
   configured target-specific host uploader. The common host dispatcher is
-  `src/7xtgv-vt100-runcpm/tools/reflash.py`; select its explicit
+  `src/RunCPM_7xtgv-terminal/tools/reflash.py`; select its explicit
   `XTGV_TARGET` in `tools/terminal.conf` rather than hard-coding an uploader.
 - Before **every** direct `tools/cpm-transfer/transfer.py` operation, first
   stop the shared `7xtgv-cpm` tmux mirror unconditionally, then perform the
@@ -244,6 +253,6 @@
   renaming them merely by dialect.
 - For new CP/M assembly helpers, save every register whose value remains live
   across BDOS/BIOS calls. Verify the local RunCPM implementation when possible:
-  `_Bdos()` in `src/7xtgv-vt100-runcpm/cpm.h` explicitly resets `HL` on entry
+  `_Bdos()` in `src/RunCPM_7xtgv-terminal/cpm.h` explicitly resets `HL` on entry
   and also changes `C`. Do not assume a call preserves a parsing pointer or
   loop counter merely because a different CP/M implementation does.

@@ -9,19 +9,21 @@ The selected CP/M drive/user area is where device commands read and write.
 The VTPUT/VTGET panel's *DU* instead chooses a folder in the host
 `++cpmdrive++` mirror. Zoom changes cell size, while pan changes which part of
 the same logical screen is visible on the TFT. Neither moves CP/M files.
+For when these behaviors and commands were added, see the
+link:features_timeline.adoc[Features Timeline].
 
 [[starting-the-pc-mirror]]
 == Start the PC mirror
 
 Connect the intended module and check `++XTGV_TARGET++` in
-`++src/7xtgv-vt100-runcpm/tools/terminal.conf++` before using the mirror or
+`++src/RunCPM_7xtgv-terminal/tools/terminal.conf++` before using the mirror or
 requesting a flash. This is a host selection, not automatic device detection.
 From the repository root, launch one of:
 
 [source,sh]
 ----
-./src/7xtgv-vt100-runcpm/tools/kon.sh
-./src/7xtgv-vt100-runcpm/tools/kit.sh
+./src/RunCPM_7xtgv-terminal/tools/kon.sh
+./src/RunCPM_7xtgv-terminal/tools/kit.sh
 ----
 
 Both attach to the shared `++7xtgv-cpm++` tmux session. Let it own USB serial;

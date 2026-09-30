@@ -5,7 +5,7 @@ several RP2350 and ESP32-S3 display modules. The device TFT shows a zoomable,
 pannable viewport; the PC mirror shows the complete logical CP/M screen.
 
 The current main firmware is
-[`src/7xtgv-vt100-runcpm`](src/7xtgv-vt100-runcpm/README.md). Start with the
+[`src/RunCPM_7xtgv-terminal`](src/RunCPM_7xtgv-terminal/README.md). Start with the
 [User Guide](docs/260912-23%207xtgv%20terminal%20manual/user-guide.adoc); use
 the [Reference Guide](docs/260912-23%207xtgv%20terminal%20manual/reference-guide.adoc)
 for exact commands/settings and the
@@ -46,7 +46,7 @@ is not required for deterministic ledger generation.
 The main sketch uses the pinned Arduino profile in `sketch.yaml`:
 
 ```sh
-cd src/7xtgv-vt100-runcpm
+cd src/RunCPM_7xtgv-terminal
 arduino-cli compile --profile rp2350-touch-lcd-2 \
   --output-dir ../../build/build-vt100-runcpm .
 ```
@@ -56,7 +56,7 @@ arduino-cli compile --profile rp2350-touch-lcd-2 \
 Run the host-side checks from the main project directory:
 
 ```sh
-cd src/7xtgv-vt100-runcpm
+cd src/RunCPM_7xtgv-terminal
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
@@ -67,6 +67,6 @@ python3 tools/terminal.py
 ```
 
 Press `Ctrl+]`, then `q`, to leave the terminal without rebooting CP/M. See
-the [main project documentation](src/7xtgv-vt100-runcpm/README.md),
-[validation record](src/7xtgv-vt100-runcpm/VALIDATION.md), and
+the [main project documentation](src/RunCPM_7xtgv-terminal/README.md),
+[validation record](src/RunCPM_7xtgv-terminal/VALIDATION.md), and
 [CP/M user-area map](cpmdrive/README.md) for details.

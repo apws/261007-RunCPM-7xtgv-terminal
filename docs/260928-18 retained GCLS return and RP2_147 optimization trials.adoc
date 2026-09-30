@@ -1,0 +1,75 @@
+= Retained GCLS forced return and RP2_147 optimization trials
+:source-highlighter: highlight.js
+
+*Date:* 260928 +
+*State:* source and host tests pass; O2 and O3 flashed sequentially;
+neither promoted, user reports little performance difference +
+*Previous:* link:260928-13%20forced%20COM%20return%20GCLS%20abort%20regression.adoc[GCLS prompt-line regression]
+
+Petr confirmed on RP2_147 that build `++260928-1612++` makes
+`++Ctrl+Alt+C++` return cleanly from MBASIC and the long-running xterm-256
+render. That build discards the incomplete graphics image. Petr then requested
+that the image remain visible after the forced return.
+
+The normal `++CSI 0 m++` GCLS terminator already retains the plotted pixels.
+The emergency path now discards queued output from the terminated COM, resets
+an unfinished escape sequence, and *finishes* an active plot through the same
+`++PlotEnd++` path. It aborts a merely armed GCLS with no sample. It does not
+send a synthetic CSI through a possibly partial parser, invalidate all cells,
+or request a mirror reset. `++PlotEnd++` flushes the partial scanline and
+retires the few old active text rows before the new CCP notice/prompt is
+painted over the retained canvas. The mirror remains a reconstructed text
+screen; it cannot reproduce the TFT's raw plotted pixels.
+
+The terminal and runtime C++ suites pass under ASan/UBSan (LeakSanitizer
+disabled in this container). Runtime regression checks that a pixel outside
+the prompt rows survives forced return and the subsequent CCP output while
+the prompt advances to the correct row. Hardware behavior of this *new*
+retained-plot path is not yet confirmed.
+
+The RP2_147 Arduino-Pico profile already specifies `++opt=Optimize3++`.
+The target-aware `++tools/reflash.py --build-only --optimization O2|O3++`
+trial option explicitly overrides `++build.flags.optimize++`; Arduino's
+expanded recipe was checked to contain `++-O2++` for the O2 override. It is
+restricted to RP2_147 builds and leaves the ordinary profile unchanged.
+Both candidates use the same source change; only the optimization setting
+and required unique build stamp differ.
+
+[.mx-keep-together]
+--
+[cols="1,1,1,2,3",options="header"]
+|===
+|Trial |Build stamp |Program bytes |UF2 SHA-256 prefix |Artifact
+|O2 |`++260928-1802++` |269424 |`++399bec4f310e++` |`++build/RunCPM_7xtgv-terminal/rp2350-lcd-1-47-a/260928-1802 O2 retained-plot trial++` (flashed first)
+|O3 |`++260928-1801++` |300080 |`++4b567e2f1dbc++` |`++build/RunCPM_7xtgv-terminal/rp2350-lcd-1-47-a/260928-1801 O3 retained-plot trial++` (flashed second)
+|===
+
+.Full UF2 SHA-256 values
+[source,text,role="mx-compact"]
+----
+O2 399bec4f310ec3acfde469586625c0ae9fb2b19b4aecc9bb85e2b22d1d98b388
+O3 4b567e2f1dbcf7e5b13df530c7abaf8dcbe289a6a354511d8f3861dc0b39b147
+----
+--
+
+The previously flashed and Petr-confirmed `++260928-1612++` candidate was
+preserved as `++260928-1612 forced-return-redraw hardware-confirmed++`.
+`++current++` was not changed. On Petr's `++reflash++` request, the staged O2
+UF2 was copied to the verified RP2350 BOOTSEL chip
+`++D60D9318CF30A586++`. The same chip returned as serial and the visible
+Konsole mirror reached `++A0>++`; the previous CP/M program state was lost.
+No explicit hardware result for retained pixels is recorded yet.
+For Petr's subsequent O3 request, the O2 artifact was moved into its named
+trial archive and O3 was staged as `++new++`. The O3 UF2 was copied to the
+same verified BOOTSEL chip; the same serial chip returned and the visible
+Konsole mirror reached `++A0>++`. `++current++` was not promoted. Do not use
+`++--restore++` for these unverified trials: that operation promotes an
+archive to `++current++` before testing.
+
+Petr reports little practical difference between O2 and O3 on this module;
+O2 may be slightly faster in `++VTCPU++` active mode, but not enough to make
+optimization choice critical. O3 was the pre-existing profile default.
+The later source-tree rename moved both archives under
+`++build/RunCPM_7xtgv-terminal/++`; a fresh default-O3 rename-only build is
+staged as `++new++` without flashing it. The partial-plot preservation check
+and any decision to promote a candidate remain separate.

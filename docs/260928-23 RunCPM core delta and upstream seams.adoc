@@ -1,0 +1,111 @@
+= RunCPM core delta and upstream seams
+:source-highlighter: highlight.js
+
+*Date:* 260928 +
+*State:* read-only source audit and TODO; no core changes or merge
+
+This follows Petr's line-by-line inventory of our modifications to the
+recovered RunCPM. It complements the
+link:260928-16%20RunCPM%20recovered%20baseline%20and%20upstream%20drift%20note.adoc[provenance note],
+link:260925-20%20target-specific%20injection%20inventory%20and%20flat%20HAL%20plan.adoc[HAL inventory]
+and link:260928-11%20forced%20COM%20warm%20return%20implementation%20checkpoint.adoc[forced-return checkpoint].
+The aim is to preserve what changed before considering smaller, portable
+injection seams; none of this is a request to merge CP/M 3 or prepare a PR.
+
+== Comparison method and verified snapshots
+
+`++src/RunCPM_comparison++` has Git HEAD `++35fb6b13317788bdd1fe9448a94c96f582c888c2++`.
+Petr intentionally copied current files into its working tree to view diffs.
+The old content is its immutable Git commit object, *not* those copied files.
+The nine modified RunCPM-derived core headers in the terminal fork match
+Petr's copies byte for byte. Five other checked core headers (`++console.h++`,
+`++host.h++`, `++ram.h++`, `++debug.h++`, `++cpu_mhz.h++`) match the old commit
+byte for byte. This count excludes new integration, terminal and HAL files.
+
+On 260928, `++git ls-remote++` and a fresh read-only shallow clone of
+https://github.com/MockbaTheBorg/RunCPM[Mockba's repository] both resolved
+upstream HEAD to `++79396be665d6ec263a2728b20b177f4149647ed8++`
+(commit dated 2026-08-24). This is the *same* upstream snapshot used by the
+260911 audit, not another wave of changes since then. The local shallow clone
+is `++/tmp/runcpm-upstream-260928++`; it is not a new project dependency.
+Upstream's readme says only CP/M 2.2 is fully supported and CP/M 3.0 remains
+work in progress, enabled experimentally with `++CPM3=1++`. Do not describe
+that branch as a completed CP/M 3 port.
+
+== Our delta against the pinned recovered tree
+
+[cols="1,3,3",options="header",role="mx-compact"]
+|===
+|File |Current local change |Review seam / qualification
+|`++abstraction_arduino_7xtgv.h++` |Optional LED/display activity hook; INI/history cache access and lazy-save hooks; bounded/zero-filled `++_sys_extendfile++`; private benchmark, sync and reboot ports; headless Serial versus terminal virtual I/O. |It is a new board-specific abstraction copy, but mixes portable file safety with product services. Split candidates only after checking current upstream's abstraction and tests. Profile `++printf++` changed from Serial output to a no-op on the RunCPM core; keep that intentional suppression visible in diagnostics review.
+|`++ccp.h++` |Prompt size 8 to 16 and named-prompt modes; CLS/SUBMIT newline handling; `++7XF++` command registration; paging/help changes; forced-return ownership and SUBMIT cancellation; config idle callback. |Keep ordinary CCP commands recognizable. `++dirHead[0]++` now derives from `++currentDrive++` rather than `++prompt[2]++` because named prompts move that character; not an arbitrary drive change. The `++VOL++` command now reads `++DIR.7XF++` instead of historical `++INFO.TXT++`: decide explicitly whether to restore VOL's old meaning and leave named catalog display to LS. Investigate why help was recast as a line array (paging), not merely a cosmetic rewrite.
+|`++ccp_catalog.h++` (new, 874 lines) |All named catalog, `++LS/LL/CD++`, area alias, path, size and capture logic. |This is the largest CCP addition, not a small alias wrapper. It currently uses Arduino `++File++`/`++SD++`, which prevents the native POSIX smoke build; decide a portable catalog boundary or an explicit Arduino-only command registration before any upstreamable claim.
+|`++cpm.h++` |Forced-return checks at three blocking console paths and discard of partial line input. |These are deliberate BDOS/BIOS hooks, not a general emulator change. Compare call semantics with CP/M 3 console additions before moving them.
+|`++cpu1.h++` to `++cpu4.h++` |Bounded polling of the cross-core forced-return request in each Z80 loop; `++cpu1.h++` additionally places only the W535 dispatcher in IRAM and requests O2. |The polling is the only per-instruction hot-path local addition. Keep it measured and optional. W535 IRAM/O2 is target-specific evidence, not yet a rule for every ESP32 or RISC-V target.
+|`++disk.h++` |Logical guest close invokes `++RUNCPM_CONFIG_FILE_CLOSED++` when configured. |This hook belongs to INI persistence, *not* to forced abort. Separate it from the forced-return story and test the CP/M close semantics.
+|`++globals.h++` plus new `++forced_warm_return.h++` (81 lines) |Conditionally includes the small atomic request/acknowledgement coordinator for Arduino non-headless builds. |The keyboard chord lives in the terminal; CCP/BDOS/CPU cooperatively honor it. A portable core hook might have an empty default implementation rather than a product header include.
+|===
+
+The nine changed core headers are the abstraction, CCP, BDOS/BIOS, four CPU
+headers, disk and globals. Petr's inventory caught these. Additional details
+easy to miss were the *new* catalog and coordinator headers, unchanged core
+files, the portable file-extension repair, `++VOL++` behavior, profiling
+output, and native POSIX catalog portability. The approximate source diff is
+bounded, but the CCP feature itself is substantial; "small core delta" must
+not be mistaken for "small feature".
+
+== Current upstream collision map
+
+The pinned upstream CP/M 3 work has conditional code in
+`++abstraction_arduino.h++`, `++ccp.h++`, `++cpm.h++`, `++disk.h++` and
+`++globals.h++`: exactly five of our nine touched core areas. Its CPU loops
+do not contain `++CPM3++` conditionals, though they still need an ordinary
+version comparison before any port. Upstream's `++ccp.h++` retains an
+eight-byte prompt and `++VOL++` reading `++INFO.TXT++`; it has no 7XF catalog.
+Its Arduino `++_sys_extendfile++` still has the reversed unsigned subtraction
+`++f.size() - fpos++` after testing `++fpos > f.size()++`, so the portable
+file-extension fix remains a concrete small candidate at this snapshot.
+The public upstream readme says porting should normally be done through an
+abstraction layer, but our named CCP and emergency COM return cannot be
+claimed to fit that interface as written. These are file-level collision
+indicators, *not* a completed semantic merge audit.
+
+For a future small patch, the pinned upstream `.clang-format` specifies
+four-space indentation, attached braces, no line-width limit, indented
+preprocessor directives and no automatic include sorting. Its core uses
+underscore-prefixed host helpers and short function-end comments. These are
+starting observations, not a license to bulk-reformat local or upstream
+files; inspect the exact destination file's conventions before editing it.
+
+== TODO: narrow, testable route
+
+. Preserve a three-way map for each candidate: recovered commit `++35fb6b1++`,
+  current 7xtgv, and pinned upstream `++79396be++`; repeat the upstream pin
+  when actually starting integration. Do not reset Petr's comparison tree.
+. Inventory Mockba's current coding and naming patterns per affected file,
+  including its `.clang-format`, and classify each local hunk as portable
+  bug fix, optional hook, board adapter, or 7xtgv-only policy. No bulk
+  reformatting of upstream files.
+. Isolate `++_sys_extendfile++` and the optional LED wrapper as first
+  possible portable patches. Check whether the upstream file-extension bug
+  still exists in the pinned version and run its test independently.
+. Design a small, inert-by-default host callback boundary for guest idle,
+  logical close, and emergency abort. Require unchanged CP/M 2.2 behavior
+  when no terminal integration is compiled; separately test CP/M 3's
+  console/CCP paths if those hooks are ever proposed upstream.
+. Decide whether named catalog and `++7XF++` are intentionally a product CCP
+  fork or can be separated as command registration. Fix or explicitly scope
+  the current POSIX compile break before claiming cross-platform behavior.
+. Review `++VOL++` versus `++DIR.7XF++`, help paging, profile output and
+  the default/headless meaning as user-visible compatibility decisions.
+  Nothing here silently reverts them.
+. Keep W535 IRAM/O2 as a measured target policy until benchmarked elsewhere;
+  externalize the selection from the core only if that is clearer and tested.
+. After this classification, discuss small independent fixes or hooks with
+  Mockba if Petr wants. Do not submit terminal, catalog, private port or
+  forced-abort product code as a single upstream PR.
+
+Before *any* future RunCPM-derived core edit, the agent must identify the
+file/seam, warn Petr of the upstream/CP/M 3 overlap, and ask for direction.
+The corresponding short rule is in `++AGENTS.md++`; this document carries
+the detailed rationale.
