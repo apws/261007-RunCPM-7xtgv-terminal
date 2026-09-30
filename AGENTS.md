@@ -173,6 +173,9 @@
   `python3 src/feature_registry.py check` and
   `python3 src/feature_registry.py update-ledger` after changing the TSV. Leave
   unknown milestone dates empty rather than inventing chronology.
+- For implemented feature additions, renames, and behavior changes, also update
+  `docs/260912-23 7xtgv terminal manual/features_timeline.adoc`. It is a
+  curated history, not generated from `docs/features.tsv`; keep both in sync.
 - Petr uses a Czech keyboard layout (`XTGV_BANK_KEYS` in `tools/terminal.conf`)
   and XKB `shift:breaks_caps,caps:none`: Shift clears CapsLock. Do not rely on
   CapsLock state or alter ordinary Czech punctuation/Shift input in terminal

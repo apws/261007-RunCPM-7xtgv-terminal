@@ -1,0 +1,313 @@
+= RunCPM cleanup, CCP 7XF and terminal-only build plan
+:source-highlighter: highlight.js
+
+*Date:* 260930 +
+*State:* design and comparison plan; no source migration, build or device change
+
+This records Petr's 260930 review of the root sketch and RunCPM injections,
+and the ensuing decisions. It extends the
+link:260930-08%20RunCPM%20core%20delta%20raw%20doc,%20our%20injections.adoc[raw core inventory],
+link:260928-23%20RunCPM%20core%20delta%20and%20upstream%20seams.adoc[three-way core audit],
+link:260928-16%20RunCPM%20recovered%20baseline%20and%20upstream%20drift%20note.adoc[provenance note],
+and link:260925-20%20target-specific%20injection%20inventory%20and%20flat%20HAL%20plan.adoc[flat-HAL inventory].
+Petr's side-by-side screenshots are local under
+`++docs/private/260930 our injections into original RunCPM (260126)/++`;
+that ignored directory is not a published or reproducible source. The line
+references below describe the `++229d68a++` sketch, not permanent line numbers.
+
+*Sequence clarified by Petr on 260930:* first reorganize the existing
+recovered-era fork and retest it; only then investigate replacing its old
+RunCPM generation with current Mockba HEAD. The latter is not a dependency
+of the first cleanup.
+
+== Objectives and constraints
+
+* Keep the currently hardware-tested terminal/RunCPM behavior intact while
+  making each product addition and its owner obvious by name and source path.
+* Minimize changes to RunCPM-derived core headers. A generic, inert-by-default
+  seam is preferable to a 7xtgv symbol in upstream code, but a copied CCP is
+  an acceptable *local* choice until a cleaner extension has been proved.
+* Permit serial-only RunCPM, integrated RunCPM plus terminal, and eventually
+  terminal-only firmware for a UART-connected CP/M machine. Do not confuse a
+  reserved build combination with an implemented one.
+* *First clean our present fork against the recovered approximately 260126
+  RunCPM*, keeping behavior unchanged and using searchable `++XTGV_++` names,
+  better placement and narrow optional hooks. Retest that cleaned fork before
+  attempting any replacement with current Mockba HEAD. The current HEAD is
+  comparison evidence in this first step, not its implementation base.
+* Preserve the recovered original CP/M 2.2 CCP commands in our local variant.
+  A later port to current upstream and optional CP/M 3 is a distinct step,
+  not a claimed working replacement now.
+* Follow Mockba's destination-file style for core seams; in the product
+  sketch, indent code within conditional branches consistently. Avoid a broad
+  formatter pass over imported code.
+
+== Evidence and comparison baselines
+
+[cols="2,4",options="header"]
+|===
+|State |Use and caveat
+|Recovered local RunCPM |First recovery commit `++34bb588aab8d014d550ae102cf28809f695822b6++` contains the original core headers. The local comparison clone's immutable commit `++35fb6b13317788bdd1fe9448a94c96f582c888c2++` is another early project checkpoint. Its working tree contains Petr's copied newer files; compare against its *Git HEAD*, not its current files. The suspected upstream `++3362319c...++` remains a candidate, not authenticated provenance.
+|Current 7xtgv |`++src/RunCPM_7xtgv-terminal/++` at checkpoint `++229d68a++` is the behavior to preserve. `++src/RunCPM_7xtgv/++` is a separate older prototype, not the headless mode of the current sketch.
+|Mockba HEAD pinned on 260930 |`++79396be665d6ec263a2728b20b177f4149647ed8++` (upstream commit dated 260824) was verified again on 260930. It is the same commit used by the prior audit. Pin and verify again when integration begins; do not build against a moving `++HEAD++` label alone. Upstream says CP/M 2.2 is fully supported, CP/M 3.0 still in progress.
+|===
+
+For every touched core file, retain a three-column hunk map: recovered local,
+current 7xtgv, pinned upstream. Mark each hunk as portable bug fix, optional
+core hook, local CCP change, terminal integration, board/runtime policy, or
+possibly obsolete. Record exact host-test and hardware evidence for claims
+about speed or behavior. The existing core audit is a start, not a completed
+semantic CP/M 3 merge. *Only the first two columns drive the first cleanup*;
+the third identifies likely later collisions. Do not overwrite the working
+firmware or Petr's comparison checkout.
+
+== Explicit build modes and naming
+
+Identifiers cannot start with a digit: use `++XTGV_++`, not `++7XTGV_++`.
+The proposed composition flags are numeric 0/1 values, with
+`++XTGV_RUNCPM=1++` and `++XTGV_TERMINAL=0++` as serial-only defaults.
+The present display targets must explicitly request both as 1 *before*
+inverting the existing `++!defined(RUNCPM_HEADLESS)++` branches.
+
+[cols="1,1,3",options="header"]
+|===
+|`++XTGV_RUNCPM++` |`++XTGV_TERMINAL++` |Meaning
+|1 |0 |Serial-only RunCPM, corresponding to the ordinary upstream-style sketch.
+|1 |1 |Integrated RunCPM and TFT terminal; current product behavior.
+|0 |1 |Standalone terminal using a physical UART to an external CP/M host; *reserved, not yet buildable*.
+|0 |0 |Invalid; reject at compile/configuration time.
+|===
+
+`++XTGV_CCP_7XF++` is independent of display presence but valid only with
+`++XTGV_RUNCPM++` and `++CCP_INTERNAL++`. It selects our CCP variant. Avoid
+feature flags for every internal function: `++XTGV_TERMINAL_CONFIG++` can be
+a searchable subsystem prefix/name without becoming another user-facing
+build switch. Keep ordinary functions named `++xtgvTerminalConfig...++`
+and `++xtgvTerminalHistory...++`; reserve macros for compile-time seams.
+
+Target-aware build definitions must be explicit for *all* boards. At present
+W535 is inferred from ESP32-S3 and RP2_2 from an RP2040-architecture fallback
+in `++runcpm-config.h++`, while W550 and RP2_147 have explicit target flags.
+A `++board.h++` dispatcher cannot distinguish future boards sharing an MCU
+architecture unless the build identifies them. After migrating all target
+profiles, reject unknown or conflicting target selections instead of silently
+choosing a different panel. Maintain a serial-only profile separately; do
+not let this flag migration change existing staged firmware images implicitly.
+
+== Root sketch cleanup, preserving a readable RunCPM flow
+
+The current sketch is 787 lines, the recovered older sketch is 324, and
+the pinned upstream sketch is 156. These are different products/states.
+Shorter source is not the objective by itself: extract ownership, keep the
+startup/CCP flow visible, and prefer named functions to macros hiding large
+bodies of code. The RunCPM *core* delta is comparatively small; much of the
+sketch's growth is terminal persistence, board selection and runtime setup.
+
+[cols="1,3,3",options="header",role="mx-compact"]
+|===
+|Petr's line area |Current concern |Planned ownership
+|6-11 |Terminal headers are selected by the negative `++RUNCPM_HEADLESS++` test. |Use explicit `++XTGV_TERMINAL++` in project code; preserve serial-only compilation when false.
+|13-44 |Board selection, SD header and SD object type are scattered. |A single top-level include, `++hardware/arduino_7xtgv/board.h++`, selects a flat per-board header. The board contract supplies storage type, pin/bus initialization, and diagnostic facts. Keep shared architecture helpers where repetition would be misleading; no broad HAL framework is implied.
+|48-358 |INI and BUF history persistence occupy the sketch and must be declared before the abstraction calls them. |Extract *both* into terminal-owned persistence code, initially a header included after `++SD++` is declared. Preserve the present single storage owner, in-RAM INI edit, lazy write, verify/rename/backup, guest-write interlock, and error reporting. Named functions make each sketch call searchable; no giant `++XTGV_TERMINAL_HISTORY()++` macro.
+|366 |The 7xtgv Arduino abstraction is selected. |Keep one clearly named project abstraction include. It owns host/SD/console primitives, not CCP catalog rules or the complete terminal persistence implementation.
+|396-419 |Build-stamp fallback is mixed into the root flow. |Keep a small build-identity helper; preserve target-aware stamp and explicit direct-build fallback.
+|420-422 |`++CCP_INTERNAL++` includes the modified `++ccp.h++`. |For the first cleanup, select recovered/original `++ccp.h++` or local `++ccp7xf.h++` using `++XTGV_CCP_7XF++`; do not tie the choice to `++XTGV_TERMINAL++`. Updating either against current HEAD comes later.
+|425-470 |The banner contains common text and board TODOs. |Keep `++printBootBanner()++` near the original startup-message section; take board-specific facts from `++board.h++`. Do not move common RunCPM banner text into terminal history.
+|472-630 |Storage init, profile/history load and status messages are interleaved with per-board tests. |Use a board storage result (bus/pins ready, medium ready, diagnostic description) and terminal persistence load/report functions. Separate SPI/pin failure from absent/bad card; report the actual interface, not a fabricated success. The boot-warning display defaults already live in display policy.
+|633-653 |CCP relaunch and banner behavior are hard to distinguish. |Preserve the recognizable upstream relaunch loop. Its loop is *not* newly invented for forced abort; our notable addition is first-start banner/warning gating. Keep forced-abort lifecycle in CCP/integration code.
+|Final `++setup()/loop()++` |A single `++#if++` chooses headless, ESP32 FreeRTOS and RP2350 multicore implementations across complete function definitions. |Select a runtime implementation file which contains whole `++setup()/loop()++` functions, plus `++setup1()/loop1()++` only where applicable. Shared `++runCPM()++` remains in the sketch. This is an architecture/runtime choice, not repeated checks throughout the root function.
+|===
+
+Indent the *code inside* conditional branches to match its logical nesting;
+keep preprocessor directives consistent with the destination file. Also
+brace the inherited `++if (Status == STATUS_EXIT)++`/debug/break sequence
+clearly, without changing when it exits. A source-only extraction should be
+verified with host tests and a target-aware build before replacing a tested
+image; it does not itself authorize a flash.
+
+== Separate CCP 7XF: immediate preference and possible later seam
+
+Petr prefers a separate, selectable `++ccp7xf.h++` *now*. Derive it from
+our **current modified, recovered-era `++ccp.h++`**, initially by moving or
+copying its code without changing behavior. Keep a recovered/original
+`++ccp.h++` selectable beside it. Do *not* derive the first `++ccp7xf.h++`
+from Mockba's 260824 HEAD; that would pull newer CCP, BDOS and disk
+assumptions into what is meant to be a local cleanup. Only after this fork
+is retested should a *separate* HEAD-port attempt adapt `++ccp7xf.h++` to
+the newer CCP, retaining its `++#ifdef CPM3++` sections in the same file.
+Do not maintain separate 2.2 and 3.0 full copies unless a real semantic
+incompatibility later proves unavoidable.
+`++ccp_catalog.h++` (or a more descriptive 7XF module name) contains the
+named catalog, `++LS/LL/CD++`, aliases and file listing logic. A separate
+product CCP can include it while unmodified upstream `++ccp.h++` remains
+available for comparison and serial-only builds.
+
+Preserve every recovered original CCP command's semantics in
+`++ccp7xf.h++` where possible. In particular, the original `++VOL++`
+reads `++INFO.TXT++`, whereas our present fork redirects it to
+`++DIR.7XF++`. *Do not smuggle that behavior change into the mechanical
+file split*: first preserve/test current behavior, then restore `++VOL++`
+to `++INFO.TXT++` as a separately visible and tested compatibility correction.
+The 7XF named catalog owns `++DIR.7XF++` and `++VOL.7XF++`. Likewise,
+append 7XF help rather than silently rewriting original command descriptions.
+Audit prompt widening, `++CLS++`/newlines, `++SUBMIT++` cancellation,
+external-COM lifecycle, parser globals and first-start behavior against the
+recovered CCP first; repeat against CP/M 3 only during the later HEAD port.
+
+This copied CCP keeps the recovered original file untouched, but it incurs a
+whole-file merge whenever upstream changes. A later *alternative* experiment
+may put narrow, opt-in registration/prompt/help/external-lifecycle hooks into
+one upstream `++ccp.h++`, for both 2.2 and 3.0. Choose that only if the
+result is demonstrably cleaner and tests pass; it is not the immediate plan.
+There is no zero-edit, zero-duplication extension of the current fixed
+upstream command table.
+
+`++ccp_catalog.h++` currently uses Arduino `++File++`/`++SD++` directly;
+the native Linux C build therefore fails when it includes our present CCP.
+The immediate `++ccp7xf.h++` may be Arduino-scoped. Reuse on POSIX or other
+RunCPM ports needs a small filesystem adapter before claiming portability.
+Moving the catalog under `++hardware/arduino_7xtgv/++` would hide rather
+than resolve this dependency; 7XF command semantics do not belong to a
+particular board HAL.
+
+== Minimum remaining RunCPM core seams
+
+[cols="2,3,3",options="header",role="mx-compact"]
+|===
+|File |Proposed local seam |Why it remains
+|`++cpu1.h++` to `++cpu4.h++` |An optional, inert-by-default generic abort poll in each Z80 loop. Keep the bounded interval and request handoff in product code. |Without CPU-loop polling, a compute-only COM such as `++JP $++` cannot be force-returned. The active project selects CPU1, but leave all four models behaviorally consistent as Petr requested. Benchmark any hot-path cost.
+|`++cpu1.h++` attribute |A generic empty-default Z80 dispatcher attribute macro, supplied by target policy when measured. |Remove the W535 board name from core. Do not silently enable IRAM/O2 for every ESP32 or RISC-V target on W535-only evidence; compile and benchmark per target.
+|`++cpm.h++` BIOS/BDOS |One-line generic abort checks immediately after blocking console reads, including buffered line input's partial-line discard. |`++_getcon()++` is declared in `++console.h++`, but checking only inside it cannot safely unwind `++C_READSTR++` or stop a pure CPU loop. Preserve guest-visible behavior in both CP/M modes.
+|`++disk.h++` |An inert-by-default generic successful logical FCB-close notification. The product abstraction maps it to `++xtgvTerminalConfigFileClosed(path)++`. |INI write ownership needs the logical CP/M close, not merely the host file's per-record close. CP/M 3 has a make-consistent-but-still-open close variant: decide and test exact notification timing before moving this hook.
+|`++globals.h++` |Remove the product `++forced_warm_return.h++` include; include the coordinator from the product sketch/integration layer before consuming core headers. |A product C++ atomic class is not a RunCPM global type and must not leak into the upstream C/POSIX build.
+|`++abstraction_arduino_7xtgv.h++` |Remain a local extended Arduino abstraction and hook implementation. Keep the independently portable `++_sys_extendfile++` fix distinguishable from terminal-specific services. |Disk activity, buffered config ownership, benchmark ports, and virtual console belong to different service boundaries even if compiled in one target adapter today.
+|===
+
+Name generic core seams `++RUNCPM_*++`; map them to searchable product
+functions/macros named `++XTGV_TERMINAL_*++` or `++XTGV_*++` only in our
+integration/abstraction code. The disk-close event is **terminal INI
+configuration persistence**; it is not 7XF and not forced abort. BUF/history
+lazy saving uses the storage owner and does not need that FCB-close event.
+Forced return itself spans terminal-key request, an atomic coordinator,
+CPU/console safe points, and CCP ownership of COM/SUBMIT cleanup. Put that
+coordinator in product integration code, not in the board HAL or 7XF catalog.
+
+== Ordered stages: clean the old fork first, then try current HEAD
+
+=== Stage 1: recovered-era fork cleanup and parity
+
+. Pin the recovered local headers from the first recovery commit and compare
+  them with the current source. Move terminal persistence, board and runtime
+  policy out of the root sketch; add searchable `++XTGV_++` product names
+  and generic inert-by-default `++RUNCPM_*++` hooks. This is placement and
+  naming work on *our existing RunCPM generation*, not an upstream rebase.
+. Split current modified CCP into a selectable local `++ccp7xf.h++` while
+  restoring the recovered/original `++ccp.h++` as the unextended choice.
+  Keep the current 7XF behavior byte-for-byte where practical for this
+  extraction. Do not introduce CP/M 3 code at this checkpoint.
+. Validate host tests and target-aware builds without changing deployed
+  firmware. After Petr requests a rebuild/reflash and retests the existing
+  hardware behavior, record the parity result. Correct `++VOL++` and any
+  other original-command drift in a separately reviewable/tested change.
+  Do not call this cleanup complete based solely on a source diff.
+
+=== Stage 2: separately port the cleaned seams to Mockba HEAD
+
+. In a separate branch/build directory, pin upstream to the checked SHA and
+  retain the *retested Stage 1 result* as the working reference. Start with
+  upstream serial-only CP/M 2.2 and the required board abstraction. Compare
+  boot, core commands, disk I/O and standard COM execution before adding 7XF.
+. Apply the minimal generic core hooks and board/runtime integration. Keep
+  each as a small, reviewable patch, with an inert default matching upstream.
+  Port the portable file-extension repair independently.
+. Adapt the *cleaned local* `++ccp7xf.h++` to that same upstream CCP,
+  incorporating its newer original commands and CP/M 3 conditionals; this
+  is a genuine merge task, not another rename. Run 7XF, catalog, INI, SUBMIT,
+  forced-return, CP/M text-file and terminal host tests. The POSIX build
+  without 7XF must still compile; portability of 7XF itself is a separate
+  milestone.
+. Only after CP/M 2.2 parity, try `++CPM3++` in an experimental profile.
+  Audit `++ccp.h++` command/chain/batch handling, `++cpm.h++` console and
+  return semantics, and `++disk.h++` close behavior. Record unsupported
+  features and failures; no automatic promotion to user firmware.
+. Compare VTCPU/VTDRV and real terminal tests on each target only after
+  Petr explicitly requests the corresponding rebuild/reflash. Do not infer
+  hardware parity from a host build or an upstream source diff.
+
+This is a product-port exercise first, not a promised upstream pull request.
+Discuss independently useful portable fixes with Mockba only after they are
+isolated, measured, and have no 7xtgv dependency.
+
+== Standalone UART terminal: feasible mode, unresolved storage protocol
+
+`++XTGV_RUNCPM=0, XTGV_TERMINAL=1++` is a useful target for single-core
+boards connected to a physical CP/M computer. The screen parser/renderer
+can remain common, but the present runtime consumes RunCPM virtual queues;
+`++Serial++` is the PC keyboard/mirror path. A UART transport must feed the
+same terminal parser with *external* guest output and send composed keyboard
+input back to that UART. Keep host mirror, guest UART, and local controls
+distinct. CCP prompt recognition, 7XF commands, forced COM return, device
+REFLASH and CP/M-specific profile actions may be unavailable or require
+explicit per-transport capability decisions; do not imply they work on
+arbitrary real hardware.
+
+Present INI/BUF persistence also assumes the RunCPM/storage core owns SD and
+can pause the other display core. `++terminalPause()++` waits for a separate
+loop to acknowledge it; calling that unchanged from a single-core terminal
+storage operation would deadlock. Give the standalone runtime its own
+single-owner storage polling and non-self-pausing save path. Preserve atomic
+new/verify/backup replacement and bounded latency; do not expose an
+incomplete INI while the terminal parses it.
+
+Petr's desired CP/M editing path is feasible but is **not a filesystem
+alias over UART** by itself. The real CP/M machine and terminal normally
+have separate filesystems. Start with terminal-local INI/BUF as authority:
+terminal settings and history can persist without any CP/M disk access.
+For later CP/M-side editing workflows, provide an explicit guest transfer
+utility/protocol: fetch a copy to a normal CP/M file, edit with TE/TP3,
+then send the INI text back; validate and atomically replace the terminal
+copy, report success/error, and either reapply supported settings or request
+a clearly identified terminal reboot. BUF need not share the same editing
+workflow unless a concrete use calls for it. Specify
+framing, length/checksum, escape from terminal graphics/control streams,
+flow control, failure recovery, and whether a reboot/profile reload is
+required before implementing. Current PC-host `++VTPUT/VTGET++` must not be
+assumed to provide this external-UART endpoint without inspection. A truly
+transparent CP/M drive alias would require guest BIOS/BDOS or block-device
+support and is a much larger, separate project.
+
+The smallest standalone prototype may keep INI/BUF solely on the terminal
+board's filesystem. Its own controls may edit and persist settings there;
+the terminal need not mount or emulate the external CP/M disk. Some existing
+`++VT*++` workflows expect a CP/M editor to modify INI text and then reboot
+or reload the terminal. Preserve that *future* workflow by planning an
+explicit copy/send-and-apply command, but it need not block the first
+standalone display/keyboard/UART prototype. Document the loss of
+CCP-dependent conveniences honestly. Do not let reserved flags turn on an
+incomplete mode in shipping builds.
+
+== Delivery checkpoints and decisions still open
+
+. First, clean the *current recovered-era fork*: explicit target/mode flags,
+  board dispatcher, terminal persistence header, complete per-runtime
+  `++setup()/loop()++` implementations, generic hook placement, searchable
+  names and branch indentation. Review the diff for code movement versus
+  behavior changes. Keep existing integrated targets explicitly selected.
+. Split `++ccp7xf.h++` from the *current modified CCP*, not upstream HEAD;
+  retain the recovered original `++ccp.h++` as a selectable baseline. Host
+  tests, target-aware builds and Petr's requested hardware retest gate this
+  first step. Do not flash unless Petr asks.
+. Restore original `++VOL++`/`++INFO.TXT++` behavior as an explicit follow-up
+  correction, with catalog behavior covered by tests. Serial-only builds
+  need their own smoke test before claiming the new default works.
+. Only after Stage 1 parity, make a separate HEAD-port attempt of the
+  cleaned hooks and `++ccp7xf.h++`. Try `++CPM3++` after HEAD CP/M 2.2 parity.
+. Decide whether the eventual generic-hook CCP is worth maintaining after
+  seeing the `++ccp7xf.h++` diff on CP/M 2.2 and experimental CP/M 3.
+. For standalone mode, decide external UART pins/baud, keyboard/host-mirror
+  source, local storage presence, and whether guest-side INI transfer is an
+  initial requirement or a later utility. No transparent drive alias is
+  assumed.
+
+No source file, feature-ledger status, firmware candidate, device or CP/M
+mirror file was changed by writing this plan.

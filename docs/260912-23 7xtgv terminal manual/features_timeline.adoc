@@ -10,7 +10,9 @@ Later rows can refine earlier behavior. The
 link:../FEATURES.adoc[feature ledger] tracks individual feature states and
 test limits; the link:reference-guide.adoc[Reference Guide] describes current
 commands. Plans, imported CP/M packages, and the future native 7xtgv format
-are not presented here as shipped features.
+are not presented here as shipped features. This page is curated, not generated
+from `++docs/features.tsv++`; update both when an implemented feature is added,
+renamed, or changes behavior.
 
 == Terminal and RunCPM foundations
 

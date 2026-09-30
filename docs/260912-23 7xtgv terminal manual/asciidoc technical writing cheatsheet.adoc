@@ -9,6 +9,11 @@
 :project-example: 7xtgv
 :cpu-clock-example: 66 MHz
 
+// For Asciidoctor.js Live Preview 4.1.0, cross-document #fragments need
+// asciidoctorjs-anchor-scroll.js loaded in extension Options > JavaScript
+// with "after the document has been rendered". The extension injects HTML
+// after Chrome's initial fragment jump, so the source xref alone cannot scroll.
+
 
 
 

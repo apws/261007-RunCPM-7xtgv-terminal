@@ -245,7 +245,7 @@ MBASIC needs special handling because its `++EDIT n++` command enters a modal ed
 
 BBC BASIC uses its visible `++>++` prompt as the active screen line. It tracks ordinary line edits and safely retypes recalled history using the profile's configured clear/retype sequence. This is why its controls differ from MBASIC's.
 
-pass:[<a id="7xtgv-cpm-commands-and-user-areas"></a>]
+[#7xtgv-cpm-commands-and-user-areas]
 == 7xtgv CP/M commands and user areas
 
 This compact reference covers files added or adapted by this project. It does not repeat ordinary CP/M programs and imported language packages; use `++?++` at the CCP prompt for the internal CCP command list. An A0 command is found from other user areas by this RunCPM CCP, while files it creates normally belong to the current DU (for example `++A6>++`).

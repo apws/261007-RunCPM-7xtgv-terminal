@@ -1,8 +1,7 @@
 = 7xtgv RunCPM terminal guides
 :source-highlighter: highlight.js
 
-pass:[<a id="7xtgv-runcpm-terminal-manual"></a>]
-
+[#7xtgv-runcpm-terminal-manual]
 The current terminal is a RunCPM-based CP/M machine with a local TFT and a
 complete PC mirror. It implements a selected ANSI/VT100 and VT52 subset, not
 the planned native 7xtgv terminal. The device's live
@@ -19,7 +18,9 @@ the planned native 7xtgv terminal. The device's live
 |===
 
 The link:../FEATURES.adoc[feature ledger] records individual implementation
-and test status; the timeline is a compact historical view. Dated reports
+and test status; the timeline is a hand-maintained compact historical view.
+Implemented feature additions and behavior changes update both the ledger's
+source `++docs/features.tsv++` and the timeline. Dated reports
 under `docs/` preserve experiments and hardware evidence;
 a historical report is not automatically the current device configuration.
 For running geometry and firmware identity, use `++VTINFO++`.
@@ -28,67 +29,67 @@ The old manual URL remains here. Its former section anchors below link to
 their new owners.
 
 [[starting-the-pc-mirror]]
-link:user-guide.adoc#starting-the-pc-mirror[Starting the PC mirror]
+xref:user-guide.adoc#starting-the-pc-mirror[Starting the PC mirror]
 
 [[vtput--vtget-from-the-mirror]]
-link:reference-guide.adoc#vtput--vtget-from-the-mirror[VTPUT / VTGET]
+xref:reference-guide.adoc#vtput\--vtget-from-the-mirror[VTPUT / VTGET]
 
 [[global-terminal-keys]]
-link:reference-guide.adoc#global-terminal-keys[Global terminal keys]
+xref:reference-guide.adoc#global-terminal-keys[Global terminal keys]
 
 [[output-interpretation-modes]]
-link:reference-guide.adoc#output-interpretation-modes[Output interpretation modes]
+xref:reference-guide.adoc#output-interpretation-modes[Output interpretation modes]
 
 [[histories-banks-and-the-active-line]]
-link:reference-guide.adoc#histories-banks-and-the-active-line[Histories, banks and active line]
+xref:reference-guide.adoc#histories-banks-and-the-active-line[Histories, banks and active line]
 
 [[application-profiles]]
-link:reference-guide.adoc#application-profiles[Application profiles]
+xref:reference-guide.adoc#application-profiles[Application profiles]
 
 [[editing-details]]
-link:reference-guide.adoc#editing-details[Editing details]
+xref:reference-guide.adoc#editing-details[Editing details]
 
-pass:[<a id="7xtgv-cpm-commands-and-user-areas"></a>]
-link:reference-guide.adoc#7xtgv-cpm-commands-and-user-areas[CP/M commands and user areas]
+[#7xtgv-cpm-commands-and-user-areas]
+xref:reference-guide.adoc#7xtgv-cpm-commands-and-user-areas[CP/M commands and user areas]
 
 [[shared-a0-commands]]
-link:reference-guide.adoc#shared-a0-commands[Shared A0 commands]
+xref:reference-guide.adoc#shared-a0-commands[Shared A0 commands]
 
 [[a7-visual-tests-and-dec-graphics]]
-link:reference-guide.adoc#a7-visual-tests-and-dec-graphics[A7 visual tests and DEC graphics]
+xref:reference-guide.adoc#a7-visual-tests-and-dec-graphics[A7 visual tests and DEC graphics]
 
 [[a6-graphics-and-timing-helpers]]
-link:reference-guide.adoc#a6-graphics-and-timing-helpers[A6 graphics and timing helpers]
+xref:reference-guide.adoc#a6-graphics-and-timing-helpers[A6 graphics and timing helpers]
 
 [[boot-autoexec-and-pending-submit-work]]
-link:reference-guide.adoc#boot-autoexec-and-pending-submit-work[Boot, AUTOEXEC and SUBMIT]
+xref:reference-guide.adoc#boot-autoexec-and-pending-submit-work[Boot, AUTOEXEC and SUBMIT]
 
 [[xterm256-graphics]]
-link:reference-guide.adoc#xterm256-graphics[xterm256 graphics]
+xref:reference-guide.adoc#xterm256-graphics[xterm256 graphics]
 
 [[configuration-reference]]
-link:reference-guide.adoc#configuration-reference[Configuration reference]
+xref:reference-guide.adoc#configuration-reference[Configuration reference]
 
 [[keyboard-overrides-in-7xtgvtrmini]]
-link:reference-guide.adoc#keyboard-overrides-in-7xtgvtrmini[Keyboard overrides]
+xref:reference-guide.adoc#keyboard-overrides-in-7xtgvtrmini[Keyboard overrides]
 
 [[ini-diagnostics-and-syntax-limits]]
-link:reference-guide.adoc#ini-diagnostics-and-syntax-limits[INI diagnostics and syntax]
+xref:reference-guide.adoc#ini-diagnostics-and-syntax-limits[INI diagnostics and syntax]
 
 [[global-settings]]
-link:reference-guide.adoc#global-settings[Global settings]
+xref:reference-guide.adoc#global-settings[Global settings]
 
 [[display-and-per-bank-geometry]]
-link:reference-guide.adoc#display-and-per-bank-geometry[Display and bank geometry]
+xref:reference-guide.adoc#display-and-per-bank-geometry[Display and bank geometry]
 
 [[additional-bank-settings]]
-link:reference-guide.adoc#additional-bank-settings[Additional bank settings]
+xref:reference-guide.adoc#additional-bank-settings[Additional bank settings]
 
 [[palette-slots-and-ansi-color-mapping]]
-link:reference-guide.adoc#palette-slots-and-ansi-color-mapping[Palette and ANSI color mapping]
+xref:reference-guide.adoc#palette-slots-and-ansi-color-mapping[Palette and ANSI color mapping]
 
 [[zip-transfer-and-extraction]]
-link:reference-guide.adoc#zip-transfer-and-extraction[ZIP transfer]
+xref:reference-guide.adoc#zip-transfer-and-extraction[ZIP transfer]
 
 [[source-references-and-implementation-boundaries]]
-link:technical-reference.adoc#source-references-and-implementation-boundaries[Source and implementation boundaries]
+xref:technical-reference.adoc#source-references-and-implementation-boundaries[Source and implementation boundaries]
