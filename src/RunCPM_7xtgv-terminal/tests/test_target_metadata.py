@@ -49,8 +49,8 @@ class TargetMetadataTests(unittest.TestCase):
 #if XTGV_RUNCPM != 1 || XTGV_TERMINAL != 0 || XTGV_CCP_7XF != 0
 #error "Direct target build must default to serial RunCPM"
 #endif
-#ifndef RUNCPM_HEADLESS
-#error "Serial RunCPM must retain the legacy headless selector"
+#ifdef RUNCPM_HEADLESS
+#error "Serial RunCPM must use XTGV_TERMINAL, not a derived legacy selector"
 #endif
 '''
         subprocess.run(command, input=serial, text=True, check=True, capture_output=True)
@@ -59,7 +59,8 @@ class TargetMetadataTests(unittest.TestCase):
             (['-DXTGV_RUNCPM=0'], 'Enable XTGV_RUNCPM or XTGV_TERMINAL'),
             (['-DXTGV_TERMINAL=2'], 'must be 0 or 1'),
             (['-DXTGV_CCP_7XF=2'], 'must be 0 or 1'),
-            (['-DXTGV_TERMINAL=1', '-DRUNCPM_HEADLESS'], 'conflicts with XTGV_TERMINAL=1'),
+            (['-DXTGV_TERMINAL=1', '-DRUNCPM_HEADLESS'], 'RUNCPM_HEADLESS is obsolete'),
+            (['-DRUNCPM_HEADLESS'], 'RUNCPM_HEADLESS is obsolete'),
         ):
             with self.subTest(flags=flags):
                 result = subprocess.run(command[:1] + flags + command[1:],

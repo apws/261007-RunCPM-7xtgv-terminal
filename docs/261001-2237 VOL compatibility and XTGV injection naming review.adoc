@@ -1,0 +1,119 @@
+= VOL compatibility and XTGV injection naming review
+:source-highlighter: highlight.js
+
+*Date:* 261001 +
+*State:* VOL correction implemented; remaining naming/function cleanup reviewed only
+
+== Restored VOL behavior
+
+The selected `++ccp7xf.h++` still used `++DIR.7XF++` in the original
+`++_ccp_vol++` command. Its filename and help text now use `++INFO.TXT++`,
+matching recovered commit `++35fb6b1++`, the restored plain `++ccp.h++`,
+and locally available upstream snapshot `++79396be++`.
+The upstream snapshot was inspected locally, not refreshed from GitHub.
+The complete VOL function matches the recovered implementation.
+
+This command lists the first printable line of INFO.TXT in each existing
+user area on the requested drive. There is no fallback to DIR.7XF.
+DIR.7XF, VOL.7XF and DRV.7XF remain exclusively the 7XF catalog's files.
+No device files were renamed, copied or deployed. Rebuild and device test
+remain pending.
+
+== Remaining injections and proposed cleanup
+
+The previous HAL consolidation did not finish naming cleanup in the core
+seams and Arduino abstraction. These are still present:
+
+[cols="2,3,3",options="header"]
+|===
+|Location |Current additions |Proposed treatment
+|cpu1.h through cpu4.h, cpm.h |RUNCPM_ABORT_REQUESTED and local abort polling |XTGV-prefixed optional seam calling an ordinary helper; preserve polling cadence and console escape semantics.
+|cpu1.h and runcpm_hooks.h |RUNCPM_Z80RUN_ATTRIBUTES |Rename to XTGV_Z80RUN_ATTRIBUTES. Attributes need a macro at the declaration; retain measured board policy.
+|disk.h and Arduino abstraction |RUNCPM_MODIFIED_FILE_CLOSED |XTGV-prefixed optional seam to a normal config-close helper. This is terminal persistence, not forced abort or catalog logic.
+|ccp7xf.h and Arduino abstraction |RUNCPM_CONFIG_GUEST_IDLE |XTGV-prefixed optional seam to a normal config-idle helper.
+|ccp7xf.h |Three ARDUINO/non-headless guards; external-COM begin/finish and forced-return cleanup |Use positive XTGV_TERMINAL selection. Extract coherent cleanup into named helpers in the existing integration where appropriate; keep guest-state ownership in the CCP task.
+|abstraction_arduino_7xtgv.h |Disk activity, config access, benchmark helpers/state and private port constants |Identify added functions/state with xtgv or _xtgv; use XTGV_ for constants. Preserve RunCPM's required abstraction entry-point names.
+|runcpm-config.h, ccp_catalog.h, terminal_runtime.cpp |Remaining RUNCPM_HEADLESS derivation/guards |Use positive composition flags consistently, checking host-test definitions and serial-only behavior before removing compatibility handling.
+|===
+
+Examples: `++_diskActivity++` becomes `++_xtgvDiskActivity++`,
+`++_sys_configAccess++` becomes `++_xtgvConfigAccess++`,
+`++_VTCPUBegin++` becomes `++_xtgvCPUBegin++`,
+`++vtBenchmarkStartedAt++` becomes `++xtgvBenchmarkStartedAt++`,
+and `++VTDRV_PORT++` becomes `++XTGV_DRV_PORT++`.
+These are the agreed naming pattern, not yet implemented. For internal
+symbols associated with CP/M tools, replace the old VT prefix with the
+project tag; do not retain it as `++XTGV_VTCPU++` or `++_xtgvVTCPUBegin++`.
+Helper names retain uppercase CPU/DRV (`++_xtgvCPUEnd++`,
+`++_xtgvDRVBegin++`, `++_xtgvDRVEnd++`), while state uses Cpu/Drv/Term
+as shown below. Added `++_HardwarePrint++` can become `++_xtgvHardwarePrint++`;
+it is a private helper, unlike the required hardware entry points.
+
+The planned declarations, preserving all current values and types, are:
+
+[source,cpp]
+----
+static const uint8 XTGV_DRV_PORT = 0x7a;
+static const uint8 XTGV_DRV_QUIET_CAP_PORT = 0x7e;
+static const uint8 XTGV_CPU_PORT = 0x7b;
+static const uint8 XTGV_TERM_PORT = 0x79;
+static const uint8 XTGV_REBOOT_PORT = 0x7c;
+static const uint8 XTGV_SYNC_PORT = 0x7d;
+static const uint64 XTGV_CPU_TSTATES = 13015509ULL;
+static const uint32 XTGV_CPU8X_LOOPS = 500000UL;
+static const uint32 XTGV_DRV_BYTES = 32768UL;
+static uint32 xtgvBenchmarkStartedAt = 0;
+static bool xtgvBenchmarkRunning = false;
+static bool xtgvCpuQuiet = false;
+static bool xtgvCpu8x = false;
+static uint8 xtgvDrvOperation = 0;
+static bool xtgvDrv8x = false;
+static bool xtgvDrvQuiet = false;
+static bool xtgvTermReported = false;
+static uint8 xtgvSyncStatus = 0;
+----
+
+Apply this in small, reviewable steps: first the private constants, state and
+helpers in the Arduino abstraction with their references; then the optional
+core hook names; then positive build-mode guards with explicit host-test
+composition. Validate each step before continuing. Internal identifier
+renaming does not rename COM files, assembler sources, printed tool labels
+or guest protocol values; the future VT-to-XT tool rename is separate.
+
+Preserve interface names required by RunCPM, such as _HardwareIn,
+_HardwareOut, _getch, _putch and _sys_readseq. Their added implementation
+can call tagged helpers; renaming the upstream interface would widen the
+patch without improving isolation. Likewise, inherited filesystem fields
+and types need comparison with the original before any bulk rename.
+Tag changed behavior inside inherited functions with a short XTGV comment
+where a helper would only obscure the operation.
+
+Prefer ordinary functions for executable behavior. A narrow optional macro
+may still bind an upstream injection point to that function, allowing an
+unconfigured core to compile without product declarations. Do not expand
+whole function bodies through macros. Moving entire CPU/BDOS routines into
+our integration would increase the fork and is not the proposed cleanup.
+
+The three composition flags XTGV_RUNCPM, XTGV_TERMINAL and XTGV_CCP_7XF
+already exist. Use their values (for example, `++#if XTGV_TERMINAL++`),
+not definedness: they are deliberately defined as either zero or one.
+Host tests currently rely in places on not defining RUNCPM_HEADLESS;
+they must explicitly select their intended mode when these guards change.
+
+The historical RUNCPM_TARGET_* build selectors are a separate naming family.
+Any rename must be coordinated with target JSON, build tooling and tests;
+it does not require renaming the public target/profile identifiers.
+Short display/module-ID unification remains a separate decision.
+
+== Boundary and verification
+
+Only VOL changed in executable source during this review. The remaining
+cleanup is a proposal for the next implementation pass, not a completed
+refactoring. CP/M tool names, printed VTCPU/VTDRV labels and private port
+numbers retain their existing compatibility. A possible VT-to-XT tool
+rename is explicitly deferred.
+
+Before implementing the remaining cleanup, verify enabled/disabled hook
+builds, serial-only versus integrated composition, all four CPU variants,
+and the existing persistence, catalog and forced-return checks. No CP/M 3
+merge or expansion of ESP32 IRAM policy is part of this change.

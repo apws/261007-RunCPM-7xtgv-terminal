@@ -350,8 +350,8 @@ uint8 _CloseFile(uint16 fcbaddr) {
                     return (result); // Invalid filename
                 if (fcbaddr == BatchFCB)
                     _Truncate((char *)filename, F->rc); // Truncate $$$.SUB to F->rc CP/M records so SUBMIT.COM can work
-#ifdef RUNCPM_MODIFIED_FILE_CLOSED
-                RUNCPM_MODIFIED_FILE_CLOSED((const char *)filename);
+#ifdef XTGV_MODIFIED_FILE_CLOSED
+                XTGV_MODIFIED_FILE_CLOSED((const char *)filename);
 #endif
                 result = 0x00;
             } else {

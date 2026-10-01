@@ -18,6 +18,8 @@ display, backlight and reboot) is in `hardware/arduino_7xtgv/boards/`.
 Normal W535 builds select the tested SPI3/SdFat 40 MHz header. Its former
 one-bit SD_MMC bridge remains selectable for comparison only with
 `tools/reflash.py --target jc8048w535 --build-only --w535-sd-mmc`.
+W550 now also uses direct SdFat32, on its existing SPI peripheral and pins
+at a requested 40 MHz; its former Arduino SD filesystem adapter has been removed.
 Host launch, transfer, target selection and upload
 tools are in `tools/`. Exact targets and port/upload metadata are in
 `tools/targets/*.json`; compiled display IDs and default geometry are in

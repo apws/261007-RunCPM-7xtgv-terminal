@@ -6,7 +6,7 @@
 
 // Product composition. Target-aware display builds opt in to the integrated
 // mode; a direct Arduino build defaults to serial-only RunCPM. Host terminal
-// tests keep their existing behavior by not deriving RUNCPM_HEADLESS here.
+// tests must also explicitly select XTGV_TERMINAL=1.
 #ifndef XTGV_RUNCPM
 #define XTGV_RUNCPM 1
 #endif
@@ -28,14 +28,8 @@
 #error "Enable XTGV_RUNCPM or XTGV_TERMINAL"
 #endif
 
-#if defined(ARDUINO)
-#if XTGV_TERMINAL == 0
-#ifndef RUNCPM_HEADLESS
-#define RUNCPM_HEADLESS 1
-#endif
-#elif defined(RUNCPM_HEADLESS)
-#error "RUNCPM_HEADLESS conflicts with XTGV_TERMINAL=1"
-#endif
+#ifdef RUNCPM_HEADLESS
+#error "RUNCPM_HEADLESS is obsolete; select XTGV_TERMINAL=0 for serial-only RunCPM"
 #endif
 
 // ESP32 and the USB/PSRAM/core-affinity defines come from Arduino's platform

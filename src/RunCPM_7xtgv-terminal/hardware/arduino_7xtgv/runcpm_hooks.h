@@ -7,7 +7,10 @@
 #endif
 
 #if XTGV_TERMINAL
-#define RUNCPM_ABORT_REQUESTED() forcedWarmReturn().cpuTakeRequest()
+static bool _xtgvAbortRequested() {
+    return forcedWarmReturn().cpuTakeRequest();
+}
+#define XTGV_ABORT_REQUESTED _xtgvAbortRequested
 #endif
 
 // This is a target choice, not a property of every ESP32 or CPU model.
@@ -16,5 +19,5 @@
 #if !defined(ARDUINO_ARCH_ESP32)
 #error "XTGV_CPU1_IRAM_O2 requires an ESP32 Arduino target"
 #endif
-#define RUNCPM_Z80RUN_ATTRIBUTES IRAM_ATTR __attribute__((optimize("O2")))
+#define XTGV_Z80RUN_ATTRIBUTES IRAM_ATTR __attribute__((optimize("O2")))
 #endif

@@ -1,0 +1,56 @@
+= W550 direct SdFat storage
+:source-highlighter: highlight.js
+
+*Date:* 261002 +
+*Target:* ES3_5 / jc8048w550 +
+*State:* W550 40 MHz candidate flashed and accepted by Petr
+
+At Petr's request, W550 now follows W535's direct SdFat32 storage approach.
+W550 already used SPI: this replaces Arduino SD.h and its RunCPMStorage /
+RunCPMFile compatibility classes, not the physical card protocol.
+
+All board implementation changes are in
+`++hardware/arduino_7xtgv/boards/jc8048w550.h++`. The W550 sketch profile
+also adds the same pinned SdFat 2.3.0 dependency as W535. No RunCPM core
+or common abstraction edit is needed.
+
+* Uses SdFat32 SD, SDFAT_FILE_TYPE=1 and SdSpiConfig with DEDICATED_SPI.
+* Keeps the existing Arduino SPI peripheral and SCK=12, MOSI=11, MISO=13,
+  CS=10. W550 has an RGB display; W535's separate SPI3 choice was needed
+  for its QSPI display and is not copied as a hardware requirement here.
+* Initially kept the 25 MHz default, RUNCPM_W550_SD_HZ override and
+  25 MHz ceiling. Petr then requested 40 MHz before the first SdFat build:
+  the default is now 40000000 Hz and the old ceiling is removed. The
+  existing override remains available for deliberate clock tests.
+* Removes the fs::File bridge, SD/File name macros, dummy FAT directory
+  entry type, path normalization and POSIX truncate workaround. SdFat
+  directly supplies the filesystem/file operations expected by the abstraction.
+* Preserves the existing ESP32 BDOS extension stub, display, backlight,
+  history allocation and CPU optimization policy.
+
+Host board-link and target-metadata tests check policy/selection but exclude
+the real Arduino storage section; they cannot prove the new card path.
+The currently running W550 261001-2351 image still uses the old adapter.
+The requested SdFat build 261002-0002 is staged as new, with its target and
+stamp verified in the application image. The real Arduino/ESP32 build
+completed: program storage 565076 bytes (17%), static RAM 191480 bytes
+(58%). Requested clock is 40 MHz; no flash or card test yet. The former
+new candidate was archived by the standard target-aware build workflow.
+
+After deployment, verify card mount, LS, VTDRV W and VTDRV W Q, then INI
+lazy save and history persistence. Compare throughput with the previous
+25 MHz implementation; do not assume a speed increase before measurement.
+
+== Requested reflash of 261002-0002
+
+The uploader confirmed jc8048w550 running 261001-2351, flashed the staged
+261002-0002 image and verified flash hashes. The visible Konsole mirror
+was restored. Its captured screen already showed A0 prompts and Petr's
+VTDRV command; the boot banner was no longer present in that capture.
+Do not claim a captured mount-speed/stamp confirmation or benchmark result
+from that screen. The existing CP/M session ended with the firmware reset.
+The candidate remains new, not promoted to current.
+
+Petr subsequently confirmed "okay, its good, perfect" and approved commit
+and push. Record this as user acceptance of the running 40 MHz SdFat build;
+no numeric benchmark transcript or extended stress-test result was supplied.

@@ -963,15 +963,15 @@ static inline void Z80run(uint32 cpu_delay) {
 
     static uint32 instr_cnt = 0;
     static uint32 last_millis = 0;
-#ifdef RUNCPM_ABORT_REQUESTED
-    uint16_t abortPoll = 0;
+#ifdef XTGV_ABORT_REQUESTED
+    uint16_t xtgvAbortPoll = 0;
 #endif
 
     if (last_millis == 0) last_millis = millis();
 
     while (!Status) {
-#ifdef RUNCPM_ABORT_REQUESTED
-        if (++abortPoll == 0 && RUNCPM_ABORT_REQUESTED()) {
+#ifdef XTGV_ABORT_REQUESTED
+        if (++xtgvAbortPoll == 0 && XTGV_ABORT_REQUESTED()) {
             Status = STATUS_RESTART;
             break;
         }

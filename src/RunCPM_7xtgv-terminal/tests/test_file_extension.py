@@ -18,8 +18,8 @@ constexpr int O_WRITE = 1, O_APPEND = 2;
 std::vector<uint8> bytes;
 int writes = 0, closes = 0;
 bool failOpen = false, shortWrite = false, activity = false;
-void _diskActivity(bool value) { activity = value; }
-bool _sys_configAccess(const char *, bool) { return true; }
+void _xtgvDiskActivity(bool value) { activity = value; }
+bool _xtgvConfigAccess(const char *, bool) { return true; }
 struct File {
     bool opened = false;
     operator bool() const { return opened; }

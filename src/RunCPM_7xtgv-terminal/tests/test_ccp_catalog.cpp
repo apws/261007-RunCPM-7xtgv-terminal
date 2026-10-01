@@ -1,3 +1,4 @@
+#define XTGV_TERMINAL 1
 #include <cassert>
 #include <cstdint>
 #include <cstdio>

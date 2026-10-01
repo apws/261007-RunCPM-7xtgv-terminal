@@ -248,6 +248,10 @@ BBC BASIC uses its visible `++>++` prompt as the active screen line. It tracks o
 [#7xtgv-cpm-commands-and-user-areas]
 == 7xtgv CP/M commands and user areas
 
+The original RunCPM `++VOL [drive]++` command reads the first printable line
+of `++INFO.TXT++` in each existing user area on that drive. It does not read
+the `++.7XF++` catalog files used by the extensions below.
+
 This compact reference covers files added or adapted by this project. It does not repeat ordinary CP/M programs and imported language packages; use `++?++` at the CCP prompt for the internal CCP command list. An A0 command is found from other user areas by this RunCPM CCP, while files it creates normally belong to the current DU (for example `++A6>++`).
 
 The internal `++7XF++` command selects the named prompt (`++/a/mbasic>++`, or `++/a/7>++` without an alias). `++7XF DD++` (the boot default) displays decimal user numbers (`++A15>++`), `++7XF DH++` uses hexadecimal (`++AF>++`), `++7XF D++` shows only the drive (`++A>++`), and `++7XF DN++` selects the named prompt. Area names are at most eight characters. The prompt style lives in memory until RunCPM restarts. There is no `++7XF.COM++` file to install.

@@ -183,10 +183,10 @@ struct _CcpCatOutputRow {
         }
     }
     bool emit(uint16 *lines) {
-#if defined(RUNCPM_HEADLESS)
-        const uint16 columns = 80;
-#else
+#if XTGV_TERMINAL
         const uint16 columns = terminalLogicalColumns();
+#else
+        const uint16 columns = 80;
 #endif
         // Stop before the final column so terminal autowrap cannot move a
         // clipped description to the next physical line before CR/LF.

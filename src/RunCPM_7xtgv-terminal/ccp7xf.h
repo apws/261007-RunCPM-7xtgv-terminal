@@ -43,8 +43,8 @@ uint8 currentUser = 0;                  // 0 -> 15 (Current user area to access)
 bool submitFlag = FALSE;                // Submit Flag
 uint8 submitRecords = 0;                // Number of records on the Submit file
 bool ccpSuppressNextPromptNewline = FALSE; // CLS owns the next prompt row
-bool ccpIgnoreStrandedSubmit = FALSE; // deletion failure must not resume a forced batch
-uint8 ccpStrandedSubmitPath[sizeof("A/0/$$$.SUB")] = {};
+bool xtgvCcpIgnoreStrandedSubmit = FALSE; // deletion failure must not resume a forced batch
+uint8 xtgvCcpStrandedSubmitPath[sizeof("A/0/$$$.SUB")] = {};
 uint8 prompt[PROMPT_SIZE] = "\r\n  >";  // Command prompt
 CCPPromptMode ccpPromptMode = CCP_PROMPT_DECIMAL;
 uint16 cmdBufferPtr, errorPtr;          // Pointer to the command buffer, and error position
@@ -664,13 +664,13 @@ uint8 _ccp_dump(void) {
     }
 } // _ccp_dump
 
-// VOL command - shows the area DIR.7XF information
+// VOL command - shows the volume INFO.TXT information
 uint8 _ccp_vol(void) {
     uint8 error = FALSE;
     uint8 letter = _RamRead(ParFCB) ? '@' + _RamRead(ParFCB) : 'A' + currentDrive;
     uint8 folder[5] = {letter, FOLDERCHAR, '0', FOLDERCHAR, 0};
-    uint8 filename[13] = {letter, FOLDERCHAR, '0', FOLDERCHAR, 'D', 'I', 'R',
-                          '.', '7', 'X', 'F', 0};
+    uint8 filename[13] = {letter, FOLDERCHAR, '0', FOLDERCHAR, 'I', 'N', 'F',
+                          'O', '.', 'T', 'X', 'T', 0};
     uint8 bytesread;
     uint8 i, j;
 
@@ -859,7 +859,7 @@ uint8 _ccp_hlp(void) {
         " VER                - Displays the current CCP version",
         " CLS                - Clears the screen",
         " DUMP <addr|file>   - Hex+ASCII dump of memory or file",
-        " VOL [<drv>]        - Shows the area DIR.7XF information",
+        " VOL [<drv>]        - Shows the volume INFO.TXT information",
         "",
         " 7xtgv extended:",
         " 7XF [DD|DH|D|DN]    - Select prompt style",
@@ -931,8 +931,8 @@ const Command *_ccp_cnum(void) {
     return NULL; // External command
 } // _ccp_cnum
 
-#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
-static bool _ccp_cancelForcedSubmit() {
+#if XTGV_TERMINAL
+static bool _xtgvCancelForcedSubmit() {
     // SUBMIT's queue is an exact reserved filename, not a wildcard for all
     // dollar-prefixed files. The COM may have just created it, so check it
     // even if submitFlag was false when the command began. Use the owner-side
@@ -950,11 +950,35 @@ static bool _ccp_cancelForcedSubmit() {
     const bool removed = !_sys_exists(path) || _sys_deletefile(path);
     submitFlag = FALSE;
     submitRecords = 0;
-    ccpIgnoreStrandedSubmit = !removed;
+    xtgvCcpIgnoreStrandedSubmit = !removed;
     if (!removed)
-        memcpy(ccpStrandedSubmitPath, path, sizeof(path));
+        memcpy(xtgvCcpStrandedSubmitPath, path, sizeof(path));
     return removed;
 }
+
+static void _xtgvExternalBegin() {
+    forcedWarmReturn().beginExternal();
+}
+
+static void _xtgvExternalEnd() {
+    if (!forcedWarmReturn().finishExternal()) return;
+
+    // Let the terminal task discard serial/reply bytes and reset its
+    // current line model. A dead terminal task cannot be rescued by
+    // this feature, so keep this handshake bounded.
+    for (unsigned wait = 0; wait < 200 &&
+         !forcedWarmReturn().inputCleaned(); ++wait)
+        delay(1);
+    terminalDiscardGuestInput();
+    const bool batchRemoved = _xtgvCancelForcedSubmit();
+    _puts("\r\nFORCED WARM RETURN\r\n");
+    if (!batchRemoved)
+        _puts("SUBMIT QUEUE COULD NOT BE DELETED; BATCH HELD\r\n");
+    forcedWarmReturn().resumeInput();
+}
+#else
+static void _xtgvExternalBegin() {}
+static void _xtgvExternalEnd() {}
 #endif
 
 // External (.COM) command
@@ -1136,27 +1160,9 @@ uint8 _ccp_ext(void) {
         // Only a loaded external COM may accept the emergency chord. The
         // terminal task merely sets its atomic request; this core owns the
         // eventual STATUS_RESTART and all filesystem cleanup.
-#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
-        forcedWarmReturn().beginExternal();
-#endif
+        _xtgvExternalBegin();
         Z80run(cpuDelayInstructions); // Starts Z80 simulation
-#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
-        const bool forced = forcedWarmReturn().finishExternal();
-        if (forced) {
-            // Let the terminal task discard serial/reply bytes and reset its
-            // current line model. A dead terminal task cannot be rescued by
-            // this feature, so keep this handshake bounded.
-            for (unsigned wait = 0; wait < 200 &&
-                 !forcedWarmReturn().inputCleaned(); ++wait)
-                delay(1);
-            terminalDiscardGuestInput();
-            const bool batchRemoved = _ccp_cancelForcedSubmit();
-            _puts("\r\nFORCED WARM RETURN\r\n");
-            if (!batchRemoved)
-                _puts("SUBMIT QUEUE COULD NOT BE DELETED; BATCH HELD\r\n");
-            forcedWarmReturn().resumeInput();
-        }
-#endif
+        _xtgvExternalEnd();
         PC = 0;   // Resets the PC/SP after command execution
         SP = 0;
 
@@ -1185,8 +1191,8 @@ void _ccp_cmdError() {
 
 // Reads input, either from the $$$.SUB or console
 void _ccp_readInput(void) {
-#ifdef RUNCPM_CONFIG_GUEST_IDLE
-    RUNCPM_CONFIG_GUEST_IDLE();
+#ifdef XTGV_CONFIG_GUEST_IDLE
+    XTGV_CONFIG_GUEST_IDLE();
 #endif
     uint8 i;
     uint8 chars;
@@ -1271,12 +1277,12 @@ void _ccp(void) {
     uint8 i;
 
     submitFlag = (bool)_ccp_bdos(DRV_ALLRESET, 0x0000);
-    if (ccpIgnoreStrandedSubmit) {
+    if (xtgvCcpIgnoreStrandedSubmit) {
         // A failed SD deletion must not run the next record of that batch.
         // Keep trying on later warm returns; a cold reset clears this RAM
         // safeguard and the warning above told the user deletion failed.
-        ccpIgnoreStrandedSubmit = _sys_exists(ccpStrandedSubmitPath) &&
-                                  !_sys_deletefile(ccpStrandedSubmitPath);
+        xtgvCcpIgnoreStrandedSubmit = _sys_exists(xtgvCcpStrandedSubmitPath) &&
+                                  !_sys_deletefile(xtgvCcpStrandedSubmitPath);
         submitFlag = FALSE;
     }
     _ccp_bdos(DRV_SET, currentDrive);

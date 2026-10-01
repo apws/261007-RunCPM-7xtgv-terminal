@@ -4,7 +4,7 @@
 :toclevels: 2
 
 This is a compact history of the *implemented* 7xtgv RunCPM terminal through
-`++261001++`. Each `++YYMMDD-HH++` is a source commit or dated implementation
+`++261002++`. Each `++YYMMDD-HH++` is a source commit or dated implementation
 checkpoint, not necessarily the minute a feature first worked on hardware.
 Later rows can refine earlier behavior. The
 link:../FEATURES.adoc[feature ledger] tracks individual feature states and
@@ -117,6 +117,44 @@ renamed, or changes behavior.
 |`++261001-2110++` |Petr's `++VTDRV Q W++` on W535 40 MHz passed 32 KiB verification: quiet write 7.95 KiB/s, quiet read 19.72 KiB/s. The disk indicator can remain visibly red because the terminal pause freezes a pre-test activity pulse; no redraw occurs during timing. |link:../261001-1818%20W535%20SPI%20storage%20trial%20build%20checkpoint.adoc[quiet write/read result]
 |`++261001-2116++` |Made the hardware-tested W535 SPI3/SdFat 40 MHz board header the normal W535 selection. Retained the old one-bit SD_MMC bridge as an explicit fallback (`++--w535-sd-mmc++`); removed the obsolete SPI trial flag. Host board/target/uploader tests pass, but no new firmware image was built or flashed for the default switch. |link:../261001-2116%20W535%20SPI3%20default%20and%20SDMMC%20fallback.adoc[W535 default switch]
 |===
+
+== VOL compatibility correction
+
+`++261001-2237++`: restored the original `++VOL++` command in `++ccp7xf.h++`
+to reading `++INFO.TXT++`, including its help text. The 7XF catalog commands
+continue using `++DIR.7XF++`, `++VOL.7XF++` and `++DRV.7XF++`.
+Source matches the recovered VOL function; rebuild and device check pending.
+See link:../261001-2237%20VOL%20compatibility%20and%20XTGV%20injection%20naming%20review.adoc[compatibility correction and naming review].
+
+`++261001-2317++`: tagged the optional RunCPM hooks and private Arduino
+integration symbols with XTGV/xtgv, replaced headless guards with positive
+XTGV_TERMINAL selection, and extracted extended-CCP lifecycle helpers.
+Host tests cover all four CPU models and both integration modes; firmware
+rebuild and hardware check pending. Public tool names and protocol remain
+unchanged. See link:../261001-2317%20XTGV%20integration%20naming%20and%20positive%20build%20guards.adoc[implementation record].
+
+`++261001-2335++`: W535/ES3_35 firmware builds with the XTGV cleanup,
+restored VOL and default SPI3/SdFat storage. Candidate staged as `++new++`;
+not flashed. Program storage 596916 bytes, static RAM 172280 bytes.
+
+`++261001-2351++`: after Petr accepted the W535 test, built the same cleanup
+for ES3_5/W550 and selected that connected target in terminal.conf. Candidate
+staged as `++new++`, not flashed; program storage 596392 bytes and static RAM
+190960 bytes. W550 retains its existing storage implementation.
+
+`++261002-00++`: replaced W550's Arduino SD filesystem adapter with direct
+SdFat32, retaining its existing SPI peripheral, pins and 25 MHz setting.
+Added SdFat to the W550 build profile. Rebuild and hardware test pending.
+See link:../261002-00%20W550%20direct%20SdFat%20storage.adoc[W550 storage change].
+
+`++261002-0002++`: at Petr's request, raised the W550 SdFat default to
+40 MHz and removed the old 25 MHz ceiling. Target-aware build passed and
+was staged as `++new++`; no flash/card verification yet. Program storage
+565076 bytes, static RAM 191480 bytes.
+
+`++261002-00++`: flashed W550 build 261002-0002, restored its mirror, and
+received Petr's successful-test confirmation. The 40 MHz SdFat candidate
+is accepted; no numeric throughput result was supplied.
 
 == Command and catalog name lineage
 

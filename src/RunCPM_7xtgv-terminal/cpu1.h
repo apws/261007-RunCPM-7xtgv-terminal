@@ -1048,8 +1048,8 @@ static inline void Z80reset(void) {
 
 // Optional target-supplied attributes for this hot dispatcher.
 static inline
-#ifdef RUNCPM_Z80RUN_ATTRIBUTES
-RUNCPM_Z80RUN_ATTRIBUTES
+#ifdef XTGV_Z80RUN_ATTRIBUTES
+XTGV_Z80RUN_ATTRIBUTES
 #endif
 void Z80run(uint32 cpu_delay) {
 	uint32 temp = 0;
@@ -1061,18 +1061,18 @@ void Z80run(uint32 cpu_delay) {
 
     static uint32 instr_cnt = 0;
     static uint32 last_millis = 0;
-#ifdef RUNCPM_ABORT_REQUESTED
-    uint16_t abortPoll = 0;
+#ifdef XTGV_ABORT_REQUESTED
+    uint16_t xtgvAbortPoll = 0;
 #endif
 
     if (last_millis == 0) last_millis = millis();
 
 	/* main instruction fetch/decode loop */
 	while (!Status) {	/* loop until Status != 0 */
-#ifdef RUNCPM_ABORT_REQUESTED
+#ifdef XTGV_ABORT_REQUESTED
         // One cheap countdown branch per opcode; the cross-core atomic is
         // read only every 65,536 instructions, never inside a host SD call.
-        if (++abortPoll == 0 && RUNCPM_ABORT_REQUESTED()) {
+        if (++xtgvAbortPoll == 0 && XTGV_ABORT_REQUESTED()) {
             Status = STATUS_RESTART;
             break;
         }

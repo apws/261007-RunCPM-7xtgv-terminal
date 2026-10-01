@@ -1,5 +1,5 @@
 #include "../../runcpm-config.h"
-#if !defined(RUNCPM_HEADLESS)
+#if XTGV_TERMINAL
 #include "terminal_runtime.h"
 #include "7xtgv-QL-font.h"
 #include <Arduino_GFX_Library.h>

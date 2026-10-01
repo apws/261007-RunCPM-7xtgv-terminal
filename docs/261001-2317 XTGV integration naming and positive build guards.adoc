@@ -1,0 +1,115 @@
+= XTGV integration naming and positive build guards
+:source-highlighter: highlight.js
+
+*Date:* 261001 +
+*State:* implemented, host-tested and flashed on W535; boot confirmed, interactive retest pending
+
+Implements the accepted
+link:261001-2237%20VOL%20compatibility%20and%20XTGV%20injection%20naming%20review.adoc[naming review].
+This remains on the recovered RunCPM codebase. No upstream/CPM3 migration
+or change to board storage, clock, CPU attributes or public tool names.
+
+== Names and ordinary functions
+
+The Arduino abstraction's added activity/config helpers now use
+`++_xtgvDiskActivity++` and `++_xtgvConfigAccess++`.
+Private benchmark helpers use `++_xtgvCPUBegin++`, `++_xtgvCPUEnd++`,
+`++_xtgvDRVBegin++`, `++_xtgvDRVEnd++` and `++_xtgvHardwarePrint++`.
+Their constants use XTGV_CPU/DRV/TERM/REBOOT/SYNC prefixes; state uses
+xtgvBenchmark, xtgvCpu, xtgvDrv, xtgvTerm and xtgvSync as agreed.
+All numeric guest ports, replies and VTCPU/VTDRV printed labels are unchanged.
+
+The optional CPU, console, disk-close and guest-idle seams now use
+XTGV_ABORT_REQUESTED, XTGV_Z80RUN_ATTRIBUTES, XTGV_MODIFIED_FILE_CLOSED
+and XTGV_CONFIG_GUEST_IDLE. The callable bindings name ordinary functions,
+not code-body macros. CPU attributes still require a declaration macro.
+Absent bindings retain the existing preprocessor exclusion; the CPU poll
+counter and branch disappear when the abort hook is not configured.
+The active polling interval remains 65,536 instructions.
+
+In ccp7xf.h the external execution path now calls
+`++_xtgvExternalBegin++`, Z80run, and `++_xtgvExternalEnd++`.
+The latter owns the existing bounded input-cleanup wait, input discard,
+SUBMIT cancellation, message and input resume. Serial mode supplies empty
+ordinary functions. Stranded-SUBMIT state and the cancellation helper are
+also tagged. Their deletion-failure behavior and 200 ms bound are unchanged.
+
+Inherited RunCPM interfaces such as _HardwareIn, _HardwareOut, _getch and
+_sys_readseq retain their names. The terminal namespace and public terminal
+APIs remain unchanged; the catalog implementation is not mass-renamed.
+RUNCPM_TARGET_* selectors remain for their separately coordinated rename.
+
+== Positive composition
+
+The Arduino abstraction, extended CCP, catalog width selection and terminal
+runtime now use `++#if XTGV_TERMINAL++`. Serial-only behavior is the else
+branch. runcpm-config.h no longer derives RUNCPM_HEADLESS; explicitly passing
+that obsolete flag produces a diagnostic directing the builder to
+XTGV_TERMINAL=0. Target JSON already selects the three XTGV composition
+flags. Runtime tests already selected terminal mode; the catalog test now
+does so explicitly too. Standalone terminal mode remains unimplemented.
+
+== Verification and limits
+
+* All four real CPU implementations compile and execute a HALT with abort
+  hooks disabled and enabled. With the hook enabled, an INC BC / JP loop
+  aborts at the first 65,536-instruction poll with BC=32768.
+* Production benchmark-port code is exercised in terminal and serial modes:
+  active/quiet read/write, cancellation, CPU quiet mode, capability replies
+  and sync success/failure preserve their existing behavior.
+* Extracted production CCP lifecycle helpers and the real forced-return
+  coordinator pass normal-return, forced-return, failed batch deletion,
+  acknowledged input cleanup, bounded timeout and serial-mode checks.
+* Existing native runtime/render/mirror, catalog, INI runtime and disk
+  indicator checks pass. The Python suite passes 96 of 97 tests, including
+  target, board, file-extension, INI and the integration checks above.
+* The one unrelated Python test already fails in committed b278769:
+  test_helper.HelperTests.test_transfer_user_accepts_old_and_named_cd_outputs
+  expects the final transfer command to be CD, while current Link.user uses
+  A7:. Reproduced in a temporary git archive of that commit; left unchanged.
+
+Host tests do not prove ESP32/RP2350 SDK compilation or hardware timing.
+No firmware artifact was rebuilt or flashed. After the next requested
+rebuild/reflash, check normal and forced COM return (including SUBMIT),
+INI lazy save, VOL versus LS, and VTDRV W Q.
+
+== Requested W535 build: 261001-2335
+
+`++python3 tools/reflash.py --target jc8048w535 --build-only++` completed
+successfully with the real ESP32 toolchain. Build `++261001-2335++` is staged
+under `++build/RunCPM_7xtgv-terminal/jc8048w535/new++`; its application image
+contains the expected stamp. Program storage: 596916 bytes (18%); static
+RAM: 172280 bytes (52%). This includes restored VOL and the now-default
+40 MHz SPI3/SdFat storage definition. No CP/M binaries changed in this
+refactoring, so no supporting-file transfer is needed. Not flashed or promoted.
+
+== Requested reflash
+
+The guarded uploader identified the running target as jc8048w535 (previous
+build 261001-2101), uploaded the staged 261001-2335 image and verified its
+flash hashes. The visible Konsole mirror was relaunched. Its boot screen
+confirms 261001-2335, SD mounted with SPI pins 10/11/13/12 at 40000000 Hz,
+terminal profile/history OK and A0 prompt. The reset ended the previous
+CP/M session. Candidate remains new; interactive regression awaits Petr.
+
+Petr subsequently reported "its ok" and connected ES3_5/W550 for the next
+target build. This is user acceptance of the W535 candidate, not an
+automated per-command test transcript or promotion to current.
+
+== Requested W550 build: 261001-2351
+
+Target ES3_5 is jc8048w550, the 5-inch ESP32-S3 RGB module. The host default
+in terminal.conf now selects it and uses the target's /dev/ttyUSB0 default.
+`++python3 tools/reflash.py --target jc8048w550 --build-only++` succeeded;
+candidate 261001-2351 is staged under
+`++build/RunCPM_7xtgv-terminal/jc8048w550/new++`. Its application image
+contains the target identity and fresh build stamp. Program storage is
+596392 bytes (18%); static RAM is 190960 bytes (58%). W550 retains its
+existing board-specific storage implementation; this build applies the
+common integration cleanup, not the W535 storage migration. Not flashed.
+
+The subsequent requested reflash identified jc8048w550 running 260924-1421,
+uploaded 261001-2351 and verified flash hashes. Konsole mirror was restored;
+its boot screen confirms the new stamp, SPI card mount at 25000000 Hz,
+terminal profile/history OK and A0 prompt. Candidate remains new, with
+panel and interactive checks awaiting Petr.

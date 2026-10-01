@@ -157,10 +157,10 @@ int main() {
         for name in ('_sys_fopen_w', '_sys_openfile', '_sys_makefile', '_sys_deletefile',
                      '_sys_renamefile', '_sys_extendfile', '_Truncate'):
             function = abstraction.split(name + '(', 1)[1].split('\n}', 1)[0]
-            self.assertIn('_sys_configAccess(', function)
-        self.assertIn('RUNCPM_MODIFIED_FILE_CLOSED((const char *)filename);',
+            self.assertIn('_xtgvConfigAccess(', function)
+        self.assertIn('XTGV_MODIFIED_FILE_CLOSED((const char *)filename);',
                       (ROOT / 'disk.h').read_text())
-        self.assertIn('RUNCPM_CONFIG_GUEST_IDLE();', (ROOT / 'ccp7xf.h').read_text())
+        self.assertIn('XTGV_CONFIG_GUEST_IDLE();', (ROOT / 'ccp7xf.h').read_text())
 
 
 if __name__ == '__main__':

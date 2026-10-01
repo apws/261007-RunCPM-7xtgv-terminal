@@ -569,8 +569,8 @@ void _Bios(void) {
     }
     case B_CONIN: { // 3 - Console input
         const uint8 input = _getcon();
-#ifdef RUNCPM_ABORT_REQUESTED
-        if (RUNCPM_ABORT_REQUESTED()) {
+#ifdef XTGV_ABORT_REQUESTED
+        if (XTGV_ABORT_REQUESTED()) {
             Status = STATUS_RESTART;
             break;
         }
@@ -738,8 +738,8 @@ void _Bdos(void) {
      */
     case C_READ: {
         HL = _getconE();
-#ifdef RUNCPM_ABORT_REQUESTED
-        if (RUNCPM_ABORT_REQUESTED()) {
+#ifdef XTGV_ABORT_REQUESTED
+        if (XTGV_ABORT_REQUESTED()) {
             Status = STATUS_RESTART;
             break;
         }
@@ -876,7 +876,7 @@ void _Bdos(void) {
     case C_READSTR: {
         uint16 i;
         uint8 j, chr;
-        bool forcedInputAbort = false;
+        bool xtgvForcedInputAbort = false;
         uint16 chrsMaxIdx = WORD16(DE);                // index to max number of characters
         uint16 chrsCntIdx = (chrsMaxIdx + 1) & 0xFFFF; // index to number of characters read
         uint16 chrsIdx = (chrsCntIdx + 1) & 0xFFFF;    // index to characters
@@ -902,10 +902,10 @@ void _Bdos(void) {
             uint8 preBS = 0, reType = 0, postBS = 0;
 
             chr = _getcon(); // input a character
-#ifdef RUNCPM_ABORT_REQUESTED
-            if (RUNCPM_ABORT_REQUESTED()) {
+#ifdef XTGV_ABORT_REQUESTED
+            if (XTGV_ABORT_REQUESTED()) {
                 Status = STATUS_RESTART;
-                forcedInputAbort = true;
+                xtgvForcedInputAbort = true;
                 break;
             }
 #endif
@@ -1104,7 +1104,7 @@ void _Bdos(void) {
                 break;
         } // while (chrsMax)
 
-        if (forcedInputAbort) break; // do not save/echo the partial guest line
+        if (xtgvForcedInputAbort) break; // do not save/echo the partial guest line
 
         // Save the number of characters read
         _RamWrite(chrsCntIdx, chrsCnt);

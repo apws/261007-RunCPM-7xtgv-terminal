@@ -96,6 +96,16 @@ files call ordinary functions, without changing which core executes them.
 `++display_policy.h++` exposes the selected defaults and small geometry
 helpers. Terminal array bounds read the board's logical maximum fields;
 `++runcpm-config.h++` selects product composition, not panel dimensions.
+
+Integration uses positive `++XTGV_TERMINAL++` selection; serial-only builds
+use value zero. The obsolete RUNCPM_HEADLESS flag is rejected with a migration
+diagnostic. Added RunCPM hook names use XTGV_ and bind ordinary tagged helper
+functions; inherited RunCPM interfaces retain their original names.
+The optional seams are XTGV_ABORT_REQUESTED, XTGV_Z80RUN_ATTRIBUTES,
+XTGV_MODIFIED_FILE_CLOSED and XTGV_CONFIG_GUEST_IDLE. CPU polling remains
+absent without its hook and otherwise checks every 65,536 instructions.
+See link:../261001-2317%20XTGV%20integration%20naming%20and%20positive%20build%20guards.adoc[naming and composition checkpoint].
+
 Host target JSON supplies upload/port metadata and the *exact* target name.
 These are related but distinct selectors: a shared display ID intentionally
 shares an INI section, while firmware upload identity must match the exact

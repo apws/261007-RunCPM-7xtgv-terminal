@@ -21,7 +21,7 @@
     #define HostOS 0x07
 #endif
 
-static inline void _diskActivity(bool active);
+static void _xtgvDiskActivity(bool active);
 
 /* Memory abstraction functions */
 /*===============================================================================*/
@@ -29,7 +29,7 @@ uint16 _RamLoad(uint8 *filename, uint16 address, uint16 maxsize) {
     File f;
     uint16 bytesread = 0;
 
-    _diskActivity(true);
+    _xtgvDiskActivity(true);
     if (f = SD.open((char *)filename, FILE_READ)) {
         while (f.available()) {
             _RamWrite(address++, f.read());
@@ -39,13 +39,13 @@ uint16 _RamLoad(uint8 *filename, uint16 address, uint16 maxsize) {
         }
         f.close();
     }
-    _diskActivity(false);
+    _xtgvDiskActivity(false);
     return (bytesread);
 }
 
 // Boards without a dedicated activity LED leave LED undefined.
-static inline void _diskActivity(bool active) {
-#if !defined(RUNCPM_HEADLESS)
+static void _xtgvDiskActivity(bool active) {
+#if XTGV_TERMINAL
     terminalDiskActivity(active);
 #endif
 #ifdef LED
@@ -80,28 +80,34 @@ static DirFat_t fileDirEntry;
 
 // Host files are normally opened/closed per 128-byte record, not per guest
 // FCB. The terminal INI cache therefore needs the logical BDOS close too.
-#if !defined(RUNCPM_HEADLESS)
-#define RUNCPM_MODIFIED_FILE_CLOSED(path) terminalConfigFileClosed(path)
-#define RUNCPM_CONFIG_GUEST_IDLE() terminalConfigGuestIdle()
-static bool _sys_configAccess(const char *path, bool writing) {
+#if XTGV_TERMINAL
+static void _xtgvModifiedFileClosed(const char *path) {
+    terminalConfigFileClosed(path);
+}
+static void _xtgvConfigGuestIdle() {
+    terminalConfigGuestIdle();
+}
+#define XTGV_MODIFIED_FILE_CLOSED _xtgvModifiedFileClosed
+#define XTGV_CONFIG_GUEST_IDLE _xtgvConfigGuestIdle
+static bool _xtgvConfigAccess(const char *path, bool writing) {
     return terminalConfigFileAccess(path, writing);
 }
 #else
-static bool _sys_configAccess(const char *, bool) { return true; }
+static bool _xtgvConfigAccess(const char *, bool) { return true; }
 #endif
 
 bool _sys_exists(uint8 *filename) {
-    _diskActivity(true);
+    _xtgvDiskActivity(true);
     const bool exists = SD.exists((const char *)filename);
-    _diskActivity(false);
+    _xtgvDiskActivity(false);
     return exists;
 }
 
 File _sys_fopen_w(uint8 *filename) {
-    if (!_sys_configAccess((const char *)filename, true)) return File();
-    _diskActivity(true);
+    if (!_xtgvConfigAccess((const char *)filename, true)) return File();
+    _xtgvDiskActivity(true);
     File file = SD.open((char *)filename, O_CREAT | O_WRITE);
-    _diskActivity(false);
+    _xtgvDiskActivity(false);
     return file;
 }
 
@@ -121,13 +127,13 @@ int _sys_select(uint8 *disk) {
     uint8 result = FALSE;
     File f;
 
-    _diskActivity(true);
+    _xtgvDiskActivity(true);
     if (f = SD.open((char *)disk, O_READ)) {
         if (f.isDirectory())
             result = TRUE;
         f.close();
     }
-    _diskActivity(false);
+    _xtgvDiskActivity(false);
     return (result);
 }
 
@@ -135,61 +141,61 @@ long _sys_filesize(uint8 *filename) {
     long l = -1;
     File f;
 
-    _diskActivity(true);
+    _xtgvDiskActivity(true);
     if (f = SD.open((char *)filename, O_RDONLY)) {
         l = f.size();
         f.close();
     }
-    _diskActivity(false);
+    _xtgvDiskActivity(false);
     return (l);
 }
 
 int _sys_openfile(uint8 *filename) {
-    if (!_sys_configAccess((const char *)filename, false)) return 0;
+    if (!_xtgvConfigAccess((const char *)filename, false)) return 0;
     File f;
     int result = 0;
 
-    _diskActivity(true);
+    _xtgvDiskActivity(true);
     f = SD.open((char *)filename, O_READ);
     if (f) {
         f.dirEntry(&fileDirEntry);
         f.close();
         result = 1;
     }
-    _diskActivity(false);
+    _xtgvDiskActivity(false);
     return (result);
 }
 
 int _sys_makefile(uint8 *filename) {
-    if (!_sys_configAccess((const char *)filename, true)) return 0;
+    if (!_xtgvConfigAccess((const char *)filename, true)) return 0;
     File f;
     int result = 0;
 
-    _diskActivity(true);
+    _xtgvDiskActivity(true);
     f = SD.open((char *)filename, O_CREAT | O_WRITE);
     if (f) {
         f.close();
         result = 1;
     }
-    _diskActivity(false);
+    _xtgvDiskActivity(false);
     return (result);
 }
 
 int _sys_deletefile(uint8 *filename) {
-    if (!_sys_configAccess((const char *)filename, true)) return 0;
-    _diskActivity(true);
+    if (!_xtgvConfigAccess((const char *)filename, true)) return 0;
+    _xtgvDiskActivity(true);
     const int result = SD.remove((char *)filename);
-    _diskActivity(false);
+    _xtgvDiskActivity(false);
     return result;
 }
 
 int _sys_renamefile(uint8 *filename, uint8 *newname) {
-    if (!_sys_configAccess((const char *)filename, true) ||
-        !_sys_configAccess((const char *)newname, true)) return 0;
+    if (!_xtgvConfigAccess((const char *)filename, true) ||
+        !_xtgvConfigAccess((const char *)newname, true)) return 0;
     File f;
     int result = 0;
 
-    _diskActivity(true);
+    _xtgvDiskActivity(true);
     f = SD.open((char *)filename, O_WRITE | O_APPEND);
     if (f) {
         if (f.rename((char *)newname)) {
@@ -197,7 +203,7 @@ int _sys_renamefile(uint8 *filename, uint8 *newname) {
             result = 1;
         }
     }
-    _diskActivity(false);
+    _xtgvDiskActivity(false);
     return (result);
 }
 
@@ -220,11 +226,11 @@ void _sys_logbuffer(uint8 *buffer) {
 #endif
 
 bool _sys_extendfile(char *fn, unsigned long fpos) {
-    if (!_sys_configAccess(fn, true)) return false;
+    if (!_xtgvConfigAccess(fn, true)) return false;
     bool result = true;
     File f;
 
-    _diskActivity(true);
+    _xtgvDiskActivity(true);
     f = SD.open(fn, O_WRITE | O_APPEND);
     if (f) {
         const unsigned long size = f.size();
@@ -242,7 +248,7 @@ bool _sys_extendfile(char *fn, unsigned long fpos) {
     } else {
         result = false;
     }
-    _diskActivity(false);
+    _xtgvDiskActivity(false);
     return result;
 }
 
@@ -253,7 +259,7 @@ uint8 _sys_readseq(uint8 *filename, long fpos) {
     uint8 dmabuf[BlkSZ];
     uint8 i;
 
-    _diskActivity(true);
+    _xtgvDiskActivity(true);
     f = SD.open((char *)filename, O_READ);
     if (f) {
         if (f.seek(fpos)) {
@@ -272,7 +278,7 @@ uint8 _sys_readseq(uint8 *filename, long fpos) {
     } else {
         result = 0x10;
     }
-    _diskActivity(false);
+    _xtgvDiskActivity(false);
     return (result);
 }
 
@@ -280,7 +286,7 @@ uint8 _sys_writeseq(uint8 *filename, long fpos) {
     uint8 result = 0xff;
     File f;
 
-    _diskActivity(true);
+    _xtgvDiskActivity(true);
     if (_sys_extendfile((char *)filename, fpos))
         f = SD.open((char *)filename, O_RDWR);
     if (f) {
@@ -294,7 +300,7 @@ uint8 _sys_writeseq(uint8 *filename, long fpos) {
     } else {
         result = 0x10;
     }
-    _diskActivity(false);
+    _xtgvDiskActivity(false);
     return (result);
 }
 
@@ -306,7 +312,7 @@ uint8 _sys_readrand(uint8 *filename, long fpos) {
     uint8 i;
     long extSize;
 
-    _diskActivity(true);
+    _xtgvDiskActivity(true);
     f = SD.open((char *)filename, O_READ);
     if (f) {
         if (f.seek(fpos)) {
@@ -335,7 +341,7 @@ uint8 _sys_readrand(uint8 *filename, long fpos) {
     } else {
         result = 0x10;
     }
-    _diskActivity(false);
+    _xtgvDiskActivity(false);
     return (result);
 }
 
@@ -343,7 +349,7 @@ uint8 _sys_writerand(uint8 *filename, long fpos) {
     uint8 result = 0xff;
     File f;
 
-    _diskActivity(true);
+    _xtgvDiskActivity(true);
     if (_sys_extendfile((char *)filename, fpos)) {
         f = SD.open((char *)filename, O_RDWR);
     }
@@ -358,7 +364,7 @@ uint8 _sys_writerand(uint8 *filename, long fpos) {
     } else {
         result = 0x10;
     }
-    _diskActivity(false);
+    _xtgvDiskActivity(false);
     return (result);
 }
 
@@ -374,7 +380,7 @@ uint8 _findnext(uint8 isdir) {
     bool isfile;
     uint32 bytes;
 
-    _diskActivity(true);
+    _xtgvDiskActivity(true);
     if (allExtents && fileRecords) {
         _mockupDirEntry(0);
         result = 0;
@@ -413,7 +419,7 @@ uint8 _findnext(uint8 isdir) {
             }
         }
     }
-    _diskActivity(false);
+    _xtgvDiskActivity(false);
     return (result);
 }
 
@@ -484,11 +490,11 @@ uint8 _findfirstallusers(uint8 isdir) {
 }
 
 uint8 _Truncate(char *filename, uint8 rc) {
-    if (!_sys_configAccess(filename, true)) return 0;
+    if (!_xtgvConfigAccess(filename, true)) return 0;
     File f;
     int result = 0;
 
-    _diskActivity(true);
+    _xtgvDiskActivity(true);
     f = SD.open((char *)filename, O_WRITE | O_APPEND);
     if (f) {
         if (f.truncate(rc * BlkSZ)) {
@@ -496,7 +502,7 @@ uint8 _Truncate(char *filename, uint8 rc) {
             result = 1;
         }
     }
-    _diskActivity(false);
+    _xtgvDiskActivity(false);
     return (result);
 }
 
@@ -506,9 +512,9 @@ void _MakeUserDir() {
 
     uint8 path[4] = {dFolder, FOLDERCHAR, uFolder, 0};
 
-    _diskActivity(true);
+    _xtgvDiskActivity(true);
     SD.mkdir((char *)path);
-    _diskActivity(false);
+    _xtgvDiskActivity(false);
 }
 
 uint8 _sys_makedisk(uint8 drive) {
@@ -518,14 +524,14 @@ uint8 _sys_makedisk(uint8 drive) {
     } else {
         uint8 dFolder = drive + '@';
         uint8 disk[2] = {dFolder, 0};
-        _diskActivity(true);
+        _xtgvDiskActivity(true);
         if (!SD.mkdir((char *)disk)) {
             result = 0xfe;
         } else {
             uint8 path[4] = {dFolder, FOLDERCHAR, '0', 0};
             SD.mkdir((char *)path);
         }
-        _diskActivity(false);
+        _xtgvDiskActivity(false);
     }
 
     return (result);
@@ -535,59 +541,59 @@ uint8 _sys_makedisk(uint8 drive) {
 /*===============================================================================*/
 // Private RunCPM guest/host benchmark ports. BIOS and BDOS use interrupt
 // handoff in this build, so ordinary guest I/O reaches here.
-static const uint8 VTDRV_PORT = 0x7a;
-static const uint8 VTDRV_QUIET_CAP_PORT = 0x7e;
-static const uint8 VTCPU_PORT = 0x7b;
-static const uint8 VTTERM_PORT = 0x79;
-static const uint8 VTREBOOT_PORT = 0x7c;
-static const uint8 VTSYNC_PORT = 0x7d;
-static const uint64 VTCPU_TSTATES = 13015509ULL;
-static const uint32 VTCPU8X_LOOPS = 500000UL;
-static const uint32 VTDRV_BYTES = 32768UL;
-static uint32 vtBenchmarkStartedAt = 0;
-static bool vtBenchmarkRunning = false;
-static bool vtcpuQuiet = false;
-static bool vtcpu8x = false;
-static uint8 vtdrvOperation = 0;
-static bool vtdrv8x = false;
-static bool vtdrvQuiet = false;
-static bool vttermReported = false;
-static uint8 vtSyncStatus = 0;
+static const uint8 XTGV_DRV_PORT = 0x7a;
+static const uint8 XTGV_DRV_QUIET_CAP_PORT = 0x7e;
+static const uint8 XTGV_CPU_PORT = 0x7b;
+static const uint8 XTGV_TERM_PORT = 0x79;
+static const uint8 XTGV_REBOOT_PORT = 0x7c;
+static const uint8 XTGV_SYNC_PORT = 0x7d;
+static const uint64 XTGV_CPU_TSTATES = 13015509ULL;
+static const uint32 XTGV_CPU8X_LOOPS = 500000UL;
+static const uint32 XTGV_DRV_BYTES = 32768UL;
+static uint32 xtgvBenchmarkStartedAt = 0;
+static bool xtgvBenchmarkRunning = false;
+static bool xtgvCpuQuiet = false;
+static bool xtgvCpu8x = false;
+static uint8 xtgvDrvOperation = 0;
+static bool xtgvDrv8x = false;
+static bool xtgvDrvQuiet = false;
+static bool xtgvTermReported = false;
+static uint8 xtgvSyncStatus = 0;
 
 void _putch(uint8 ch);
 
-static void _HardwarePrint(const char *text) {
+static void _xtgvHardwarePrint(const char *text) {
     while (*text)
         _putch((uint8)*text++);
 }
 
-static void _VTCPUBegin(bool quiet, bool use8x) {
-    vtcpuQuiet = quiet;
-    vtcpu8x = use8x;
+static void _xtgvCPUBegin(bool quiet, bool use8x) {
+    xtgvCpuQuiet = quiet;
+    xtgvCpu8x = use8x;
     if (use8x)
-        _HardwarePrint(quiet ? "VTCPU8X quiet : " : "VTCPU8X active: ");
+        _xtgvHardwarePrint(quiet ? "VTCPU8X quiet : " : "VTCPU8X active: ");
     else
-        _HardwarePrint(quiet ? "VTCPU quiet : " : "VTCPU active: ");
-#if !defined(RUNCPM_HEADLESS)
+        _xtgvHardwarePrint(quiet ? "VTCPU quiet : " : "VTCPU active: ");
+#if XTGV_TERMINAL
     if (quiet)
         terminalPause(true);
 #endif
-    vtBenchmarkStartedAt = (uint32)micros();
-    vtBenchmarkRunning = true;
+    xtgvBenchmarkStartedAt = (uint32)micros();
+    xtgvBenchmarkRunning = true;
 }
 
-static void _VTCPUEnd() {
-    if (!vtBenchmarkRunning)
+static void _xtgvCPUEnd() {
+    if (!xtgvBenchmarkRunning)
         return;
 
-    const uint32 elapsedUs = (uint32)micros() - vtBenchmarkStartedAt;
-    const bool wasQuiet = vtcpuQuiet;
-    const bool was8x = vtcpu8x;
-    vtBenchmarkRunning = false;
-    vtcpuQuiet = false;
-    vtcpu8x = false;
+    const uint32 elapsedUs = (uint32)micros() - xtgvBenchmarkStartedAt;
+    const bool wasQuiet = xtgvCpuQuiet;
+    const bool was8x = xtgvCpu8x;
+    xtgvBenchmarkRunning = false;
+    xtgvCpuQuiet = false;
+    xtgvCpu8x = false;
 
-#if !defined(RUNCPM_HEADLESS)
+#if XTGV_TERMINAL
     if (wasQuiet)
         terminalPause(false);
 #endif
@@ -595,63 +601,63 @@ static void _VTCPUEnd() {
     char buffer[96];
     if (was8x) {
         const uint64 mloopsHundredths =
-            (VTCPU8X_LOOPS * 100ULL + (elapsedUs / 2)) /
+            (XTGV_CPU8X_LOOPS * 100ULL + (elapsedUs / 2)) /
             (elapsedUs ? elapsedUs : 1);
         snprintf(buffer, sizeof(buffer),
                  "%lu loops in %lu us = %llu.%02llu Mloops/s\r\n",
-                 (unsigned long)VTCPU8X_LOOPS, (unsigned long)elapsedUs,
+                 (unsigned long)XTGV_CPU8X_LOOPS, (unsigned long)elapsedUs,
                  mloopsHundredths / 100ULL, mloopsHundredths % 100ULL);
     } else {
         const uint64 mhzHundredths =
-            (VTCPU_TSTATES * 100ULL + (elapsedUs / 2)) /
+            (XTGV_CPU_TSTATES * 100ULL + (elapsedUs / 2)) /
             (elapsedUs ? elapsedUs : 1);
         snprintf(buffer, sizeof(buffer),
                  "%llu T-states in %lu us = %llu.%02llu MHz\r\n",
-                 VTCPU_TSTATES, (unsigned long)elapsedUs,
+                 XTGV_CPU_TSTATES, (unsigned long)elapsedUs,
                  mhzHundredths / 100ULL, mhzHundredths % 100ULL);
     }
-    _HardwarePrint(buffer);
+    _xtgvHardwarePrint(buffer);
 }
 
-static void _VTDRVBegin(uint8 operation, bool use8x, bool quiet = false) {
-    vtdrvOperation = operation;
-    vtdrv8x = use8x;
-    vtdrvQuiet = quiet;
-#if !defined(RUNCPM_HEADLESS)
+static void _xtgvDRVBegin(uint8 operation, bool use8x, bool quiet = false) {
+    xtgvDrvOperation = operation;
+    xtgvDrv8x = use8x;
+    xtgvDrvQuiet = quiet;
+#if XTGV_TERMINAL
     if (quiet)
         terminalPause(true);
 #endif
-    vtBenchmarkStartedAt = (uint32)micros();
-    vtBenchmarkRunning = true;
+    xtgvBenchmarkStartedAt = (uint32)micros();
+    xtgvBenchmarkRunning = true;
 }
 
-static void _VTDRVEnd(uint8 operation) {
-    if (!vtBenchmarkRunning || vtdrvOperation != operation)
+static void _xtgvDRVEnd(uint8 operation) {
+    if (!xtgvBenchmarkRunning || xtgvDrvOperation != operation)
         return;
 
-    const uint32 elapsedUs = (uint32)micros() - vtBenchmarkStartedAt;
-    const bool wasQuiet = vtdrvQuiet;
+    const uint32 elapsedUs = (uint32)micros() - xtgvBenchmarkStartedAt;
+    const bool wasQuiet = xtgvDrvQuiet;
     const uint64 kibHundredths =
-        (VTDRV_BYTES * 100000000ULL + (uint64(elapsedUs) * 512ULL)) /
+        (XTGV_DRV_BYTES * 100000000ULL + (uint64(elapsedUs) * 512ULL)) /
         (uint64(elapsedUs ? elapsedUs : 1) * 1024ULL);
-    vtBenchmarkRunning = false;
-    vtdrvOperation = 0;
-    vtdrvQuiet = false;
-#if !defined(RUNCPM_HEADLESS)
+    xtgvBenchmarkRunning = false;
+    xtgvDrvOperation = 0;
+    xtgvDrvQuiet = false;
+#if XTGV_TERMINAL
     if (wasQuiet)
         terminalPause(false);
 #endif
 
     char buffer[96];
     snprintf(buffer, sizeof(buffer), "%s %s: %lu bytes in %lu us = %llu.%02llu KiB/s\r\n",
-             vtdrv8x ? "VTDRV8X" : "VTDRV",
+             xtgvDrv8x ? "VTDRV8X" : "VTDRV",
              operation == 1 ? (wasQuiet ? "quiet write" : "write") :
                               (wasQuiet ? "quiet read" : "read "),
-             (unsigned long)VTDRV_BYTES,
+             (unsigned long)XTGV_DRV_BYTES,
              (unsigned long)elapsedUs, kibHundredths / 100ULL,
              kibHundredths % 100ULL);
-    vtdrv8x = false;
-    _HardwarePrint(buffer);
+    xtgvDrv8x = false;
+    _xtgvHardwarePrint(buffer);
 }
 
 void _HardwareInit(void) {
@@ -660,68 +666,68 @@ void _HardwareInit(void) {
 void _HardwareOut(const uint32 Port, const uint32 Value) {
     const uint8 port = Port & 0xff;
     const uint8 value = Value & 0xff;
-    if (port == VTCPU_PORT) {
+    if (port == XTGV_CPU_PORT) {
         switch (value) {
-            case 1: _VTCPUBegin(false, false); break;
-            case 2: _VTCPUBegin(true, false); break;
-            case 3: _VTCPUEnd(); break;
-            case 4: _VTCPUBegin(false, true); break;
-            case 5: _VTCPUBegin(true, true); break;
-            case 6: _VTCPUEnd(); break;
+            case 1: _xtgvCPUBegin(false, false); break;
+            case 2: _xtgvCPUBegin(true, false); break;
+            case 3: _xtgvCPUEnd(); break;
+            case 4: _xtgvCPUBegin(false, true); break;
+            case 5: _xtgvCPUBegin(true, true); break;
+            case 6: _xtgvCPUEnd(); break;
         }
-    } else if (port == VTDRV_PORT) {
+    } else if (port == XTGV_DRV_PORT) {
         switch (value) {
-            case 1: _VTDRVBegin(1, false); break;
-            case 2: _VTDRVEnd(1); break;
-            case 3: _VTDRVBegin(2, false); break;
-            case 4: _VTDRVEnd(2); break;
-            case 5: _VTDRVBegin(1, true); break;
-            case 6: _VTDRVEnd(1); break;
-            case 7: _VTDRVBegin(2, true); break;
-            case 8: _VTDRVEnd(2); break;
-            case 9: _VTDRVBegin(2, false, true); break;
-            case 10: _VTDRVEnd(2); break;
-            case 11: _VTDRVBegin(1, false, true); break;
-            case 12: _VTDRVEnd(1); break;
+            case 1: _xtgvDRVBegin(1, false); break;
+            case 2: _xtgvDRVEnd(1); break;
+            case 3: _xtgvDRVBegin(2, false); break;
+            case 4: _xtgvDRVEnd(2); break;
+            case 5: _xtgvDRVBegin(1, true); break;
+            case 6: _xtgvDRVEnd(1); break;
+            case 7: _xtgvDRVBegin(2, true); break;
+            case 8: _xtgvDRVEnd(2); break;
+            case 9: _xtgvDRVBegin(2, false, true); break;
+            case 10: _xtgvDRVEnd(2); break;
+            case 11: _xtgvDRVBegin(1, false, true); break;
+            case 12: _xtgvDRVEnd(1); break;
             case 0xff: {
-                const bool wasQuiet = vtdrvQuiet;
-                vtBenchmarkRunning = false;
-                vtdrvOperation = 0;
-                vtdrv8x = false;
-                vtdrvQuiet = false;
-#if !defined(RUNCPM_HEADLESS)
+                const bool wasQuiet = xtgvDrvQuiet;
+                xtgvBenchmarkRunning = false;
+                xtgvDrvOperation = 0;
+                xtgvDrv8x = false;
+                xtgvDrvQuiet = false;
+#if XTGV_TERMINAL
                 if (wasQuiet)
                     terminalPause(false);
 #endif
                 break;
             }
         }
-    } else if (port == VTTERM_PORT && value == 1) {
-#if !defined(RUNCPM_HEADLESS)
-        vttermReported = false;
+    } else if (port == XTGV_TERM_PORT && value == 1) {
+#if XTGV_TERMINAL
+        xtgvTermReported = false;
         terminalTextBenchmarkRequest();
 #endif
-    } else if (port == VTREBOOT_PORT && value == 1) {
-#if !defined(RUNCPM_HEADLESS)
+    } else if (port == XTGV_REBOOT_PORT && value == 1) {
+#if XTGV_TERMINAL
         // Wait in the terminal task, so the lazy SD history save completes
         // before REBOOT.COM resets the ESP32-S3.
         terminalScheduleReboot();
 #endif
-    } else if (port == VTSYNC_PORT && value == 1) {
-#if !defined(RUNCPM_HEADLESS)
+    } else if (port == XTGV_SYNC_PORT && value == 1) {
+#if XTGV_TERMINAL
         // SYNC/REFLASH must finish both pending settings and history writes
         // before a graphics stream or firmware reset can starve lazy polling.
         terminalHistoryForceSave();
         terminalConfigForceSave();
         const bool historySaved = terminalHistoryStoragePoll();
         const bool configSaved = terminalConfigStoragePoll();
-        vtSyncStatus = historySaved && configSaved ? 1 : 0xff;
+        xtgvSyncStatus = historySaved && configSaved ? 1 : 0xff;
 #else
-        vtSyncStatus = 0xff;
+        xtgvSyncStatus = 0xff;
 #endif
-    } else if (port == VTTERM_PORT && value == 2) {
-#if !defined(RUNCPM_HEADLESS)
-        if (terminalTextBenchmarkDone() && !vttermReported) {
+    } else if (port == XTGV_TERM_PORT && value == 2) {
+#if XTGV_TERMINAL
+        if (terminalTextBenchmarkDone() && !xtgvTermReported) {
             char buffer[96];
             uint32_t elapsed = terminalTextBenchmarkElapsedUs();
             uint32_t bytes = terminalTextBenchmarkBytes();
@@ -731,8 +737,8 @@ void _HardwareOut(const uint32 Port, const uint32 Value) {
             snprintf(buffer, sizeof(buffer), "VTTERM native: %lu chars in %lu us = %lu chars/s (%lu B/s)\r\n",
                      (unsigned long)chars, (unsigned long)elapsed, (unsigned long)charRate,
                      (unsigned long)rate);
-            _HardwarePrint(buffer);
-            vttermReported = true;
+            _xtgvHardwarePrint(buffer);
+            xtgvTermReported = true;
         }
 #endif
     }
@@ -740,14 +746,14 @@ void _HardwareOut(const uint32 Port, const uint32 Value) {
 
 uint32 _HardwareIn(const uint32 Port) {
     const uint8 port = Port & 0xff;
-    if (port == VTCPU_PORT)
+    if (port == XTGV_CPU_PORT)
         return 'V';
-    if (port == VTDRV_PORT)
+    if (port == XTGV_DRV_PORT)
         return 'D';
-    if (port == VTDRV_QUIET_CAP_PORT)
+    if (port == XTGV_DRV_QUIET_CAP_PORT)
         return 'B'; // Both quiet read and quiet write; older firmware returns Q.
-    if (port == VTTERM_PORT) {
-#if !defined(RUNCPM_HEADLESS)
+    if (port == XTGV_TERM_PORT) {
+#if XTGV_TERMINAL
         if (!terminalTextBenchmarkDone())
             return 0;
         return 'D';
@@ -755,29 +761,15 @@ uint32 _HardwareIn(const uint32 Port) {
         return 0;
 #endif
     }
-    if (port == VTSYNC_PORT)
-        return vtSyncStatus;
+    if (port == XTGV_SYNC_PORT)
+        return xtgvSyncStatus;
     return 0;
 }
 
 /* Console abstraction functions */
 /*===============================================================================*/
 
-#if defined(RUNCPM_HEADLESS)
-int _kbhit(void) { return Serial.available(); }
-uint8 _getch(void) {
-    while (!Serial.available())
-        delay(1);
-    return uint8(Serial.read());
-}
-uint8 _getche(void) {
-    uint8 ch = _getch();
-    Serial.write(ch);
-    return ch;
-}
-void _putch(uint8 ch) { Serial.write(ch); }
-void _clrscr(void) { Serial.print("\033[2J\033[H"); }
-#else
+#if XTGV_TERMINAL
 int _kbhit(void) { return virtualAvailable(); }
 uint8 _getch(void) { return virtualRead(); }
 uint8 _getche(void) {
@@ -791,5 +783,19 @@ void _clrscr(void) {
     const char *clear = "\033[2J\033[H";
     while (*clear) virtualWrite(*clear++);
 }
+#else
+int _kbhit(void) { return Serial.available(); }
+uint8 _getch(void) {
+    while (!Serial.available())
+        delay(1);
+    return uint8(Serial.read());
+}
+uint8 _getche(void) {
+    uint8 ch = _getch();
+    Serial.write(ch);
+    return ch;
+}
+void _putch(uint8 ch) { Serial.write(ch); }
+void _clrscr(void) { Serial.print("\033[2J\033[H"); }
 #endif
 #endif
