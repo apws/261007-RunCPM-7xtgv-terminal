@@ -1,0 +1,26 @@
+= RunCPM runtime variants extraction checkpoint
+:source-highlighter: highlight.js
+
+*Date:* 261001 +
+*State:* Stage 1 source extraction; host-tested, target-aware firmware build pending
+
+The product sketch now ends with one
+`++hardware/arduino_7xtgv/runtime.h++` include. That dispatcher selects a
+complete runtime implementation: serial-only RunCPM, ESP32-S3 integrated
+RunCPM/terminal tasks, or RP2350 integrated split-core setup. The existing
+`++runCPM()++` flow remains in the sketch. Each moved runtime body was
+compared byte-for-byte with the pre-extraction sketch; the dispatcher only
+makes the already-selected RP2350 targets explicit instead of using a final
+unconditional `++#else++`.
+
+This follows the
+link:260930-13%20RunCPM%20cleanup,%20CCP%207XF%20and%20terminal-only%20build%20plan.adoc[cleanup plan]
+after the link:261001-04%20terminal%20persistence%20extraction%20and%20short%20module%20identity%20intent.adoc[INI/BUF extraction].
+No RunCPM core file, CP/M catalog behavior, guest storage file, terminal
+protocol or runtime mode flag changed in this step.
+
+All 84 Python host tests pass. They do not compile the complete Arduino
+translation unit, so a target-aware RP2_147 build is the next useful check
+for include order, platform types and Arduino preprocessing. It has not yet
+been requested or run. No firmware candidate was staged or flashed, and no
+device behavior is claimed from this source-only check.

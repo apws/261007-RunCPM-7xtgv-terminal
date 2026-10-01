@@ -4,7 +4,7 @@
 :toclevels: 2
 
 This is a compact history of the *implemented* 7xtgv RunCPM terminal through
-`++260928++`. Each `++YYMMDD-HH++` is a source commit or dated implementation
+`++261001++`. Each `++YYMMDD-HH++` is a source commit or dated implementation
 checkpoint, not necessarily the minute a feature first worked on hardware.
 Later rows can refine earlier behavior. The
 link:../FEATURES.adoc[feature ledger] tracks individual feature states and
@@ -86,6 +86,12 @@ renamed, or changes behavior.
 |`++260928-11++` |Added one-press `++Ctrl+Alt+C++` emergency return from an external COM and cancellation of the remaining SUBMIT batch; plain Ctrl+C stays a guest byte. |link:../260928-11%20forced%20COM%20warm%20return%20implementation%20checkpoint.adoc[forced return]
 |`++260928-18++` |Corrected GCLS interruption and retained an unfinished plot beneath the CCP notice; compared RP2_147 O2/O3 trial builds. Retained-pixel behavior still awaits Petr's explicit device report. |link:../260928-18%20retained%20GCLS%20return%20and%20RP2_147%20optimization%20trials.adoc[plot follow-up]
 |`++260928-20++` |Renamed source folders and sketches to `++RunCPM_7xtgv++`, `++RunCPM_7xtgv-terminal++`, `++RunCPM_linux++` and `++RunCPM_windows++`; this changed paths, not CP/M behavior. |link:../260928-20%20RunCPM%20source%20tree%20names%20and%20local%20comparison%20checkout.adoc[rename]
+|`++260930-22++` |Began the recovered-era cleanup: one board dispatcher now owns the existing storage selector, and all four target profiles explicitly identify their board. Missing/conflicting Arduino target flags fail compilation. Host-tested only; firmware parity is not yet claimed. |link:../260930-22%20RunCPM%20board%20dispatcher%20and%20explicit%20target%20checkpoint.adoc[board checkpoint]
+|`++261001-04++` |Moved terminal INI/BUF persistence into a terminal-owned header without changing its logic. Host tests pass; no firmware build or device parity claim. Recorded the intended future use of short module IDs across build and runtime. |link:../261001-04%20terminal%20persistence%20extraction%20and%20short%20module%20identity%20intent.adoc[persistence checkpoint]
+|`++261001-05++` |Moved the existing serial-only, ESP32 integrated, and RP2350 integrated runtime bodies into selectable headers. All four target profiles now explicitly request integrated RunCPM/terminal mode; direct named-board builds default to serial-only, while unfinished combinations fail. RP2_147 build `++261001-0510++` boots and works by Petr's report; other targets remain untested. |link:../261001-05%20RunCPM%20runtime%20variants%20extraction%20checkpoint.adoc[runtime], link:../261001-05%20explicit%20RunCPM%20and%20terminal%20build%20modes%20checkpoint.adoc[modes]
+|`++261001-0539++` |Separated the recovered plain `++ccp.h++` from our selectable `++ccp7xf.h++` while keeping the 7XF command implementation unchanged. Integrated targets explicitly select 7XF; direct serial-only builds default to the plain CCP. RP2_147 build `++261001-0544++` boots to `++A0>++`; interactive parity remains to be checked. |link:../261001-0539%20recovered%20CCP%20and%207XF%20variant%20split.adoc[CCP split]
+|`++261001-0556++` |Moved board-specific storage init, mount-status text and optional startup credit out of the root sketch into board policy. All four board headers provide explicit label/credit slots. This source edit is host-tested only, not in the running image. |link:../261001-0556%20RunCPM%20board%20boot%20and%20storage%20reporting%20extraction.adoc[board boot]
+|`++261001-0610++` |Grouped the per-module SD and backlight headers under `++boards/++` and moved all four display-default records there. Shared runtime/reboot/backlight dispatch stays outside that folder. This is a source-only ownership change. |link:../261001-0610%20per-board%20header%20layout%20and%20display%20policy%20extraction.adoc[board layout]
 |===
 
 == Command and catalog name lineage

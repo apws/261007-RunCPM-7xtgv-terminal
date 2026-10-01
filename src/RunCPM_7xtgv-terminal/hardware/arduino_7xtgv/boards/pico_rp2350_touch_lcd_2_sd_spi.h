@@ -12,5 +12,7 @@
 // dedicated SPI1 bus; the TFT uses its own PIO-backed bus and pins.
 #define RUNCPM_SD_MHZ 12
 #define RUNCPM_SD_MHZ_TEXT "12"
+#define XTGV_BOARD_BOOT_EXTRA ""
+#define XTGV_BOARD_STORAGE_INIT_LABEL "Init SD SPI bus ......"
 // GPIO15 is the TFT backlight, not a dedicated activity LED.
 // Leave LED undefined so disk activity cannot override display brightness.

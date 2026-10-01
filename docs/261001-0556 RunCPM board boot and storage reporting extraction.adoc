@@ -1,0 +1,37 @@
+= RunCPM board boot and storage reporting extraction
+:source-highlighter: highlight.js
+
+*Date:* 261001 +
+*State:* Stage 1 source-only checkpoint; host-tested, firmware build pending
+
+After RP2_147 build `++261001-0544++` booted with profile/history `++OK++`
+and an `++A0>++` mirror, Petr pointed out the remaining
+`++//TODO HAL/BOARD++` startup sections in the root sketch. This change
+removes those placeholders and the board-target branches around SD setup and
+startup reporting from `++RunCPM_7xtgv-terminal.ino++`.
+
+`++hardware/arduino_7xtgv/board.h++` now owns a small
+`++XtgvBoardStorageStatus++` result, the existing per-board SD init sequence,
+and board-specific text emission. All four flat board headers explicitly
+define an optional boot-credit string (currently empty) and the storage-init
+label. The root sketch retains the common RunCPM/CPU/BDOS banner and asks the
+board policy to print only its optional extra line and storage status.
+
+The intended success-path text remains unchanged: W535 uses SD_MMC and its
+one-bit pin summary, W550 reports its effective SPI clock, and both RP2350
+boards report the configured 12 MHz SPI mount. Serial-only W535 still prints
+its root listing after a successful mount. The existing failure text and
+actual storage readiness gate are preserved; the board status now explicitly
+carries both pin-setup and media-mount results rather than a lone boolean.
+
+All 87 Python host tests pass, including a source-boundary check that the root
+sketch has no board-target conditional or `++TODO HAL/BOARD++` placeholder.
+`++git diff --check++` passes. This does *not* prove Arduino compilation or
+hardware parity for the refactor: the running RP2_147 `++261001-0544++` image
+predates it. No rebuild, flash, promotion or other-board test was done here.
+
+Next gate: a requested target-aware `++rebuild++`, then RP2_147 reflash and
+startup-text check. Host compile checks for the other target profiles should
+precede any cross-board parity claim. Separate SPI/pin versus card-mount
+failure diagnostics remain a possible later behavior improvement, not part of
+this placement-only change.

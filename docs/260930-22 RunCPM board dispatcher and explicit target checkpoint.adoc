@@ -1,0 +1,39 @@
+= RunCPM board dispatcher and explicit target checkpoint
+:source-highlighter: highlight.js
+
+*Date:* 260930 +
+*State:* Stage 1 source checkpoint; host-tested, firmware build and hardware retest pending
+
+This is the first narrow implementation step of
+link:260930-13%20RunCPM%20cleanup,%20CCP%207XF%20and%20terminal-only%20build%20plan.adoc[the cleanup plan]
+against the current recovered-era fork. The first recovery commit
+`++34bb588aab8d014d550ae102cf28809f695822b6++` remains the pinned local
+core baseline; its original RunCPM files live under `++7xtgv_RunCPM/++`.
+No RunCPM-derived core header was edited in this checkpoint.
+
+== Source placement and target selection
+
+* The root `++RunCPM_7xtgv-terminal.ino++` now includes one
+  `++hardware/arduino_7xtgv/board.h++`. That dispatcher selects the existing
+  per-module storage header and owns the same `++SD++` instance and `++File++`
+  type selection previously written in the sketch. Storage implementation,
+  pins, clock, and startup flow remain otherwise unchanged.
+* W535 and RP2_2 target JSON profiles now supply explicit board defines,
+  matching the already-explicit W550 and RP2_147 profiles. Arduino builds
+  with zero or multiple target defines stop at `++runcpm-config.h++` instead
+  of silently using the ESP32-S3 or RP2040 architecture fallback. The
+  target-free host-test geometry still defaults to RP2_2.
+* A direct Arduino build without a named target profile now fails by design;
+  use the target-aware builder. No `++XTGV_RUNCPM++`/`++XTGV_TERMINAL++`
+  composition flags or standalone UART mode exist yet.
+
+The focused host checks passed: two target-metadata tests (including all
+four explicit target selections and zero/multiple-target rejection), nine
+target-config tests, four build-property tests, and `++git diff --check++`.
+These checks do not compile the whole Arduino sketch or prove physical SD,
+screen, or CP/M behavior.
+
+Next, extract terminal INI/BUF persistence and runtime ownership in small
+steps, then review the source movement against the recovered baseline. A
+target-aware build and Petr's hardware retest remain required before Stage 1
+parity can be claimed. No staged firmware, device, or CP/M mirror file changed.

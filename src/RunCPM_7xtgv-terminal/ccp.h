@@ -20,18 +20,10 @@
 
 // CCP Configuration and State
 #define DEFAULT_PAGE_SIZE 22
-#define PROMPT_SIZE       16
+#define PROMPT_SIZE       8
 #define FCB_SIZE          36
 #define SEC_SIZE          128
 #define MAX_USER          15
-
-// Prompt presentation only; the current CP/M user area remains unchanged.
-typedef enum {
-    CCP_PROMPT_DECIMAL, // A15> (default)
-    CCP_PROMPT_HEX,     // AF>
-    CCP_PROMPT_DRIVE,   // A>
-    CCP_PROMPT_NAMED    // /a/mbasic>
-} CCPPromptMode;
 
 // CCP global variables
 uint8 pageSize = DEFAULT_PAGE_SIZE;     // for TYPE
@@ -40,11 +32,7 @@ uint8 paramDrive = 0;                   // 0 -> 15 = A -> P (Drive for the first
 uint8 currentUser = 0;                  // 0 -> 15 (Current user area to access)
 bool submitFlag = FALSE;                // Submit Flag
 uint8 submitRecords = 0;                // Number of records on the Submit file
-bool ccpSuppressNextPromptNewline = FALSE; // CLS owns the next prompt row
-bool ccpIgnoreStrandedSubmit = FALSE; // deletion failure must not resume a forced batch
-uint8 ccpStrandedSubmitPath[sizeof("A/0/$$$.SUB")] = {};
 uint8 prompt[PROMPT_SIZE] = "\r\n  >";  // Command prompt
-CCPPromptMode ccpPromptMode = CCP_PROMPT_DECIMAL;
 uint16 cmdBufferPtr, errorPtr;          // Pointer to the command buffer, and error position
 uint8 bufferLen = 0;                    // Actual size of the typed command line
 
@@ -256,7 +244,7 @@ uint8 _ccp_dir(void) {
     if (_RamRead(ParFCB + 1) == ' ')
         for (i = 1; i < 12; ++i)
             _RamWrite(ParFCB + i, '?');
-    dirHead[0] = _RamRead(ParFCB) ? _RamRead(ParFCB) + '@' : 'A' + currentDrive;
+    dirHead[0] = _RamRead(ParFCB) ? _RamRead(ParFCB) + '@' : prompt[2];
 
     _puts("\r\n");
     if (!_SearchFirst(ParFCB, TRUE)) {
@@ -507,9 +495,6 @@ uint8 _ccp_user(void) {
 // CLS command - clears the screen
 uint8 _ccp_cls(void) {
     _clrscr();
-    // The regular interactive CCP prompt begins with CR/LF.  CLS has already
-    // homed the cursor, so consume that one separator and leave A0> on row 1.
-    ccpSuppressNextPromptNewline = !submitFlag;
     return (FALSE);
 } // _ccp_cls
 
@@ -662,13 +647,13 @@ uint8 _ccp_dump(void) {
     }
 } // _ccp_dump
 
-// VOL command - shows the area DIR.7XF information
+// VOL command - shows the volume INFO.TXT information
 uint8 _ccp_vol(void) {
     uint8 error = FALSE;
     uint8 letter = _RamRead(ParFCB) ? '@' + _RamRead(ParFCB) : 'A' + currentDrive;
     uint8 folder[5] = {letter, FOLDERCHAR, '0', FOLDERCHAR, 0};
-    uint8 filename[13] = {letter, FOLDERCHAR, '0', FOLDERCHAR, 'D', 'I', 'R',
-                          '.', '7', 'X', 'F', 0};
+    uint8 filename[13] = {letter, FOLDERCHAR, '0', FOLDERCHAR, 'I', 'N', 'F',
+                          'O', '.', 'T', 'X', 'T', 0};
     uint8 bytesread;
     uint8 i, j;
 
@@ -697,28 +682,6 @@ uint8 _ccp_vol(void) {
     }
     return (error);
 } // _ccp_vol
-
-#include "ccp_catalog.h"
-
-// 7XF selects the CCP prompt style; LS/LL own one-shot catalog capture.
-uint8 _ccp_7xf(void) {
-    char arg[128];
-    if (!_ccp_catArgument(arg, sizeof arg)) return 1;
-    if (!arg[0]) {
-        ccpPromptMode = CCP_PROMPT_NAMED;
-        return FALSE;
-    }
-    if (_ccp_strEqual(arg, "DD") || _ccp_strEqual(arg, "DH") ||
-        _ccp_strEqual(arg, "D") || _ccp_strEqual(arg, "DN")) {
-        ccpPromptMode = _ccp_strEqual(arg, "DD") ? CCP_PROMPT_DECIMAL :
-                        _ccp_strEqual(arg, "DH") ? CCP_PROMPT_HEX :
-                        _ccp_strEqual(arg, "D") ? CCP_PROMPT_DRIVE :
-                        CCP_PROMPT_NAMED;
-        return FALSE;
-    }
-    _puts("\r\n Usage: 7XF [DD|DH|D|DN]");
-    return FALSE;
-}
 
 // COPY command - copies a file
 // Usage: COPY <src> <dest>
@@ -838,39 +801,28 @@ uint8 _ccp_poke(void) {
 
 // ?/Help command
 uint8 _ccp_hlp(void) {
-    static const char *const lines[] = {
-        " CCP Commands:",
-        " ?                  - Shows this list of commands",
-        " COPY <src> <dst>   - Copies a file",
-        " DEL [<patt>]       - Alias to ERA",
-        " DIR [<patt>]       - Lists file directory",
-        " ECHO <text>        - Prints text to console",
-        " ERA [<patt>]       - Erases files",
-        " EXIT               - Terminates RunCPM",
-        " LDIR [<patt>] [/C] - Lists files with sizes; /C adds checksum",
-        " PAGE [<n>]         - Paging for TYPE, LDIR, LS and help; 0=off",
-        " POKE <addr> <val>  - Writes a byte to memory (hex)",
-        " REN <new>=<old>    - Renames files",
-        " SAVE <n> <file>    - Saves memory pages (256 bytes) to file",
-        " TYPE <file>        - Displays file contents",
-        " USER <n>           - Changes user area",
-        " VER                - Displays the current CCP version",
-        " CLS                - Clears the screen",
-        " DUMP <addr|file>   - Hex+ASCII dump of memory or file",
-        " VOL [<drv>]        - Shows the area DIR.7XF information",
-        "",
-        " 7xtgv extended:",
-        " 7XF [DD|DH|D|DN]    - Select prompt style",
-        " LS [-L] [-O file] [path] - Named catalog",
-        " LL [-O file] [path]      - Alias to LS -L",
-        " CD [name|/D|/D/name] - Select named area"
-    };
-    _puts("\r\n");
-    uint16 pageLines = 0;
-    for (uint8 i = 0; i < sizeof(lines) / sizeof(lines[0]); ++i) {
-        _puts(lines[i]);
-        if (!_ccp_catEol(&pageLines)) break;
-    }
+    _puts("\r\nCCP Commands:\r\n");
+    _puts(" ?                  - Shows this list of commands\r\n");
+    _puts(" CLS                - Clears the screen\r\n");
+    _puts(" COPY <src> <dst>   - Copies a file\r\n");
+    _puts(" DEL [<patt>]       - Alias to ERA\r\n");
+    _puts(" DIR [<patt>]       - Lists file directory\r\n");
+    _puts(" DUMP <addr|file>   - Hex+ASCII dump of memory or file\r\n");
+    _puts("                      addr = 4 hex digits\r\n");
+    _puts(" ECHO <text>        - Prints text to console\r\n");
+    _puts(" ERA [<patt>]       - Erases files\r\n");
+    _puts(" EXIT               - Terminates RunCPM\r\n");
+    _puts(" LDIR [<patt>] [/C] - Lists file directory with sizes\r\n");
+    _puts("                      /C option includes 16 bit checksum\r\n");
+    _puts(" PAGE [<n>]         - Sets the paging size for TYPE and LDIR\r\n");
+    _puts("                      n = 0 to 255, 0 disables paging\r\n");
+    _puts(" POKE <addr> <val>  - Writes a byte to memory (hex)\r\n");
+    _puts(" REN <new>=<old>    - Renames files\r\n");
+    _puts(" SAVE <n> <file>    - Saves memory pages (256 bytes) to file\r\n");
+    _puts(" TYPE <file>        - Displays file contents\r\n");
+    _puts(" USER <n>           - Changes user area\r\n");
+    _puts(" VER                - Displays the current CCP version\r\n");
+    _puts(" VOL [<drv>]        - Shows the volume INFO.TXT information\r\n");
     return (FALSE);
 }
 
@@ -887,12 +839,8 @@ static const Command Commands[] = {
 
     // Extra CCP commands
     {"CLS", _ccp_cls},
-    {"7XF", _ccp_7xf},
     {"COPY", _ccp_copy},
     {"LDIR", _ccp_ldir},
-    {"LS", _ccp_ls},
-    {"LL", _ccp_ls},
-    {"CD", _ccp_cd},
     {"DEL", _ccp_era},
     {"ECHO", _ccp_echo},
     {"EXIT", _ccp_exit},
@@ -928,32 +876,6 @@ const Command *_ccp_cnum(void) {
     }
     return NULL; // External command
 } // _ccp_cnum
-
-#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
-static bool _ccp_cancelForcedSubmit() {
-    // SUBMIT's queue is an exact reserved filename, not a wildcard for all
-    // dollar-prefixed files. The COM may have just created it, so check it
-    // even if submitFlag was false when the command began. Use the owner-side
-    // host file operation: BDOS F_DELETE can stop for an interactive disk
-    // error, which must not strand the forced-return path.
-    uint8 path[] = "A/0/$$$.SUB";
-#ifdef BATCHA
-    path[0] = 'A';
-#else
-    path[0] = uint8('A' + cDrive);
-#endif
-#ifndef BATCH0
-    path[2] = uint8(toupper(tohex(userCode)));
-#endif
-    const bool removed = !_sys_exists(path) || _sys_deletefile(path);
-    submitFlag = FALSE;
-    submitRecords = 0;
-    ccpIgnoreStrandedSubmit = !removed;
-    if (!removed)
-        memcpy(ccpStrandedSubmitPath, path, sizeof(path));
-    return removed;
-}
-#endif
 
 // External (.COM) command
 uint8 _ccp_ext(void) {
@@ -1131,30 +1053,7 @@ uint8 _ccp_ext(void) {
         PC = loadAddr;                       // Sets CP/M application jump point
         SP = BDOSjmppage;                    // Sets the stack to the top of the TPA
 
-        // Only a loaded external COM may accept the emergency chord. The
-        // terminal task merely sets its atomic request; this core owns the
-        // eventual STATUS_RESTART and all filesystem cleanup.
-#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
-        forcedWarmReturn().beginExternal();
-#endif
         Z80run(cpuDelayInstructions); // Starts Z80 simulation
-#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
-        const bool forced = forcedWarmReturn().finishExternal();
-        if (forced) {
-            // Let the terminal task discard serial/reply bytes and reset its
-            // current line model. A dead terminal task cannot be rescued by
-            // this feature, so keep this handshake bounded.
-            for (unsigned wait = 0; wait < 200 &&
-                 !forcedWarmReturn().inputCleaned(); ++wait)
-                delay(1);
-            terminalDiscardGuestInput();
-            const bool batchRemoved = _ccp_cancelForcedSubmit();
-            _puts("\r\nFORCED WARM RETURN\r\n");
-            if (!batchRemoved)
-                _puts("SUBMIT QUEUE COULD NOT BE DELETED; BATCH HELD\r\n");
-            forcedWarmReturn().resumeInput();
-        }
-#endif
         PC = 0;   // Resets the PC/SP after command execution
         SP = 0;
 
@@ -1183,9 +1082,6 @@ void _ccp_cmdError() {
 
 // Reads input, either from the $$$.SUB or console
 void _ccp_readInput(void) {
-#ifdef RUNCPM_CONFIG_GUEST_IDLE
-    RUNCPM_CONFIG_GUEST_IDLE();
-#endif
     uint8 i;
     uint8 chars;
 
@@ -1203,8 +1099,6 @@ void _ccp_readInput(void) {
         for (i = 0; i <= chars; ++i)
             _RamWrite(inBuf + i + 1, _RamRead(defDMA + i));
         _RamWrite(inBuf + i + 1, 0);
-        // SUBMIT records already carry their CR/LF terminator.  Preserve that
-        // single terminator when echoing the record before dispatch.
         _puts((char *)_RamSysAddr(inBuf + 2));
         if (!submitRecords) {
             _ccp_bdos(F_DELETE, BatchFCB); // Deletes the submit file
@@ -1269,30 +1163,7 @@ void _ccp(void) {
     uint8 i;
 
     submitFlag = (bool)_ccp_bdos(DRV_ALLRESET, 0x0000);
-    if (ccpIgnoreStrandedSubmit) {
-        // A failed SD deletion must not run the next record of that batch.
-        // Keep trying on later warm returns; a cold reset clears this RAM
-        // safeguard and the warning above told the user deletion failed.
-        ccpIgnoreStrandedSubmit = _sys_exists(ccpStrandedSubmitPath) &&
-                                  !_sys_deletefile(ccpStrandedSubmitPath);
-        submitFlag = FALSE;
-    }
     _ccp_bdos(DRV_SET, currentDrive);
-
-#if defined(XTGV_ABORT_PENDING_SUBMIT_ON_BOOT)
-    // One-shot recovery firmware can deliberately cancel a stranded batch
-    // before CCP consumes its next record.  Ordinary builds preserve the
-    // traditional submit-resume behavior unchanged.
-    if (firstBoot && submitFlag) {
-        _ccp_initFCB(tmpFCB, 36);
-        _HostnameToFCB(tmpFCB, (uint8 *)"$$$.SUB");
-#ifdef BATCHA
-        _RamWrite(tmpFCB, 1); // RunCPM searches submit queues on drive A:
-#endif
-        _ccp_bdos(F_DELETE, tmpFCB);
-        submitFlag = FALSE;
-    }
-#endif
 
     for (i = 0; i < 36; ++i) {
         _RamWrite(BatchFCB + i, _RamRead(tmpFCB + i));
@@ -1330,27 +1201,8 @@ void _ccp(void) {
         paramDrive = currentDrive; // Initially the parameter drive is the same as the
                              // current drive
 
-        // Submitted records already receive CR/LF after their echo.  Adding
-        // the normal interactive prompt prefix again creates an empty row
-        // between every pair of SUB commands.
-        const bool compactPrompt = submitFlag || ccpSuppressNextPromptNewline;
-        char userText[4] = "";
-        if (ccpPromptMode == CCP_PROMPT_DECIMAL)
-            sprintf(userText, "%u", (unsigned int)currentUser);
-        else if (ccpPromptMode == CCP_PROMPT_HEX)
-            sprintf(userText, "%X", (unsigned int)currentUser);
-        if (ccpPromptMode == CCP_PROMPT_NAMED) {
-            char alias[13], description[81];
-            if (!_ccp_catArea(currentDrive, currentUser, alias, description))
-                sprintf(alias, "%u", (unsigned int)currentUser);
-            sprintf((char *)prompt, compactPrompt ? "/%c/%s%c" :
-                    "\r\n/%c/%s%c", 'a' + currentDrive, alias,
-                    submitFlag ? '$' : '>');
-        } else {
-            sprintf((char *)prompt, compactPrompt ? "%c%s%c" : "\r\n%c%s%c",
-                    'A' + currentDrive, userText, submitFlag ? '$' : '>');
-        }
-        ccpSuppressNextPromptNewline = FALSE;
+        sprintf((char *)prompt, "\r\n%c%u%c", 'A' + currentDrive, currentUser,
+                submitFlag ? '$' : '>');
         if (!bufferLen) {
             _puts((char *)prompt);
 
@@ -1442,11 +1294,7 @@ void _ccp(void) {
         if ((Status == STATUS_EXIT) || (Status == STATUS_RESTART))
             break;
     }
-    // A warm boot immediately enters another CCP instance.  SUBMIT already
-    // terminated its echoed record, and an interactive prompt supplies its
-    // own leading CR/LF, so emitting one here only creates an empty row.
-    if (Status != STATUS_RESTART)
-        _puts("\r\n");
+    _puts("\r\n");
 } // _ccp
 
 #endif // ifndef CCP_H

@@ -16,6 +16,8 @@
 #endif
 
 #define board_esp32
+#define XTGV_BOARD_BOOT_EXTRA ""
+#define XTGV_BOARD_STORAGE_INIT_LABEL "Init SD_MMC pins ....."
 
 static constexpr int RUNCPM_SD_CLK = 12;
 static constexpr int RUNCPM_SD_CMD = 11;

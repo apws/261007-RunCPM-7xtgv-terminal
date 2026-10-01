@@ -4,7 +4,8 @@ import subprocess
 import tempfile
 import unittest
 
-SKETCH = Path(__file__).resolve().parents[1] / "RunCPM_7xtgv-terminal.ino"
+ROOT = Path(__file__).resolve().parents[1]
+PERSISTENCE = ROOT / "src/terminal/terminal_persistence.h"
 
 
 class ConfigSettingsTests(unittest.TestCase):
@@ -12,8 +13,8 @@ class ConfigSettingsTests(unittest.TestCase):
     def setUpClass(cls):
         cls.directory = tempfile.TemporaryDirectory(prefix="xtgv-config-test-")
         cls.binary = Path(cls.directory.name) / "writer"
-        sketch = SKETCH.read_text()
-        functions = sketch.split("static bool updateConfigSettings", 1)[1].split(
+        persistence = PERSISTENCE.read_text()
+        functions = persistence.split("static bool updateConfigSettings", 1)[1].split(
             "static bool writeTerminalConfigText", 1)[0]
         source = r'''
 #include <cstdint>
@@ -46,7 +47,7 @@ int main(int argc, char **argv) {
         path = Path(cls.directory.name) / "writer.cpp"
         path.write_text(source)
         subprocess.run(["g++", "-std=c++17", "-Wall", "-Wextra", "-Werror",
-                        "-I", str(SKETCH.parent), str(path), "-o", str(cls.binary)], check=True)
+                        "-I", str(ROOT), str(path), "-o", str(cls.binary)], check=True)
 
     @classmethod
     def tearDownClass(cls):

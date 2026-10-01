@@ -11,4 +11,6 @@
 #define SD_MISO 12
 #define RUNCPM_SD_MHZ 12
 #define RUNCPM_SD_MHZ_TEXT "12"
+#define XTGV_BOARD_BOOT_EXTRA ""
+#define XTGV_BOARD_STORAGE_INIT_LABEL "Init SD SPI bus ......"
 // No activity LED: GPIO21 belongs to the backlight, GPIO22 to a WS2812.

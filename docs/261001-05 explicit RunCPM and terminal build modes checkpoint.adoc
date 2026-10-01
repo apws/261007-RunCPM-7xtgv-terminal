@@ -1,0 +1,40 @@
+= Explicit RunCPM and terminal build modes checkpoint
+:source-highlighter: highlight.js
+
+*Date:* 261001 +
+*State:* Stage 1 source/build-policy checkpoint; RP2_147 boot smoke passed
+
+All four integrated target JSON profiles now explicitly pass
+`++XTGV_RUNCPM=1++` and `++XTGV_TERMINAL=1++` alongside their exact board
+define. `++runcpm-config.h++` provides numeric 0/1 composition flags and
+defaults to `++XTGV_RUNCPM=1++`, `++XTGV_TERMINAL=0++` for a direct Arduino
+build with a named board. The root sketch and runtime dispatcher now read
+`++XTGV_TERMINAL++` directly. RunCPM core/abstraction branches still consume
+`++RUNCPM_HEADLESS++`; the Arduino configuration derives that legacy selector
+only when terminal mode is 0. Integrated mode rejects a conflicting explicit
+`++RUNCPM_HEADLESS++`.
+
+`++0/1++` standalone terminal and `++0/0++` invalid composition fail at
+compile time. This is a reserved interface, *not* an implemented external-UART
+terminal. Host-side terminal tests continue their old compilation path while
+the product-only mode mapping is introduced incrementally; they do not yet
+prove a complete serial-only Arduino firmware build.
+
+The target metadata test checks each integrated profile, direct serial-only
+defaults, invalid numeric values, unfinished combinations and the legacy
+selector conflict. All 85 Python host tests pass. Petr then requested a
+target-aware RP2_147 build: `++261001-0510++` compiled and was staged as
+`++new++`. On his subsequent `++reflash++` request, the UF2 was copied to the
+BOOTSEL volume with registered chip ID `++D60D9318CF30A586++`. The same chip
+returned as serial; the visible mirror shows the `++261001-0510++` banner,
+terminal profile and history `++OK++`, and an `++A0>++` prompt. The candidate
+remains `++new++`, not promoted. This is a boot smoke check, not interactive
+parity testing of the extracted board/runtime code or proof of the other
+target profiles. A subsequent change moved the root sketch's remaining mode
+checks to `++XTGV_TERMINAL++`. It is included in the later RP2_147
+`++261001-0544++` build together with the
+link:261001-0539%20recovered%20CCP%20and%207XF%20variant%20split.adoc[CCP split];
+that image was subsequently flashed and reached an `++A0>++` mirror with
+profile/history `++OK++`. The still-later board boot/storage extraction is
+source-only and awaits its own build. The extended suite now has 87 passing
+host tests.

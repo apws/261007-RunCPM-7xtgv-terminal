@@ -4,13 +4,13 @@
 #include <stdint.h>
 
 #if defined(RUNCPM_TARGET_JC8048W550)
-#include "jc8048w550_backlight.h"
+#include "boards/jc8048w550_backlight.h"
 #elif defined(RUNCPM_TARGET_JC8048W535)
-#include "jc8048w535_backlight.h"
+#include "boards/jc8048w535_backlight.h"
 #elif defined(RUNCPM_TARGET_RP2350_LCD_1_47_A)
-#include "pico_rp2350_lcd_1_47_a_backlight.h"
+#include "boards/pico_rp2350_lcd_1_47_a_backlight.h"
 #else
-#include "pico_rp2350_touch_lcd_2_backlight.h"
+#include "boards/pico_rp2350_touch_lcd_2_backlight.h"
 #endif
 
 // 32 states: OFF=0, PWM=1..30, full ON=31. Lit minimum and intermediate

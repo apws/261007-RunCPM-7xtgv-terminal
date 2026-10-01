@@ -5,6 +5,6 @@
   "profile": "jc8048w550",
   "port": "/dev/ttyUSB0",
   "build_properties": {
-    "build.extra_flags": "-DRUNCPM_TARGET_JC8048W550"
+    "build.extra_flags": "-DRUNCPM_TARGET_JC8048W550 -DXTGV_RUNCPM=1 -DXTGV_TERMINAL=1 -DXTGV_CCP_7XF=1"
   }
 }

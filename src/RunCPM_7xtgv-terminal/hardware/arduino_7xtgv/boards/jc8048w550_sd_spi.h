@@ -21,6 +21,8 @@ static fs::SDFS &RUNCPM_ESP32_SD_LIBRARY = ::SD;
 #define O_WRITE O_WRONLY
 #endif
 #define board_esp32
+#define XTGV_BOARD_BOOT_EXTRA ""
+#define XTGV_BOARD_STORAGE_INIT_LABEL "Init SD SPI bus ......"
 static constexpr int RUNCPM_SD_CS = 10;
 static constexpr int RUNCPM_SD_MOSI = 11;
 static constexpr int RUNCPM_SD_MISO = 13;

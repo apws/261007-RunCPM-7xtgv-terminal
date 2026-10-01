@@ -1,6 +1,6 @@
 // Host wiring/geometry guard; no Arduino firmware build or device access.
 #include "../runcpm-config.h"
-#include "../hardware/arduino_7xtgv/pico_rp2350_lcd_1_47_a_sd_spi.h"
+#include "../hardware/arduino_7xtgv/boards/pico_rp2350_lcd_1_47_a_sd_spi.h"
 #include "../src/terminal/display_policy.h"
 #include "../src/terminal/7xtgv-gfxsetup.h"
 #include <cassert>

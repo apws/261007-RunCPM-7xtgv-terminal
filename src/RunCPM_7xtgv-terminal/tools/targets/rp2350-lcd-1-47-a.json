@@ -5,6 +5,6 @@
   "method": "bootsel-uf2",
   "profile": "rp2350-lcd-1-47-a",
   "build_properties": {
-    "build.extra_flags": "-DRUNCPM_TARGET_RP2350_LCD_1_47_A"
+    "build.extra_flags": "-DRUNCPM_TARGET_RP2350_LCD_1_47_A -DXTGV_RUNCPM=1 -DXTGV_TERMINAL=1 -DXTGV_CCP_7XF=1"
   }
 }

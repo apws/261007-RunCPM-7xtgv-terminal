@@ -1,0 +1,51 @@
+= Recovered CCP and 7XF variant split
+:source-highlighter: highlight.js
+
+*Date:* 261001 +
+*State:* Stage 1 split; RP2_147 boot smoke passed, broader parity pending
+
+Petr confirmed that the RP2_147 image `++261001-0510++` boots and works, then
+approved the next RunCPM core seam in
+link:260930-13%20RunCPM%20cleanup,%20CCP%207XF%20and%20terminal-only%20build%20plan.adoc[the cleanup plan].
+That flashed image *predates* this CCP split.
+
+The previously active `++ccp.h++` was copied to `++ccp7xf.h++`. Its body is
+byte-for-byte the pre-split 7XF CCP; only the include guard and a two-line
+ownership comment differ. The plain `++ccp.h++` was restored byte-for-byte
+from the recovered-era `++RunCPM_7xtgv/ccp.h++`, whose SHA-256 is
+`++b1f8d48c15a91c334da0e92d154b49ee798ff4fc0f0effb3cc37426428f4cd70++`.
+That file matches the first recovery commit's `++7xtgv_RunCPM/ccp.h++`.
+`++ccp_catalog.h++` remains included only by the 7XF variant.
+
+The root sketch selects exactly one header when `++CCP_INTERNAL++` is enabled:
+`++XTGV_CCP_7XF=1++` selects `++ccp7xf.h++`; 0 selects plain `++ccp.h++`.
+All four integrated target JSON profiles explicitly pass 1, preserving their
+current 7XF shell behavior on the next build. Direct named-board serial-only
+builds default to 0, independently of `++XTGV_TERMINAL++`. The selector is
+restricted to numeric 0/1 and cannot enable 7XF without internal CCP.
+
+The root sketch's remaining terminal-mode branches now read
+`++XTGV_TERMINAL++` rather than the negative legacy headless selector.
+RunCPM-derived core and abstraction branches still use
+`++RUNCPM_HEADLESS++`; that compatibility mapping remains in
+`++runcpm-config.h++`.
+
+Host checks: the recovered/plain CCP hashes match; the 7XF CCP body matches
+the committed pre-split body; 86 Python host tests pass; `++git diff --check++`
+passes. Petr requested a target-aware `++rebuild++`: RP2_147 build
+`++261001-0544++` compiles with `++XTGV_CCP_7XF=1++` and is staged as
+`++new++` (300080 bytes sketch, 161876 bytes globals; UF2 SHA-256
+`++172aa4cb53d6a0e5781a9165d52a1bf0286fb1a1cc0cdab436b9347ffa48bd12++`).
+On Petr's following `++reflash++` request, the staged UF2 was copied to the
+registered RP2350 BOOTSEL chip `++D60D9318CF30A586++`. It returned as serial;
+the visible mirror shows build `++261001-0544++`, terminal profile/history
+`++OK++`, and `++A0>++`. This is a boot smoke check, not interactive 7XF or
+forced-return parity. No image promotion, CP/M mirror transfer or other-board
+test was performed.
+
+Next: Petr can test 7XF commands, INI/history and COM return on RP2_147.
+Keep the recovered
+`++VOL++` behavior correction (plain
+`++INFO.TXT++` versus 7XF `++DIR.7XF++`) separately reviewable. Boot/storage
+reporting, generic core hooks and the later pinned Mockba HEAD port remain
+distinct work.

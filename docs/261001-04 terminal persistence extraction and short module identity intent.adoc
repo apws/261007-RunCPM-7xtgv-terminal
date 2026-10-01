@@ -1,0 +1,42 @@
+= Terminal persistence extraction and short module identity intent
+:source-highlighter: highlight.js
+
+*Date:* 261001 +
+*State:* Stage 1 source extraction; host-tested, firmware build and hardware retest pending
+
+Following the
+link:260930-13%20RunCPM%20cleanup,%20CCP%207XF%20and%20terminal-only%20build%20plan.adoc[cleanup plan]
+and the link:260930-22%20RunCPM%20board%20dispatcher%20and%20explicit%20target%20checkpoint.adoc[board checkpoint],
+the terminal-owned INI/BUF persistence block was moved from the product
+sketch to `++src/terminal/terminal_persistence.h++`. The header is included
+after the `++SD++`/`++File++` selection and RunCPM globals, and before the
+Arduino abstraction consumes its config-access and lazy-save functions.
+The 309 moved lines were compared byte-for-byte with the pre-extraction
+sketch. This is source placement, not a save-format or runtime behavior change.
+Two host tests which extracted functions by reading the sketch now read the
+header instead. All 84 Python host tests pass, including the RAM-backed INI
+transaction and config-setting tests. No target-aware firmware build,
+device flash, CP/M file transfer or hardware parity test was performed.
+
+== Short identity intent
+
+Petr would ultimately like one short explicit module/board identifier to be
+recognizable during build selection, firmware runtime reporting and INI
+configuration. Today's `++display_id++` values (`++ES3_35++`, `++ES3_5++`,
+`++RP2_2++`, `++RP2_147++`) are the intended human-facing short codes; the
+long `++profile++`/target names presently select host build and upload data,
+artifact directories and exact firmware identity. They are currently
+one-to-one, but the display/INI group could in principle be shared by more
+than one physical board needing different firmware.
+
+Do not rename profiles or redefine `++display_id++` during the mechanical
+cleanup. Before unifying the names, inventory build JSON, `++XTGV_TARGET++`,
+reflash identity guards, staged artifacts, display policy, runtime `++VTINFO++`
+and INI section matching. Decide explicitly whether the short key denotes
+an exact board or a reusable display group; retain a separate key if those
+roles ever diverge. Migrate aliases deliberately so existing host commands,
+artifacts and cards do not silently select another target.
+
+Next Stage 1 work is root-sketch runtime/boot ownership, explicit build-mode
+composition and the separate 7XF CCP. RunCPM-derived core hooks still require
+their own seam review and Petr's direction before editing.

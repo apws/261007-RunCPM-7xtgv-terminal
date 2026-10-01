@@ -1,0 +1,49 @@
+= Per-board header layout and display policy extraction
+:source-highlighter: highlight.js
+
+*Date:* 261001 +
+*State:* Stage 1 source-only checkpoint; host-tested, firmware build pending
+
+Petr confirmed that the project boundary should keep shared terminal and
+RunCPM mechanisms shared while making each module's physical wiring and
+defaults easy to locate. A single include per module is not an end in itself:
+the ESP32-S3 task runtime, RP2350 multicore runtime, reboot mechanism and
+backlight dispatcher are shared by more than one board. Their implementations
+remain above the new `++hardware/arduino_7xtgv/boards/++` folder.
+
+The eight existing per-module SD and backlight headers moved without content
+changes into `++boards/++`. `++board.h++` and `++backlight.h++` still select
+them through one target-aware dispatch each. Include paths and the RP2_147 HAL
+test were updated. This is a filesystem ownership change, not a new hardware
+abstraction or copied common runtime.
+
+The four `++DisplayHalDefaults++` records moved unchanged from
+`++src/terminal/display_policy.h++` into adjacent per-module
+`++*_display.h++` headers under `++boards/++`. The terminal-facing header
+retains the common type, target selector, viewport geometry helpers and the
+`++displayHalDefaults()++` interface. Host target tests compile each board
+selection and verify its identity, panel size, logical limits, zoom geometry,
+disk-indicator offset and optional warning.
+
+All 87 Python host tests pass and `++git diff --check++` passes. No target-aware
+Arduino build, flash or image promotion was performed for this step. The
+running RP2_147 `++261001-0544++` image predates both this layout and the
+source-only boot/storage extraction.
+
+Remaining board-dependent clusters still need separate review:
+
+* `++7xtgv-gfxsetup.h++` owns actual graphics-driver construction and pinout;
+  it is larger than the data-only display policy and should move only with a
+  target build matrix.
+* `++runcpm-config.h++` still contains board-selected logical terminal RAM
+  limits; those values must agree with each display descriptor.
+* `++target_identity.h++` maps build flags to host target names. It may join a
+  future short-ID unification, but this rename is not part of the present
+  extraction.
+* `++board.h++` still has centralized target branches for the different SD
+  APIs; moving them into per-module functions is optional and should not
+  duplicate common storage code merely to achieve one include per board.
+
+The original flat-HAL concern remains: keep target-specific facts visible,
+but do not create a broad portability framework or fork shared terminal
+logic for each module.

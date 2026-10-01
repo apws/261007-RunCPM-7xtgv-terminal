@@ -9,11 +9,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class IniStorageTests(unittest.TestCase):
     def test_transactions_cache_and_guest_edits(self):
-        sketch = (ROOT / 'RunCPM_7xtgv-terminal.ino').read_text()
-        helpers = '//' + sketch.split('// Accessed only by the RunCPM/storage owner.', 1)[1].split(
+        persistence = (ROOT / 'src/terminal/terminal_persistence.h').read_text()
+        helpers = '//' + persistence.split('// Accessed only by the RunCPM/storage owner.', 1)[1].split(
             'static bool writeTerminalConfigErrorReport', 1)[0]
-        poll = 'bool terminalConfigStoragePoll() {' + sketch.split(
-            'bool terminalConfigStoragePoll() {', 1)[1].split('\n#endif', 1)[0]
+        poll = 'bool terminalConfigStoragePoll() {' + persistence.split(
+            'bool terminalConfigStoragePoll() {', 1)[1]
         source = r'''
 #include <algorithm>
 #include <cassert>
@@ -160,7 +160,7 @@ int main() {
             self.assertIn('_sys_configAccess(', function)
         self.assertIn('RUNCPM_CONFIG_FILE_CLOSED((const char *)filename);',
                       (ROOT / 'disk.h').read_text())
-        self.assertIn('RUNCPM_CONFIG_GUEST_IDLE();', (ROOT / 'ccp.h').read_text())
+        self.assertIn('RUNCPM_CONFIG_GUEST_IDLE();', (ROOT / 'ccp7xf.h').read_text())
 
 
 if __name__ == '__main__':

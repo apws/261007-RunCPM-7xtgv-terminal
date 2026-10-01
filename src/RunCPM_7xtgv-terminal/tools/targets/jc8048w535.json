@@ -3,5 +3,8 @@
   "description": "ESP32-S3 JC8048W535 AXS15231B 3.5-inch",
   "method": "arduino-cli",
   "profile": "jc8048w535",
-  "port": "/dev/ttyACM0"
+  "port": "/dev/ttyACM0",
+  "build_properties": {
+    "build.extra_flags": "-DRUNCPM_TARGET_JC8048W535 -DXTGV_RUNCPM=1 -DXTGV_TERMINAL=1 -DXTGV_CCP_7XF=1"
+  }
 }
