@@ -173,8 +173,29 @@ class Link:
         self.until(lambda t: CCP_PROMPT.fullmatch(
             ''.join(self.screen.rows[self.screen.y]).strip()) is not None,
             timeout=60)
-        # DN and drive-only prompts do not identify the numeric user area.
-        # Ask the CCP itself before any transfer and verify its exact DU.
+        prompt = ''.join(self.screen.rows[self.screen.y]).strip()
+        decimal_prompt = f'{drive}{user}>'
+        hex_prompt = f'{drive}{user:X}>'
+        if prompt == decimal_prompt or prompt == hex_prompt:
+            return
+        if prompt.startswith('/'):
+            # A named 7XF DN prompt hides the user number. Temporarily show
+            # the decimal prompt, confirm the exact area, then restore DN
+            # before starting the transfer. CD's line can be overwritten by
+            # the following prompt in the reconstructed terminal screen.
+            try:
+                self.fresh_screen()
+                self.command('7XF DD')
+                self.until(lambda t: ''.join(self.screen.rows[self.screen.y]).strip()
+                           == decimal_prompt, timeout=15)
+            finally:
+                self.fresh_screen()
+                self.command('7XF DN')
+                self.until(lambda t: ''.join(self.screen.rows[self.screen.y]).strip()
+                           .startswith(f'/{drive.lower()}/'), timeout=15)
+            return
+        # A drive-only prompt also hides the user number. Ask the CCP itself
+        # and verify the area from CD's output before the transfer.
         self.fresh_screen()
         self.command('CD')
         def selected_du(_text):

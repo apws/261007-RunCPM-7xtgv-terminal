@@ -1,7 +1,7 @@
 #pragma once
 #include <stddef.h>
 #include <stdint.h>
-#include "../../runcpm-config.h"
+#include "../../hardware/arduino_7xtgv/board.h"
 #include "7xtgv-palette.h"
 #include "key_chords.h"
 #include "text_palette.h"
@@ -11,12 +11,11 @@ namespace vt {
 // remain ordinary input bytes rather than disappearing from a CP/M program.
 bool decodePrivateKeyEvent(const uint8_t *bytes, size_t length, KeyChord &chord,
                            uint8_t fallback[16], size_t &fallbackLength);
-// CP/M's conventional output width is 80 columns, but larger panels expose a
-// correspondingly wider terminal plane.  Small panels retain the 80-column
-// plane and use viewport panning; the 800px W550 owns 133 six-pixel cells.
-constexpr int MaxVisible = RUNCPM_TERM_VISIBLE_COLS,
-              MaxCols = MaxVisible > 80 ? MaxVisible : 80,
-              MaxRows = RUNCPM_TERM_ROWS,
+// Backing allocation comes from the selected board, independently of the
+// currently visible zoom/pan rectangle.
+constexpr int MaxVisible = XTGV_TERMINAL_VISIBLE_COLS,
+              MaxCols = XTGV_DISPLAY_DEFAULTS.logicalMaxCols,
+              MaxRows = XTGV_DISPLAY_DEFAULTS.logicalMaxRows,
               MaxCells = MaxCols * MaxRows;
 // Compatibility names identify backing allocation only.  Parser and renderer
 // code must use Terminal::cols/rows/visibleCols for runtime geometry.

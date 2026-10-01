@@ -55,6 +55,8 @@ def main():
                         help="build and stage a target-aware new candidate without uploading")
     parser.add_argument("--optimization", choices=("O2", "O3"),
                         help="RP2_147 trial build: override the core/profile optimization")
+    parser.add_argument("--w535-sd-mmc", action="store_true",
+                        help="W535 fallback build: select the former one-bit SD_MMC adapter instead of default SPI3/SdFat")
     parser.add_argument("--promote-new", action="store_true",
                         help="accept the tested new candidate as current, then upload it")
     parser.add_argument("--current", action="store_true",
@@ -81,6 +83,8 @@ def main():
         parser.error(str(error))
     if args.optimization and args.target != "rp2350-lcd-1-47-a":
         parser.error("--optimization trials currently support only rp2350-lcd-1-47-a")
+    if args.w535_sd_mmc and (args.target != "jc8048w535" or not building):
+        parser.error("--w535-sd-mmc requires --target jc8048w535 and --build or --build-only")
     if definition.get("method") != "arduino-cli" and not (
             args.build_only and definition.get("method") == "bootsel-uf2"):
         parser.error(f"{args.target} requires {definition.get('method', 'an unspecified')} upload workflow")
@@ -126,6 +130,8 @@ def main():
             overrides = ({"build.flags.optimize": f"-{args.optimization}"}
                          if args.optimization else None)
             build_properties = resolved_build_properties(cli, definition, stamp, overrides)
+            if args.w535_sd_mmc:
+                build_properties["build.extra_flags"] += " -DXTGV_W535_SD_MMC=1"
         except RuntimeError as error:
             parser.error(str(error))
     for key, value in build_properties.items():

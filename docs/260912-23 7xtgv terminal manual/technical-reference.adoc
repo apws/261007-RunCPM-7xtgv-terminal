@@ -87,17 +87,24 @@ plot layer rather than normal cells; later text may paint over it and a
 scroll retires it. The current text cells plus sidecar attributes are not
 the future native four-plane 7xtgv format.
 
-Per-target storage, backlight duty mapping and boot warning are in flat
-`++hardware/arduino_7xtgv/++` headers. `++display_policy.h++` supplies the
-short display-group ID, panel dimensions, logical limits and fallback zoom
-presets; `++runcpm-config.h++` participates in compile-time allocation.
+Each module now has one complete, uniformly sectioned header under
+`++hardware/arduino_7xtgv/boards/++`: storage adapter and initialization,
+display creation, physical backlight control, reboot and typed defaults.
+`++board.h++` declares the operations and selects that header directly.
+The sketch defines `++XTGV_HAL_IMPLEMENTATION++` once; terminal source
+files call ordinary functions, without changing which core executes them.
+`++display_policy.h++` exposes the selected defaults and small geometry
+helpers. Terminal array bounds read the board's logical maximum fields;
+`++runcpm-config.h++` selects product composition, not panel dimensions.
 Host target JSON supplies upload/port metadata and the *exact* target name.
 These are related but distinct selectors: a shared display ID intentionally
 shares an INI section, while firmware upload identity must match the exact
-target. Logical maxima are still split between compile-time allocation and
-HAL policy; do not claim a single authoritative definition yet. Any port
-must verify both sides and the resolved `++VTINFO++` result. See the
-link:../260924-13%20display%20profile%20selection%20and%20identity%20audit.adoc[identity audit].
+target. Any port must verify compiled bounds, defaults and resolved
+`++VTINFO++` together. Physical backlight tables and output live in each
+board; logical fading remains terminal behavior. See the
+link:../260924-13%20display%20profile%20selection%20and%20identity%20audit.adoc[identity audit]
+and link:../261001-1322%20HAL%20challenge%20and%20readable%20board%20consolidation.adoc[HAL design correction].
+This latest source consolidation is host-tested, not yet rebuilt for hardware.
 
 [[configuration-and-persistence]]
 == Configuration and persistence

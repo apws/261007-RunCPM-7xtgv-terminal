@@ -1,3 +1,5 @@
+#define XTGV_HAL_IMPLEMENTATION
+#define XTGV_TERMINAL 1
 // The full production runtime, but no device or storage activity.
 bool terminalHistoryStoragePoll() { return true; }
 bool terminalConfigStoragePoll() { return true; }

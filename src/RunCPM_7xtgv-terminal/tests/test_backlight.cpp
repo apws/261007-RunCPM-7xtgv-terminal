@@ -1,17 +1,15 @@
-// Build for each HAL target, ordinary polarity and -DGFX_BL_INVERTED=1.
-#define GFX_BL 15
-#include "../hardware/arduino_7xtgv/backlight.h"
+#define XTGV_HAL_IMPLEMENTATION
+#define XTGV_TERMINAL 1
+// Build for each HAL target; all four supported backlights are active-high.
+#include "../src/terminal/backlight.h"
 #include <iostream>
 #include <cmath>
 
 static int physical(uint8_t duty) {
-#if defined(GFX_BL_INVERTED) && GFX_BL_INVERTED
-    return 255 - duty;
-#else
     return duty;
-#endif
 }
 int main() {
+    expectedBacklightPin = XTGV_BACKLIGHT_PIN;
     xtgvBacklightInit(true);
     assert(backlight == physical(0));
     assert(xtgvBacklightGet() == 16 && xtgvBacklightGetRemembered() == 16);
@@ -67,14 +65,14 @@ int main() {
             assert(xtgvBacklightGet() == target && xtgvBacklightGetRemembered() == target);
             fakeTime++;
         }
-        assert(!xtgvBacklightRamp().active);
+        assert(!backlightRamp.active);
     }
     xtgvBacklightRelease(60000);
     fakeTime += 30000;
     xtgvBacklightPoll();
     assert(backlight == physical(xtgvBacklightDuty(15)));
     xtgvBacklightAdjust(-1); // immediate user override, from logical target 31
-    assert(!xtgvBacklightRamp().active && xtgvBacklightGet() == 30);
+    assert(!backlightRamp.active && xtgvBacklightGet() == 30);
     assert(backlight == physical(xtgvBacklightDuty(30)));
     fakeTime += 60000;
     xtgvBacklightPoll();
@@ -85,12 +83,12 @@ int main() {
     xtgvBacklightPoll();
     assert(backlight == physical(0));
     xtgvBacklightRelease(1000); // target OFF must stay OFF
-    assert(!xtgvBacklightRamp().active && backlight == physical(0));
+    assert(!backlightRamp.active && backlight == physical(0));
     xtgvBacklightSet(32); // legacy clamping
     assert(xtgvBacklightGet() == 31);
     xtgvBacklightRelease(1);
     fakeTime++;
     xtgvBacklightPoll();
-    assert(!xtgvBacklightRamp().active && backlight == physical(255));
+    assert(!backlightRamp.active && backlight == physical(255));
     std::cout << "Backlight HAL gate/polarity tests passed\n";
 }

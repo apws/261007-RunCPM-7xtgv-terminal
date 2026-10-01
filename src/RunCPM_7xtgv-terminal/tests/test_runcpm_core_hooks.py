@@ -25,7 +25,7 @@ class RunCPMCoreHooksTests(unittest.TestCase):
     def test_cpu_attributes_are_target_supplied(self):
         cpu = (ROOT / 'cpu1.h').read_text()
         hooks = (ROOT / 'hardware/arduino_7xtgv/runcpm_hooks.h').read_text()
-        board = (ROOT / 'hardware/arduino_7xtgv/boards/jc8048w535_cpu.h').read_text()
+        board = (ROOT / 'hardware/arduino_7xtgv/boards/jc8048w535.h').read_text()
         self.assertIn('#ifdef RUNCPM_Z80RUN_ATTRIBUTES', cpu)
         self.assertNotIn('RUNCPM_TARGET_JC8048W535', cpu)
         self.assertIn('IRAM_ATTR __attribute__((optimize("O2")))', hooks)

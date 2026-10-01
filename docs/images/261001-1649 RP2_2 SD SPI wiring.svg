@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="350" viewBox="0 0 920 350" role="img" aria-labelledby="title desc">
+  <title id="title">RP2_2 SD card SPI connections</title>
+  <desc id="desc">RP2350 SPI1 GPIO26 clock connects to card CLK, GPIO27 transmit MOSI to CMD, GPIO24 receive MISO from DAT0, and GPIO25 chip select to DAT3 or CS.</desc>
+  <rect width="920" height="350" fill="#f8fafc"/>
+  <text x="26" y="36" font-family="Liberation Sans, sans-serif" font-size="23" font-weight="bold" fill="#082e61">RP2_2 · SD card SPI mode</text>
+  <rect x="28" y="67" width="262" height="253" rx="12" fill="#e8f0fb" stroke="#174b86" stroke-width="2"/>
+  <text x="50" y="103" font-family="Liberation Sans, sans-serif" font-size="20" font-weight="bold" fill="#082e61">RP2350 · SPI1</text>
+  <rect x="644" y="67" width="248" height="253" rx="12" fill="#e9f5ec" stroke="#20744a" stroke-width="2"/>
+  <text x="666" y="103" font-family="Liberation Sans, sans-serif" font-size="20" font-weight="bold" fill="#174b35">microSD socket</text>
+  <g font-family="Liberation Mono, monospace" font-size="16" fill="#172b4d">
+    <text x="52" y="151">GPIO26 · SCK</text><text x="666" y="151">CLK / SCK</text>
+    <text x="52" y="201">GPIO27 · TX/MOSI</text><text x="666" y="201">CMD / MOSI</text>
+    <text x="52" y="251">GPIO24 · RX/MISO</text><text x="666" y="251">DAT0 / MISO</text>
+    <text x="52" y="301">GPIO25 · CS</text><text x="666" y="301">DAT3 / CS</text>
+  </g>
+  <g stroke="#155c9c" stroke-width="4" fill="none" stroke-linecap="round">
+    <path d="M290 145 H644"/><path d="M290 195 H644"/><path d="M290 245 H644"/><path d="M290 295 H644"/>
+  </g>
+  <g font-family="Liberation Sans, sans-serif" font-size="15" fill="#34536b">
+    <text x="412" y="135">clock →</text><text x="416" y="185">host → card</text><text x="416" y="235">card → host</text><text x="411" y="285">select →</text>
+  </g>
+  <text x="28" y="340" font-family="Liberation Sans, sans-serif" font-size="14" fill="#526278">Logical wiring from current firmware; not a PCB schematic. Requested SPI clock: 12 MHz.</text>
+</svg>

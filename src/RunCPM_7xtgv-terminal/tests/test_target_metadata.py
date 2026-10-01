@@ -87,13 +87,28 @@ class TargetMetadataTests(unittest.TestCase):
         self.assertIn('xtgvBoardPrintStorageStatus(storage, _puts)', sketch)
         self.assertIn('xtgvBoardPrintBootExtra(_puts)', sketch)
         self.assertIn('struct XtgvBoardStorageStatus', board)
-        for name in ('jc8048w535_sdmmc.h', 'jc8048w550_sd_spi.h',
-                     'pico_rp2350_lcd_1_47_a_sd_spi.h',
-                     'pico_rp2350_touch_lcd_2_sd_spi.h'):
+        for name in ('jc8048w535.h', 'jc8048w550.h',
+                     'pico_rp2350_lcd_1_47_a.h',
+                     'pico_rp2350_touch_lcd_2.h'):
             with self.subTest(board=name):
                 policy = (ROOT / 'hardware/arduino_7xtgv/boards' / name).read_text()
-                self.assertIn('XTGV_BOARD_BOOT_EXTRA', policy)
-                self.assertIn('XTGV_BOARD_STORAGE_INIT_LABEL', policy)
+                self.assertIn('void xtgvBoardPrintBootExtra(', policy)
+                self.assertIn('void xtgvBoardPrintStorageStatus(', policy)
+
+    def test_terminal_backing_limits_are_board_owned(self):
+        config = (ROOT / 'runcpm-config.h').read_text()
+        selector = (ROOT / 'hardware/arduino_7xtgv/board.h').read_text()
+        self.assertNotIn('RUNCPM_TERM_ROWS', config)
+        self.assertNotIn('RUNCPM_TERM_VISIBLE_COLS', config)
+        for name in ('jc8048w550', 'jc8048w535',
+                     'pico_rp2350_lcd_1_47_a', 'pico_rp2350_touch_lcd_2'):
+            with self.subTest(board=name):
+                self.assertIn(f'"boards/{name}.h"', selector)
+                policy = (ROOT / 'hardware/arduino_7xtgv/boards' /
+                          f'{name}.h').read_text()
+                self.assertIn('constexpr int XTGV_TERMINAL_ROWS', policy)
+                self.assertIn('constexpr int XTGV_TERMINAL_VISIBLE_COLS', policy)
+                self.assertIn('Arduino_GFX *xtgvBoardCreateDisplay()', policy)
 
     def test_compiled_identity_and_display_group_match_host_data(self):
         # Host substitutes for architecture macros supplied by these Arduino cores.
@@ -108,7 +123,7 @@ class TargetMetadataTests(unittest.TestCase):
 #include <cassert>
 #include "src/terminal/display_policy.h"
 #include "src/terminal/terminal.h"
-#include "hardware/arduino_7xtgv/target_identity.h"
+#include "hardware/arduino_7xtgv/board.h"
 int main() {
     const auto &hal = vt::displayHalDefaults();
     assert(hal.logicalMaxCols == vt::MaxCols && hal.logicalMaxRows == vt::MaxRows);

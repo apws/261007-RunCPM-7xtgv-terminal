@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="350" viewBox="0 0 920 350" role="img" aria-labelledby="title desc">
+  <title id="title">W535 one-bit SD card connections</title>
+  <desc id="desc">ESP32-S3 GPIO12 clock connects to card CLK, GPIO11 command connects to CMD, GPIO13 data zero connects to DAT0. Reported GPIO10 to DAT3 or CS is not used by the current firmware.</desc>
+  <rect width="920" height="350" fill="#f8fafc"/>
+  <text x="26" y="36" font-family="Liberation Sans, sans-serif" font-size="23" font-weight="bold" fill="#082e61">ES3_35 / W535 · native SD, one data bit</text>
+  <rect x="28" y="67" width="250" height="246" rx="12" fill="#e8f0fb" stroke="#174b86" stroke-width="2"/>
+  <text x="50" y="103" font-family="Liberation Sans, sans-serif" font-size="20" font-weight="bold" fill="#082e61">ESP32-S3</text>
+  <rect x="644" y="67" width="248" height="246" rx="12" fill="#e9f5ec" stroke="#20744a" stroke-width="2"/>
+  <text x="666" y="103" font-family="Liberation Sans, sans-serif" font-size="20" font-weight="bold" fill="#174b35">microSD socket</text>
+  <g font-family="Liberation Mono, monospace" font-size="17" fill="#172b4d">
+    <text x="52" y="151">GPIO12 · CLK</text><text x="666" y="151">CLK</text>
+    <text x="52" y="201">GPIO11 · CMD</text><text x="666" y="201">CMD</text>
+    <text x="52" y="251">GPIO13 · DAT0</text><text x="666" y="251">DAT0</text>
+  </g>
+  <g stroke="#155c9c" stroke-width="4" fill="none" stroke-linecap="round">
+    <path d="M278 145 H644"/><path d="M278 195 H644"/><path d="M278 245 H644"/>
+  </g>
+  <g font-family="Liberation Sans, sans-serif" font-size="15" fill="#34536b">
+    <text x="411" y="135">clock →</text><text x="400" y="185">commands ↔</text><text x="418" y="235">data ↔</text>
+  </g>
+  <path d="M278 291 H644" stroke="#8e99a6" stroke-width="2" stroke-dasharray="8 6"/>
+  <text x="52" y="298" font-family="Liberation Mono, monospace" font-size="15" fill="#667587">GPIO10?</text>
+  <text x="666" y="298" font-family="Liberation Mono, monospace" font-size="15" fill="#667587">DAT3 / CS</text>
+  <text x="322" y="285" font-family="Liberation Sans, sans-serif" font-size="14" fill="#667587">reported; not used or PCB-verified here</text>
+  <text x="28" y="338" font-family="Liberation Sans, sans-serif" font-size="14" fill="#526278">Logical wiring from current firmware; not a PCB schematic. Requested SD clock ceiling: 20 MHz.</text>
+</svg>

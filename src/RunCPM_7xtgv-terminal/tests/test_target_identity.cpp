@@ -1,4 +1,4 @@
-#include "../hardware/arduino_7xtgv/target_identity.h"
+#include "../hardware/arduino_7xtgv/board.h"
 #include <cassert>
 #include <cstring>
 int main(int argc, char **argv) {

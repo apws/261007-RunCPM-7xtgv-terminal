@@ -1,20 +1,20 @@
 // Host wiring/geometry guard; no Arduino firmware build or device access.
+#define XTGV_HAL_IMPLEMENTATION
+#define XTGV_TERMINAL 1
 #include "../runcpm-config.h"
-#include "../hardware/arduino_7xtgv/boards/pico_rp2350_lcd_1_47_a_sd_spi.h"
+#include "../hardware/arduino_7xtgv/board.h"
+#include <Arduino_GFX_Library.h>
 #include "../src/terminal/display_policy.h"
-#include "../src/terminal/7xtgv-gfxsetup.h"
 #include <cassert>
 
-static_assert(SD_CS == 15 && SD_SCK == 10 && SD_MOSI == 11 && SD_MISO == 12);
-static_assert(RUNCPM_TERM_ROWS == 24 && RUNCPM_TERM_VISIBLE_COLS == 52);
-static_assert(GFX_BL == 21 && GFX_CS == 17 && GFX_RST == 20);
-static_assert(GFX_SCK == 18 && GFX_DC == 16 && GFX_MOSI == 19 && GFX_MISO == 4);
-static_assert(GFX_MX == 172 && GFX_MY == 320 && GFX_ROT == 3);
-static_assert(GFX_DX02 == 34 && GFX_DX13 == 34);
+static_assert(XTGV_TERMINAL_ROWS == 24 && XTGV_TERMINAL_VISIBLE_COLS == 52);
+static_assert(XTGV_BACKLIGHT_PIN == 21);
 
 int main() {
-    GFX_DEVICE_INIT();
-    assert(bus && gfx);
+    auto *gfx = xtgvBoardCreateDisplay();
+    assert(gfxTestBus && gfx);
+    assert((gfxTestSpiPins == std::array<int, 5>{16, 17, 18, 19, 4}));
+    assert((gfxTestPanel == std::array<int, 9>{20, 3, 1, 172, 320, 34, 0, 34, 0}));
     const auto &hal = vt::displayHalDefaults();
     assert(hal.zoomGeometry[0].cols == 80 && hal.zoomGeometry[0].rows == 16);
     assert(hal.logicalMaxRows == 24);
@@ -26,5 +26,5 @@ int main() {
         assert(hal.zoomGeometry[z - 1].rows <= vt::visibleRows(hal.physicalHeight, z));
     }
     delete gfx;
-    delete bus;
+    delete gfxTestBus;
 }

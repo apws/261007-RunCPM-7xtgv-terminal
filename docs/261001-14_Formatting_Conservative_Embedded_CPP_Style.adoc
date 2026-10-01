@@ -1,0 +1,363 @@
+= Conservative Embedded C++ Style
+:toc:
+:sectnums:
+
+== Purpose
+
+This style is intended for embedded C++ projects where C++ is used mainly because of the surrounding framework or libraries -- for example Arduino and Arduino_GFX -- while the implementation should remain explicit, flat, readable, and close in spirit to traditional C.
+
+The goal is not to imitate fashionable "modern C++" style. The goal is to make source code easy for a human to scan, especially in hardware abstraction layers, board definitions, display modules, and other low-level code.
+
+The preferred visual character is close to Microsoft / Visual Studio / C# formatting:
+
+* Allman braces.
+* Four-space indentation.
+* Generous vertical whitespace.
+* No compressed one-line constructs.
+* Clear separation of logical sections.
+* Stable, boring, explicit code.
+* Minimal architectural cleverness.
+
+== General Principle
+
+Use Microsoft / Visual-Studio-like C++ formatting as the base, with strict Allman braces and conservative embedded-code conventions.
+
+Prefer readability and visible structure over minimizing line count.
+
+Formatting must never reorganize the architecture merely to make the code look more "idiomatic C++."
+
+== Braces
+
+Always use Allman braces.
+
+[source,cpp]
+----
+if (Enabled)
+{
+    StartDisplay();
+}
+----
+
+The same applies to functions, classes, structs, enums, namespaces, loops, switches, and other blocks.
+
+[source,cpp]
+----
+namespace Display
+{
+
+class Driver
+{
+public:
+    void Init();
+};
+
+}
+----
+
+Avoid compact forms such as:
+
+[source,cpp]
+----
+if (Enabled) StartDisplay();
+----
+
+or:
+
+[source,cpp]
+----
+void Reset() { State = 0; }
+----
+
+== Indentation
+
+Use four spaces.
+
+Do not use tabs for indentation.
+
+[source,cpp]
+----
+void Init()
+{
+    if (Ready)
+    {
+        Start();
+    }
+}
+----
+
+== Vertical Whitespace
+
+Use whitespace semantically.
+
+A useful rule is:
+
+* One blank line separates closely related groups.
+* Two blank lines may separate major logical sections or function groups.
+
+Example:
+
+[source,cpp]
+----
+static constexpr int DisplayWidth = 800;
+static constexpr int DisplayHeight = 480;
+
+static bool DisplayEnabled;
+static int BacklightLevel;
+
+
+// -----------------------------------------------------------------------------
+// Initialization
+// -----------------------------------------------------------------------------
+
+void DisplayInit()
+{
+    // ...
+}
+
+
+void DisplayReset()
+{
+    // ...
+}
+
+
+// -----------------------------------------------------------------------------
+// Backlight
+// -----------------------------------------------------------------------------
+
+void BacklightSet(int Level)
+{
+    // ...
+}
+----
+
+Do not compress unrelated definitions together merely to save vertical space.
+
+== Declarations
+
+Prefer one declaration per line.
+
+[source,cpp]
+----
+int Width;
+int Height;
+int Rotation;
+----
+
+Avoid:
+
+[source,cpp]
+----
+int Width, Height, Rotation;
+----
+
+When practical, separate declarations from executable code with a blank line.
+
+[source,cpp]
+----
+int Width = GetWidth();
+int Height = GetHeight();
+
+ConfigureDisplay(Width, Height);
+StartDisplay();
+----
+
+== Functions
+
+Functions should normally have a visually distinct body and should not be collapsed onto one line.
+
+[source,cpp]
+----
+void DisplayReset()
+{
+    ResetPinLow();
+    DelayMs(10);
+    ResetPinHigh();
+}
+----
+
+Prefer visible separation between top-level function definitions.
+
+For especially flat HAL source files, two blank lines between major functions or function groups are acceptable when this improves scanning.
+
+== Namespaces
+
+C++ namespaces are sometimes unavoidable when using Arduino libraries or framework code.
+
+Keep namespace syntax visually explicit rather than trying to hide it.
+
+[source,cpp]
+----
+namespace Board
+{
+
+DisplayConfig Config;
+
+}
+----
+
+Definitions outside the namespace may naturally require qualified names:
+
+[source,cpp]
+----
+void Board::Display::Init()
+{
+    // ...
+}
+----
+
+When only a single object exists inside a namespace, do not create extra namespace layers merely for stylistic purity.
+
+Namespaces should follow the actual architecture, not dictate it.
+
+== Classes and Access Sections
+
+Use blank lines where access sections begin a meaningful new region.
+
+[source,cpp]
+----
+class DisplayDriver
+{
+public:
+    void Init();
+    void SetBacklight(int Level);
+
+private:
+    int BacklightLevel;
+    bool Enabled;
+};
+----
+
+Avoid excessive fragmentation into tiny private helpers unless they materially improve clarity.
+
+== Pointers and References
+
+Prefer the type-attached form:
+
+[source,cpp]
+----
+uint8_t* Buffer;
+DisplayDriver& Driver;
+----
+
+rather than:
+
+[source,cpp]
+----
+uint8_t *Buffer;
+DisplayDriver &Driver;
+----
+
+== Line Length
+
+Use approximately 120 columns as a practical guideline.
+
+Do not wrap aggressively just to satisfy a narrow historical limit.
+
+If a manually formatted long line is still readable, it may be preferable to a mechanically fragmented expression.
+
+== Includes
+
+Do not automatically reorder includes when their grouping has architectural meaning.
+
+For example:
+
+[source,cpp]
+----
+#include <Arduino.h>
+#include <Arduino_GFX_Library.h>
+
+#include "BoardPins.h"
+#include "DisplayConfig.h"
+----
+
+Framework headers, hardware headers, and local project headers may remain grouped intentionally.
+
+== Flat HAL Rule
+
+For board and module HAL code, preserve intentional flatness.
+
+Do not introduce any of the following merely because they are fashionable or considered idiomatic C++:
+
+* unnecessary helper classes,
+* unnecessary namespace hierarchies,
+* templates where ordinary code is sufficient,
+* lambdas used only to shorten syntax,
+* excessive wrappers,
+* tiny abstraction layers,
+* declaration/definition splitting without a practical reason,
+* generic indirection around fixed hardware,
+* architectural rearrangement performed only for style.
+
+The preferred HAL should remain easy to inspect in one place.
+
+== Conservative Embedded C++
+
+The intended style can be summarized as:
+
+[quote]
+____
+Use C++ where the framework requires or benefits from it, but keep the implementation explicit, readable, hardware-oriented, and structurally close to conventional C where possible.
+____
+
+This does not mean "write C with a C++ compiler" as a strict rule. Classes, namespaces, constructors, overloads, references, and other C++ features may be useful. The rule is simply that they should earn their complexity.
+
+== Suggested clang-format Base
+
+The following is a useful starting point:
+
+[source,yaml]
+----
+BasedOnStyle: Microsoft
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+BreakBeforeBraces: Allman
+
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+
+IndentCaseLabels: true
+
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+ColumnLimit: 120
+
+SeparateDefinitionBlocks: Always
+
+EmptyLineBeforeAccessModifier: LogicalBlock
+EmptyLineAfterAccessModifier: Never
+
+NamespaceIndentation: All
+FixNamespaceComments: true
+
+MaxEmptyLinesToKeep: 2
+
+SortIncludes: Never
+----
+
+Note that clang-format will not always create two blank lines exactly where a human would choose them. Major-section spacing may therefore remain partly manual.
+
+== Instruction for AI Coding Assistants
+
+A concise instruction suitable for Codex or another coding assistant is:
+
+[quote]
+____
+Use a conservative Microsoft / Visual-Studio-like C++ style. Use strict Allman braces everywhere, four spaces, no tabs, no compact single-line control statements or functions, one declaration per line, PascalCase naming, visible logical whitespace, and clear separation of major definitions and sections. Prefer readability and stable vertical structure over minimizing line count.
+
+For HAL and board/module code, preserve the intentionally flat architecture. Do not introduce helper classes, namespace hierarchies, templates, lambdas, abstraction layers, or declaration/definition splitting merely because they are idiomatic C++. Use C++ where required by Arduino or library interfaces, but keep low-level implementation explicit and straightforward.
+____
+
+== Short Name
+
+A useful name for this house style is:
+
+*Conservative Embedded C++ / Allman-Microsoft Style*
+
+This describes the intent more accurately than simply saying "Allman style," because brace placement is only one part of the desired appearance.

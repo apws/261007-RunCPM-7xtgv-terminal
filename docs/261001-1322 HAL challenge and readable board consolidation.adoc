@@ -1,0 +1,248 @@
+= HAL challenge: readable, complete board definitions
+:source-highlighter: highlight.js
+
+*Date:* 261001 +
+*Scope:* recovered-era RunCPM cleanup, Stage 1 only +
+*State:* RP2_147 build 261001-1417 uploaded; boot and mirror confirmed
+
+This records Petr's review, the read-only investigation and the authorized
+correction. It supersedes the implementation layout described in
+link:261001-10%20board%20header%20consolidation%20checkpoint.adoc[the two-header checkpoint].
+The overall scope remains
+link:260930-13%20RunCPM%20cleanup,%20CCP%207XF%20and%20terminal-only%20build%20plan.adoc[the cleanup plan]:
+clean the existing fork first, retest it, then consider newer upstream.
+
+== What went wrong
+
+The earlier refactoring optimized for sharing individual pieces rather than
+for reading one complete board definition. Per-feature files became separate
+RunCPM/terminal headers, include-path macros, shared storage adapters and
+wrappers assembling executable macro fragments. The reviewed intermediate
+HAL contained 22 headers. Reducing duplicated source had not reduced the
+number of places a human needed to follow.
+
+Petr's requirement was consistently *complete, readable board definitions*,
+not maximum DRY reuse. The correction accepts intentional repetition:
+storage backends that look similar today may need different quirks tomorrow.
+Such differences should be editable in the affected board's own function.
+The mistaken macro-heavy layout was an implementation choice, not an
+unavoidable C++ or Arduino constraint.
+
+== Agreed rules
+
+* One complete header per supported board/module/display combination.
+  All four have the same numbered, commented sections.
+* Prefer ordinary typed constants, functions and necessary adapter classes.
+  Do not encode executable function bodies in preprocessor macros.
+* Select the header directly with one target switch. Do not put include
+  filenames into macros, or repeat target switches in each consumer.
+* Repeating short functions and complete storage adapters is intentional.
+  No shared storage base class, templates or new graphics framework.
+* Keep the genuinely different ESP32 FreeRTOS and RP2350 multicore runtime
+  implementations separate, as complete setup/loop bodies.
+* Use searchable `XTGV_` constants/macros and `xtgv...` function names.
+  Avoid leading-underscore project identifiers: their reserved-name rules
+  make `_7XTGV_` an unsuitable general naming convention.
+* Keep the small, already-tested RunCPM core seams intact in this pass.
+  A later, explicitly approved mechanical rename can give the remaining
+  `RUNCPM_...` injection names the requested `XTGV_` tag.
+* Do not silently grow this cleanup into standalone terminal implementation,
+  a CP/M 3 migration, a new optimization policy or a general HAL framework.
+  Stop and discuss a genuinely more complex requirement.
+
+== Resulting source layout
+
+Paths below are relative to `src/RunCPM_7xtgv-terminal/`; the four
+`boards/...` entries are beneath `hardware/arduino_7xtgv/`.
+
+[cols="2,5",options="header"]
+|===
+|File |Responsibility
+|`hardware/arduino_7xtgv/board.h`
+|Common value types, operation declarations, direct board selection and
+small header-only identity/build queries.
+|`boards/jc8048w535.h`
+|Complete ES3_35 definition: SD_MMC adapter, QSPI/canvas construction,
+PSRAM history, backlight, reporting, reboot and measured CPU1 attribute choice.
+|`boards/jc8048w550.h`
+|Complete ES3_5 definition: SPI SD adapter, RGB panel construction/timing,
+PSRAM history, backlight, reporting and reboot.
+|`boards/pico_rp2350_lcd_1_47_a.h`
+|Complete RP2_147 definition: SdFat/SPI1, SPI0 ST7789, ordinary history
+allocation, backlight, rounded-panel indicator offset, warning and reboot.
+|`boards/pico_rp2350_touch_lcd_2.h`
+|Complete RP2_2 definition in the same order.
+|`hardware/arduino_7xtgv/runtime.h` and three runtime implementations
+|Direct selection of serial RunCPM, ESP32 integrated or RP2350 integrated
+setup/loop; their implementation bodies are unchanged.
+|`hardware/arduino_7xtgv/runcpm_hooks.h`
+|Existing optional core-hook bindings; unchanged.
+|`src/terminal/display_policy.h`
+|Small geometry helpers and access to the selected board's typed defaults.
+|`src/terminal/backlight.h`
+|Private terminal implementation of logical brightness, remembered level
+and boot fading. Included by the runtime only; physical output is in the board.
+|===
+
+The HAL now has ten headers: four board definitions, the common board header,
+the hook bindings, the runtime selector and three genuine runtime variants.
+There are no per-feature board fragments, storage subdirectory or forwarding
+`terminal_board.h`/`reboot.h`/`target_identity.h` headers.
+The old executable `7xtgv-gfxsetup.h` dispatcher is replaced by board functions.
+
+== Why declarations and one implementation guard remain
+
+C++ needs declarations before use, and separately compiled source files need
+one definition of each ordinary externally linked function. Arduino's sketch
+preprocessing does not remove those rules from arbitrary headers and `.cpp`
+files.
+
+The root sketch therefore contains this small ownership declaration before
+its first board-dependent include:
+
+[source,cpp]
+----
+#define XTGV_HAL_IMPLEMENTATION
+#include "hardware/arduino_7xtgv/board.h"
+----
+
+Other source files include the same header without defining that marker.
+They see lightweight constants and function declarations; only the sketch
+emits the complete board function bodies and storage objects. Each selected
+board header has one implementation section, not a collection of code-body
+expansion macros. Native parser tests do not need Arduino libraries.
+
+The header contains complete operations such as:
+
+[source,cpp]
+----
+Arduino_GFX *xtgvBoardCreateDisplay();
+XtgvBoardStorageStatus xtgvBoardStorageInit();
+void xtgvBoardBacklightWrite(uint8_t duty);
+----
+
+These are normal calls. The terminal receives an `Arduino_GFX *` and
+continues using its existing rendering API. No additional virtual interface
+has been introduced.
+
+*Definition location does not select an execution core.* A board function
+defined in the sketch still runs on the terminal's core/task when the
+terminal calls it. Storage initialization remains called by the RunCPM/SD
+owner. No object is initialized by an extra task or a static hardware
+constructor as a consequence of this move.
+
+The remaining small header-only identity/geometry helpers use `inline` for
+ordinary multiple-translation-unit linkage. It does not mean “force the
+compiler to inline every call.” Board operation definitions no longer need
+blanket `inline`; class methods defined inside their class remain implicitly
+inline under normal C++ rules.
+
+== Storage details and genuine compatibility constraints
+
+* RP2350 already uses SdFat, which supplies the API RunCPM expects. Its short
+  storage implementation is complete, not an empty or missing adapter.
+* ESP32's Arduino filesystem API needs the existing SdFat-shaped
+  `RunCPMFile`/`RunCPMStorage` adapters. They remain separate, full
+  implementations in the two board headers. W550's previously compressed
+  adapter is expanded into readable functions in the same style as W535.
+* W535 retains one-bit SD_MMC, CLK=12/CMD=11/D0=13, its `/sdcard` mount and
+  20 MHz request. W550 retains SPI CS=10/MOSI=11/MISO=13/SCK=12, `/sd`,
+  the existing clock override and 25 MHz clamp.
+* Both RP targets retain dedicated SD SPI1 at 12 MHz and their distinct
+  wiring. The display is hardware SPI0, not a PIO-backed bus; the stale
+  RP2_2 comment has been corrected.
+* W550's Arduino `SD.h` exports its own `SD` and imports `fs::File`.
+  The narrow `SD`/`File` compatibility aliases remain necessary for the
+  unchanged guest-facing adapter calls. Graphics/vendor headers are parsed
+  before those aliases. Eliminating them would require a different, explicitly
+  scoped adapter/call-site change; disguising them behind more headers would
+  not solve the collision.
+
+== Terminal changes and preserved behavior
+
+* Board display construction is a function returning its object, rather than
+  a macro assigning an implicitly available caller variable named `gfx`.
+* Typed compile-time booleans replace the renderer's canvas/deferred-flush
+  preprocessor branches. W535 still uses full-frame drawing batches;
+  W550 still uses bounded batches with deferred flushing; RP panels remain
+  direct-output. Constants let the optimizer eliminate inactive paths.
+* Terminal array bounds now read the selected board's logical maximum fields;
+  visible capacity and runtime zoom/pan geometry remain distinct concepts.
+* ESP history allocation remains PSRAM plus placement construction; RP
+  remains ordinary nonthrowing allocation. Both retain null-on-failure behavior.
+* Each board owns physical backlight latch/PWM functions and its original
+  32-level table. Logical fading/remembered brightness is terminal behavior,
+  with plain state rather than inline local-static accessor functions.
+  All four current boards are active-high; a future inverted board should
+  implement its own physical output, not add scattered renderer conditionals.
+* Default sizes, target names, short INI IDs, startup messages, storage clocks,
+  graphics wiring/offsets, warning and reboot behavior are intentionally kept.
+* The W535 canvas rotation workaround and W550 internal DMA bounce-buffer
+  size are documented beside the constructors. No CPU attribute was enabled
+  on an additional board.
+
+== Other findings, not silently turned into new features
+
+* Old `GFX_DEVICE` and `GFX_VIEWPORT_INDICATOR_...` definitions had no
+  consumers; they were not controlling today's computed gutter.
+* `defaultRgbRefreshHz` is retained metadata, not an implemented runtime
+  timing control. The INI parser recognizes but ignores `rgb_refresh_hz`;
+  actual RGB timing is still compiled in the board constructor.
+* The existing 33 ms boot-frame/backlight settling guard still applies to
+  all boards despite its W550-oriented comment. Its timing is unchanged.
+* The legacy graphics file contained inactive C6/AMOLED experiments and
+  example code. Their preceding committed source is preserved in Git;
+  the link:261001-1322%20legacy%20graphics%20candidate%20excerpts.adoc[candidate-board excerpts]
+  are also saved alongside this note.
+  They are historical evidence, not verified port definitions.
+* The serial PC mirror is not the future external guest UART. Changing the
+  display HAL does not implement that transport or its pin configuration.
+* Forced warm return is a RunCPM integration feature, not board policy.
+  INI/BUF transactions still belong to the RunCPM storage owner and coordinate
+  with the other core. Reusing that handshake unchanged in a one-core
+  standalone terminal could deadlock.
+* A standalone terminal therefore still needs its own storage owner and
+  transport plan. Local terminal-side INI/BUF and optional CP/M-editable text
+  import remain deferred; no new coupling to `ccp7xf.h` was introduced.
+
+== Verification and next boundary
+
+Host checks cover all four metadata profiles, normal cross-translation-unit
+HAL calls, all four backlight ladders, RP2_147 panel constructor arguments,
+parser/bounds, runtime/mirror, INI state, disk-indicator restoration and
+the deferred-flush retained-plot path. The Python suite contains 92 tests.
+Native compiler checks use `-Wall -Wextra -Werror`.
+
+Graphics fixtures are substitutes, not a validation of real ESP32 SDK headers
+or panel scanout. The retained-plot fixture deliberately uses a 320x240
+software surface with W550's deferred-flush policy; every compiled source
+in that test must select the same W550 target to keep terminal layout coherent.
+
+An RP2_147 target-aware build passed and was staged as `new` with boot stamp
+`261001-1417`: 300240 program bytes, 161872 global-variable bytes, UF2
+643584 bytes. It was subsequently uploaded as described below.
+RunCPM CPU1-4, BIOS/BDOS, disk, globals, both CCPs and the guest abstraction
+are unchanged by this pass. The sketch changes only where it emits the HAL
+definitions; runtime task implementations are unchanged.
+
+Petr should now check zoom/pan, brightness, retained plotting and forced
+return on the newly booted image. The earlier `261001-0728` image remains
+the latest with user-reported interactive regression results.
+Before claiming cross-board parity, also compile the ESP32 targets against
+their real libraries and schedule their device checks with Petr.
+
+== Requested BOOTSEL upload, 261001-1453
+
+The connected BOOTSEL disk had the registered RP2_147 chip serial
+`D60D9318CF30A586`; its `INFO_UF2.TXT` identified RP2350. Picotool identified
+the staged image as `rp2350-arm-s`, ARM Secure, and its SHA-256 was
+`3364c1894d103d44f8655b2e56221eb6b15d8e9ccce64ab645696297e44c1346`.
+Mounted the disk, stopped the shared mirror, copied that exact `new` UF2,
+and saw the same chip return as a serial device. Restored its USB serial ACL
+and launched the attached Konsole mirror.
+
+The mirror reports `Build 7xtgv-runcpm-v2 / 261001-1417`, SD mounted,
+terminal profile/history OK, the RP2_147 backlight warning and `A0>`.
+No CP/M file was changed and the `new` image was not promoted. The reset
+ended the previous CP/M application state. Panel rendering and interactive
+features await Petr's observations.

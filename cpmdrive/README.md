@@ -54,10 +54,12 @@ The `VTCPU`, `VTCPU8X`, `VTDRV` and `VTDRV8X` commands are installed in A0 so
 the internal CCP can find them from every user area. Duplicates in A6 keep them
 with the benchmark collection. CPU tests report active and terminal-paused
 passes. Plain `VTDRV` read-tests and verifies a retained 32 KiB `VTDRV.$$$`
-fixture; `VTDRV RW` creates it once at a known-safe clock. `VTDRV8X` retains the
+fixture; `VTDRV W` recreates it (`RW` remains an alias). `Q` pauses terminal
+updates for timed reads, and `W Q` for timed writes and reads; matching firmware
+is required. `VTDRV8X` retains the
 older write/read/verify/delete test. The `8X` versions use only the common
 8080/8085 instruction subset. Sources and protocol notes are in
-`../src/7xtgv-vt100-runcpm/tools/vtbench/`.
+`../src/RunCPM_7xtgv-terminal/tools/vtbench/`.
 
 BBC BASIC's supplied v5.00 test package needs platform-specific cursor/timer
 patching for full terminal integration. Turbo TINST offers an ANSI preset.

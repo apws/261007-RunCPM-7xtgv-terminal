@@ -12,11 +12,16 @@ run `VTINFO` on the attached device.
 
 The Arduino sketch and RunCPM-derived CPU, BDOS, disk and CCP headers are at
 the sketch root. Terminal parser, profiles, history, font and renderer are in
-`src/terminal/`; per-target storage/backlight/reboot support is in
-`hardware/arduino_7xtgv/`. Host launch, transfer, target selection and upload
+`src/terminal/`; one complete definition per board (including storage,
+display, backlight and reboot) is in `hardware/arduino_7xtgv/boards/`.
+`board.h` selects it directly; the sketch emits its implementation once.
+Normal W535 builds select the tested SPI3/SdFat 40 MHz header. Its former
+one-bit SD_MMC bridge remains selectable for comparison only with
+`tools/reflash.py --target jc8048w535 --build-only --w535-sd-mmc`.
+Host launch, transfer, target selection and upload
 tools are in `tools/`. Exact targets and port/upload metadata are in
 `tools/targets/*.json`; compiled display IDs and default geometry are in
-`src/terminal/display_policy.h`. The headless
+the selected board header, exposed by `src/terminal/display_policy.h`. The headless
 [Linux RunCPM](../RunCPM_linux/README.md) build shares the CP/M core but not
 the Arduino display/storage stack.
 

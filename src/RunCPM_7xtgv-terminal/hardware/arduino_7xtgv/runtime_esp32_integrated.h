@@ -33,7 +33,7 @@ void setup() {
                   "RunCPM requires 8/16/32-bit integer types");
     terminalSetup();
     // ESP-IDF measures task stack depth in bytes. RunCPM owns this task and
-    // SD_MMC; Arduino's loopTask retains terminal/display/USB ownership.
+    // storage; Arduino's loopTask retains terminal/display/USB ownership.
     constexpr uint32_t RunCPMStackBytes = 16 * 1024;
     BaseType_t created = xTaskCreatePinnedToCore(runCPMTask, "RunCPM", RunCPMStackBytes, nullptr,
                                                 1, &runCPMTaskHandle, 0);

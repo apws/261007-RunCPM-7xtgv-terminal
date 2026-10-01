@@ -2,13 +2,15 @@
 ; Requires the 7xtgv RunCPM host timer on private I/O port 7Ah.
 ;
 ; Plain VTDRV only reads and verifies the existing 32 KiB VTDRV.$$$ file.
-; VTDRV RW (or /RW) explicitly recreates that file before reading it.
+; VTDRV W explicitly recreates that file before reading it (RW is an alias).
+; Q pauses the terminal task for timed passes: Q reads only; W Q writes/reads.
 ; Timed passes include CP/M BDOS calls and RunCPM's complete host
 ; filesystem/SD path.  Console output is outside them.
 
         org     0100h
 
 port:   equ     07ah
+qport:  equ     07eh
 bdos:   equ     0005h
 
 print:  equ     9
@@ -24,6 +26,10 @@ wbegin: equ     1
 wend:   equ     2
 rbegin: equ     3
 rend:   equ     4
+qbegin: equ     9
+qend:   equ     10
+qwbegin: equ    11
+qwend: equ      12
 cancel: equ     255
 
 records: equ    256
@@ -37,12 +43,24 @@ fcblen: equ     36
         ld      c,print
         call    bdos
         call    parse_mode
-        or      a
-        jp      z,read_pass
-        inc     a
+        cp      0ffh
         jp      z,bad_option
+        and     2
+        jr      z,mode_ready
+        in      a,(qport)
+        cp      'B'
+        jr      z,mode_ready
+        cp      'Q'
+        jp      nz,quiet_unsupported
+        ld      a,(mode_flags)
+        and     1
+        jp      nz,quiet_unsupported
+mode_ready:
+        ld      a,(mode_flags)
+        and     1
+        jp      z,read_pass
 
-; Explicit RW mode starts here.
+; Explicit W mode starts here. Q uses quiet timing for both passes.
         call    fill_buffer
 
 ; Remove a stale file from an interrupted earlier run.
@@ -52,7 +70,12 @@ fcblen: equ     36
         call    bdos
 
 ; Timed create/write/close pass.
+        ld      a,(mode_flags)
+        and     2
         ld      a,wbegin
+        jr      z,write_start
+        ld      a,qwbegin
+write_start:
         out     (port),a
         call    prepare_fcb
         ld      de,fcb
@@ -76,14 +99,25 @@ write_loop:
         call    bdos
         cp      0ffh
         jp      z,write_error
+        ld      a,(mode_flags)
+        and     2
         ld      a,wend
+        jr      z,write_end
+        ld      a,qwend
+write_end:
         out     (port),a
+        jp      read_pass
 
 ; Timed open/read/close pass.  Verification is deliberately separate so its
 ; interpreted byte-comparison loop does not distort the drive rate.
 read_pass:
         call    set_dma
+        ld      a,(mode_flags)
+        and     2
         ld      a,rbegin
+        jr      z,read_start
+        ld      a,qbegin
+read_start:
         out     (port),a
         call    open_for_read
         jp      z,read_error
@@ -102,7 +136,12 @@ read_loop:
         call    bdos
         cp      0ffh
         jp      z,read_error
+        ld      a,(mode_flags)
+        and     2
         ld      a,rend
+        jr      z,read_end
+        ld      a,qend
+read_end:
         out     (port),a
 
 ; Untimed full verification pass.
@@ -140,6 +179,10 @@ bad_option:
 
 unsupported:
         ld      de,unsupported_message
+        jr      show_and_exit
+
+quiet_unsupported:
+        ld      de,qneedmsg
         jr      show_and_exit
 
 write_error:
@@ -183,35 +226,73 @@ copy_fcb:
         djnz    copy_fcb
         ret
 
-; Return A=0 for no option, A=1 for explicit RW, A=FF for anything else.
+; Return bit 0 for W/RW, bit 1 for Q, FF for malformed or duplicate options.
+; CP/M's tail is length-prefixed, not NUL-terminated. Require token boundaries.
 parse_mode:
+        xor     a
+        ld      (mode_flags),a
         ld      a,(0080h)
-        or      a
-        ret     z
+        ld      b,a
         ld      hl,0081h
-parse_skip:
+pm_skip:
+        ld      a,b
+        or      a
+        jp      z,pm_done
         ld      a,(hl)
         cp      ' '
-        jr      nz,parse_first
+        jr      nz,pm_token
         inc     hl
-        jr      parse_skip
-parse_first:
+        dec     b
+        jr      pm_skip
+pm_token:
         cp      '/'
-        jr      nz,parse_r
+        jr      nz,pm_letter
         inc     hl
+        dec     b
+        jp      z,pm_bad
         ld      a,(hl)
-parse_r:
+pm_letter:
         and     05fh
+        cp      'W'
+        jr      z,pm_w
+        cp      'Q'
+        jr      z,pm_q
         cp      'R'
-        jr      nz,parse_bad
+        jr      nz,pm_bad
         inc     hl
+        dec     b
+        jp      z,pm_bad
         ld      a,(hl)
         and     05fh
         cp      'W'
-        jr      nz,parse_bad
-        ld      a,1
+        jr      nz,pm_bad
+pm_w:
+        ld      a,(mode_flags)
+        and     1
+        jr      nz,pm_bad
+        ld      a,(mode_flags)
+        or      1
+        ld      (mode_flags),a
+        jr      pm_after
+pm_q:
+        ld      a,(mode_flags)
+        and     2
+        jr      nz,pm_bad
+        ld      a,(mode_flags)
+        or      2
+        ld      (mode_flags),a
+pm_after:
+        inc     hl
+        dec     b
+        jr      z,pm_done
+        ld      a,(hl)
+        cp      ' '
+        jr      nz,pm_bad
+        jr      pm_skip
+pm_done:
+        ld      a,(mode_flags)
         ret
-parse_bad:
+pm_bad:
         ld      a,0ffh
         ret
 
@@ -269,15 +350,17 @@ remove_file:
 banner:
         db      'VTDRV: 32 KiB BDOS test; default read-only',13,10,'$'
 usage_message:
-        db      'Usage: VTDRV [RW]',13,10,'$'
+        db      'Usage: VTDRV [W] [Q] (RW alias)',13,10,'$'
 passed:
         db      'VTDRV verify: PASS',13,10,'$'
 unsupported_message:
         db      'VTDRV needs newer 7xtgv RunCPM firmware.',13,10,'$'
+qneedmsg:
+        db      'VTDRV Q needs newer 7xtgv RunCPM firmware.',13,10,'$'
 write_message:
         db      'VTDRV write failed.',13,10,'$'
 read_message:
-        db      'VTDRV read failed; run VTDRV RW once at safe speed.',13,10,'$'
+        db      'VTDRV read failed; run VTDRV W once at safe speed.',13,10,'$'
 verify_read_message:
         db      'VTDRV verify read failed.',13,10,'$'
 verify_data_message:
@@ -290,4 +373,5 @@ fcb_template:
         ds      24,0
 fcb:    ds      fcblen,0
 count:  dw      0
+mode_flags: db   0
 buffer: ds      128,0

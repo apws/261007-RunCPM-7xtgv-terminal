@@ -1,0 +1,348 @@
+= W535 SPI storage trial build checkpoint
+:source-highlighter: highlight.js
+
+*Date:* 261001 +
+*Target:* ES3_35 / `jc8048w535` +
+*State:* 40 MHz SPI3/SdFat with quiet handler booted; comparison pending
+
+Petr requested a plain W535 HAL copy for a microSD SPI transport experiment,
+with SCK=GPIO12, MOSI=GPIO11, MISO=GPIO13, CS=GPIO10 and an initial 12 MHz
+clock. The existing `++jc8048w535.h++` SD_MMC implementation remains the
+default. `++jc8048w535_spi.h++` is a complete board-local copy with only its
+storage adapter changed. `++board.h++` selects it when both
+`++RUNCPM_TARGET_JC8048W535++` and `++XTGV_W535_SD_SPI++` are defined. It
+retains the W535 identity, display, backlight, history, reboot and other
+settings. The SPI boot message identifies the selected transport.
+
+The trial uses ESP32 Arduino `++SPI.h++` and `++SD.h++`, not direct ESP-IDF
+calls or RP2350 SdFat. Arduino's `++SDFS::begin++` calls its own
+`++sdcard_init++` and FAT mount; its `++sd_diskio.cpp++` transfers through
+`++SPIClass++`. The installed ESP32 core's second `++spi.begin()++` is a no-op
+once our pin-configured `++SPI.begin(12, 13, 11, 10)++` has initialized it.
+The trial keeps the `/sdcard` mountpoint so existing truncate paths still
+refer to the mounted filesystem.
+
+The native board link test passes for both the normal and SPI W535 selectors.
+A real Arduino ESP32-S3 compile with `++-DXTGV_W535_SD_SPI=1++` passes: 627580
+program bytes and 171736 global bytes. The first offline compile remained in
+`++/tmp/xtgv-w535-spi-ajj_90ip++` and was not uploaded.
+
+The host reflash builder now accepts `++--w535-sd-spi++` only for a W535
+`++--build++` or `++--build-only++`; plain W535 builds still select SD_MMC.
+`++python3 tools/reflash.py --target jc8048w535 --build-only --w535-sd-spi++`
+then staged build `++261001-1826++` as W535 `++new++`. Its app binary SHA-256
+is `++de50e8944596fe98b27b698381308c8f2904fddb7bdf7a2e097cd020a13c37f0++`.
+The ELF contains the SPI boot message and W535 target identity. The former
+`++new++` SD_MMC candidate, which had booted earlier, was preserved by the
+builder at `++261001-1826 unverified++` (the archive name is automatic, not a
+retraction of that boot check). No upload or device test occurred; the device
+still runs the SD_MMC firmware. `++tools/terminal.conf++` was not changed.
+
+== Hardware trial and recovery, 261001-1857
+
+Petr requested `++reflash++`. The connected firmware identified as
+`++jc8048w535++` build `++261001-1611++`, and esptool flashed and verified the
+SPI candidate. Instead of reaching CP/M, it reboot-looped on the ESP-IDF
+assertion `++spi_hal_setup_trans: spi_ll_get_running_cmd(hw) == 0++`.
+Decoding the SPI candidate's backtrace located the failing transaction in
+`++Arduino_ESP32QSPI::writePixels++`, called from the display canvas flush.
+
+The conflict is concrete: Arduino's global `++SPI++` on ESP32-S3 is
+`++SPIClass(FSPI)++`; FSPI maps to the SPI2 peripheral. The installed
+Arduino_GFX `++Arduino_ESP32QSPI++` also defaults to `++SPI2_HOST++`. The
+trial initialized both card SPI and display QSPI on the same hardware host
+through independent drivers/tasks. This image is *not deployable as built*.
+A next source trial should give the card its own ESP32-S3 `++SPIClass(HSPI)++`
+(SPI3) on the same card GPIOs, then compile and test again. This is not a
+generic request to change the RunCPM core or the display transport.
+
+The previous `++261001-1611++` SD_MMC image was restored through the guarded
+reflash dispatcher. Because the crashing firmware could not answer identity,
+recovery used the one-shot `++--allow-unidentified-target jc8048w535++` after
+the same physical USB port/chip had been identified before the SPI upload.
+The restored SD_MMC image is now `++current++`; the SPI candidate was kept at
+`++261001-1855 rejected-new++`, and no `++new++` candidate remains. It reached
+the SD_MMC boot banner but could not initialize the card before a physical
+power cycle; the card may still be latched in SPI mode. Recovery of the card
+mount remains to be verified after power is removed and restored.
+
+The same-card `++VTDRV++` gap remains unexplained by this failed trial:
+RunCPM still opens, seeks and closes the FAT file for each 128-byte record.
+
+== SPI3 correction staged, 261001-1908
+
+After Petr physically power-cycled W535, the restored `++261001-1611++`
+SD_MMC firmware again mounted the card, loaded profile/history and reached
+`++A0>++`. This confirms the baseline is usable and that reflashing/resetting
+alone had not returned the card to native SD mode.
+
+The SPI trial now owns `++static SPIClass xtgvSdSpi(HSPI)++` instead of using
+Arduino's global `++SPI++`. On ESP32-S3 the installed Arduino core maps HSPI
+to the SPI3 peripheral; `++xtgvSdSpi.begin(12, 13, 11, 10)++` keeps the same
+physical socket wiring through the GPIO matrix. The display retains its
+separate SPI2 QSPI host. No RunCPM core or display driver was changed.
+
+Native board-link and focused reflash tests pass (17 tests). The real ESP32-S3
+Arduino build passes at 627592 program bytes and 171768 global bytes. The
+target-aware builder staged this correction as W535 `++new++`, build stamp
+`++261001-1908++`, app binary SHA-256
+`++ab8abb8f16eb4f2fc67da079b62fe4199c63bbe0f6dbf07ac1cebc1350d1b45c++`.
+The device is still running the restored SD_MMC `++current++` image. This
+SPI3 correction has not been flashed or hardware-tested.
+
+See also link:261001-1649%20SD%20card%20bus%20wiring%20on%20W535%20and%20RP2_2.adoc[the logical wiring diagrams].
+
+== SPI3 first hardware boot, 261001-1914
+
+Petr requested `++reflash++`. The guarded uploader confirmed the running
+`++jc8048w535++` target at build `++261001-1611++`, then flashed and verified
+the staged `++261001-1908++` SPI3 candidate. The port re-enumerated; its user
+ACL was restored, and the visible Konsole mirror was relaunched.
+
+The captured boot reports `++Build 7xtgv-runcpm-v2 / 261001-1908++`,
+`++Init SD SPI bus ......OK++`, and
+`++Mount MicroSD card ...OK (SPI, CS=10 MOSI=11 MISO=13 SCK=12, 12000000 Hz)++`.
+Profile and history initialization also report OK, and RunCPM reaches `++A0>++`.
+This confirms the dedicated SPI3 transport boots and mounts this card on the
+connected W535. File integrity and throughput are not yet tested; the SPI3
+image remains `++new++` rather than being promoted to `++current++`.
+
+== Arduino-SD record benchmark and direct-SdFat rebuild, 261001-1937
+
+Petr ran `++VTDRV RW++` on the SPI3/Arduino-`++SD.h++` image. Its 32 KiB BDOS
+test reported 4.09 KiB/s write and 6.69 KiB/s read; byte verification passed.
+These are 256 separate 128-byte CP/M record operations, not raw SPI speed.
+The W550 Arduino-`++SD.h++` trial at 25 MHz previously measured similarly
+(4.31 KiB/s write, 7.35 KiB/s read), though different display workloads
+prevent a controlled causal comparison.
+
+The W535 SPI trial now uses the installed SdFat 2.3.0 directly: `++SdFat32 SD++`
+and SdFat's FAT32 `++File++` alias. `++SdSpiConfig++` selects
+`++DEDICATED_SPI++`, CS10, 12 MHz and the existing `++SPIClass(HSPI)++` (SPI3)
+object. The 128-byte RunCPM abstraction, panel QSPI, pinout and storage clock
+are unchanged. This removes the W535 SPI variant's Arduino `++SD.h++` and
+`++fs::File++` compatibility wrapper; the SD_MMC board header remains intact.
+The W535 Arduino profile now declares its SdFat dependency as RP2350 does.
+
+The target-aware Arduino build passes: 596216 program bytes, 172280 global
+bytes, stamp `++261001-1937++`; app binary SHA-256
+`++8fe408725c8b9dfae52ebbc9c32243b6ea1c1e57fee3ed0ef8990812e7785081++`.
+Focused host tests pass (17 tests). The previous `++new++` SPI3/Arduino-SD
+candidate was retained as `++261001-1937 unverified++`; the direct-SdFat
+candidate is `++new++`, while the known SD_MMC image remains `++current++`.
+The device still runs the preceding SPI3/Arduino-SD image. No hardware claim
+about the direct-SdFat variant can be made before a separate flash and test.
+
+== Direct-SdFat first hardware boot, 261001-1940
+
+Petr requested `++reflash++`. The guarded uploader confirmed the running
+W535 build `++261001-1908++`, then flashed and verified the staged direct-SdFat
+image `++261001-1937++`. After USB re-enumeration, serial access and the
+visible Konsole mirror were restored. Captured boot reported SPI3 configured,
+microSD mounted at 12 MHz on CS10/MOSI11/MISO13/SCK12, profile and history OK,
+and the `++A0>++` prompt. This proves first boot and mount only; Petr will run
+the file-integrity and `++VTDRV RW++` comparison. The image remains `++new++`.
+
+== Direct-SdFat record benchmark and 20 MHz rebuild, 261001-1952
+
+Petr ran `++VTDRV RW++` on the 12 MHz SPI3/direct-SdFat build
+`++261001-1937++`. The 32 KiB BDOS test reported 5.82 KiB/s write and
+13.99 KiB/s read; verification passed. Relative to the same board/card's
+12 MHz SPI3/Arduino-SD run (4.09/6.69 KiB/s), that is approximately
+1.42 times the write rate and 2.09 times the read rate. These figures include
+the full 128-byte RunCPM record path, not only SD transfer time.
+
+At Petr's request, only the W535 direct-SdFat trial's configured SPI clock
+changed from 12 to 20 MHz. The mount-status text reads the same constant
+used by `++SdSpiConfig++`, preventing a reported/requested-clock mismatch.
+Target-aware build `++261001-1952++` passed at 596216 program bytes and
+172280 global bytes. Its app binary SHA-256 is
+`++57e017afa385198b2310a7ba248e8c0553e3f4a1753df48cc54bd39dd83fcbdf++`.
+The previous 12 MHz candidate was preserved as `++261001-1952 unverified++`;
+the 20 MHz build is staged as `++new++` and has not been flashed. The device
+still runs the verified 12 MHz build, and the SD_MMC image remains `++current++`.
+
+== 20 MHz first hardware boot, 261001-2004
+
+Petr requested `++reflash++`. The target guard confirmed the W535 running
+`++261001-1937++`, and the staged `++261001-1952++` image flashed with
+verified hashes. After USB re-enumeration, the serial ACL was restored and
+the visible Konsole mirror reopened. Captured boot reports 20,000,000 Hz SPI,
+microSD mount OK, terminal profile/history OK and `++A0>++`. The 20 MHz
+candidate remains `++new++`; integrity and `++VTDRV RW++` at this clock await
+Petr's test.
+
+== 20 MHz result and 40 MHz build, 261001-2012
+
+On the 20 MHz direct-SdFat W535 image, Petr's `++VTDRV RW++` measured
+6.56 KiB/s write and 15.99 KiB/s read for 32 KiB; verification passed.
+Compared with 12 MHz direct SdFat (5.82/13.99 KiB/s), the gains are modest.
+His `++VTCPU++` reported 17.49 MHz active and 17.51 MHz quiet. The VTCPU
+quiet pass suspends the terminal task; VTDRV currently has no quiet mode.
+
+The W535 display uses `++Arduino_Canvas++` as a full 320x480 RGB565 buffer.
+Its `++flush()++` sends the whole frame, but our terminal only requests a
+flush for dirty cells, cursor blink, disk indicator or other visible changes.
+The configured 10 Hz is a cap on pending flushes, not a constant scanout.
+The 307200-byte canvas allocation uses `++aligned_alloc++`; PSRAM placement
+is likely given the size, but the allocation call does not explicitly request
+PSRAM and placement was not directly measured here. During VTDRV, its disk
+activity indicator can cause display flushes even without new text.
+
+At Petr's request, the W535 SPI3/direct-SdFat trial now requests 40 MHz,
+with no other firmware behavior changed. Installed SdFat accepts this clock
+request; actual signal quality and card reliability on this board are
+unproven. Target-aware build `++261001-2012++` passes at 596212 program bytes
+and 172280 global bytes; app binary SHA-256
+`++ccb5ec61bf6a4585a5e56eac30b578ae51776ca566ed7c272f987cc67c2ed771++`.
+The previous 20 MHz image was archived as `++261001-2012 unverified++`;
+the 40 MHz build is staged as `++new++` but not flashed. The device still runs
+the verified 20 MHz image. If flashed, run plain read-only `++VTDRV++` first
+against the existing fixture, then `++VTDRV RW++` only after the read and
+verification succeed.
+
+Automatic active/quiet `++RW++` would repeat writes and is not desirable as
+the default; the explicit read-only `++VTDRV Q++` implementation is described
+below.
+
+== 40 MHz flash and quiet benchmark source, 261001-2018
+
+At Petr's request the guarded uploader verified the attached W535 identity,
+flashed and hash-verified build `++261001-2012++`, restored serial access,
+and relaunched the visible Konsole mirror. As requested, no boot-screen or
+card-mount check was made during this flash. The 40 MHz candidate remains
+`++new++`; no integrity or throughput result at 40 MHz is known yet.
+
+The approved 7xtgv-private benchmark seam now has `++VTDRV Q++`: a read-only
+timed pass with `++terminalPause(true)++` before its timer and
+`++terminalPause(false)++` after it. Verification and reporting happen after
+the terminal resumes; an I/O error cancels and resumes it too. The COM first
+checks a new `++IN 7Eh == 'Q'++` capability, so old firmware reports
+unsupported instead of silently measuring an active pass. Existing active
+`++VTDRV++` and `++VTDRV RW++` behavior is unchanged. No CPU, BDOS, CCP or
+storage adapter was changed for quiet mode.
+
+SLR `++Z80ASM++` assembled the new 985-byte COM in a disposable native RunCPM
+drive. There, `++VTDRV RW++` and plain `++VTDRV++` both passed 32 KiB
+verification; `++VTDRV Q++` correctly reported unsupported on the old native
+port, without changing the fixture. The tested COM was copied to the local A0
+and A6 mirror directories, not sent to the device. The running 40 MHz firmware
+also predates the quiet-port source change. A later explicitly requested
+firmware rebuild, reflash and COM transfer are required before hardware
+`++VTDRV Q++` testing; no such second flash happened here.
+
+== 40 MHz reads and A0 COM transfer, 261001-2032
+
+Petr reports the 40 MHz image looks reliable. The visible device mirror showed
+two plain read-only `++VTDRV++` runs against the retained fixture: 17.83 and
+17.85 KiB/s, both with `++VTDRV verify: PASS++`. This establishes two successful
+32 KiB reads at the requested 40 MHz, not a long stress test or a 40 MHz
+write test. The 40 MHz candidate remains `++new++` pending broader acceptance.
+
+The first attempted A0 transfer stopped before `++VTPUT++`: the helper's
+follow-up `++CD++` output was not visible to its reconstructed-screen DU
+verifier under the `++7XF DN++` prompt. The device file was untouched. The
+host helper now temporarily selects `++7XF DD++` after `++A0:++`, verifies
+`++A0>++`, then restores `++7XF DN++` before writing. Nine transfer tests pass.
+Retry reported `++SAVED VTDRV.COM 1024++` on A0, and the visible Konsole mirror
+was reopened. This installs the new guest COM only: the running 40 MHz
+firmware still lacks the quiet port, so `++VTDRV Q++` reports that newer
+firmware is needed until an explicitly requested rebuild/reflash.
+
+== Quiet-handler W535 rebuild and boot, 261001-2036
+
+Petr explicitly requested a rebuild and reflash after the A0 COM transfer.
+Focused transfer and VTDRV guest tests passed before the firmware build.
+The target-aware `++--build-only --w535-sd-spi++` compile used the same W535
+40 MHz SPI board header and added the private quiet handler. Build stamp
+`++261001-2036++` passed at 596360 program bytes and 172280 global bytes;
+the staged app binary SHA-256 is
+`++469fed1e1832c7b9459cfa9a658f7c63a9f49a57bdd156d523a3861a7b85f2e8++`.
+The prior 40 MHz candidate was archived by the target-aware builder; no
+image was promoted to `++current++`.
+
+The guarded uploader confirmed the attached firmware was W535 build
+`++261001-2012++`, then flashed and hash-verified the new image. After the
+recreated serial node's user ACL was restored, the visible Konsole mirror
+reported build `++261001-2036++`, SD SPI mount OK at requested 40 MHz,
+profile/history OK, and `++A0>++`. No device-side `++VTDRV Q++` result has
+been taken yet. Compare plain `++VTDRV++` then `++VTDRV Q++` on the retained
+fixture, without `++RW++`, to isolate display-task contention.
+
+== Quiet read result and write-mode request, 261001-2042
+
+Petr tested the matching W535 firmware and A0 COM on the same retained
+fixture. Plain `++VTDRV++` read 32768 bytes in 1792210 us (17.86 KiB/s),
+and `++VTDRV Q++` read them in 1625093 us (19.69 KiB/s); both full untimed
+verifications passed. The quiet read is about 10 percent faster in this
+short test. It measures avoided terminal-task contention, not raw SD bandwidth.
+
+The current guest option parser checks only the beginning of an argument:
+`++VTDRV RW Q++` performed ordinary write/read (7.29/17.86 KiB/s), while
+`++VTDRV Q RW++` performed only quiet read (19.68 KiB/s). Neither command
+combined quiet mode with writing. Petr requested a simpler `++W++` write
+modifier, still followed by read/verify, and quiet mode for *both* timed
+passes when combined with `++Q++`. Parsing must reject or deliberately alias
+old `++RW++` rather than silently ignoring extra tokens. This change is not
+yet built or flashed.
+
+== W/Q modifier implementation staged in source, 261001-2046
+
+With Petr's approval, `++W++` is now the documented write-and-read modifier;
+`++RW++` remains a legacy alias. `++Q++` is independent and may appear before
+or after `++W++`. `++VTDRV Q++` remains read-only; `++VTDRV W Q++` quietly
+times *both* write and read, then resumes the terminal for verification.
+The CP/M tail parser now consumes length-bounded whole tokens and rejects
+duplicates or glued trailing text, addressing the observed `++RW Q++` and
+`++Q RW++` misinterpretation.
+
+The private host port adds quiet-write begin/end commands 11/12. Firmware
+capability `++IN 7Eh++` now returns `++B++` for both quiet passes; the running
+build `++261001-2036++` returns `++Q++` for quiet reads only. The updated
+COM accepts either value for `++Q++` alone, but requires `++B++` before
+`++W Q++` touches the retained fixture. Thus installing the COM ahead of the
+firmware does not silently run an untimed write or overwrite the test file.
+
+SLR Z80ASM assembled the updated COM; disposable native RunCPM tests passed
+`++W++`, legacy `++RW++`, plain read and verify. They confirmed old-firmware
+rejection for `++Q++`, `++W Q++`, `++Q W++` and malformed/duplicate options,
+without changing the fixture. The updated binary is in the local A0/A6
+mirrors only. The firmware source and COM still need Petr's next explicit
+rebuild/transfer/reflash cycle before quiet write can be measured on device.
+
+== W/Q deployment on W535, 261001-2101
+
+At Petr's request, the new 1152-byte `++VTDRV.COM++` was saved to device A0;
+the visible mirror was restored after the transfer. Target-aware
+`++--build-only --w535-sd-spi++` then compiled the 40 MHz W535 firmware with
+quiet-write begin/end commands. Build `++261001-2101++` passed at 596412
+program bytes and 172280 global bytes. The staged app binary SHA-256 is
+`++fb15aec3838ebd5a25e050e0afa55e4391f4ac8838e07ddc522a7cb1a4fff836++`.
+
+The guarded uploader identified the running W535 build `++261001-2036++`,
+flashed and hash-verified the new image. After restoring the recreated serial
+node's ACL and visible Konsole mirror, the boot screen showed stamp
+`++261001-2101++`, microSD mounted on SPI3 at the requested 40 MHz,
+profile/history OK and `++A0>++`. The candidate remains `++new++`, not
+promoted to `++current++`. No `++VTDRV W Q++` hardware run was made by the
+agent; that command intentionally recreates `++VTDRV.$$$++`. Petr can run
+`++VTDRV W++` and `++VTDRV W Q++` in the same DU to compare active and quiet
+write/read timings and verify both passes.
+
+== Quiet write/read hardware result, 261001-2110
+
+Petr ran `++VTDRV Q W++` on W535 build `++261001-2101++` at the requested
+40 MHz SPI clock. The 32 KiB quiet write took 4024960 us (7.95 KiB/s), the
+quiet read took 1622683 us (19.72 KiB/s), and full verification passed. The
+earlier active write/read on the same board had measured 7.29/17.86 KiB/s;
+these short, non-paired runs suggest roughly 9-10 percent benefit from
+pausing the terminal task, not raw-card speed.
+
+The on-screen disk indicator appeared red throughout the quiet run. This is
+consistent with the existing implementation: `++W++` deletes the old fixture
+before starting quiet timing, which can light the indicator; its 75 ms pulse
+is cleared only when the terminal task polls again. `++terminalPause(true)++`
+stops that poll and display flush, so the last red pixels can remain frozen
+until the task resumes. The measurement does not include a continuing LED
+redraw. This is a cosmetic paused-frame quirk, not evidence of a failed write
+or read. No LED behavior change was requested or made.

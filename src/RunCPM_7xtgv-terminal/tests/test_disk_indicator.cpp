@@ -1,3 +1,5 @@
+#define XTGV_HAL_IMPLEMENTATION
+#define XTGV_TERMINAL 1
 // Exercise production overlay rendering for both zero and shifted HAL offsets.
 bool terminalHistoryStoragePoll() { return true; }
 bool terminalConfigStoragePoll() { return true; }
@@ -6,7 +8,7 @@ bool terminalConfigStoragePoll() { return true; }
 #include <iostream>
 
 int main() {
-    GFX_DEVICE_INIT();
+    gfx = xtgvBoardCreateDisplay();
     displayOK = true;
     const auto &hal = vt::displayHalDefaults();
     const int ledY = 1 + hal.diskIndicatorYOffset;
@@ -42,6 +44,6 @@ int main() {
         }
     }
     delete gfx;
-    delete bus;
+    delete gfxTestBus;
     std::cout << "Disk indicator restoration passed at all zooms and 2D pan edges\n";
 }

@@ -1,0 +1,40 @@
+= RP2_2 readable HAL build and BOOTSEL check
+:source-highlighter: highlight.js
+
+*Date:* 261001 +
+*Target:* `rp2350-touch-lcd-2` / display `RP2_2` +
+*State:* target build, upload and mirror boot confirmed; visual interaction pending
+
+This is the second real-board check of the
+link:261001-1322%20HAL%20challenge%20and%20readable%20board%20consolidation.adoc[readable board HAL].
+No firmware source file was edited for this request. The existing working-tree
+source was compiled with the explicit RP2_2 target flags and fresh stamp
+`261001-1558`. The build passed: 300072 program bytes, 161872 global bytes,
+643072-byte UF2. SHA-256 of the staged `new` UF2:
+
+[literal]
+----
+e735e60be0cc00800952317a73a16ebf1dc337e8dc5a9c10b4896bc58a4d622e
+----
+
+Petr identified the physically connected board as RP2_2 and placed it in
+manual BOOTSEL. The sole RP2350 USB disk reported chip serial
+`C885F192AD4984B5`, different from the previously connected RP2_147.
+The mounted `INFO_UF2.TXT` reported RP2350, and picotool identified the staged
+image as RP2350 ARM Secure. Copied that target's UF2 to the BOOTSEL volume.
+The same chip returned as
+`/dev/serial/by-id/usb-Generic_RP2350_C885F192AD4984B5-if00`.
+Its recreated serial ACL was restored.
+
+The visible Konsole mirror is attached. It shows build `261001-1558`,
+SD SPI configured/mounted at 12 MHz, terminal profile and history OK,
+and `A0>`. Immediately after attachment, the mirror showed a guest
+`7xtgv reboot in 3 seconds...` message, then a fresh successful boot.
+It remained at the prompt when rechecked; the cause of that one-time guest
+REBOOT message was not investigated in this checkpoint.
+
+`tools/terminal.conf` now names RP2_2 as the current target and records the
+same chip's BOOTSEL/serial by-id links. No CP/M mirror files were modified or
+transferred, and the `new` firmware was not promoted. Upload/reset ended any
+previous CP/M program state. Panel rendering, zoom/pan, backlight and plot
+behavior still need Petr's visual/interactive confirmation.

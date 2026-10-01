@@ -290,7 +290,7 @@ Bare `++CD++` reports both numeric DU and its named view, for example `++A7: /a/
 |`++VTPAL [0..9]++` |Select an editable text/UI palette; no argument selects 0. Uses private output `++CSI >69;n v++`, with lazy INI persistence. See the link:../260923-16%20palette%20presets%20manual%20and%20test%20notes.adoc[palette manual]. Requires the new firmware and helper.
 |`++UNSUB++` |Deletes a stranded `++$$$.SUB++` queue in the current DU without switching drive or user. It is silent if none exists.
 |`++VTCPU++` / `++VTCPU8X++` |Measure the RunCPM interpreter with the terminal active and paused. `++8X++` uses the 8080/8085 common instruction subset.
-|`++VTDRV++` |Plain invocation read-tests and verifies a retained 32 KiB `++VTDRV.$$$++` fixture. Run `++VTDRV RW++` once at a known-safe clock to create it. Options are case-insensitive.
+|`++VTDRV++` |Plain invocation read-tests and verifies a retained 32 KiB `++VTDRV.$$$++` fixture. `++VTDRV W++` recreates it, then reads/verifies; old `++RW++` remains an alias. `++VTDRV Q++` quietly reads without writing. `++VTDRV W Q++` (or `++Q W++`) pauses the terminal during both timed write and read passes. Quiet modes require matching firmware; options are case-insensitive whole tokens.
 |`++VTDRV8X++` |Write, read, and verify 32 KiB in the current DU, then remove its temporary test file. Uses the 8080/8085 instruction subset.
 |`++VTTERM++` |Run the firmware-native terminal/parser benchmark.
 |`++VTGET++` / `++VTPUT++` |CP/M ends of the host `++tools/cpm-transfer/transfer.py++` protocol; normally use the host tool rather than type their protocol manually.

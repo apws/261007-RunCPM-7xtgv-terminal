@@ -1,0 +1,24 @@
+= Two-header board policy consolidation checkpoint
+:source-highlighter: highlight.js
+
+*Date:* 261001 +
+*State:* source and host tests only; no new firmware build or flash
+
+NOTE: Historical, rejected intermediate layout. Petr's review found this
+still too fragmented and macro-heavy. It was replaced before deployment by
+link:261001-1322%20HAL%20challenge%20and%20readable%20board%20consolidation.adoc[one complete header per board].
+The descriptions below record the intermediate experiment, not current paths.
+
+This continues Stage 1 of the link:260930-13%20RunCPM%20cleanup,%20CCP%207XF%20and%20terminal-only%20build%20plan.adoc[cleanup plan]. The earlier `++261001-0814++` uncommitted backing-limits experiment was folded into this checkpoint, not retained as a separate implementation.
+
+== Board ownership
+
+`++hardware/arduino_7xtgv/board_select.h++` is the only mapping from a target build flag to two board headers. Each of the four supported modules has exactly one `++*_runcpm.h++` and one `++*_terminal.h++` under `++boards/++`, in matching section order. The RunCPM header defines compiled identity, storage wiring and status text, integrated runtime/reboot choice, and optional CPU1 policy. The terminal header defines backing-plane limits, display defaults, backlight ladder, panel wiring and graphics construction. Generic `++board.h++`, `++runtime.h++`, `++reboot.h++`, `++target_identity.h++`, `++display_policy.h++`, `++backlight.h++`, and `++7xtgv-gfxsetup.h++` now consume the selected policy without their own module-ID switch ladders. The old per-board CPU, storage, limits, display and backlight fragments were removed.
+
+The W535/W550 Arduino SD adapters remain shared C{plus}{plus} implementations under `++storage/++`; the RP2350 SdFat adapter is shared too. RunCPM-facing board headers contain preprocessor policy only, but some hook expansions invoke Arduino C{plus}{plus} methods; they are *not* a proof of a plain-C RunCPM build. `++runcpm-config.h++` keeps composition and exact-target validation; terminal RAM dimensions no longer depend on it. The target's short `++display_id++` is still separate from the compiled target name.
+
+== Verification and limits
+
+All 91 Python host tests pass after adapting their ownership assertions. The RP2_147 graphics/geometry host test, four backlight host variants, terminal parser/bounds test, boot-warning test and runtime rendering/mirror test compile with `++-Wall -Wextra -Werror++` and pass. `++git diff --check++` is clean. No Arduino target build, device upload or cross-board interactive validation was done; RP2_147 remains on the previously tested `++261001-0728++` image. The W535/W550 graphics constructors in particular need their next requested target-aware builds. This source move intentionally leaves terminal-only UART composition, INI/BUF storage and CCP/forced-return separation for a later explicit step.
+
+The removed monolithic graphics setup also held inactive, commented C6 and AMOLED prototypes and library examples. Those fragments remain recoverable from the preceding Git revision; no supported target used them. Before porting either candidate, re-check its actual vendor wiring instead of treating that old prototype as validated board policy.

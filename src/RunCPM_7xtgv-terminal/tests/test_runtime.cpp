@@ -1,3 +1,5 @@
+#define XTGV_HAL_IMPLEMENTATION
+#define XTGV_TERMINAL 1
 // Compile the production runtime against fake USB/GFX peripherals. Parser,
 // transport, renderer and mirror code are the same as the RP2350 build.
 // The real implementation is sketch-level because only the RunCPM core owns
@@ -73,11 +75,8 @@ static void testBoot(const std::string &mode) {
                                                           y + terminal.rowViewport)]);
             assert(activePalette == (configured ? 1 : 0));
             assert(gfx->framebuffer[319 + 239 * 320] == rgb565(terminal.palette.paper[0]));
-#if defined(GFX_BUFFERED_CANVAS) || defined(GFX_DEFERRED_FLUSH)
-            assert(gfx->flushCount > flushBefore);
-#else
-            (void)flushBefore;
-#endif
+            if (XTGV_DISPLAY_NEEDS_FLUSH)
+                assert(gfx->flushCount > flushBefore);
         }
         if (backlight != 0) {
             assert(checkedFrame && uint32_t(millis() - bootFrameFlushedAt) >= 33);
@@ -85,11 +84,11 @@ static void testBoot(const std::string &mode) {
         }
     }
     if (mode == "ramp") {
-        assert(xtgvBacklightRamp().active && backlight == xtgvBacklightDuty(1));
+        assert(backlightRamp.active && backlight == xtgvBacklightDuty(1));
         assert(xtgvBacklightGet() == 7 && xtgvBacklightGetRemembered() == 7);
         fakeTime += 70;
         terminalLoop();
-        assert(!xtgvBacklightRamp().active);
+        assert(!backlightRamp.active);
     }
     assert(backlight == (gfxBeginOK ? xtgvBacklightDuty(configured ? 7 : 16) : 0));
     assert(!configSavePending.load()); // startup must not rewrite the INI
@@ -952,7 +951,7 @@ int main(int argc, char **argv) {
     assert(terminal.x == 0 && terminal.y == 2 && terminal.viewport == 10);
     assert(terminal.charRAM[terminal.index(11, 3)] == 'P');
     assert((terminal.attrRAM[terminal.index(10, 3)] >> 4) == 1);
-    assert(gfx->framebuffer[(GFX_OFS_Y + 3 * 20 + 5) * 320 + GFX_OFS_X + 5] ==
+    assert(gfx->framebuffer[(XTGV_DISPLAY_OFFSET_Y + 3 * 20 + 5) * 320 + XTGV_DISPLAY_OFFSET_X + 5] ==
            rgb565(vt::Paper[1]));
     // Rapid zoom keys advance from the pending view but compose only once.
     configSavePending.store(false);
@@ -1022,8 +1021,8 @@ int main(int argc, char **argv) {
     terminal.panVertical(1);
     for (int i = 0; i < 1000; ++i) terminalLoop();
     assert(terminal.rowViewport == 12);
-    assert(gfx->framebuffer[(GFX_OFS_Y + 5) * 320 + presentationGutter +
-                            GFX_OFS_X + 5] == rgb565(terminal.palette.paper[1]));
+    assert(gfx->framebuffer[(XTGV_DISPLAY_OFFSET_Y + 5) * 320 + presentationGutter +
+                            XTGV_DISPLAY_OFFSET_X + 5] == rgb565(terminal.palette.paper[1]));
     keyboardKeyEvent(nullptr, {vt::KeyUp, uint8_t(vt::KeyCtrl | vt::KeyShift)}, nullptr, 0);
     for (int i = 0; i < 1000; ++i) terminalLoop();
     assert(terminal.rowViewport == 0);

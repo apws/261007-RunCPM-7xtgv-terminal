@@ -1,0 +1,53 @@
+= SD card bus wiring on W535 and RP2_2
+:source-highlighter: highlight.js
+:imagesdir: images
+
+These are *logical connection drawings*, not copied PCB schematics. Solid
+connections are configured in the current board headers; a dashed connection
+is reported for the W535-family board but is not used by this firmware and
+has not been verified against Petr's exact PCB revision.
+
+== ES3_35 / W535: native one-bit SD mode
+
+image::261001-1649 W535 SD one-bit wiring.svg[W535 SD card one-bit bus connections,align="center"]
+
+The current `++SD_MMC.setPins(12, 11, 13)++` arguments are CLK, CMD and DAT0,
+in that order. `++SD_MMC.begin("/sdcard", true, false, 20000)++` selects one-bit
+mode and requests at most 20,000 kHz; it does not measure the achieved clock.
+CMD carries commands from the host and responses from the card. DAT0 carries
+data in either direction. DAT3/CS is not needed by this one-bit setup.
+
+== RP2_2: SD card SPI mode
+
+image::261001-1649 RP2_2 SD SPI wiring.svg[RP2_2 SD card SPI bus connections,align="center"]
+
+The RP2350 board configures dedicated SPI1 at a requested 12 MHz. GPIO26 is
+SCK, GPIO27 is TX/MOSI, GPIO24 is RX/MISO and GPIO25 is CS. In SPI mode, the
+same card contacts take the roles shown in the drawing: CMD becomes MOSI,
+DAT0 becomes MISO, and DAT3 becomes active-low CS.
+
+== What the drawings do and do not establish
+
+The card supports both modes, selected during initialization after power-up.
+The drawings explain signal roles; they do *not* explain the observed `VTDRV`
+throughput difference. `VTDRV` measures a 128-byte-record CP/M/FAT path with
+per-record open/seek/transfer/close, not a continuous raw bus transfer. A fair
+bus comparison needs a separate large sequential read/write test and timings
+of those file-operation stages on each board.
+
+SPI is a plausible W535 experiment: a
+link:https://spotpear.com/index.php/ESP32-S3-3.5-inch-LCD-Captive-TouchScreen-Display-480x320-Tablet-MP3-Video-Weather-Clock/forum-answer/487.html[reported
+JC3248W535-C pin mapping] gives GPIO10 as SD CS and the same GPIO12/11/13
+clock/MOSI/MISO pins. Confirm that against the *exact* board or schematic
+before retrying the separate
+link:261001-1818%20W535%20SPI%20storage%20trial%20build%20checkpoint.adoc[W535
+SPI variant]. Its first hardware test was rejected after a shared SPI-host
+crash; neither these drawings nor that build prove SPI will be faster.
+
+Sources: current
+`++hardware/arduino_7xtgv/boards/jc8048w535.h++` and
+`++pico_rp2350_touch_lcd_2.h++`;
+link:https://www.sdcard.org/cms/wp-content/themes/sdcard-org/dl.php?f=Part1_Physical_Layer_Simplified_Specification_Ver5.10.pdf[SD
+Association physical-layer specification];
+link:https://docs.espressif.com/projects/esp-idf/en/v5.2/esp32/api-reference/peripherals/sdspi_share.html[Espressif
+SPI-mode initialization guidance].

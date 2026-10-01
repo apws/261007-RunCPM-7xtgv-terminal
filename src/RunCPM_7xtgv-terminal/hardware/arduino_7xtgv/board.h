@@ -1,82 +1,83 @@
 #pragma once
 
-// One board selection for the current integrated RunCPM/terminal sketch.
-#if defined(RUNCPM_TARGET_JC8048W535)
-#include "boards/jc8048w535_cpu.h"
-#include "boards/jc8048w535_sdmmc.h"
-#elif defined(RUNCPM_TARGET_JC8048W550)
-#include "boards/jc8048w550_sd_spi.h"
-#elif defined(RUNCPM_TARGET_RP2350_LCD_1_47_A)
-#include "boards/pico_rp2350_lcd_1_47_a_sd_spi.h"
-#elif defined(RUNCPM_TARGET_RP2350_TOUCH_LCD_2)
-#include "boards/pico_rp2350_touch_lcd_2_sd_spi.h"
-#else
-#error "No RunCPM board target selected"
-#endif
+#include <stdint.h>
 
-#if defined(RUNCPM_TARGET_JC8048W535) || defined(RUNCPM_TARGET_JC8048W550)
-RunCPMStorage SD;
-#else
-#include <SPI.h>
-#include <SdFat.h>
+// Common value types and operation declarations only. Each selected header
+// below contains the complete board implementation in the same section order.
+// Define XTGV_HAL_IMPLEMENTATION in ONE translation unit, before its first
+// inclusion of this header (the sketch). Other users see constants/declarations.
+namespace vt {
 
-SdFat32 SD; // 32-bit file sizes, matching RunCPM's File32 usage
-typedef File32 File;
-#endif
+struct Geometry { uint16_t cols, rows; };
+
+// This is a policy description, not a second graphics abstraction.  The
+// selected board creates the existing Arduino_GFX object.
+struct DisplayHalDefaults {
+    const char *id;
+    const char *name;
+    uint16_t physicalWidth, physicalHeight;
+    // Terminal-RAM limits, independent of how many cells physically fit at
+    // the selected zoom. Larger configured planes use manual viewports.
+    uint16_t logicalMaxCols, logicalMaxRows;
+    uint8_t defaultZoom;
+    Geometry zoomGeometry[4];
+    uint16_t defaultRenderFlushHz;
+    uint16_t defaultRgbRefreshHz;
+    uint16_t diskIndicatorYOffset; // physical pixels; rounded-panel clearance
+    const char *bootWarning; // optional plain text; nullptr means no notice
+};
+
+} // namespace vt
+
+
+class Arduino_GFX;
+namespace vt { class LineHistory; }
 
 struct XtgvBoardStorageStatus {
     bool pinsReady;
     bool mediaReady;
 };
 
-inline XtgvBoardStorageStatus xtgvBoardStorageInit() {
-#if defined(RUNCPM_TARGET_JC8048W535) || defined(RUNCPM_TARGET_JC8048W550)
-    const bool pinsReady = SD.setPins();
-    return {pinsReady, pinsReady && SD.begin()};
-#else
-    // RP2350: dedicated SPI1 belongs to the SD owner; the TFT uses another bus.
-    // See https://www.pschatzmann.ch/home/2021/03/14/rasperry-pico-with-the-sdfat-library/
-    SPIBUS.setSCK(SD_SCK);
-    SPIBUS.setTX(SD_MOSI);
-    SPIBUS.setRX(SD_MISO);
-    return {true, SD.begin(SdSpiConfig(SD_CS, DEDICATED_SPI,
-                                       SD_SCK_MHZ(RUNCPM_SD_MHZ), &SPIBUS))};
-#endif
-}
+XtgvBoardStorageStatus xtgvBoardStorageInit();
+void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus &status,
+                                void (*write)(const char *));
+void xtgvBoardPrintBootExtra(void (*write)(const char *));
+Arduino_GFX *xtgvBoardCreateDisplay();
+bool xtgvBoardBeginDisplay(Arduino_GFX *display);
+vt::LineHistory *xtgvBoardCreateHistory();
+void xtgvBoardBacklightInit();
+void xtgvBoardBacklightWrite(uint8_t duty);
+void runCPMHardwareReboot();
 
-// A board may contribute a startup credit without changing the common RunCPM
-// banner. Current boards leave this explicit policy slot empty.
-inline void xtgvBoardPrintBootExtra(void (*write)(const char *)) {
-    if (XTGV_BOARD_BOOT_EXTRA[0]) {
-        write(XTGV_BOARD_BOOT_EXTRA);
-        write("\r\n");
-    }
-}
-
-inline void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus &status,
-                                        void (*write)(const char *)) {
-    write(XTGV_BOARD_STORAGE_INIT_LABEL);
-#if defined(RUNCPM_TARGET_JC8048W535) || defined(RUNCPM_TARGET_JC8048W550)
-    write(status.pinsReady ? "OK\r\n" : "FAILED\r\n");
-#else
-    write("CONFIGURED\r\n");
-#endif
-    write("Mount MicroSD card ...");
-    if (!status.mediaReady)
-        return;
+// One direct selection. No include-path macros or per-feature dispatchers.
 #if defined(RUNCPM_TARGET_JC8048W535)
-    write("OK (1-bit, CLK=12 CMD=11 D0=13)\r\n");
-#if !XTGV_TERMINAL
-    SD.printRoot(Serial);
-#endif
+    #if defined(XTGV_W535_SD_MMC)
+        #include "boards/jc8048w535_sdmmc.h"
+    #else
+        #include "boards/jc8048w535.h"
+    #endif
 #elif defined(RUNCPM_TARGET_JC8048W550)
-    char detail[80];
-    snprintf(detail, sizeof(detail),
-             "OK (SPI, CS=10 MOSI=11 MISO=13 SCK=12, %lu Hz)\r\n",
-             (unsigned long)RUNCPM_W550_SD_EFFECTIVE_HZ);
-    write(detail);
+    #include "boards/jc8048w550.h"
+#elif defined(RUNCPM_TARGET_RP2350_LCD_1_47_A)
+    #include "boards/pico_rp2350_lcd_1_47_a.h"
+#elif defined(RUNCPM_TARGET_RP2350_TOUCH_LCD_2) || !defined(ARDUINO)
+    // Native tests without a target retain the historical RP2_2 geometry.
+    #include "boards/pico_rp2350_touch_lcd_2.h"
 #else
-    write(RUNCPM_SD_MHZ_TEXT);
-    write(" Mhz\r\n");
+    #error "No 7xtgv board header matches this Arduino build"
+#endif
+
+// Header-only identity queries; no hardware access or stored runtime state.
+// Compiled configuration, not a claim to detect the physical board's wiring.
+inline const char *xtgvFirmwareTarget() {
+    return XTGV_BOARD_TARGET_NAME;
+}
+inline const char *xtgvFirmwareBuild() {
+#ifdef XTGV_BUILD_STAMP
+#define XTGV_ID_STRING_INNER(value) #value
+#define XTGV_ID_STRING(value) XTGV_ID_STRING_INNER(value)
+    return XTGV_ID_STRING(XTGV_BUILD_STAMP);
+#else
+    return "unstamped";
 #endif
 }

@@ -132,7 +132,20 @@ class ConsoleTransferTests(unittest.TestCase):
                 link.screen.feed(response.encode())
             link.command = command
             link.user(10)
-        self.assertEqual(commands, ['A10:', 'CD']*3)
+        self.assertEqual(commands, ['A10:', 'A10:', 'A10:', 'CD'])
+
+    def test_user_switch_temporarily_verifies_named_prompt_numerically(self):
+        link = transfer.Link(fd=-1)
+        commands = []
+
+        def command(text):
+            commands.append(text)
+            prompt = {'A0:': '/a/cpm-os>', '7XF DD': 'A0>', '7XF DN': '/a/cpm-os>'}[text]
+            link.screen.feed(prompt.encode())
+
+        link.command = command
+        link.user(0)
+        self.assertEqual(commands, ['A0:', '7XF DD', '7XF DN'])
 
     @unittest.skipUnless((ROOT/'build/RunCPM_linux/RunCPM').exists(), 'native RunCPM unavailable')
     def test_helpers_binary_roundtrip_and_single_clear(self):

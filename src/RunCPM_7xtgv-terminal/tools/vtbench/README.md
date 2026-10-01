@@ -12,9 +12,23 @@ start a quiet measurement and finish/report it. Unknown ports remain ignored.
 
 Plain `VTDRV` is read-only. It reads the existing `VTDRV.$$$` on the current
 drive/user, then performs an untimed byte-for-byte verification pass. Run
-`VTDRV RW` (case-insensitive; `/RW` is also accepted) once at a known-safe SD
+`VTDRV W` (case-insensitive; `RW` remains a legacy alias) once at a known-safe SD
 clock to create or replace the exact 256-record (32 KiB) fixture. The fixture
 is deliberately retained for subsequent read-only clock testing.
+
+`VTDRV Q` performs a read-only timed pass with the terminal task paused.
+`VTDRV W Q` or `VTDRV Q W` pauses it for *both* timed write and read passes.
+The task resumes before untimed verification and result printing, suppressing
+cursor and disk-indicator redraws during timing. Options are whole,
+case-insensitive tokens; optional slash prefixes and the old `RW` spelling
+remain accepted. Unknown, duplicate or glued-together tokens are rejected.
+Compare plain `VTDRV` and `VTDRV Q` on one unchanged fixture; quiet mode is
+not a raw-card throughput measurement. `W` intentionally recreates the file.
+
+The COM probes private port `7Eh` before any quiet pass. Old quiet-read-only
+firmware returns `Q`; firmware that supports quiet read *and* write returns
+`B`. A quiet write requires `B`, so a new COM cannot silently write without
+quiet timing on old firmware. Either `Q` or `B` permits quiet read.
 
 Timed passes include CP/M BDOS create/open/close calls and the complete RunCPM
 host filesystem and physical-drive path. Verification is untimed so interpreted
@@ -33,10 +47,13 @@ for the per-instruction tables.
 The drive benchmark uses private port `7Ah`. `IN 7Ah` returns `D`; output
 commands 1/2 start/end writing, 3/4 start/end reading, and 255 cancels after an
 error. The `8X` variant uses commands 5/6 and 7/8 for the same operations so
-the host can label its results. The host reports elapsed microseconds and
-KiB/s. The current
-JC8048W535 profile uses one-bit SDMMC at 20 MHz, so results describe that wiring
-and configuration rather than the card's advertised maximum speed.
+the host can label its results; quiet read uses commands 9/10 and quiet write
+uses 11/12. Cancel 255 resumes a paused terminal after an I/O error. The host
+reports elapsed microseconds and KiB/s. Normal JC8048W535 builds now use
+SPI3/SdFat at a requested 40 MHz; the former one-bit SD_MMC adapter is an
+explicit fallback build. Results always
+describe the firmware actually running, including its storage path, rather
+than the card's advertised maximum speed.
 
 The file workload and verification are portable CP/M 2.2 BDOS operations, but
 automatic microsecond timing is not: standard CP/M 2.2 has no portable clock

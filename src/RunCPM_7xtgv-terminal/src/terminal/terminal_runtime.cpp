@@ -2,14 +2,13 @@
 #if !defined(RUNCPM_HEADLESS)
 #include "terminal_runtime.h"
 #include "7xtgv-QL-font.h"
-#include "7xtgv-gfxsetup.h"
+#include <Arduino_GFX_Library.h>
+#include "../../hardware/arduino_7xtgv/board.h"
 #include "byte_queue.h"
 #include "history_profiles.h"
 #include "line_history.h"
 #include "terminal.h"
-#include "../../hardware/arduino_7xtgv/backlight.h"
-#include "../../hardware/arduino_7xtgv/target_identity.h"
-#include "../../hardware/arduino_7xtgv/reboot.h"
+#include "backlight.h"
 #include "../../forced_warm_return.h"
 #include <Arduino.h>
 #include <algorithm>
@@ -17,6 +16,8 @@
 #include <new>
 #include <stdio.h>
 #include <string.h>
+
+static Arduino_GFX *gfx = nullptr;
 
 static ByteQueue<4096> input;
 static ByteQueue<16384> output;
@@ -1164,10 +1165,8 @@ static void rawTick(uint32_t now) {
 }
 static bool displayOK = false, cursorPhase = true, connected = false;
 static uint32_t blinkAt = 0, bellUntil = 0, oldBells = 0;
-#if defined(GFX_BUFFERED_CANVAS) || defined(GFX_DEFERRED_FLUSH)
 static uint32_t displayFlushAt = 0;
 static bool displayFlushPending = false;
-#endif
 static uint16_t pixels[6 * 10];
 static uint16_t scaledPixels[24 * 40];
 // xterm-256 plotting uses only a transient logical scanline.  The actual
@@ -1320,9 +1319,9 @@ static void applyViewZoom(uint8_t zoom) {
 }
 
 static void requestDisplayFlush() {
-#if defined(GFX_BUFFERED_CANVAS) || defined(GFX_DEFERRED_FLUSH)
-    displayFlushPending = true;
-#endif
+    if (XTGV_DISPLAY_NEEDS_FLUSH) {
+        displayFlushPending = true;
+    }
 }
 void terminalDiskActivity(bool active) {
     // Latch even a sub-millisecond filesystem operation long enough for the
@@ -1351,14 +1350,14 @@ static void diskActivityIndicatorPoll() {
     }
 }
 static void flushCanvasIfDue() {
-#if defined(GFX_BUFFERED_CANVAS) || defined(GFX_DEFERRED_FLUSH)
-    const uint32_t now = millis();
-    if (displayFlushPending && int32_t(now - displayFlushAt) >= 0) {
-        gfx->flush();
-        displayFlushPending = false;
-        displayFlushAt = now + displayFlushIntervalMs;
+    if (XTGV_DISPLAY_NEEDS_FLUSH) {
+        const uint32_t now = millis();
+        if (displayFlushPending && int32_t(now - displayFlushAt) >= 0) {
+            gfx->flush();
+            displayFlushPending = false;
+            displayFlushAt = now + displayFlushIntervalMs;
+        }
     }
-#endif
 }
 static void flushPlotRow() {
     if (!displayOK || !plotScanline || !plotX)
@@ -1638,8 +1637,8 @@ static void drawCell(int i) {
     // Keep the gutter away from the panel frame: at the default left edge it
     // precedes the text, while at the right edge it follows the text.
     const int origin = terminal.viewport ? 0 : presentationGutter;
-    gfx->draw16bitRGBBitmap(origin + column * width + GFX_OFS_X,
-                             displayRow * height + GFX_OFS_Y,
+    gfx->draw16bitRGBBitmap(origin + column * width + XTGV_DISPLAY_OFFSET_X,
+                             displayRow * height + XTGV_DISPLAY_OFFSET_Y,
                              scaledPixels, width, height);
 }
 static void writeHistoryNotice() {
@@ -1736,8 +1735,8 @@ static void drawIndicator() {
     // is a terminal viewport cue and must not cover its leftmost samples.
     if (!displayOK || plotOwnsPixels() || !presentationGutter)
         return;
-    const int x = terminal.viewport ? GFX_OFS_X + terminal.visibleCols * 6 * terminal.zoom
-                                    : GFX_OFS_X;
+    const int x = terminal.viewport ? XTGV_DISPLAY_OFFSET_X + terminal.visibleCols * 6 * terminal.zoom
+                                    : XTGV_DISPLAY_OFFSET_X;
     const vt::GlobalProfile &global = profiles.global();
     const vt::HistoryProfile &profile = profiles.get(history ? history->activeBank() : 0);
     const bool followsLine = global.activeGutterOverride ? global.viewportActiveGutterFollowsLine
@@ -1746,14 +1745,14 @@ static void drawIndicator() {
         ? (followsLine ? (profile.activeLineOverride ? profileRGB(profile.activeLineRGB) : terminal.palette.activeLine)
                        : (global.activeGutterOverride ? profileRGB(global.viewportActiveGutterRGB) : terminal.palette.activeGutter))
         : (global.gutterOverride ? profileRGB(global.viewportGutterRGB) : terminal.palette.gutter);
-    gfx->fillRect(x, GFX_OFS_Y, presentationGutter, gfx->height(), rgb565(color));
+    gfx->fillRect(x, XTGV_DISPLAY_OFFSET_Y, presentationGutter, gfx->height(), rgb565(color));
 }
 static void restoreDiskIndicatorBacking() {
     // Restore all cells touched by the fixed-pixel 6x6 overlay, including
     // row/column boundaries at any zoom. Its HAL offset is not a text row.
     const int y = 1 + vt::displayHalDefaults().diskIndicatorYOffset;
     const int origin = terminal.viewport ? 0 : presentationGutter;
-    gfx->fillRect(GFX_OFS_X + 1, GFX_OFS_Y + y, 6, 6,
+    gfx->fillRect(XTGV_DISPLAY_OFFSET_X + 1, XTGV_DISPLAY_OFFSET_Y + y, 6, 6,
                   rgb565(terminal.palette.paper[0]));
     if (presentationGutter && !terminal.viewport)
         drawIndicator();
@@ -1802,12 +1801,9 @@ static void renderBatch() {
         requestDisplayFlush();
     }
     int drawn = 0, pixelsDrawn = 0;
-#if defined(GFX_BUFFERED_CANVAS)
-    const int DrawBudgetPixels = terminal.visibleCols * terminal.visibleRows *
-                                 6 * 10 * terminal.zoom * terminal.zoom;
-#else
-    constexpr int DrawBudgetPixels = 12 * 6 * 10;
-#endif
+    const int DrawBudgetPixels = XTGV_DISPLAY_FULL_FRAME_BUDGET
+        ? terminal.visibleCols * terminal.visibleRows * 6 * 10 * terminal.zoom * terminal.zoom
+        : 12 * 6 * 10;
     const int visibleCells = terminal.visibleCols * terminal.visibleRows;
     const int cellPixels = 6 * 10 * terminal.zoom * terminal.zoom;
     for (int checked = 0; checked < visibleCells && pixelsDrawn < DrawBudgetPixels; checked++) {
@@ -1835,16 +1831,16 @@ static void renderBatch() {
     // HAL-positioned activity LED. Its expiry restores the underlying gutter
     // or text cell immediately; retained graphics plots are never touched.
     if (diskIndicatorVisible && (diskIndicatorDirty || drawn)) {
-        gfx->fillRect(GFX_OFS_X + 1,
-                      GFX_OFS_Y + 1 + vt::displayHalDefaults().diskIndicatorYOffset,
+        gfx->fillRect(XTGV_DISPLAY_OFFSET_X + 1,
+                      XTGV_DISPLAY_OFFSET_Y + 1 + vt::displayHalDefaults().diskIndicatorYOffset,
                       6, 6, 0xf800);
         requestDisplayFlush();
     }
     diskIndicatorDirty = false;
-#if defined(GFX_BUFFERED_CANVAS) || defined(GFX_DEFERRED_FLUSH)
-    displayFlushPending |= drawn != 0;
-    flushCanvasIfDue();
-#endif
+    if (XTGV_DISPLAY_NEEDS_FLUSH) {
+        displayFlushPending |= drawn != 0;
+        flushCanvasIfDue();
+    }
 }
 static const char *graphicText(uint8_t ch) {
     switch (ch) {
@@ -2134,25 +2130,17 @@ void terminalHistorySaveComplete(bool saved) {
 void terminalSetup() {
     // Do this before allocation and display initialization, not after begin().
     xtgvBacklightInit(true);
-#if defined(ESP32)
-    // Ten 255-entry banks are larger than internal SRAM can safely reserve
-    // alongside the RGB scanout task. Keep the in-memory history in PSRAM;
-    // the SD file is still only loaded at boot and saved lazily.
-    if (void *memory = ps_malloc(sizeof(vt::LineHistory)))
-        history = new (memory) vt::LineHistory;
-#else
-    history = new (std::nothrow) vt::LineHistory;
-#endif
+    history = xtgvBoardCreateHistory();
     Serial.begin(115200);
     // No USB diagnostics: this port carries only the interpreted screen mirror.
-    GFX_DEVICE_INIT();
-    displayOK = GFX_BEGIN_OK();
+    gfx = xtgvBoardCreateDisplay();
+    displayOK = gfx && xtgvBoardBeginDisplay(gfx);
     if (displayOK) {
         gfx->fillScreen(0);
-#if defined(GFX_BUFFERED_CANVAS) || defined(GFX_DEFERRED_FLUSH)
-        gfx->flush();
-        displayFlushAt = millis() + 33;
-#endif
+        if (XTGV_DISPLAY_NEEDS_FLUSH) {
+            gfx->flush();
+            displayFlushAt = millis() + 33;
+        }
         plotWidth = gfx->width();
         if (plotWidth > 0)
             plotScanline = new (std::nothrow) uint16_t[plotWidth];
@@ -2258,11 +2246,11 @@ static void terminalBootBacklightPoll() {
                 if (terminal.dirty[terminal.index(x + terminal.viewport,
                                                   y + terminal.rowViewport)])
                     return;
-#if defined(GFX_BUFFERED_CANVAS) || defined(GFX_DEFERRED_FLUSH)
-        gfx->flush();
-        displayFlushPending = false;
-        displayFlushAt = millis() + displayFlushIntervalMs;
-#endif
+        if (XTGV_DISPLAY_NEEDS_FLUSH) {
+            gfx->flush();
+            displayFlushPending = false;
+            displayFlushAt = millis() + displayFlushIntervalMs;
+        }
         bootFrameReady = true;
         bootFrameFlushedAt = millis();
         return;

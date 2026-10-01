@@ -3,6 +3,7 @@ profiles:
     fqbn: esp32:esp32:esp32s3:CDCOnBoot=cdc,USBMode=hwcdc,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,PSRAM=opi,LoopCore=1
     libraries:
       - GFX Library for Arduino (1.6.4)
+      - SdFat (2.3.0)
   jc8048w550:
     fqbn: esp32:esp32:esp32s3:CDCOnBoot=default,USBMode=hwcdc,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,PSRAM=opi,LoopCore=1
     libraries:

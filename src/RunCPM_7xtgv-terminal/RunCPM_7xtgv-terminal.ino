@@ -1,5 +1,9 @@
 #include <Arduino.h>
 #include "runcpm-config.h"
+
+// Emit the selected board's ordinary function definitions once, in this TU.
+#define XTGV_HAL_IMPLEMENTATION
+#include "hardware/arduino_7xtgv/board.h"
 // RunCPM - mixworx mods
 #define BUILD  "7xtgv-runcpm-v2"
 
@@ -10,7 +14,6 @@
 #include "src/terminal/ini_text.h"
 #endif
 
-#include "hardware/arduino_7xtgv/board.h"
 #include "hardware/arduino_7xtgv/runcpm_hooks.h"
 
 #include "globals.h"

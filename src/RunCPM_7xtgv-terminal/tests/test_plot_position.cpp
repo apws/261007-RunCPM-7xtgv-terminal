@@ -1,6 +1,10 @@
+#define XTGV_HAL_IMPLEMENTATION
+#define XTGV_TERMINAL 1
 // Exercise the complete positioned-plot/output/cleanup sequence with the
 // deferred-flush path used by the 800x480 RGB target.
-#define GFX_DEFERRED_FLUSH 1
+#ifndef RUNCPM_TARGET_JC8048W550
+    #error "Compile every source in this test with -DRUNCPM_TARGET_JC8048W550"
+#endif
 bool terminalHistoryStoragePoll() { return true; }
 bool terminalConfigStoragePoll() { return true; }
 #include "../src/terminal/terminal_runtime.cpp"
@@ -17,6 +21,7 @@ static void feedOutput(const std::string &bytes) {
 }
 
 int main() {
+    expectedBacklightPin = XTGV_BACKLIGHT_PIN;
     terminalSetup();
     assert(displayOK && plotScanline);
     assert(terminal.setGeometry(80, 12, 26, 12, 2));

@@ -1,0 +1,43 @@
+= W535 SPI3 default and SDMMC fallback
+:source-highlighter: highlight.js
+
+*Date:* 261001 +
+*Target:* `++jc8048w535++` / `++ES3_35++` +
+*State:* source default changed and host-tested; no new firmware build or flash
+
+Petr accepted the W535 40 MHz SPI3/SdFat path after read/write/verify and
+quiet-mode device tests (see link:261001-1818%20W535%20SPI%20storage%20trial%20build%20checkpoint.adoc[trial record]).
+The selected `++boards/jc8048w535.h++` is now that complete SPI3/SdFat board
+definition. A normal target-aware W535 build needs no trial flag and uses the
+same target name, display ID, geometry, graphics, backlight, reboot and card
+pins as the running `++261001-2101++` image. The existing card socket's
+SCK=12, MOSI=11, MISO=13 and CS=10 remain on dedicated HSPI/SPI3; the
+requested storage clock remains 40 MHz.
+
+The former one-bit `++SD_MMC++` bridge is retained as
+`++boards/jc8048w535_sdmmc.h++` for explicit comparison/recovery. The normal
+board selector takes SPI3/SdFat; `++XTGV_W535_SD_MMC++` selects the fallback.
+For target-aware builds, only `++--w535-sd-mmc++` adds that fallback define.
+The former `++--w535-sd-spi++` option is removed because SPI is no longer an
+exception. Historical commands in dated trial notes remain historical.
+
+The installed SdFat 2.3.0 sets `++HAS_SDIO_CLASS++` for RP2040 and Teensy,
+not ESP32. Its `++SdioConfig++` is not an ESP32 `++SD_MMC++` backend.
+Espressif's Arduino `++SD_MMC++` instead exposes its own `++fs::FS++`/
+`++fs::File++` interface. Thus a simple SdFat setting cannot combine its
+filesystem with the ESP32-S3 SDMMC transport. A real alternative would be a
+new SdFat block-device driver over ESP-IDF's raw SDMMC sector interface,
+plus ownership/error/performance tests; that is a separate port, not part of
+this default switch. Sources: https://github.com/greiman/SdFat/blob/master/src/SdFatConfig.h[SdFat platform selection],
+https://docs.espressif.com/projects/arduino-esp32/en/latest/api/sdmmc.html[Arduino ESP32 SD_MMC API].
+
+The old `++RunCPMStorage++`/`++RunCPMFile++` bridge did add a filesystem
+adapter layer. Its cost was not isolated from bus mode, clock and driver
+differences, so the results do not prove that SDMMC hardware itself is slow.
+The 40 MHz SPI3 result is a tested board/card combination, not a universal
+SD-card maximum.
+
+Focused host board-link and reflash-dispatcher tests pass for both the new
+default and the explicit fallback. No target-aware firmware was compiled or
+flashed in this change: per repository workflow, the next `++rebuild++` will
+stage the new canonical default, and a separate `++reflash++` will deploy it.

@@ -1,0 +1,33 @@
+= ES3_35 readable HAL build checkpoint
+:source-highlighter: highlight.js
+
+*Date:* 261001 +
+*Target:* `jc8048w535` / display `ES3_35` +
+*State:* firmware compiled, staged as `new`, uploaded, and boot-checked
+
+Petr connected the ESP32-S3 JC8048W535 and requested a rebuild. The existing
+working-tree source from the
+link:261001-1322%20HAL%20challenge%20and%20readable%20board%20consolidation.adoc[board consolidation]
+was compiled unchanged with the explicit `jc8048w535` target profile and
+fresh boot stamp `261001-1611`.
+
+The real ESP32 Arduino build passed: 643096 program bytes and 171872 global
+bytes. The staged `new` app binary is 643456 bytes; its SHA-256 is:
+
+[literal]
+----
+e682a83cc7936f393f549c9b23d804036a1beea01a444ce355f0ad12d286bfa5
+----
+
+The ELF contains `ES3_35`, `jc8048w535` and `261001-1611`.
+`tools/terminal.conf` now selects this connected module as the current host
+target, using the port from its target JSON. No firmware source or CP/M file
+was changed during this build.
+
+Petr then requested `reflash`. The host guard identified the connected device
+as `jc8048w535`, running `260924-1549`, before uploading the staged
+`261001-1611` image. Arduino/esptool verified the written hashes and reset
+the ESP32-S3. After serial access was restored, Konsole was relaunched. The
+mirror reported SD_MMC init and mount OK, terminal profile and history OK,
+then reached `A0>`. The visible panel and longer interactive regression remain
+Petr's checks; the flashed candidate is not yet promoted to `current`.

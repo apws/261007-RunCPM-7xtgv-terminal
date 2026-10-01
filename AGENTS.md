@@ -8,6 +8,10 @@
   for useful visual/hardware checks or optional web investigation. For RunCPM
   ports, read `docs/260908-18 runcpm-port-addendum.adoc`; "flat HAL" means target headers,
   not a broad refactor.
+- Keep Arduino HAL definitions complete and human-readable: one uniformly
+  sectioned header per board, ordinary functions, intentionally board-local
+  storage adapters. Do not recreate per-feature fragments or code-body macros.
+  See `docs/261001-1322 HAL challenge and readable board consolidation.adoc`.
 - Preserve the project layout: source under `src/`, generated output under
   `build/`, documentation under `docs/`, and the CP/M mirror under `cpmdrive/`.
 - Prefix CP/M test programs and fixtures with `VT`; keep the unified `VTESTS`

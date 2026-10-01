@@ -536,6 +536,7 @@ uint8 _sys_makedisk(uint8 drive) {
 // Private RunCPM guest/host benchmark ports. BIOS and BDOS use interrupt
 // handoff in this build, so ordinary guest I/O reaches here.
 static const uint8 VTDRV_PORT = 0x7a;
+static const uint8 VTDRV_QUIET_CAP_PORT = 0x7e;
 static const uint8 VTCPU_PORT = 0x7b;
 static const uint8 VTTERM_PORT = 0x79;
 static const uint8 VTREBOOT_PORT = 0x7c;
@@ -549,6 +550,7 @@ static bool vtcpuQuiet = false;
 static bool vtcpu8x = false;
 static uint8 vtdrvOperation = 0;
 static bool vtdrv8x = false;
+static bool vtdrvQuiet = false;
 static bool vttermReported = false;
 static uint8 vtSyncStatus = 0;
 
@@ -611,9 +613,14 @@ static void _VTCPUEnd() {
     _HardwarePrint(buffer);
 }
 
-static void _VTDRVBegin(uint8 operation, bool use8x) {
+static void _VTDRVBegin(uint8 operation, bool use8x, bool quiet = false) {
     vtdrvOperation = operation;
     vtdrv8x = use8x;
+    vtdrvQuiet = quiet;
+#if !defined(RUNCPM_HEADLESS)
+    if (quiet)
+        terminalPause(true);
+#endif
     vtBenchmarkStartedAt = (uint32)micros();
     vtBenchmarkRunning = true;
 }
@@ -623,15 +630,23 @@ static void _VTDRVEnd(uint8 operation) {
         return;
 
     const uint32 elapsedUs = (uint32)micros() - vtBenchmarkStartedAt;
+    const bool wasQuiet = vtdrvQuiet;
     const uint64 kibHundredths =
         (VTDRV_BYTES * 100000000ULL + (uint64(elapsedUs) * 512ULL)) /
         (uint64(elapsedUs ? elapsedUs : 1) * 1024ULL);
     vtBenchmarkRunning = false;
     vtdrvOperation = 0;
+    vtdrvQuiet = false;
+#if !defined(RUNCPM_HEADLESS)
+    if (wasQuiet)
+        terminalPause(false);
+#endif
 
     char buffer[96];
     snprintf(buffer, sizeof(buffer), "%s %s: %lu bytes in %lu us = %llu.%02llu KiB/s\r\n",
-             vtdrv8x ? "VTDRV8X" : "VTDRV", operation == 1 ? "write" : "read ",
+             vtdrv8x ? "VTDRV8X" : "VTDRV",
+             operation == 1 ? (wasQuiet ? "quiet write" : "write") :
+                              (wasQuiet ? "quiet read" : "read "),
              (unsigned long)VTDRV_BYTES,
              (unsigned long)elapsedUs, kibHundredths / 100ULL,
              kibHundredths % 100ULL);
@@ -664,11 +679,22 @@ void _HardwareOut(const uint32 Port, const uint32 Value) {
             case 6: _VTDRVEnd(1); break;
             case 7: _VTDRVBegin(2, true); break;
             case 8: _VTDRVEnd(2); break;
-            case 0xff:
+            case 9: _VTDRVBegin(2, false, true); break;
+            case 10: _VTDRVEnd(2); break;
+            case 11: _VTDRVBegin(1, false, true); break;
+            case 12: _VTDRVEnd(1); break;
+            case 0xff: {
+                const bool wasQuiet = vtdrvQuiet;
                 vtBenchmarkRunning = false;
                 vtdrvOperation = 0;
                 vtdrv8x = false;
+                vtdrvQuiet = false;
+#if !defined(RUNCPM_HEADLESS)
+                if (wasQuiet)
+                    terminalPause(false);
+#endif
                 break;
+            }
         }
     } else if (port == VTTERM_PORT && value == 1) {
 #if !defined(RUNCPM_HEADLESS)
@@ -718,6 +744,8 @@ uint32 _HardwareIn(const uint32 Port) {
         return 'V';
     if (port == VTDRV_PORT)
         return 'D';
+    if (port == VTDRV_QUIET_CAP_PORT)
+        return 'B'; // Both quiet read and quiet write; older firmware returns Q.
     if (port == VTTERM_PORT) {
 #if !defined(RUNCPM_HEADLESS)
         if (!terminalTextBenchmarkDone())
