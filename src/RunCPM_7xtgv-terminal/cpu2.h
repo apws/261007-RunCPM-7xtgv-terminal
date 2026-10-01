@@ -240,16 +240,16 @@ static inline void Z80run(uint32 cpu_delay) {
 
     static uint32 instr_cnt = 0;
     static uint32 last_millis = 0;
-#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
-    uint16_t forcedWarmPoll = 0;
+#ifdef RUNCPM_ABORT_REQUESTED
+    uint16_t abortPoll = 0;
 #endif
 
     if (last_millis == 0) last_millis = millis();
 
 	/* main instruction fetch/decode loop */
 	while (!Status) {	/* loop until Status != 0 */
-#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
-        if (++forcedWarmPoll == 0 && forcedWarmReturn().cpuTakeRequest()) {
+#ifdef RUNCPM_ABORT_REQUESTED
+        if (++abortPoll == 0 && RUNCPM_ABORT_REQUESTED()) {
             Status = STATUS_RESTART;
             break;
         }

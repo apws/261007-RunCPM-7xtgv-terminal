@@ -569,8 +569,8 @@ void _Bios(void) {
     }
     case B_CONIN: { // 3 - Console input
         const uint8 input = _getcon();
-#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
-        if (forcedWarmReturn().cpuTakeRequest()) {
+#ifdef RUNCPM_ABORT_REQUESTED
+        if (RUNCPM_ABORT_REQUESTED()) {
             Status = STATUS_RESTART;
             break;
         }
@@ -738,8 +738,8 @@ void _Bdos(void) {
      */
     case C_READ: {
         HL = _getconE();
-#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
-        if (forcedWarmReturn().cpuTakeRequest()) {
+#ifdef RUNCPM_ABORT_REQUESTED
+        if (RUNCPM_ABORT_REQUESTED()) {
             Status = STATUS_RESTART;
             break;
         }
@@ -902,8 +902,8 @@ void _Bdos(void) {
             uint8 preBS = 0, reType = 0, postBS = 0;
 
             chr = _getcon(); // input a character
-#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
-            if (forcedWarmReturn().cpuTakeRequest()) {
+#ifdef RUNCPM_ABORT_REQUESTED
+            if (RUNCPM_ABORT_REQUESTED()) {
                 Status = STATUS_RESTART;
                 forcedInputAbort = true;
                 break;

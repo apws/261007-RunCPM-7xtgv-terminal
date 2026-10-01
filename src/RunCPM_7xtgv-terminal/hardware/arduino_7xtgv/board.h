@@ -2,6 +2,7 @@
 
 // One board selection for the current integrated RunCPM/terminal sketch.
 #if defined(RUNCPM_TARGET_JC8048W535)
+#include "boards/jc8048w535_cpu.h"
 #include "boards/jc8048w535_sdmmc.h"
 #elif defined(RUNCPM_TARGET_JC8048W550)
 #include "boards/jc8048w550_sd_spi.h"

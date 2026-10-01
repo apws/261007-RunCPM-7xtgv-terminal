@@ -81,7 +81,7 @@ static DirFat_t fileDirEntry;
 // Host files are normally opened/closed per 128-byte record, not per guest
 // FCB. The terminal INI cache therefore needs the logical BDOS close too.
 #if !defined(RUNCPM_HEADLESS)
-#define RUNCPM_CONFIG_FILE_CLOSED(path) terminalConfigFileClosed(path)
+#define RUNCPM_MODIFIED_FILE_CLOSED(path) terminalConfigFileClosed(path)
 #define RUNCPM_CONFIG_GUEST_IDLE() terminalConfigGuestIdle()
 static bool _sys_configAccess(const char *path, bool writing) {
     return terminalConfigFileAccess(path, writing);

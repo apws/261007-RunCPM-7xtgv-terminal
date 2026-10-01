@@ -158,7 +158,7 @@ int main() {
                      '_sys_renamefile', '_sys_extendfile', '_Truncate'):
             function = abstraction.split(name + '(', 1)[1].split('\n}', 1)[0]
             self.assertIn('_sys_configAccess(', function)
-        self.assertIn('RUNCPM_CONFIG_FILE_CLOSED((const char *)filename);',
+        self.assertIn('RUNCPM_MODIFIED_FILE_CLOSED((const char *)filename);',
                       (ROOT / 'disk.h').read_text())
         self.assertIn('RUNCPM_CONFIG_GUEST_IDLE();', (ROOT / 'ccp7xf.h').read_text())
 

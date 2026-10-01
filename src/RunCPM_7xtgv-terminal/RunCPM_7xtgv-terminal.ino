@@ -11,6 +11,7 @@
 #endif
 
 #include "hardware/arduino_7xtgv/board.h"
+#include "hardware/arduino_7xtgv/runcpm_hooks.h"
 
 #include "globals.h"
 

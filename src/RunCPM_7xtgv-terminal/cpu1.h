@@ -1046,14 +1046,10 @@ static inline void Z80reset(void) {
 #include "debug.h"
 #endif
 
-// On the dual-core S3, execute the hot dispatcher from internal instruction
-// RAM so terminal code on core 1 cannot evict it from the shared flash cache.
-// Optimize this one continuous hot path for speed while the surrounding
-// native BDOS, storage and terminal code retains Arduino-ESP32's compact -Os.
+// Optional target-supplied attributes for this hot dispatcher.
 static inline
-#if defined(RUNCPM_TARGET_JC8048W535)
-IRAM_ATTR
-__attribute__((optimize("O2")))
+#ifdef RUNCPM_Z80RUN_ATTRIBUTES
+RUNCPM_Z80RUN_ATTRIBUTES
 #endif
 void Z80run(uint32 cpu_delay) {
 	uint32 temp = 0;
@@ -1065,18 +1061,18 @@ void Z80run(uint32 cpu_delay) {
 
     static uint32 instr_cnt = 0;
     static uint32 last_millis = 0;
-#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
-    uint16_t forcedWarmPoll = 0;
+#ifdef RUNCPM_ABORT_REQUESTED
+    uint16_t abortPoll = 0;
 #endif
 
     if (last_millis == 0) last_millis = millis();
 
 	/* main instruction fetch/decode loop */
 	while (!Status) {	/* loop until Status != 0 */
-#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
+#ifdef RUNCPM_ABORT_REQUESTED
         // One cheap countdown branch per opcode; the cross-core atomic is
         // read only every 65,536 instructions, never inside a host SD call.
-        if (++forcedWarmPoll == 0 && forcedWarmReturn().cpuTakeRequest()) {
+        if (++abortPoll == 0 && RUNCPM_ABORT_REQUESTED()) {
             Status = STATUS_RESTART;
             break;
         }

@@ -1,0 +1,80 @@
+= Optional RunCPM core hooks and upstream integration boundary
+:source-highlighter: highlight.js
+
+*Date:* 261001 +
+*State:* recovered-era fork checkpoint; 90 host tests pass; RP2_147 user-reported interactive retest passed
+
+This implements the first *core-seam cleanup* from
+link:260930-13%20RunCPM%20cleanup,%20CCP%207XF%20and%20terminal-only%20build%20plan.adoc[the cleanup plan].
+The comparison bases are the recovered project commit
+`++34bb588aab8d014d550ae102cf28809f695822b6++` and pinned Mockba
+snapshot `++79396be665d6ec263a2728b20b177f4149647ed8++` (260824).
+This does not copy Mockba's later CP/M 3 changes into our CP/M 2.2 fork.
+
+== Source changes and ownership
+
+[cols="2,3,3",options="header",role="mx-compact"]
+|===
+|Seam |Core behavior |Product owner
+|`++RUNCPM_ABORT_REQUESTED()++` |The four CPU loops poll every 65,536 instructions; the three existing blocking BIOS/BDOS console-read exits also check after input. An accepted request still sets `++STATUS_RESTART++`; partial line input is discarded as before. If undefined, the checks and per-loop counter compile out. |`++hardware/arduino_7xtgv/runcpm_hooks.h++` maps the hook to the existing `++ForcedWarmReturn++` coordinator only for integrated terminal builds. The CCP's external-COM and SUBMIT handling remains in `++ccp7xf.h++`.
+|`++RUNCPM_MODIFIED_FILE_CLOSED(path)++` |The existing logical close of a *modified* FCB invokes an optional callback after host filename resolution (and SUBMIT truncation). It is not every physical host `++fclose++`. If undefined, no callback remains. |`++abstraction_arduino_7xtgv.h++` maps the callback to `++terminalConfigFileClosed++` only with terminal integration, preserving the INI cache invalidation/sync path.
+|`++RUNCPM_Z80RUN_ATTRIBUTES++` |`++cpu1.h++` accepts optional declaration attributes without knowing an ESP32 board name. Unset targets retain the ordinary function declaration. CPU2--4 are unchanged in this respect. |Only the measured W535 board header currently opts into `++IRAM_ATTR++` and `++O2++`. The product hook rejects that opt-in on a non-ESP32 Arduino target. Other ESP32 modules *may* opt in after build-size, IRAM and speed measurements; this is not a universal ESP32 policy yet.
+|===
+
+The generic names are deliberately *optional hooks*, not a new upstream
+interface claim. `++globals.h++` no longer includes the product abort class;
+the integrated sketch includes its product hook header before core headers.
+The guest-idle persistence callback still belongs to the selected
+`++ccp7xf.h++` fork. The full 7XF catalog is not made portable by these hooks.
+There is no guest-visible command, INI, palette or display change intended.
+
+== Why the later CP/M 3 source is a separate port
+
+The pinned Mockba snapshot changes `++ccp.h++`, `++cpm.h++`, `++disk.h++`,
+`++globals.h++` and the Arduino abstraction for experimental CP/M 3. These
+overlap our CCP, console, file-close and abstraction areas. Its CPU loops
+have no `++CPM3++` conditionals, but still require an ordinary version diff
+before reapplying the poll. The three console checks here match *our current
+CP/M 2.2 paths only*; CP/M 3 adds other conditional console operations.
+Likewise a hook at our `++_CloseFile++` location does not establish that all
+CP/M 3 close paths notify the INI cache. A later port needs path-by-path
+review and tests in both `++CPM3=0++` and `++CPM3=1++` configurations.
+The 7XF CCP variant is still a separate product-owned copy, not a small
+upstream extension or an automatically mergeable patch.
+
+== Would upstream RunCPM fit as a Git submodule?
+
+Technically yes for an *unmodified* upstream checkout, but not as a direct
+replacement for our current `++RunCPM_7xtgv-terminal++` tree. A submodule
+pins an upstream commit; it does not solve our local edits to core headers or
+our full `++ccp7xf.h++` variant. Using it now would require an overlay or
+ordered patch series at build time, separate Arduino include-path resolution,
+and explicit conflict handling every time the pinned upstream commit moves.
+That adds moving parts without removing today's semantic CP/M 3 review.
+
+For now, retain the vendored, provenance-documented recovered-era fork and
+its small optional-hook diff. Revisit a submodule, Git fork, or patch overlay
+only after a clean pinned-upstream build matrix and a repeatable patch test
+show which local changes remain necessary. Do not treat the ignored local
+`++RunCPM_comparison++` working tree as source of truth; Petr's copied files
+there are intentional comparison material.
+
+== Evidence and next gate
+
+`++python3 -m unittest discover -s src/RunCPM_7xtgv-terminal/tests -p 'test_*.py' -q++`
+passes 90 tests, including checks that CPU/console/disk core files no longer
+name the product coordinator directly. `++git diff --check++` passes. These
+are structural and host-runtime checks, *not* a device parity test. On Petr's
+`++rebuild++` request, the target-aware RP2_147 Arduino compile succeeded and
+staged `++build/RunCPM_7xtgv-terminal/rp2350-lcd-1-47-a/new/++` with boot stamp
+`++261001-0728++`; the ELF contains both that stamp and `++RP2_147++`.
+The build reports 300152 bytes of program storage and 161876 bytes of global
+RAM. Petr then requested reflash. The RP2350 BOOTSEL chip ID
+`++D60D9318CF30A586++` matched the configured RP2_147 target; its UF2
+reported RP2350 ARM Secure. The staged file copied successfully, and the
+visible mirror relaunched. Boot output shows `++261001-0728++`, SD mount,
+terminal profile and history OK, and `++A0>++`. Petr subsequently reported
+"tested, all okay" against the requested checklist: normal COM return,
+forced return from a running COM and console input, SUBMIT cancellation, and
+INI save. This is a user-reported RP2_147 interactive check, not a measured
+cross-board parity or CP/M 3 result.
