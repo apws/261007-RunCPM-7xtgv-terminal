@@ -1,0 +1,274 @@
+= Global SdFat SPI clock and CARDMARK preparation
+:source-highlighter: highlight.js
+:toc:
+
+== Approved scope
+
+NOTE: The initial 12 MHz policy described below was superseded by Petr's
+20 MHz correction. See the completed checkpoint at the end of this note.
+The initial CARDMARK read-only-build restriction was subsequently removed:
+the diagnostic itself remains read-only in both writable and protected P4 builds.
+
+Petr approved the native CARDMARK private-port seam in
+`abstraction_arduino_7xtgv.h`, supported SdFat external SPI-driver approach,
+and `[global] sdfat_spi` for all direct-SdFat boards, not only P4.
+This checkpoint implements the configurable clock foundation. CARDMARK's
+native register/raw-read backend and CP/M launcher are still pending.
+
+== User setting
+
+[source,ini]
+----
+[global]
+sdfat_spi=40
+----
+
+Accept integer requested MHz from 1 through 60. This is an Arduino ceiling,
+not a measured clock or a safety rating. The parser reports invalid values
+and falls back to 12 MHz. Missing settings also default to 12 MHz. A valid
+configuration cache must have loaded before the startup path applies a value;
+unreadable/missing configuration retains 12 MHz.
+
+All direct-SdFat boards now mount/read configuration at a 12 MHz request:
+EP4_10, ES3_35, ES3_5, RP2_147 and RP2_2. The two S3 boards previously requested
+40 MHz and P4's most recent trial requested 50 MHz; those are no longer their
+compiled boot defaults. To retain those operating requests, explicitly edit
+the fresh device INI after fetching it. No device INI was fetched or changed
+during this implementation.
+
+The global setting travels with the card and applies to every supported board:
+a value proven on one board is not automatically safe on another. Test at 12
+first if unsure. A missing/bad INI cannot force a high startup clock; however,
+a syntactically valid but electrically unsafe value is not automatically
+detected or replaced. Edit the INI on a PC to recover such a configuration.
+
+The W535 SD_MMC fallback is not a SdFat SPI transport; it leaves its existing
+clock unchanged and reports the SPI request as not applied. A serial-only
+build currently has no terminal INI loader and stays at the 12 MHz request.
+
+The setting is boot-only. Unrelated backlight/palette saves preserve its text.
+No live test is allowed to persist a new speed implicitly. Normal future
+CARDMARK completion must restore the configured operating request.
+
+== Implementation and ownership
+
+Each complete board header still owns pins, SPI peripheral, power, SD instance,
+mount and status reporting. It adds `xtgvBoardStorageSetMHz()` as an ordinary
+function. The sketch calls this once after INI/history handles have closed,
+before CCP launch, and prints the requested MHz and apply status.
+
+One shared `hardware/arduino_7xtgv/sdfat_spi_driver.h` contains the complete
+transport implementation, not a hierarchy of board/config fragments. This
+class has no board selection or pin knowledge. It implements SdFat's supported
+`SdSpiBaseClass` interface and owns the Arduino SPISettings value.
+
+All five target JSON definitions set `SPI_DRIVER_SELECT=3` build-wide, including
+SdFat translation units. This selects an external *hardware* SPI driver; it
+does not select software SPI (SdFat uses value 2 for that). No installed SDK
+or library is patched. The board gives the driver its existing SPI instance.
+
+Transfer policies remain as before this checkpoint:
+
+* P4: buffer API, mode 1, including source-preserving 512-byte write scratch.
+* RP2350: separate transmit/receive buffer API, mode 2.
+* S3: existing mode 0 byte API; changing its performance policy is separate.
+
+The driver accepts SdFat's initialization speed, then the requested operating
+clock. For later changes the owner first calls card `syncDevice()` to end a
+multi-block operation. The driver rejects changes while a transaction remains
+active. It stores the new clock for the next `beginTransaction()`; no volume
+remount or card reset occurs. This call does not flush arbitrary open-file
+caches: the caller must maintain exclusive card ownership and appropriate
+file/cache boundaries. The startup call happens after configuration loading.
+
+The P4 forced-read-only wrapper exposes only a narrow card-synchronization
+method for this purpose, not an unrestricted physical card pointer. Its sector
+write barrier is unchanged. A subsequent P4 safety-test rebuild must still
+explicitly use `--storage-read-only`.
+
+== CARDMARK design still to implement
+
+Proposed `CARDMARK [sectors [MHz [start-sector]]]` prints CID/CSD identity and
+capabilities, then compares raw reads against conservative-clock baseline
+buffers. Ordinary memory cards have CSD, not the SDIO CIS referred to in chat.
+Defaults proposed: 1024 sectors, current configured request, starting sector 0.
+One sector is 512 bytes; capacity bounds and numeric overflow must be checked.
+
+Read a bounded batch at the baseline request, then reread the same sectors at
+the trial request and compare every byte, with repeated passes. Restore the
+operating request on success, error or cancellation. Communication failure
+must not silently resume normal writes if safe recovery cannot be established.
+No format, erase, write, or INI save operation belongs in this tool.
+
+Keep the backend native on the storage owner, UI through the existing terminal
+path, with a tiny CP/M COM launcher and private-port dispatch. Do not copy the
+standalone SdInfo setup/loop, remount its own card, or use direct Serial UI.
+Provide bounded cancellation checks and preserve upstream attribution where
+example code is adapted. No CPU, BDOS or CCP changes are needed.
+
+== Validation and deployment boundary
+
+Native tests cover all three driver transfer policies, initialization clock,
+active-transaction rejection, clock bounds, restoring a prior request, and
+write-buffer preservation. Parser tests cover missing, valid, invalid, duplicate
+and reload cases. Persistence tests verify unrelated saves preserve sdfat_spi.
+All six HAL variants link in the native test; target property tests ensure the
+external-driver flag reaches all five direct-SdFat build definitions. P4 power
+and read-only guard tests also pass.
+
+No firmware rebuild, reflash or device configuration change at this checkpoint.
+Next required validation is target-aware compilation and board-by-board hardware
+testing. Native mocks do not establish actual SPI timing or mount reliability.
+
+See link:261002-12%20SdFat%20buffer%20transfers%20and%20SPI%20clock%20audit.adoc[clock/driver audit]
+and link:261002-12%20P4%20forced%20read-only%20storage%20trial.adoc[read-only build].
+
+== Completed source/build checkpoint 261002-1510
+
+Petr clarified that the startup/missing/invalid/unreadable fallback should be
+20 MHz requested, not 12. All five direct-SdFat board initializers, parser
+defaults, transport default and sketch fallback now use 20. Existing SD_MMC
+fallback remains an explicitly selected historical adapter, not a current
+default target; no removal was performed. No device INI was changed.
+
+CARDMARK is now implemented, initially enabled only in the P4 forced-read-only
+build. Other firmware reports unsupported. This deliberate gate prevents using
+the new raw diagnostic on a write-enabled build before qualification.
+
+----
+CARDMARK                       ; 1024 sectors at configured operating request
+CARDMARK 1024 50                ; explicit 50 MHz trial request
+CARDMARK 4096 50 8192           ; starting raw sector 8192
+----
+
+The actual command line contains only numeric arguments (no semicolon comments).
+Defaults: 1024 sectors, configured request, start sector 0. Each sector is
+512 bytes. Accepted count 1..1048576, clock 1..60 MHz; range checked against
+card capacity with overflow protection.
+
+CID output includes manufacturer ID, OEM, product, revision, serial and date.
+CID and CSD are also printed as all 16 raw bytes, with sector capacity and raw
+CSD TRAN_SPEED field. Manufacturer IDs are not guessed into brand names;
+advertised timing is not presented as measured SCK or negotiated High Speed.
+
+Two bounded static 4096-byte buffers hold an eight-sector baseline batch and
+trial batch. Each batch is read at a 20 MHz request, then read three times at
+the trial request with every byte compared. Baseline data is not independently
+certified: agreement cannot detect errors common to baseline and trial, nor
+prove write reliability. Raw read timing excludes baseline reads and comparison
+overhead. On failure it reports first mismatching sector/byte or SD error;
+Ctrl+Alt+C is checked between reads. A blocking driver call retains its own
+timeout; cancellation is not instantaneous within such a call.
+
+The original operating clock is restored before return, including test failure
+or cancellation. If card synchronization/clock restoration fails, the backend
+prints a reset-required error and stays stopped rather than returning to CCP.
+It never writes sectors, resets/remounts the card, changes INI, or obtains an
+unrestricted card handle through the read-only wrapper.
+
+Private guest ports: IN 0x77 returns 'C' when available; OUT 0x77=1 clears
+argument state, OUT 0x78 streams the bounded ASCII command tail, OUT 0x77=2
+executes synchronously on the existing storage-owner task. These are the only
+new dispatch branches in abstraction_arduino_7xtgv.h. The native backend is
+hardware/arduino_7xtgv/cardmark.h; CPU, BDOS and CCP are unchanged.
+
+CARDMARK.ASM (Intel 8080) and CARDMARK.COM are in the local A0 mirror.
+tools/build_cardmark.py builds with DRI ASM/LOAD in a disposable native RunCPM
+drive and tests the unsupported-firmware path. COM output is 128 bytes (one
+CP/M record), with 94 assembled code/data bytes. Source is CRLF + Ctrl-Z.
+
+Native tests cover malformed/overflowing arguments, range bounds, successful
+comparison, injected mismatch/read error, cancellation, successful restoration
+and the fail-stopped restoration path. Clock-policy, parser, HAL, P4 storage
+and build-property tests pass.
+
+Requested P4 read-only build 261002-1510 passed and staged as new: 550073 bytes
+program storage (17%). Verified embedded build stamp, read-only warning and
+CARDMARK strings. Arduino's globals summary is incomplete as documented in
+the earlier memory audit. No stable promotion, firmware flash, COM transfer or
+device test yet. Next: separate reflash and transfer of CARDMARK.COM, then
+Petr's hardware tests. Other boards still require their own builds/retests.
+
+== Writable transfer build 261002-1517
+
+The requested CARDMARK.COM upload could not proceed because the running
+261002-1223 firmware blocks filesystem writes, including VTPUT. No transfer
+was attempted. Petr requested rebuilding current source without read-only
+protection to prepare a writable upload window.
+
+Build 261002-1517 passed and is now staged as new: 547469 bytes program (17%).
+The compile flags omit XTGV_STORAGE_READ_ONLY and USE_BLOCK_DEVICE_INTERFACE;
+SPI_DRIVER_SELECT=3 and P4 array transfers remain enabled. The binary contains
+the new stamp and neither the read-only warning nor CARDMARK backend banner.
+Startup/default requested clock is 20 MHz, with the existing global INI override.
+CARDMARK remains deliberately unavailable in this writable build.
+
+The target-aware staging workflow preserved the read-only CARDMARK build as
+`build/RunCPM_7xtgv-terminal/jc8012p4a1c/261002-1510 unverified/`.
+Next: separately requested flash of the writable candidate, upload CARDMARK.COM,
+then explicitly select/reflash the read-only candidate for diagnostics.
+No flash, file transfer, stable promotion or device INI change in this rebuild.
+
+== CARDMARK enabled in ordinary writable firmware
+
+Petr explicitly requested removing the unnecessary dependency on firmware-wide
+read-only mode. CARDMARK is now available in both normal writable and forced
+read-only P4 builds. Its own implementation still offers only CID/CSD reads,
+capacity/status queries, raw sector reads and temporary clock selection.
+It never writes or exposes a write operation through its narrow access facade.
+
+The native service runs synchronously on the existing sole storage-owner task,
+so background INI/history/catalog filesystem operations do not run during its
+trial clock interval. It restores the configured clock before returning. The
+reset-required fail-stop remains if synchronization/restoration fails. Pending
+filesystem data is not deliberately flushed at the experimental clock.
+Software read-only operations do not guarantee protection against electrical
+or power faults; a spare/backed-up card remains recommended.
+
+Both storage variants pass the native argument/comparison/error/cancellation/
+restoration tests. CARDMARK.COM was reassembled with the generic unsupported
+firmware message; native RunCPM exercises that path. There is no need to toggle
+firmware protection merely to install and run the command on normal firmware.
+Other board backends remain a separate validation/implementation step.
+
+Writable P4 build 261002-1520 passed and replaces new: 550567 bytes program
+storage (17%). Embedded stamp and CARDMARK read-only-operation banner verified;
+the firmware-wide read-only warning is absent. COM remains 128 bytes. No flash
+or transfer yet; the running device is still the old protected 261002-1223 build.
+
+Requested reflash of 261002-1520 subsequently completed with target confirmation
+and verified upload hashes. Visible mirror restored; boot confirms the new
+stamp, LDO4 ON, SD mount at requested 20000000 Hz, `20 MHz (APPLIED)` INI clock
+status, profile/history OK and A0>. No read-only warning, as intended. No rebuild,
+stable promotion or CARDMARK.COM transfer during this flash; COM upload remains
+pending. Previous CP/M program state was restarted.
+
+== Deployment and user hardware results
+
+CARDMARK.COM was subsequently transferred successfully to A0; mirror restored.
+Petr ran `CARDMARK 4096 50` on writable firmware and supplied:
+
+----
+MID=9F OEM=TI Product=SDCIT Revision=6.1 Serial=7A6805D2 Date=2022-08
+CID: 9F 54 49 53 44 43 49 54 61 7A 68 05 D2 01 68 89
+CSD: 40 0E 00 32 5B 59 00 00 77 C7 7F 80 0A 40 00 01
+Capacity=31399936 sectors (512 B), CSD TRAN_SPEED=0x32
+Baseline=20, trial=50, restore=20 MHz REQUESTED (not measured)
+PASS: 6291456 bytes compared; raw reads 1923.72 KiB/s
+Operating clock restored. Read agreement is not write qualification.
+----
+
+4096 sectors occupy 2 MiB; three comparison passes account for the reported
+6 MiB. This is raw sector throughput, not comparable directly with VTDRV's
+BDOS/file throughput. No physical SPI-clock measurement or broad write/integrity
+qualification follows from this pass. CID/CSD values are recorded as reported,
+without inferring a manufacturer beyond the returned identity fields.
+
+Petr then edited global `sdfat_spi=40` himself and confirmed boot application;
+subsequent captured boot banners also show 40 MHz APPLIED. Agent did not send
+or edit the device INI. The explicitly requested later fetch archives the prior
+local mirror and preserves Petr's current P4 geometry/settings locally.
+Only P4 has firmware/hardware validation of today's runtime clock changes;
+other direct-SdFat boards still require rebuilds and retesting. CARDMARK's native
+backend remains P4-only. Boot banner applied-clock/pin formatting and display
+timing visibility are tracked in the backlight preparation note.

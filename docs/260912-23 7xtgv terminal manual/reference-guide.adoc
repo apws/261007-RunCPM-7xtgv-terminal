@@ -167,7 +167,8 @@ The PC key tables provide the more natural shortcuts:
 |`++Alt+Backspace++` |Configured profile clear.
 |`++Alt+Shift+Backspace++` |Arm GCLS / xterm256 plotting without clearing the screen.
 |`++Alt+Shift+3++` |Toggle `++## RAW++` mode.
-|`++Ctrl+Shift+0++` … `++9++` |Backlight off, then coarse module-specific levels up to full ON.
+|`++LAlt+Ctrl+Shift+0++` |Backlight OFF.
+|`++Ctrl+Shift+1++` … `++9++` |Coarse module-specific backlight levels up to full ON.
 |`++LAlt+Ctrl+Shift+PgUp++` / `++PgDn++` |Raise / lower one of 32 backlight levels.
 |`++Ctrl+Shift+PgDn++` / `++PgUp++` |Temporarily zoom in (1x toward 4x) / zoom out (toward 1x).
 |`++LAlt+Ctrl+Shift+1++` / `++2++` |Select ANSI/VT100 / VT52 terminal output interpretation.
@@ -296,6 +297,7 @@ Bare `++CD++` reports both numeric DU and its named view, for example `++A7: /a/
 |`++VTCPU++` / `++VTCPU8X++` |Measure the RunCPM interpreter with the terminal active and paused. `++8X++` uses the 8080/8085 common instruction subset.
 |`++VTDRV++` |Plain invocation read-tests and verifies a retained 32 KiB `++VTDRV.$$$++` fixture. `++VTDRV W++` recreates it, then reads/verifies; old `++RW++` remains an alias. `++VTDRV Q++` quietly reads without writing. `++VTDRV W Q++` (or `++Q W++`) pauses the terminal during both timed write and read passes. Quiet modes require matching firmware; options are case-insensitive whole tokens.
 |`++VTDRV8X++` |Write, read, and verify 32 KiB in the current DU, then remove its temporary test file. Uses the 8080/8085 instruction subset.
+|`++CARDMARK++` |P4-only native raw SD read diagnostic, launched by A0:CARDMARK.COM. Prints CID/CSD identity and compares repeated raw sector reads; see below. Does not write a test file.
 |`++VTTERM++` |Run the firmware-native terminal/parser benchmark.
 |`++VTGET++` / `++VTPUT++` |CP/M ends of the host `++tools/cpm-transfer/transfer.py++` protocol; normally use the host tool rather than type their protocol manually.
 |`++UNZIP157 FILE.ZIP A:++` |Extract a Linux ZIP/Deflate archive to drive A in the current user area. Omitting the destination lists/checks only. Installed separately from old `UNZIP.COM`.
@@ -329,6 +331,26 @@ with `++ASM++` then `++LOAD++` if its `++.COM++` is missing. The private
 query/reply bytes are in the link:technical-reference.adoc#private-protocol-boundaries[Technical Reference].
 
 [[a7-visual-tests-and-dec-graphics]]
+=== CARDMARK raw SD read diagnostic
+
+`CARDMARK [sectors [MHz [start-sector]]]` currently requires matching P4
+firmware. Defaults: 1024 sectors, the configured operating SPI request, and
+start sector 0. Sectors are 512 bytes; count range is 1..1048576 and requested
+clock range is 1..60 MHz. Example: `CARDMARK 4096 50`.
+
+The native service reads reference data at requested 20 MHz and compares three
+trial reads per batch at the selected clock. It reports card CID/CSD, capacity,
+compared bytes and raw-read throughput, then restores the operating clock.
+Ctrl+Alt+C cancels in the integrated terminal build. It runs in ordinary writable
+firmware too; CARDMARK itself uses only read operations. If clock restoration
+fails, storage is stopped and a reset is required rather than returning to CP/M.
+
+Clock values are requested, not measured. A PASS demonstrates read agreement
+for the selected range, not write reliability or complete card qualification.
+Use a backed-up/spare card for experimental clocks. Raw throughput is not the
+same measurement as VTDRV's BDOS/file throughput. Detailed implementation and
+results: link:../261002-13%20Global%20SdFat%20SPI%20clock%20and%20CARDMARK%20preparation.adoc[CARDMARK checkpoint].
+
 === A7 visual tests and DEC graphics
 
 Select A7, start `MBASIC`, then `RUN "VTESTS"`. Save maintained sources with
@@ -510,6 +532,7 @@ or that host shortcuts will reach the firmware.
 |Setting |Accepted value / effect
 |`mode` |`ansi` or `vt52`; bank `mode` may override it.
 |`console_bits` |`7` or `8`; compiled default is 7. Current device INIs may choose 8.
+|`sdfat_spi` |Integer 1--60, requested SPI MHz for direct-SdFat boards. Startup/config reads use 20 MHz; missing/unreadable/invalid setting falls back to 20. Applied at boot after config/history handles close. SD_MMC fallback ignores it. Not a measured clock or reliability guarantee; the global value follows the card between boards.
 |`mode_palette` |0 through 9; initial active palette, persisted after selection.
 |`cursor_blink_ms` |1 through 5000 milliseconds.
 |`backlight_level` |1 through 31; last non-off level. Legacy 32 is accepted as 31. Runtime off is not persisted as zero.

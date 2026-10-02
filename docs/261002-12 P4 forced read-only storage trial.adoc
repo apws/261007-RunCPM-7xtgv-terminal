@@ -1,0 +1,95 @@
+= P4 forced read-only storage trial
+:source-highlighter: highlight.js
+
+== Purpose and scope
+
+Petr requested a compile-time forced-read-only option before trying the P4
+50 MHz requested SPI setting. This is independent of card INI settings.
+The current option supports only `jc8012p4a1c`; no RunCPM core or installed
+SdFat source is modified. Normal builds retain direct `SdFat32 SD`.
+
+== Build and deployment
+
+From `src/RunCPM_7xtgv-terminal`:
+
+[source,shell]
+----
+python3 tools/reflash.py --target jc8012p4a1c --build-only --storage-read-only
+----
+
+The option injects `XTGV_STORAGE_READ_ONLY=1` and
+`USE_BLOCK_DEVICE_INTERFACE=1` across the entire build, including SdFat.
+The latter is an ABI/layout choice and must not be defined only in a sketch
+header. Unsupported targets and use without a build are rejected.
+The flag is deliberately not remembered in terminal.conf or the INI: every
+read-only rebuild must request it explicitly. Flashing an already-built
+candidate needs no flag; protection is part of that binary.
+
+A normal rebuild without the option restores write capability. It does not
+change the selected experimental SPI clock; reverting that is separate.
+
+== Enforcement
+
+The board-local `XtgvReadOnlyStorage` mounts FatVolume on
+`XtgvReadOnlyCard`, an FsBlockDeviceInterface implementation owning a private
+SdSpiCard. Only initialization, reads, status, synchronization and shutdown
+are forwarded to the physical card. Both sector-write methods return false
+without reaching it. No physical card handle or erase operation is exposed.
+
+Writable opens, remove, rename, mkdir, rmdir and truncate are also rejected at
+the facade, before they can modify filesystem caches. File32/directory-handle
+operations that bypass that facade still encounter the sector-write guard.
+This covers CP/M writes, terminal INI/history persistence and 7XF catalog
+updates. It is not merely CP/M's logical drive write protection.
+
+The boot banner explicitly says `STORAGE READ-ONLY TEST`.
+Save errors and operations requiring a writable directory may fail; applications
+are not promised transparent writable behavior. This is a firmware filesystem
+write barrier, not physical write protection or a guarantee against electrical
+faults, malformed commands on a marginal link, or internal card housekeeping.
+Keep a backup/spare card for speed-limit tests.
+
+== Validation and next step
+
+Native tests exercise the actual board class definitions with test doubles:
+mount failure, read forwarding, writable-open rejection, directory-operation
+rejection and virtual single/multi-sector write rejection. Existing power-order
+and build-property tests pass. Firmware compilation and hardware verification
+are pending; no card operations were performed for this change.
+
+After an explicitly requested build/reflash, first confirm the read-only boot
+warning and successful mount. Petr performs the read benchmark. Any deliberate
+write-rejection hardware test should use a spare card and be separately agreed.
+
+== Build checkpoint 261002-1223
+
+Requested P4 build with `--build-only --storage-read-only` passed and staged
+as `new`. Requested SPI ceiling is 50000000 Hz, default Os and buffer transfers
+remain enabled. Program storage is 547185 bytes; application binary is 582160
+bytes. Verified embedded build stamp and read-only warning in the staged binary.
+The two native P4 storage tests pass. No flash or hardware verification yet;
+the device remains on the prior 40 MHz-request image. No stable promotion.
+
+== Flash checkpoint 261002-1223
+
+Requested reflash completed with target confirmation and verified upload hashes.
+Visible Konsole mirror restored. Boot confirms build 261002-1223, the explicit
+read-only warning, LDO4 ON, successful SD mount with the requested 50000000 Hz,
+terminal profile/history OK and A0>. This verifies boot/read access, not actual
+SCK frequency or stress reliability. No guest tests or writes were initiated
+by the agent. Petr's read benchmark is pending; no promotion.
+
+== Later tooling check
+
+After the 1223 flash, Petr supplied VTCPU active/quiet 383848/384307 us
+(33.91/33.87 MHz), and two read-only VTDRV runs: 653952/654421 us for
+32768 bytes, 48.93/48.90 KiB/s, both verify PASS. This confirms those reads,
+not hardware write rejection or long stress reliability. Writable firmware
+was restored later for normal use and CARDMARK deployment; 1932 is writable.
+
+== Separate clean-clone follow-up
+
+Petr also requested a later clean-clone validation of the build/flash/mirror
+tools outside Codex. Check documented dependencies, paths, Arduino profiles,
+permissions and serial ownership without relying on agent-session state.
+That is a separate task, not completed by these host tests.

@@ -40,7 +40,7 @@ int main() {
     constexpr int minimum = 1;
 #elif defined(RUNCPM_TARGET_RP2350_LCD_1_47_A)
     constexpr int minimum = 17;
-#else // RP2_2, including the host-default HAL selection
+#else // P4 and RP2_2, including the host-default HAL selection
     constexpr int minimum = 3;
 #endif
     assert(xtgvBacklightDuty(1) == minimum);

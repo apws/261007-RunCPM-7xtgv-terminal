@@ -1,0 +1,10 @@
+{
+  "display_id": "EP4_10",
+  "description": "ESP32-P4 JC8012P4A1C JD9365 NewPanel 10-inch",
+  "method": "arduino-cli",
+  "profile": "jc8012p4a1c",
+  "port": "/dev/ttyUSB0",
+  "build_properties": {
+    "build.extra_flags": "-DRUNCPM_TARGET_JC8012P4A1C -DXTGV_RUNCPM=1 -DXTGV_TERMINAL=1 -DXTGV_CCP_7XF=1 -DARDUINO_RUNNING_CORE=1 -DUSE_SPI_ARRAY_TRANSFER=1 -DSPI_DRIVER_SELECT=3"
+  }
+}

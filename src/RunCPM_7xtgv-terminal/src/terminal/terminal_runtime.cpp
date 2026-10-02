@@ -2180,6 +2180,7 @@ unsigned terminalConfigEnd() {
     return profiles.errors();
 }
 uint8_t terminalConfiguredConsoleBits() { return profiles.global().consoleBits; }
+uint8_t terminalConfiguredSdSpiMHz() { return profiles.global().sdfatSpiMHz; }
 unsigned terminalConfigErrorCount() { return profiles.errors(); }
 uint8_t terminalConfigErrorLineCount() { return profiles.errorLineCount(); }
 bool terminalConfigErrorLine(uint8_t index, uint16_t &number, const char *&section, const char *&text) {

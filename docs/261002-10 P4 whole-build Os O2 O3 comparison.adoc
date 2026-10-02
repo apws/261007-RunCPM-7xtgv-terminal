@@ -1,0 +1,313 @@
+= P4 whole-build Os, O2 and O3 comparison
+:source-highlighter: highlight.js
+:toc:
+
+== Controlled settings and build scope
+
+All three builds use CPU1 Z80run in IRAM, 20 MHz SdFat SPI, LDO4 power,
+360 MHz P4 and the same terminal configuration. No P4 function-specific
+optimization override is enabled. The baseline is 261002-1005, not the earlier
+12 MHz / flash-resident interpreter builds.
+
+The target-aware build tool now accepts `--optimization O2` and `O3` for
+P4 using Arduino ESP32's `compiler.optimization_flags` property. RP2_147
+retains its existing `build.flags.optimize` property. Normal rebuilds still
+use the profile default; neither trial changes that default to O2/O3.
+
+Both trial builds passed. Their compile databases each contain 203 source
+compilation entries, all using the requested -O2 or -O3 respectively.
+This covers sketch, source libraries and Arduino core; Espressif's supplied
+precompiled SDK archives are not rebuilt or reoptimized. The five build-property
+tests pass. No firmware was flashed during this comparison.
+
+== Image and memory sizes
+
+All numbers below are bytes, extracted from the linked ELF and output files.
+Program storage is Arduino's summary; it is not the complete application-bin
+file size. ELF debug/file overhead is not loaded into MCU memory.
+
+[cols="3,1,1,1",options="header"]
+|===
+|Area |Os (261002-1005) |O2 (261002-1012) |O3 (261002-1013)
+|Arduino program-storage summary |545931 |589423 |620061
+|Application .bin file |580480 |627664 |657296
+|Merged image, padded to 16 MiB |16777216 |16777216 |16777216
+|ELF file including debug information |13691696 |14480168 |15387404
+|Flash executable text |343688 |384186 |414818
+|Flash read-only data |88824 |88616 |88660
+|Flash app descriptor |256 |256 |256
+|Flash initialization array |292 |292 |292
+|Exception unwind tables (.eh_frame) |33796 |37476 |36468
+|IRAM executable text, all functions |103486 |106688 |106650
+|IRAM text-end alignment |66 |64 |102
+|Z80run alone (subset of IRAM text) |35902 |39104 |39066
+|DRAM0 initialized data |9933 |9933 |9933
+|DRAM0 zero-initialized data |11576 |11576 |11576
+|DRAM1 zero-initialized data |224476 |224476 |224476
+|Retained uninitialized data (.noinit) |3 |3 |3
+|Total static DRAM data including .noinit |245988 |245988 |245988
+|IRAM text including alignment + static DRAM |349540 |352740 |352740
+|TCM executable text |30 |30 |30
+|TCM data |60 |60 |60
+|RTC executable text |88 |88 |88
+|RTC reserved |40 |40 |40
+|Low/high heap-start marker sections |8 / 4 |8 / 4 |8 / 4
+|===
+
+DRAM1 initialized data, IRAM data/BSS, flash TLS data, RTC force/noinit
+sections and exception-frame header are zero in these images.
+The `.flash_rodata_dummy` reservation is 393216 / 393216 / 458752 bytes:
+it models address-space alignment/overlap, NOT additional code/data to sum
+with flash text. Debug sections and ELF metadata account for the large ELF
+file sizes; the application `.bin` is the relevant deployed application file.
+Runtime heap allocations, task stacks, DSI framebuffer/PSRAM usage are NOT
+measured by these static totals.
+
+Placement from ELF:
+
+* All three Z80run symbols are at `0x4ff0031c` in `.iram0.text`.
+* IRAM text starts at `0x4ff00000`.
+* DRAM0 initialized data starts at `0x4ff19480` for Os and `0x4ff1a100`
+  for O2/O3, after aligned IRAM code.
+* DRAM1 BSS starts at `0x4ff40000` in all three.
+* Flash text starts at `0x40000020`; read-only data starts at `0x40060120`
+  for Os/O2 and `0x40070120` for O3.
+
+Arduino reports 21512 bytes (6%) of globals for all three, omitting
+DRAM1 BSS. Do not use that figure as the complete RAM footprint.
+O2/O3 consume 3200 more bytes of aligned internal instruction RAM than Os;
+static data size is unchanged. O3's interpreter is slightly smaller than
+O2's, but O3 grows flash code substantially elsewhere.
+
+== Preserved candidates
+
+Under `build/RunCPM_7xtgv-terminal/jc8012p4a1c/`:
+
+* `261002-1005 Os IRAM 20MHz/`: currently tested Os baseline.
+* `261002-1012 O2 IRAM 20MHz/`: O2 trial, not yet flashed.
+* `new/`: O3 trial 261002-1013, not yet flashed.
+
+The two archived names were made explicit after normal target-aware staging;
+no image was promoted to `current`. An unqualified next reflash selects O3.
+To test O2 first, explicitly select it as the candidate in a subsequent
+workflow without treating it as a hardware-accepted stable image.
+
+== User-supplied Os baseline measurements
+
+Petr reports the following with IRAM and 20 MHz SPI (261002-1005):
+
+[cols="2,1,1",options="header"]
+|===
+|Test |Time (us) |Reported rate
+|VTCPU active, 13015509 T-states |383124 |33.97 MHz
+|VTCPU quiet, 13015509 T-states |384512 |33.85 MHz
+|VTDRV read-only, 32768 bytes |2456810 |13.03 KiB/s
+|VTDRV W write, 32768 bytes |5902979 |5.42 KiB/s
+|VTDRV W read, 32768 bytes |2454786 |13.04 KiB/s
+|===
+
+Both disk runs report verify PASS. O2/O3 throughput is unknown until tested;
+larger code is not evidence of greater speed. Run the same commands under
+the same display/power/card conditions for comparison.
+
+== O3 flash checkpoint
+
+At Petr's request, flashed the staged O3 build 261002-1013 without rebuilding.
+The target guard confirmed P4; upload hashes verified. The visible Konsole
+mirror was restored and confirms build 261002-1013, LDO4 ON, 20 MHz SD mount,
+profile/history OK and A0>. The preceding CP/M session was restarted.
+No benchmark commands were sent by the agent. O3 performance awaits Petr's
+tests; O2 remains unflashed and the candidate remains `new`, not promoted.
+
+== O3 results and O2 flash
+
+Petr supplied O3 results (261002-1013): VTCPU active 401217 us / 32.44 MHz,
+quiet 399450 us / 32.58 MHz; VTDRV W write 5893189 us / 5.43 KiB/s,
+read 2450967 us / 13.06 KiB/s, verify PASS. CPU is roughly 4% slower than
+the Os samples; disk rates are essentially unchanged. These are individual
+runs, not a statistical characterization.
+
+Petr confirms the physical microSD is the same card used on the other
+modules. RP2350 reads exceeded 25 KiB/s at 12 MHz, versus about 13 KiB/s
+here at 20 MHz despite faster emulated CPU performance. Card identity alone
+does not explain this difference. Transport/driver/filesystem overhead and
+scheduling remain possible contributors; no bottleneck diagnosis is established.
+
+On request, preserved O3 as `261002-1013 O3 IRAM 20MHz/` and copied the
+retained O2 archive into `new/`. Verified its embedded stamp 261002-1012,
+then uploaded it through the target guard (which confirmed the prior P4 O3
+firmware). Upload hashes verified; visible Konsole mirror restored with A0>
+present. Detailed startup banner was not retained in the captured screen.
+No agent benchmark commands were sent. O2 results await Petr.
+All three variants remain preserved; no rebuild or stable-image promotion.
+
+== O2 results and hardware-SPI check
+
+Petr reports O2 active CPU 402351 us / 32.35 MHz, quiet 401906 us /
+32.38 MHz; VTDRV W write 5914956 us / 5.41 KiB/s, read 2450710 us /
+13.06 KiB/s, verify PASS. Like O3, these CPU samples are slower than Os;
+disk rates remain essentially unchanged.
+
+The P4 storage path really uses hardware SPI. Arduino's global SPI is
+SPIClass(FSPI); P4 FSPI index 0 maps to hardware SPI2. SPI.begin maps
+CLK43/MISO39/MOSI44 to that controller. GPIO calls for unused SD inputs
+and chip select do not implement bit-banging. SdFat receives that SPIClass
+pointer. DEDICATED_SPI describes bus ownership, not DMA or batching.
+
+However, inspection of pinned SdFat 2.3.0 reveals a significant difference:
+SdFatConfig.h defaults USE_SPI_ARRAY_TRANSFER to 2 on ARDUINO_ARCH_RP2040,
+but to 0 otherwise, including ESP32. No project override exists. With zero,
+SdSpiLibDriver.h loops over SPIClass::transfer(byte), even for sector payloads.
+Arduino then starts/waits for individual hardware transactions. This is
+hardware SPI with per-byte software overhead, NOT software-generated clocking.
+
+Array-transfer mode 1 is a possible ESP32-compatible trial: it calls the
+existing transfer(buffer, count) API, with a temporary buffer for writes.
+Arduino's buffer path processes up to 64 bytes per hardware operation and
+polls completion; this still is not DMA. A consistent compile-time setting
+must reach SdFat's compiled sources too, not only the sketch's header.
+This is a source-confirmed difference and plausible contributor, not a
+measured attribution of the entire RP2350/P4 throughput gap. No driver or
+configuration change was made during this inspection.
+
+== Approved P4 buffer-transfer trial, pending rebuild
+
+Petr approved trying buffer transfers. The P4 target now adds
+`-DUSE_SPI_ARRAY_TRANSFER=1` to build-wide flags, covering both sketch and
+SdFat source compilation. No installed library, RunCPM core, SPI controller,
+clock or other board's target flags were changed. The board header documents
+why a header-local define would not suffice.
+
+Mode 1 uses Arduino's in-place transfer(buffer, count). For reads, SdFat
+fills the receive buffer with 0xff before transfer; for writes it uses a
+512-byte temporary buffer so received SPI bytes do not overwrite the caller's
+data. Arduino services these buffer requests in up-to-64-byte hardware chunks,
+polling completion, not DMA. Command/status single-byte transfers remain.
+
+A native test compiles the actual installed SdFat 2.3.0 driver against a
+mock Arduino SPI API: a 512-byte read uses the buffer overload, a 513-byte
+write exercises the scratch-buffer boundary and preserves the caller's data.
+That test, six build-property tests and six target-metadata tests pass.
+This does not test hardware timing or actual throughput.
+
+Rebuild/reflash remain pending. For a controlled comparison with the currently
+flashed O2 baseline, the next trial build should explicitly use
+`--optimization O2`; ordinary profile builds still default to Os. Current
+staged/device images are unchanged and still use byte-at-a-time payloads.
+
+== Buffer-transfer build: 261002-1101
+
+Requested target-aware rebuild with `--optimization O2` passed and staged
+the new P4 buffer-transfer candidate. Program storage is 590461 bytes (18%),
+1038 bytes above the byte-transfer O2 baseline; application binary is 628800
+bytes. Arduino's incomplete 21512-byte globals summary is unchanged.
+
+Verified the generated compile database: all 150 recorded entries contain
+O2, USE_SPI_ARRAY_TRANSFER=1 and the 261002-1101 stamp, including 45 SdFat
+entries. This database can omit cached compilation work; its entry count is
+not a change in application functionality. Device untouched; next step is
+separate reflash and VTDRV W comparison against O2's 5.41/13.06 KiB/s.
+
+Requested reflash completed: target guard confirmed P4, upload hashes
+verified, and visible mirror restored. Startup confirms 261002-1101, LDO4 ON,
+20 MHz SD mount, profile/history OK and A0>. Captured user VTCPU output was
+403634 us / 32.25 MHz active and 400973 us / 32.46 MHz quiet. No benchmark
+commands were sent by the agent; buffer-transfer VTDRV comparison remains
+pending. No promotion or extra rebuild.
+
+== Buffer-transfer O2 benchmark results
+
+Petr reports build 261002-1101 results:
+
+[cols="2,1,1",options="header"]
+|===
+|Test |Time (us) |Reported rate
+|VTCPU active |403634 |32.25 MHz
+|VTCPU quiet |400973 |32.46 MHz
+|VTDRV read-only |1227334 |26.07 KiB/s
+|VTDRV W write |3149536 |10.16 KiB/s
+|VTDRV W read |1226870 |26.08 KiB/s
+|===
+
+Both disk runs verify PASS. Relative to O2 byte transfers at the same
+20 MHz, reads improve from 13.06 to 26.08 KiB/s (about 100%) and writes
+from 5.41 to 10.16 KiB/s (about 88%). CPU throughput remains similar.
+This establishes a substantial transfer-granularity cost on this P4 workload;
+it supports, but does not completely isolate, the cross-board explanation.
+Petr requested the next comparison with the default Os optimization while
+retaining array transfers, IRAM and 20 MHz SPI.
+
+Default Os rebuild 261002-1127 passed and was staged as `new`: program
+storage 546869 bytes (17%), 43592 bytes smaller than the O2 buffer build.
+Compile database confirms Os and array-transfer flags; ELF still places
+Z80run in IRAM. Previous O2 buffer candidate was archived by the standard
+target-aware workflow. No flash or promotion; Os buffer benchmarks pending.
+
+Requested reflash of 261002-1127 completed with target confirmation and
+verified upload hashes; visible mirror restored. Startup confirms the new
+stamp, LDO4 ON, 20 MHz SD mount, profile/history OK and A0>. User VTCPU
+output already visible in that capture: active 382984 us / 33.98 MHz,
+quiet 383815 us / 33.91 MHz. No agent test commands sent. Disk comparison
+pending; candidate remains `new`, no promotion.
+
+== Os buffer-transfer baseline and requested 40 MHz trial
+
+Petr reports 261002-1127 at 20 MHz: VTDRV W write 3147618 us /
+10.17 KiB/s, read 1229906 us / 26.02 KiB/s, verify PASS. CPU results
+remain 382984 us / 33.98 MHz active and 383815 us / 33.91 MHz quiet.
+Thus Os retains the observed CPU advantage, with disk performance similar
+to the O2 buffer-transfer build.
+
+Petr requested increasing only the P4 SPI clock to 40 MHz and rebuilding.
+The P4 board-local constant and its storage test expectation were updated;
+Os, IRAM, array-transfer mode and wiring remain unchanged. Native storage
+initializer test passes. A 40 MHz request is a hardware trial, not a claim
+of guaranteed card/signal integrity or measured bus frequency.
+
+Build 261002-1131 passed and was staged as `new`: 546869 bytes program
+storage (17%), unchanged from the 20 MHz Os buffer image. No flash or
+promotion; 40 MHz mount, integrity and throughput tests await reflash.
+
+Requested reflash completed with target confirmation and verified upload
+hashes. Visible Konsole mirror restored; startup confirms 261002-1131,
+LDO4 ON, SD mount with the requested 40000000 Hz setting, profile/history OK
+and A0>. Captured user VTCPU: active 382425 us / 34.03 MHz, quiet 385304 us /
+33.78 MHz. No agent benchmark commands sent. Disk integrity/throughput at
+40 MHz still await Petr; no promotion.
+
+== User-confirmed 40 MHz results
+
+Petr reports that build 261002-1131 looks very good:
+
+[cols="2,1,1",options="header"]
+|===
+|Test |Time (us) |Reported rate
+|VTCPU active |384039 |33.89 MHz
+|VTCPU quiet |384162 |33.88 MHz
+|VTDRV W write, 32768 bytes |2288218 |13.98 KiB/s
+|VTDRV W read, 32768 bytes |844777 |37.88 KiB/s
+|===
+
+Verify PASS. Compared with the Os buffer-transfer 20 MHz baseline,
+write rate improves about 37% (10.17 to 13.98 KiB/s) and read rate about
+46% (26.02 to 37.88 KiB/s). CPU performance is essentially unchanged.
+This accepts the supplied benchmark run, not a long-duration integrity or
+electrical-margin qualification. Current source settings remain Os, IRAM,
+array transfers and 40 MHz P4 SPI. No rebuild, reflash or promotion performed
+while recording these results.
+
+== Requested 50 MHz experiment (not built or flashed)
+
+Petr requested a read-only boot/read trial with the P4 SPI ceiling raised to
+50000000 Hz. Only the board constant and its native test expectation changed.
+The installed Arduino divider calculation uses a 90 MHz reference: a 40 MHz
+request selects divide-by-three, and 50 MHz selects divide-by-two. These imply
+30/45 MHz only if the peripheral input matches that reference; actual clock
+source registers or SCK measurement remain to be checked. Earlier benchmark
+clock labels describe requested speeds, not measured SCK.
+
+No CMD6 High-Speed negotiation or persistence behavior was changed. A normal
+boot/interactive session is not guaranteed read-only: terminal INI/history
+persistence can write independently of VTDRV. Before deploying a genuinely
+read-only experiment, agree on write prevention (or use a disposable card).
+The verified 40 MHz-request firmware remains on the device and staged unchanged.

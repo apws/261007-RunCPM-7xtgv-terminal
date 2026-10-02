@@ -1,0 +1,160 @@
+= ESP32-P4 memory, caches and PSRAM execution
+:source-highlighter: highlight.js
+:toc:
+
+== Scope and sources
+
+This records the discussion following the JC8012P4A1C (`EP4_10`) bring-up.
+The uploader identifies our chip as revision 1.3. Separate chip capabilities,
+installed SDK configuration, linked image placement and actual runtime free
+heap: these are not interchangeable measurements.
+
+* https://documentation.espressif.com/esp32-p4-chip-revision-v1.3_datasheet_en.html[Espressif P4 revision-1.3 datasheet], memory organization, cache and flash connections.
+* https://docs.espressif.com/projects/esp-idf/en/release-v5.3/esp32p4/api-guides/external-ram.html[ESP-IDF 5.3 P4 external RAM and execution from PSRAM].
+* https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/api-guides/flash_psram_config.html[Espressif S3 flash/PSRAM interface configuration].
+* Local Arduino-ESP32 3.1.0, SDK bundle `idf-release_v5.3-083aad99-v2`:
+  `esp32p4/qio_qspi/include/sdkconfig.h`, `esp32p4/ld/memory.ld`, and
+  `esp32s3/qio_opi/include/sdkconfig.h`.
+* Actual P4 ELF/map files from builds 261002-1005, 261002-1012 and 261002-1013.
+
+See also link:261002-09%20P4%20NewPanel%20HAL%20first%20checkpoint.adoc[bring-up and benchmark history]
+and link:261002-10%20P4%20whole-build%20Os%20O2%20O3%20comparison.adoc[full build-size comparison].
+
+== Internal SRAM is not in-package PSRAM
+
+Internal SRAM supplies directly addressable instruction/data storage.
+`IRAM_ATTR` places a function in internal instruction RAM; it does not
+place it in PSRAM or enlarge any cache. Flash-resident code is normally
+accessed through caches, not by a fresh SPI transaction per instruction.
+
+P4 PSRAM is a separate memory die inside the chip package. It is physically
+close to the processor but still uses an external-memory interface, not the
+same path as internal SRAM. Espressif calls the interface HEX SPI: sixteen
+data lines, not six. Commands/addresses and bursts still require bus
+transactions; a wide SPI-family interface is not conventional direct SRAM.
+The installed P4 configuration selects 200 MHz HEX PSRAM.
+
+Normal cacheable CPU data accesses to PSRAM pass through the data-cache
+hierarchy. Cache hits avoid PSRAM transactions; misses fetch cache lines.
+Do not extend that statement to every DMA/non-cacheable access: peripheral
+DMA paths and cache-coherency requirements are separate concerns handled by
+the applicable graphics/driver APIs.
+
+== P4 versus S3
+
+[cols="2,2,2",options="header"]
+|===
+|Item |Our S3 configuration |Our P4 configuration
+|Instruction cache |16 KiB |16 KiB L1
+|Data cache |32 KiB |64 KiB L1
+|Additional cache level |No equivalent L2 |128 KiB L2 selected
+|Cache line sizes |32 bytes in configured I/D caches |64 bytes in L1 and configured L2
+|PSRAM interface |Octal, 8 data lines at 80 MHz |HEX, 16 data lines at 200 MHz
+|Flash build setting |Quad SPI, 80 MHz |Quad SPI, 80 MHz
+|External-memory arrangement |Flash and PSRAM use the MSPI subsystem and share its resources |Separate flash and PSRAM SPI buses; PSRAM is in-package, flash is off-package
+|===
+
+These are configured values, not measured sustained bandwidth. Board flash
+size comes from the selected Arduino profile, not necessarily a generic
+SDK header default. Our P4 profile specifies 16 MB flash.
+
+P4 has a two-level cache architecture. The documented L2 choices are
+128/256/512 KiB; the current SDK selects 128 KiB. Enlarging it trades away
+SRAM available for other uses: it is not free additional capacity. This is
+SDK/linker configuration work, not a simple terminal INI or HAL tuning field.
+The separate external buses do not eliminate contention in caches, internal
+interconnects or the PSRAM controller. Display traffic still matters.
+
+== Linked internal SRAM budget
+
+Do not calculate this as `512 KiB - IRAM - DRAM`. The installed linker
+script has already accounted for cache and ROM reservations and exposes
+two non-contiguous application SRAM regions:
+
+[cols="2,2,2,1",options="header"]
+|===
+|Region |Start |Exclusive end |Capacity (bytes)
+|Low SRAM, executable/read/write |0x4ff00000 |0x4ff2cbd0 |183248
+|High SRAM, read/write |0x4ff40000 |0x4ffa0000 |393216
+|Total exposed regions | | |576464
+|===
+
+For the O2/O3 trial images:
+
+[cols="3,1",options="header"]
+|===
+|Accounting |Bytes
+|Available application SRAM regions |576464
+|IRAM text including alignment |-106752
+|Static DRAM data including .noinit |-245988
+|Remaining alignment/heap markers |-12
+|Unoccupied region tails before runtime allocations |223712 (218.5 KiB)
+|===
+
+The low tail starts at `0x4ff1f510`: 54976 bytes, about 53.7 KiB.
+The high tail starts at `0x4ff76ce0`: 168736 bytes, about 164.8 KiB.
+Low-region capacity can serve executable code or data; it is NOT reserved
+solely for future IRAM functions. The high region is data-only in this
+linker layout. Thus remaining executable internal capacity is the tighter
+resource, while the two tails are not one contiguous allocation.
+
+The Os baseline has 3200 bytes more static headroom, about 221.6 KiB.
+These are linker-region calculations, NOT a runtime heap measurement or a
+promise that one allocation of that size can succeed. FreeRTOS stacks,
+driver objects/buffers and allocator overhead consume memory after boot.
+Other TCM/LP regions and external PSRAM are separate from this calculation.
+
+Arduino's reported 21512-byte / 6% globals figure omits `.dram1.bss`.
+It is not the complete internal RAM footprint. Likewise, a large ELF file
+contains debugging information that is not loaded into MCU RAM. The linked
+external virtual-memory window is not proof of installed PSRAM capacity.
+
+For a future runtime diagnostic, report internal-capability free heap,
+largest free block and minimum-ever free heap separately from PSRAM.
+No such device measurement was performed during this discussion.
+
+== Can PSRAM contain executable code?
+
+Yes. ESP-IDF supports `CONFIG_SPIRAM_XIP_FROM_PSRAM` on P4. It loads
+normally flash-resident executable text and read-only data into PSRAM at
+startup. Instruction fetches then use the instruction-cache path; ordinary
+data reads use the data path. The nonvolatile source image remains in flash.
+
+Our installed SDK advertises the hardware capability
+`CONFIG_SOC_SPIRAM_XIP_SUPPORTED`, but does NOT enable the application option
+`CONFIG_SPIRAM_XIP_FROM_PSRAM`. Capability is not activation.
+
+[cols="2,3",options="header"]
+|===
+|Current content |Placement
+|CPU1 Z80run |Internal IRAM
+|Other ordinary application code |Flash, through caches (apart from other explicitly placed internal routines)
+|Display framebuffer/history allocations |PSRAM as selected by the existing graphics/HAL allocation paths
+|Ordinary statics |Internal DRAM unless explicitly placed otherwise
+|===
+
+PSRAM execution could reduce external instruction-fetch cost compared with
+flash, but would also compete with framebuffer and data traffic on the PSRAM
+bus. It is not automatically faster and does not provide the same guarantees
+as internal IRAM. Changing this precompiled SDK configuration needs a separate
+build/toolchain experiment, not merely defining the Kconfig name in the sketch.
+No PSRAM-execution or cache-size change is authorized or implemented here.
+
+== Current optimization policy and interpretation
+
+CPU1's existing attribute hook now places Z80run in IRAM for Arduino ESP32
+targets. W535 retains its historical function-local O2; P4 and W550 use the
+selected whole-build optimization. CPU2-4 have not gained this attribute hook.
+All-target IRAM policy does not mean all targets have passed link/runtime tests.
+
+P4 Z80run occupies roughly 35-39 KiB. The user-supplied Os CPU benchmark
+improved from 31.72/31.74 MHz to 33.97/33.85 MHz after IRAM placement;
+the same firmware transition also raised SD SPI from 12 to 20 MHz.
+This is approximately a 7% CPU gain in these samples, not a universal speed
+guarantee or a precise isolated microarchitectural measurement.
+O2/O3 images are prepared but untested on hardware as of this note.
+
+Prefer measured placement of hot code, large suitable data in PSRAM, and
+runtime headroom checks before allocating more internal memory. Increasing
+cache size or moving code to PSRAM are possible future experiments, not the
+current implementation plan.

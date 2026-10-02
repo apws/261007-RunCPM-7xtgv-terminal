@@ -199,6 +199,20 @@ static void runCPM() {
 #endif
     printBootBanner();
     xtgvBoardPrintStorageStatus(storage, _puts);
+    // All INI/history handles have closed; retain the mount and change only
+    // the SPI transaction setting. Serial-only builds keep the 20 MHz default.
+#if XTGV_TERMINAL
+    if (storageReady) {
+        const uint8_t mhz = profileLoaded && terminalConfigText.valid()
+                          ? terminalConfiguredSdSpiMHz() : 20;
+        char clockMessage[96];
+        const bool applied = xtgvBoardStorageSetMHz(mhz);
+        snprintf(clockMessage, sizeof(clockMessage),
+                 "SD INI SPI request ...%u MHz (%s)\r\n", unsigned(mhz),
+                 applied ? "APPLIED" : "NOT APPLIED: unsupported or busy");
+        _puts(clockMessage);
+    }
+#endif
 
     if (storageReady)
     {

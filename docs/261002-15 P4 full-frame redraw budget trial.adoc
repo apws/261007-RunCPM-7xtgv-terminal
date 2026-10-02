@@ -1,0 +1,104 @@
+= P4 full-frame redraw budget trial
+:source-highlighter: highlight.js
+
+== Report and evidence
+
+Petr reports transient light-blue screen flashing during output, Enter/scroll,
+CLS and sometimes reboot, particularly near the bottom cursor line. He suspects
+some earlier firmware did not show this. Physical-panel versus mirror behavior
+has not yet been confirmed. This is a symptom report, not a proven regression
+attributed to a particular commit or SPI clock.
+
+P4 HAL previously selected the 720-pixel rendering budget: only three cells per
+batch at zoom 2. Moving the active-line highlight dirties rows, scrolling dirties
+more cells, and composition redraw clears the background before repainting.
+Installed Arduino_GFX 1.6.4 DSI uses one framebuffer; flush performs cache
+writeback, not a synchronized framebuffer swap. Partially updated frames are
+therefore a plausible contributor. This does not explain the specific blue
+colour with certainty.
+
+== Approved single-variable experiment
+
+Set XTGV_DISPLAY_FULL_FRAME_BUDGET=true in the P4 board header, matching W535.
+The existing renderer can then process all visible dirty cells in one batch.
+No changes to rendering algorithms, DSI timing, framebuffer allocation, SPI,
+INI, palette or backlight. This is not double buffering and cannot guarantee
+tear-free scanout. Longer render batches may affect responsiveness under load.
+
+HAL native test now asserts the P4 policy. Firmware rebuild and physical tests
+remain pending. Compare Enter at the bottom row, CLS then Enter, sustained
+program output, cursor/highlight movement and reboot. Check mirror separately.
+
+== Build checkpoint 261002-1620
+
+Requested writable P4 rebuild passed and staged as new: 550575 bytes program
+storage (17%), eight bytes above 261002-1520. Embedded stamp and CARDMARK banner
+verified; firmware-wide read-only warning absent. No flash or stable promotion.
+The full-frame budget is the only display-policy change in this trial.
+
+== Separate boot-banner request (deferred)
+
+Petr also requested `(SPI, x MHz, CS=..., SCK=..., MOSI=..., MISO=...)`, using
+the applied INI/default request. Currently mount status is printed before the
+INI clock is applied. Applying it before status reporting would allow that
+format; errors must report the retained clock rather than the requested value.
+This formatting/order change is deliberately deferred from the display trial.
+
+== Follow-up: DSI underrun and 40 MHz pixel-clock trial
+
+Petr tested build 261002-1620 and reported more frequent light-blue flashes,
+sometimes a stuck blue physical display while the mirror remained functional.
+The captured driver message was `can't fetch data from external memory fast
+enough, underrun happens`. Hardware reset and USB power-cycle restored the
+display; subsequent software reboots and reflash also completed successfully,
+with a brief blue interval during startup. Insufficient USB power remains a
+possible separate issue, not established as the cause of this underrun.
+
+Espressif's https://docs.espressif.com/projects/esp-faq/en/latest/software-framework/peripherals/lcd.html[LCD FAQ]
+describes this exact P4 blue-screen/underrun symptom as insufficient PSRAM
+bandwidth. The full-frame trial is not a confirmed fix; larger rendering bursts
+may increase contention. The DSI flush is still cache writeback, not a frame swap.
+
+At Petr's request, change only the P4 pixel-clock request from 80 to 40 MHz.
+Keep full-frame budget enabled, RGB565, 1500 Mbps lane rate, blanking, rotation,
+storage clock configuration and all other policy unchanged. Native resolution
+remains 800x1280, displayed as 1280x800 in landscape. With totals 880x1324,
+the calculated refresh changes from 68.66 to 34.33 Hz; these are not measured
+frequencies or certified panel modes. Hardware qualification remains pending.
+Compare scrolling, CLS/Enter, sustained output and software reboot, watching
+for the underrun log and any permanently blue screen.
+
+Build 261002-1645 passed and staged as the P4 `new` candidate: 550575 bytes
+program storage, unchanged from 1620. Cross-translation-unit board HAL host
+test passed for all six variants. No flash or stable promotion performed.
+
+== Calculated lower-refresh options discussed
+
+At fixed blanking, refresh = pixel clock / (880 * 1324). Resolution stays
+800x1280 native, rotated to 1280x800; lowering pixel clock does not scale text.
+
+[cols="1,1",options="header"]
+|===
+|Requested pixel clock (MHz) |Calculated refresh (Hz)
+|80 |68.7
+|70 |60.1
+|60 |51.5
+|50 |42.9
+|40 |34.3
+|35 |30.0
+|30 |25.7
+|25 |21.5
+|20 |17.2
+|15 |12.9
+|10 |8.6
+|===
+
+These are mathematical values, not measured output clocks or supported panel
+modes. The panel's minimum accepted timing is unestablished. LCD sample/hold
+behavior differs from a CRT: low refresh primarily affects motion/scrolling,
+but cannot guarantee flicker-free operation outside supported timings. Only
+the 40 MHz alternative was built and tried here; Petr accepts its appearance.
+Physical scanout continues even while terminal text is idle, independently of
+render_flush_hz. Lowering 80 to 40 MHz halves calculated scanout demand, not
+necessarily total PSRAM traffic. The later pre-reboot blanking change removed
+the observed blue startup interval; see the 261002-17 backlight note.

@@ -30,8 +30,8 @@ static constexpr uint8_t XTGV_BACKLIGHT_DUTIES[] = {
 // ============================================================================
 // 3. Optional compiler policy and storage clock
 // ============================================================================
-#define XTGV_CPU1_IRAM_O2 1
-static constexpr uint32_t XTGV_STORAGE_HZ = 40000000UL;
+#define XTGV_CPU1_O2 1
+static constexpr uint32_t XTGV_STORAGE_HZ = 20000000UL;
 
 // Only the sketch defines this guard. Functions below have ordinary external
 // linkage; calling them from the terminal does NOT change task/core ownership.
@@ -52,6 +52,9 @@ static constexpr uint32_t XTGV_STORAGE_HZ = 40000000UL;
 // RunCPM abstraction; SdFat otherwise selects its FAT/exFAT FsFile alias.
 #define SDFAT_FILE_TYPE 1
 #include <SdFat.h>
+#include "../sdfat_spi_driver.h"
+
+static XtgvSdSpiDriver xtgvStorageSpi(xtgvSdSpi);
 
 // The display QSPI driver owns SPI2. On ESP32-S3 Arduino HSPI is SPI3; its
 // signals can use the card's existing GPIOs through the GPIO matrix.
@@ -65,8 +68,15 @@ static uint8_t esp32bdos(uint16_t) { return 0; }
 XtgvBoardStorageStatus xtgvBoardStorageInit() {
     xtgvSdSpi.begin(12, 13, 11, 10); // SCK, MISO, MOSI, CS
     const bool mounted = SD.begin(
-        SdSpiConfig(10, DEDICATED_SPI, XTGV_STORAGE_HZ, &xtgvSdSpi));
+        SdSpiConfig(10, DEDICATED_SPI, XTGV_STORAGE_HZ, &xtgvStorageSpi));
     return {true, mounted};
+}
+
+// Called only by the card-owner task, after all configuration handles close.
+bool xtgvBoardStorageSetMHz(uint8_t mhz) {
+    if (mhz < 1 || mhz > 60) return false;
+    const bool idle = SD.card()->syncDevice();
+    return idle && xtgvStorageSpi.changeClock(uint32_t(mhz) * 1000000UL);
 }
 
 void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus &status,
@@ -78,7 +88,7 @@ void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus &status,
         char detail[80];
         snprintf(detail, sizeof(detail),
                  "OK (SPI, CS=10 MOSI=11 MISO=13 SCK=12, %lu Hz)\r\n",
-                 (unsigned long)XTGV_STORAGE_HZ);
+                 (unsigned long)xtgvStorageSpi.requestedHz());
         write(detail);
     }
 }

@@ -1,4 +1,10 @@
 profiles:
+  jc8012p4a1c:
+    # P4 3.1.0 has no LoopCore menu; target flags select Arduino core 1.
+    fqbn: esp32:esp32:esp32p4:CDCOnBoot=default,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,PSRAM=enabled
+    libraries:
+      - GFX Library for Arduino (1.6.4)
+      - SdFat (2.3.0)
   jc8048w535:
     fqbn: esp32:esp32:esp32s3:CDCOnBoot=cdc,USBMode=hwcdc,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,PSRAM=opi,LoopCore=1
     libraries:

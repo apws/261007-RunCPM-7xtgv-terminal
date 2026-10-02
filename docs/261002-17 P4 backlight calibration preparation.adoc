@@ -1,0 +1,135 @@
+= P4 backlight calibration preparation
+:source-highlighter: highlight.js
+
+== Device configuration and keyboard finding
+
+Fetched A0:7XTGVTRM.INI with the supported helper; the previous local copy is
+archived in cpmdrive/.7xtgvtrm-ini-history/10021721.INI. No device INI edits or
+upload. The P4 section contains logical terminal sizes; global settings include
+backlight_level=15, crt_rampup_ms=1000 and sdfat_spi=40.
+
+The 32 PWM duties are compiled into the board HAL, not configurable via INI.
+Ctrl+Shift+0 (without Alt) is OFF; Ctrl+Shift+9 is maximum. Only fine adjustment
+uses Ctrl+Alt+Shift+PgUp/PgDn. The reported Ctrl+Alt+Shift+0 chord has no explicit
+OFF mapping; this does not establish a firmware regression. Try the documented
+chord before changing keymaps. Ctrl+] then b then 0 is the mirror-prefix fallback.
+
+== Diagnostic curve, pending rebuild
+
+P4 alone now has this test ladder, indexed by logical levels 0 through 31:
+
+----
+0, 1, 2, 3, 4, 6, 8, 10, 12, 16, 20, 24, 28, 32, 40, 48,
+56, 64, 72, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224,
+240, 248, 255
+----
+
+This samples the near-dark region more closely than the upper range. It is not
+a perceptually calibrated curve. The previous minimum lit duty was 51; now it
+is 1. Existing global level 15 consequently changes from duty 132 to 48 after
+rebuild/reflash. No automatic sweep or device commands were sent. Brightness
+selection normally saves the last lit level; OFF itself does not persist zero.
+To reach level 1, select Ctrl+Shift+1 (level 4) and lower three fine steps.
+From there raise one step at a time and report the lowest useful levels.
+
+The one-second boot fade is explicitly configured in INI. It can affect when a
+startup frame becomes visible, but does not establish the cause of blue pixels
+or explain away the captured DSI framebuffer underrun. Keep those issues separate.
+
+== Timing visibility follow-up
+
+Petr accepts the 40 MHz display-clock trial for current terminal use. Record
+display timing alongside storage configuration in a future boot banner and/or
+VTINFO: requested DSI pixel clock, calculated refresh, native resolution and
+optionally lane rate. Distinguish requested/calculated values from measured
+clocks, and distinguish physical scanout from terminal redraw cadence.
+Storage output should similarly show the applied INI/default request and pins,
+not just the initial mount clock. No banner or VTINFO implementation in this step.
+
+== Requested OFF shortcut correction
+
+Petr clarified that OFF should also require Left Alt, matching fine adjustment.
+Konsole and both Kitty configurations now map Ctrl+Alt+Shift+0 to the existing
+OFF protocol; the old Ctrl+Shift+0 OFF binding is removed. No firmware protocol
+change. Konsole cannot distinguish left and right Alt, so Left Alt is the
+intended physical key rather than an enforced side-specific modifier.
+Presets 1 through 9 stay on Ctrl+Shift: adding Alt to 1/2 would conflict with
+the existing ANSI/VT52 shortcuts. The mirror must be relaunched to load the
+new host mapping; the normal next reflash workflow does this.
+The shortcut regression test passes. P4 rebuild requested with the diagnostic
+brightness ladder and unchanged 40 MHz display pixel clock; device INI untouched.
+
+Build 261002-1732 passed and staged as P4 `new`, 550575 bytes program storage.
+Not flashed or promoted. The running mirror still uses its previously loaded
+keyboard mapping until relaunched.
+
+== Selected minimum and shaped curve, 261002-1758
+
+Build 261002-1732 was flashed and its boot confirmed; mirror relaunched with
+the new OFF shortcut. Petr then selected its diagnostic level 3 (PWM duty 3)
+as the new minimum lit level, asking for the same shaping as other modules
+because the upper diagnostic levels looked similar.
+
+P4 now uses the same gamma-2.2 formula as RP2_2, independently defined in its
+own HAL: max(level+2, 3+round(252*((level-1)/30)^2.2)) for levels 1 through 31.
+OFF remains zero. This is perceptual shaping, not linear PWM or a measured
+panel luminance calibration. Resulting duties:
+
+----
+0, 3, 4, 5, 6, 7, 8, 10, 13, 17, 21, 25, 31, 37, 43, 50,
+58, 66, 75, 85, 95, 106, 118, 130, 143, 157, 172, 187, 203,
+220, 237, 255
+----
+
+The P4 host test checks the formula, monotonicity, endpoints, OFF/restore,
+boot fade and manual override; it passes. Device INI, 40 MHz pixel clock and
+other boards are unchanged. Visual qualification follows rebuild/reflash.
+
+P4 build 261002-1758 completed successfully and is staged as `new` (550575
+bytes program storage). Not flashed or promoted.
+
+== Pre-reboot blanking trial, 261002-1923
+
+1758 was subsequently flashed and its boot verified. Petr accepted the shaped
+backlight curve, but still observed about one second of light blue before the
+CRT ramp. Hardware reset works; some software restarts stop at ROM `entry`
+output without the application banner. That observation does not localize the
+stall, and differs from a blue panel with a functioning CP/M mirror.
+
+Source review confirms terminalSetup blanks the backlight before panel init,
+but the previous P4 reboot routine called ESP.restart directly. Petr approved
+a P4-only pre-reboot blanking trial: set LEDC duty zero, detach LEDC from the
+backlight pin, configure GPIO23 as output and drive LOW, then restart. The
+sequence is gated by XTGV_TERMINAL; serial-only builds retain plain restart.
+No GPIO hold, panel-reset sequence, bootloader change or additional delay is
+introduced. Pin state throughout reset is not guaranteed by this operation.
+It is not a confirmed cure for DSI underruns or early initialization hangs.
+
+Host tests execute the actual reboot function with ordered test doubles in
+both terminal and serial-only modes. Tests pass; firmware rebuild and physical
+qualification remain pending. No INI change, upload, reboot or flash performed.
+
+Requested rebuild 261002-1932 passed and is staged as P4 `new`: 550655 bytes
+program storage (80 bytes above 1758). Pre-reboot blanking is included; 40 MHz
+pixel clock and the accepted PWM 3..255 curve are retained. No flash or promotion.
+Hardware check: issue REBOOT after flashing and compare the pre-fade blue
+interval and successful return to the application banner/prompt.
+
+== Hardware feedback after flashing 261002-1932
+
+Upload succeeded and the restored mirror confirmed build 261002-1932 at A0>.
+Petr reports no light-blue interval during software reboot or reflash, and
+accepts the backlight curve. This validates the pre-reboot blanking trial for
+the observed P4 startup symptom; it does not establish that all DSI underruns
+or early boot failures are resolved. Other boards have not been changed or
+retested. Reflash shows the boot screen twice, an already-existing observation
+accepted for now; the reset sequence has not been diagnosed here.
+
+During rapid reboots, one intermittent event affected CLS: entering it returned
+the cursor on the same line without clearing the screen. Petr reports recovery
+after reflash and thinks reboot did not help; that distinction is uncertain.
+No capture of the failing command bytes or terminal mode is available, so no
+cause or connection to the backlight change is established. Leave unresolved,
+without further code changes or automated resets. If it recurs, record whether
+the physical display, PC mirror, or both fail, the active ANSI/VT52 mode, and
+the command/output sequence before recovery.

@@ -1,0 +1,209 @@
+= P4 NewPanel HAL first checkpoint
+:source-highlighter: highlight.js
+:toc:
+
+== Scope and evidence
+
+Petr confirms that the JC8012P4A1C already runs our 7xtgv rendering/printing
+demo. This is a display proof, not yet a combined RunCPM/terminal proof.
+Reuse `src/7xtgv-demo-code/gfxsetup.h` and the Apache-2.0 attributed command
+table in `src/7xtgv-jc8012p4a1c-newpanel.h`, not the generic JD9365 table.
+The supplied private ZIP contains both OldPanel and NewPanel examples.
+
+The installed Arduino-ESP32 3.1.0 has an ESP32-P4 target. Installed
+Arduino_GFX 1.6.4 has DSI support used by our existing demo. These are local
+toolchain observations, not a claim about the latest upstream versions.
+Arduino uses ESP-IDF/FreeRTOS underneath; our existing ESP32 integrated
+runtime supplies the two application tasks. No new runtime framework is needed.
+
+== Implemented, pending firmware build
+
+* One complete `hardware/arduino_7xtgv/boards/jc8012p4a1c.h`, using the same
+  seven sections as the other boards. The known-good panel command table is
+  copied into this header with attribution so the sketch is self-contained;
+  the original standalone demos remain unchanged.
+* Target `jc8012p4a1c`, initial short display/INI ID `EP4_10`.
+* Native 800x1280 JD9365, rotated to 1280x800. Exact demo timings:
+  horizontal 20/20/40, vertical 4/10/30, 80 MHz pixel clock, 1500 Mbps DSI lanes.
+  Reset GPIO27; active-high backlight GPIO23. Explicit framebuffer flush.
+* Backing limits 213 columns by 80 rows. Even-column presets:
+  212x80, 106x40, 70x26, 52x20. Initial zoom 2 matches the demo's 106x40 view.
+  This initial terminal geometry still needs CP/M application testing.
+* Initial backlight ladder follows W550's active-high ladder, independently
+  stored in the P4 header; this is NOT a calibrated P4 brightness curve.
+* Direct SdFat32/File FAT32 storage at a conservative 12 MHz, no SD_MMC
+  filesystem compatibility adapter. Vendor NewPanel BSP declares
+  CLK43/CMD44/D0=39/D1=40/D2=41/D3=42. SPI mapping is therefore SCK43,
+  MOSI44, MISO39, CS42; unused D1/D2 inputs are pulled high.
+  This mapping is source-derived, not hardware-verified.
+* Reuse the existing ESP32 runtime: RunCPM/storage on core0, terminal on
+  Arduino core1. P4 has no LoopCore menu in this installed core; target flags
+  explicitly define `ARDUINO_RUNNING_CORE=1`.
+* Keep demo's 16 MB flash, enabled PSRAM and CDC-disabled serial profile.
+  `/dev/ttyUSB0` in the target metadata is a default, not device identification.
+* No speculative S3 IRAM/O2 attribute is enabled for P4.
+
+Only HAL selection, the project target-count guard, build metadata and tests
+change outside the new board header. No edits to the sketch, emulator,
+BDOS/BIOS, disk core, CCP or common Arduino abstraction.
+The existing host `terminal.conf` and current/new firmware artifacts are unchanged.
+
+== Checks and next gate
+
+Native board cross-translation-unit tests and all six target metadata tests
+pass, including the new P4 target. They check construction, identity and
+geometry, but use graphics stubs and do not compile Arduino storage or prove
+DSI/SD operation. Full P4 firmware compilation remains pending an explicit
+`rebuild`; hardware remains untouched.
+
+After rebuild, check link-time/internal RAM usage before flashing. Hardware
+tests: storage mount, nominal landscape orientation, saved configuration and
+history, mirror input, zoom/pan, backlight/ramp, forced COM return, VTCPU and
+VTDRV W/Q. Raise SPI speed only after the initial card check succeeds.
+Any need to change a RunCPM core seam must be raised separately with Petr.
+
+The older link:260908-09%20jc8012p4a1c-runcpm-port-notes.adoc[port notes]
+remain historical: their proposed native SDMMC path is not the initial
+implementation selected here after the recent S3 SdFat comparisons.
+
+== First integrated build: 261002-0934
+
+At Petr's request, the target-aware `--build-only` completed successfully
+and staged `build/RunCPM_7xtgv-terminal/jc8012p4a1c/new`.
+Program storage: 545437 bytes (17% of the 3145728-byte application partition).
+Static globals: 98700 bytes (30%), with 228980 bytes left in the reported
+internal data-memory budget. This does not measure later heap/PSRAM use,
+task stacks or the runtime DSI framebuffer allocation.
+
+No source correction was required by this build. No flash, candidate
+promotion, host target switch or device test was performed. Next gate is
+the separately requested P4 reflash and hardware checks above.
+
+== First flash: storage mount failed
+
+Petr requested reflash. The guarded uploader used the one-shot unidentified
+P4 override for the previous standalone demo; esptool identified ESP32-P4
+revision v1.3 and verified the flashed data. The visible Konsole mirror was
+restored and its configured target changed to `jc8012p4a1c`.
+
+Mirror output confirms build `261002-0934`, followed by:
+
+[source,text]
+----
+Init SD SPI bus ......CONFIGURED
+Mount MicroSD card ...Unable to initialize SD card.
+CPU halted.
+----
+
+Thus the image boots, but the initial SPI storage path is NOT validated.
+No further reset or probe was performed. Check card presence/seating with
+Petr first; the failure alone does not establish a wiring or driver cause.
+Physical display appearance also awaits Petr's observation. Candidate remains
+`new`, not promoted.
+
+== Card power correction, pending rebuild
+
+Inspection of vendor schematic `5-Schematic/4_CONN.png` shows that socket
+VDD and its 5.1 kohm signal pull-ups are fed by `ESP_LDO_VO4`.
+The NewPanel BSP's SDMMC mount explicitly creates the on-chip LDO4 power
+driver. Our SPI initializer omitted this power step. This is a concrete HAL
+omission; whether it is the only cause of the mount failure awaits hardware.
+
+At Petr's request, the board now acquires LDO channel 4 at 3300 mV before
+configuring SPI, waits 10 ms for settling and retains the channel handle
+for the mount lifetime. Repeated initialization does not reacquire it.
+Power acquisition failure returns before touching SPI/card initialization,
+and startup prints a separate LDO4 ON/FAILED line. DSI's LDO3 is unchanged.
+SPI controller, GPIO mapping, 12 MHz clock, SdFat and RunCPM core are unchanged.
+
+Native tests exercise the actual extracted initializer with test doubles:
+power failure, initialization ordering, mount failure/success and retained
+power ownership. These and the existing board link tests pass. This is not
+an electrical verification; rebuild/reflash are still required. The staged
+261002-0934 image remains the previous, unfixed build.
+
+== LDO4 correction build: 261002-0945
+
+Requested target-aware rebuild passed and staged the corrected P4 image as
+`new`, replacing the earlier candidate through the normal build workflow.
+Program storage is 545575 bytes (17%); static globals remain 98700 bytes
+(30%). No flash was performed. Next check is the LDO4 status and SD mount
+after separately requested reflash.
+
+== Corrected flash: card mounted
+
+Petr requested reflash. Target guard confirmed the existing P4 firmware;
+upload hashes verified and the visible Konsole mirror was restored.
+Mirror startup confirms build `261002-0945`, LDO4 ON, successful 12 MHz
+SPI card mount, terminal profile/history OK and the `A0>` prompt.
+No CP/M test commands were sent. Physical display, controls and benchmarks
+remain for Petr to test; the candidate remains `new`, not promoted.
+
+== Petr's first benchmarks and optimization check
+
+Petr reports the integrated system generally works. A shared USB hub also
+carried a Dell wireless keyboard/mouse dongle; he attributes a board reset
+and loss of keyboard USB connectivity to excessive hub power demand.
+Power-cycling and moving the dongle to a different connection improved it.
+This is a user-reported power/topology observation, not a measured overcurrent
+diagnosis or an established firmware fault.
+
+Results on build 261002-0945, SPI requested at 12 MHz:
+
+[cols="2,2,2",options="header"]
+|===
+|Test |Elapsed |Reported rate
+|VTCPU active, 13015509 T-states |410286 us |31.72 MHz
+|VTCPU quiet, 13015509 T-states |410020 us |31.74 MHz
+|VTDRV read-only, 32768 bytes |2748396 us |11.64 KiB/s
+|VTDRV W write, 32768 bytes |6667358 us |4.80 KiB/s
+|VTDRV W read, 32768 bytes |2746009 us |11.65 KiB/s
+|===
+
+Both supplied VTDRV runs report verify PASS. No quiet disk result supplied.
+Active/quiet CPU elapsed times differ by about 0.065%; this single pair
+shows little impact for this workload, not proof of zero rendering overhead.
+
+Inspection of the actual cached P4 compile command confirms `-Os`,
+`F_CPU=360000000L` and stamp 261002-0945. Response files add no later
+optimization override. The P4 board sets `XTGV_CPU1_IRAM_O2=0`; its map
+places Z80run in ordinary `.text`, not the optional IRAM section.
+
+W550/ES3_5 also sets this policy to zero and its retained map places Z80run
+in ordinary text. Its current profile/target use Arduino's release default
+`-Os`; the shared cached compile database now describes P4, not that older
+W550 invocation. W535/ES3_35 alone currently enables the combined
+`IRAM_ATTR` plus function-specific `optimize("O2")` policy for CPU1 Z80run.
+The attribute injection is currently present only in cpu1.h.
+
+No flags changed and no build or hardware tests were performed for this
+inspection. A useful next experiment would separate function-local O2
+from IRAM placement instead of attributing any combined gain to one of them.
+
+== ESP32 IRAM policy and P4 20 MHz build: 261002-1005
+
+At Petr's request, the existing CPU1 attribute hook now supplies IRAM_ATTR
+for Arduino ESP32 builds. Board-local `XTGV_CPU1_O2` replaces the combined
+`XTGV_CPU1_IRAM_O2` setting: W535 (including SDMMC fallback) retains its
+function-specific O2; P4 and W550 retain global build optimization, currently
+`-Os`. RP2350 gets no IRAM attribute. No CPU/core source was edited; the
+existing attribute injection remains CPU1-only. Global O2/O3 trials are deferred.
+P4 storage changes from 12 to 20 MHz; other board storage clocks are unchanged.
+
+Five core-hook tests, the P4 storage initializer test and the multi-board HAL
+link test pass. Requested P4 build 261002-1005 passed and was staged as `new`.
+ELF symbol inspection confirms Z80run at 0x4ff0031c in `.iram0.text`, size
+0x8c3e (35902 bytes). Program storage is 545931 bytes (17%).
+
+Arduino reports only 21512 bytes / 6% static RAM for this build, but this
+must NOT be interpreted as a memory saving: the linker placed data in
+`.dram1.bss`, which the summary omits. Use full ELF sections and runtime
+heap observations when comparing memory. Total `.iram0.text` is 103486 bytes.
+The successful P4 link is not a link/runtime verification of W550 or future
+ESP32 targets. Reflash and CPU/disk benchmarks remain pending.
+
+Petr subsequently requested reflash: target guard confirmed the P4,
+upload hashes verified and the visible mirror was restored. Startup confirms
+261002-1005, LDO4 ON, SD mounted at 20000000 Hz, profile/history OK and A0>.
+The reset discarded the preceding CP/M session. No agent benchmark commands
+were sent; Petr's comparative tests remain pending. No candidate promotion.

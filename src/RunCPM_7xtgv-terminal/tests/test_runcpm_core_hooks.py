@@ -93,7 +93,31 @@ int main(void) {
         self.assertIn('#ifdef XTGV_Z80RUN_ATTRIBUTES', cpu)
         self.assertNotIn('RUNCPM_TARGET_JC8048W535', cpu)
         self.assertIn('IRAM_ATTR __attribute__((optimize("O2")))', hooks)
-        self.assertIn('#define XTGV_CPU1_IRAM_O2 1', board)
+        self.assertIn('#define XTGV_CPU1_O2 1', board)
+
+    def test_esp32_iram_is_independent_of_o2(self):
+        for arch in ('ESP32', 'RP2040'):
+            for o2 in (0, 1):
+                with self.subTest(arch=arch, o2=o2):
+                    source = '''
+#define IRAM_ATTR TEST_IRAM
+#include "hardware/arduino_7xtgv/runcpm_hooks.h"
+#ifdef XTGV_Z80RUN_ATTRIBUTES
+XTGV_Z80RUN_ATTRIBUTES
+#else
+NO_ATTRIBUTES
+#endif
+'''
+                    result = subprocess.run([
+                        'g++', '-E', '-P', '-x', 'c++', '-', '-I', str(ROOT),
+                        f'-DARDUINO_ARCH_{arch}', f'-DXTGV_CPU1_O2={o2}',
+                        '-DXTGV_TERMINAL=0', '-DXTGV_CCP_7XF=0',
+                    ], input=source, text=True, capture_output=True, check=True)
+                    if arch == 'ESP32':
+                        self.assertIn('TEST_IRAM', result.stdout)
+                        self.assertEqual('optimize("O2")' in result.stdout, bool(o2))
+                    else:
+                        self.assertIn('NO_ATTRIBUTES', result.stdout)
 
 
 if __name__ == '__main__':

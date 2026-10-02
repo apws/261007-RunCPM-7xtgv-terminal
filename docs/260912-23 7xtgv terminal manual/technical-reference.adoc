@@ -14,6 +14,25 @@ feature and hardware-test status.
 The link:features_timeline.adoc[Features Timeline] gives a shorter history
 of delivered changes and command/file renames.
 
+== ESP32-P4 memory and build settings
+
+The link:../261002-12%20SdFat%20buffer%20transfers%20and%20SPI%20clock%20audit.adoc[SdFat and SPI audit]
+consolidates the RP2350/ESP32 buffer-transfer difference, measured P4 gains,
+requested-versus-actual clock caveats, divider tables and forced-read-only
+test-build boundary. It distinguishes source findings from hardware evidence.
+
+The JC8012P4A1C port uses in-package HEX-SPI PSRAM, a two-level cache
+architecture and separate flash/PSRAM buses. In-package PSRAM is not internal
+SRAM. CPU1 Z80run is placed in IRAM; execution of ordinary code from PSRAM
+is supported by the chip/SDK but not enabled in our build.
+
+The link:../261002-10%20P4%20memory%20caches%20and%20PSRAM%20execution.adoc[P4 memory reference]
+records current cache/bus settings, comparison with S3, the low/high SRAM
+split and limits of static free-memory calculations. The
+link:../261002-10%20P4%20whole-build%20Os%20O2%20O3%20comparison.adoc[Os/O2/O3 comparison]
+lists ELF placement and full size statistics. Arduino's 6% globals summary
+omits a DRAM bank; it must not be interpreted as actual free internal heap.
+
 [[source-references-and-implementation-boundaries]]
 == Code and ownership map
 

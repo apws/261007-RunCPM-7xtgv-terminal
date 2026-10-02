@@ -39,6 +39,7 @@
 // without a target retain RP2_2 geometry as their historical default.
 #if defined(ARDUINO) && \
     (defined(RUNCPM_TARGET_JC8048W535) + defined(RUNCPM_TARGET_JC8048W550) + \
+     defined(RUNCPM_TARGET_JC8012P4A1C) + \
      defined(RUNCPM_TARGET_RP2350_LCD_1_47_A) + \
      defined(RUNCPM_TARGET_RP2350_TOUCH_LCD_2) != 1)
 #error "Select exactly one RunCPM board target"

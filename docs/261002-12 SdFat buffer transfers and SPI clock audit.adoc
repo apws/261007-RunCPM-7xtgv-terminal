@@ -1,0 +1,276 @@
+= SdFat buffer transfers, SPI clocks and safe testing
+:source-highlighter: highlight.js
+:toc:
+
+== Scope and evidence
+
+This consolidates the 261002 discussion from discovering RP2350's default
+SdFat buffer transfers through the P4 clock-limit and read-only experiments.
+It separates inspected source, user measurements and unverified assumptions.
+
+Inspected installations:
+
+* Arduino-ESP32 3.1.0, SDK bundle `idf-release_v5.3-083aad99-v2`.
+* Arduino-Pico 5.4.4 and its bundled Pico SDK.
+* SdFat 2.3.0, installed package `SdFat_2.3.0_ef0dcc0578a48cdd`.
+* Project P4 target `jc8012p4a1c` / `EP4_10`, CPU 360 MHz.
+* Project RP2350 targets `RP2_147` and `RP2_2`, CPU 150 MHz.
+
+These are version-specific findings, not promises about every future Arduino
+release. Clock labels in earlier benchmark notes are *requested* frequencies.
+No oscilloscope or logic-analyzer SCK measurement was performed.
+
+== Three meanings of block transfer
+
+Do not confuse these independent layers:
+
+[cols="1,3",options="header"]
+|===
+|Layer |Meaning here
+|CP/M record |128 bytes presented by BDOS file operations.
+|SD sector |512-byte block read or written by the card/filesystem.
+|Arduino SPI buffer |Multiple bytes passed in one software call; the hardware may process smaller chunks internally.
+|===
+
+The initial ESP32 path already accessed SD sectors and used real hardware SPI.
+Its inefficiency was passing sector payloads through the Arduino API *one byte
+at a time*. Buffer transfers do not change CP/M record size, FAT allocation,
+SD protocol, or automatically enable multi-sector card commands or DMA.
+
+== The crucial SdFat default difference
+
+`SdFat/src/SdFatConfig.h` defaults `USE_SPI_ARRAY_TRANSFER` to 2 when
+`ARDUINO_ARCH_RP2040` is defined, and 0 otherwise. Arduino-Pico uses that
+architecture identifier also for these RP2350 builds. Thus our RP2350 targets
+already used the array API; the ESP32 targets originally did not.
+
+`SdFat/src/SpiDriver/SdSpiLibDriver.h` selects the implementation:
+
+[cols="1,3",options="header"]
+|===
+|Mode |Payload behavior
+|0 |Calls Arduino `transfer(byte)` repeatedly, including sector payloads.
+|1 |Uses the in-place `transfer(buffer, count)` API. Reads prefill the buffer with 0xff; writes use a temporary buffer so received bytes cannot overwrite the caller's source.
+|2 |Uses Arduino's separate transmit/receive buffer API, supported by Arduino-Pico.
+|===
+
+For ESP32, mode 0 means per-byte software setup/start/wait around hardware SPI;
+it does *not* mean bit-banging. Mode 1 reaches Arduino's buffer path, which
+processes up to 64 bytes through the hardware FIFO per operation and polls
+completion. It is *not DMA*. Commands/status can still use single-byte calls.
+SdFat's mode-1 write scratch buffer is 512 bytes.
+
+`DEDICATED_SPI` specifies bus ownership. It is not a request for DMA, a
+particular FIFO size, or automatic buffer-mode selection.
+
+== Implemented P4 change and boundaries
+
+The P4 target JSON adds `-DUSE_SPI_ARRAY_TRANSFER=1` to build-wide flags.
+It must reach the sketch and separately compiled SdFat source consistently;
+defining it only inside a board header would not configure the entire library.
+No installed Arduino/SdFat source or RunCPM core was patched for this change.
+
+The P4 still uses Arduino's default `SPI` object, FSPI index 0 / hardware SPI2:
+SCK43, MISO39, MOSI44, CS42. GPIO40/41 are unused SD data inputs held high.
+CS setup and these pull-ups do not implement software SPI. LDO4 provides the
+card and external pull-up supply at 3.3 V; its handle is retained after mount.
+The DSI display does not use this SPI peripheral.
+
+The array-transfer override has *not* yet been generalized to the S3 targets.
+Their earlier direct-SdFat migration and requested clock settings are separate
+changes. Rebenchmark them explicitly before claiming the same improvement.
+
+== Measured effect, same physical card
+
+Petr supplied these 32 KiB `VTDRV W` measurements; all reported verify PASS.
+SPI MHz in this table are requested values, not measured clocks.
+All rows have Z80run in IRAM.
+
+[cols="1,1,1,1,1,1",options="header"]
+|===
+|Build |Optimization |SPI payload API |SPI request MHz |Write KiB/s |Read KiB/s
+|261002-1005 |Os |Byte |20 |5.42 |13.04
+|261002-1012 |O2 |Byte |20 |5.41 |13.06
+|261002-1013 |O3 |Byte |20 |5.43 |13.06
+|261002-1101 |O2 |Buffer |20 |10.16 |26.08
+|261002-1127 |Os |Buffer |20 |10.17 |26.02
+|261002-1131 |Os |Buffer |40 |13.98 |37.88
+|===
+
+At the same O2 and requested 20 MHz, enabling buffers approximately doubled
+read throughput and improved writes by 88%. Returning to Os preserved this
+disk gain. Raising the request from 20 to 40 MHz then improved writes by about
+37% and reads by 46%. Neither change appreciably increased emulated CPU speed.
+
+VTCPU active/quiet samples were about 33.9 MHz for Os, versus 32.3--32.6 MHz
+for O2/O3. Larger optimization levels were not faster for this workload.
+The trials recompiled sketch, Arduino core and source libraries, but not
+Espressif's precompiled SDK archives. Program sizes, IRAM/DRAM placement,
+individual timings and chronological flash records remain in
+link:261002-10%20P4%20whole-build%20Os%20O2%20O3%20comparison.adoc[the build comparison].
+
+This demonstrates a major software transaction-granularity cost; it does not
+prove all RP2350/P4 performance differences are explained. VTDRV includes
+BDOS, filesystem, seek/open/close and scheduling costs, not just raw bus speed.
+The 32 KiB verification is not a long-duration integrity qualification.
+
+== P4 requested clock versus divider result
+
+In installed `cores/esp32/esp32-hal-spi.c`, `spiFrequencyToClockDiv()` uses
+`getApbFrequency()` and searches integer prescale/count combinations for the
+closest rate not exceeding the request. `esp32-hal-cpu.c` returns the SDK's
+`APB_CLK_FREQ` constant on this P4; the installed P4 `soc.h` defines 90000000.
+
+Thus the *software calculation* for integer-MHz requests is:
+
+[cols="1,1,1",options="header"]
+|===
+|Requested MHz |Total divider |Calculated MHz using 90 MHz
+|10--11 |9 |10
+|12 |8 |11.25
+|13--14 |7 |12.857
+|15--17 |6 |15
+|18--22 |5 |18
+|23--29 |4 |22.5
+|30--44 |3 |30
+|45--60 |2 |45
+|===
+
+*Critical unresolved point:* P4 has upstream SPI clock-source selection and
+predividers as well. We inspected the calculation, but have not read the live
+source/divider registers or measured SCK. Do not present 30 or 45 MHz as
+established physical clocks. A reporting API using the same 90 MHz assumption
+would not independently prove it. The early shorthand in chat must retain this
+qualification.
+
+Requests 50 and 60 MHz choose the same divider. Moving from the current
+40 MHz request to 50 MHz selects divide-by-two instead of divide-by-three:
+a 50% clock increase if the upstream source is unchanged, not a 25% increase.
+
+This rounding is in the Arduino SPI implementation. SdFat supplies the request;
+ESP-IDF supplies supporting hardware definitions. Native ESP-IDF SPI-master
+code is a separate implementation and need not make identical choices.
+In general, integer-divider quantization is normal across MCU platforms, but
+the source clock, divider range and selection policy differ.
+
+== RP2350 clock table in our profiles
+
+Arduino-Pico `libraries/SPI/src/SPI.cpp` calls Pico SDK `spi_init()`;
+`hardware_spi/spi.c` uses `clock_get_hz(clk_peri)` and calculates:
+
+----
+SCK = clk_peri / (even prescaler * integer post-divider)
+----
+
+The prescaler ranges from 2 to 254, even values only; the post-divider ranges
+from 1 to 256. For the requested range below, prescaler 2 suffices.
+Our profiles select 150 MHz, the normal RP2350 startup frequency. Startup
+connects `clk_peri` to `clk_sys` at 150 MHz; Arduino's alternate-frequency
+reconfiguration branch is not taken at this setting.
+
+[cols="1,1,1",options="header"]
+|===
+|Requested MHz |Prescaler x post-divider |Expected SPI MHz
+|10 |2 x 8 |9.375
+|11--12 |2 x 7 |10.714
+|13--14 |2 x 6 |12.5
+|15--18 |2 x 5 |15
+|19--24 |2 x 4 |18.75
+|25--37 |2 x 3 |25
+|38--60 |2 x 2 |37.5
+|===
+
+Our historical RP2350 "12 MHz" setting therefore calculates to approximately
+10.714 MHz. Requests 40, 50 and 60 MHz all produce 37.5 MHz in these profiles.
+The next divider step is 75 MHz, not a recommendation for an SD card.
+These are source-derived expected clocks, not instrument measurements.
+Changing CPU/peripheral clock configuration requires recalculating the table;
+do not assume `clk_peri` always follows any later overclock setting.
+
+== Card and electrical limits are separate
+
+SD Default Speed specifies up to 25 MHz; High Speed permits up to 50 MHz after
+the applicable capability check/mode switch. The installed SdFat SPI `begin()`
+performs initialization, then applies the configured maximum clock; no CMD6
+High-Speed negotiation was found in that initialization path. The presence of
+a `cardCMD6()` helper does not mean it is called automatically.
+
+Consequently, a card's High-Speed/UHS marking is not proof that this SPI path
+has entered that mode. Faster clocks may work outside default-mode timing
+guarantees. Do not infer mode negotiation from successful mounting alone.
+
+The inspected P4 HAL documents a peripheral functional-clock limit of 80 MHz.
+That is not a card/socket/board reliability rating. Our assigned pins use the
+GPIO matrix rather than dedicated SPI2 IOMUX pins. Espressif states that at
+40 MHz or below GPIO-matrix routing behaves equivalently to IOMUX routing;
+above that, signal timing needs additional care. This does not guarantee a
+particular card even below 40 MHz.
+
+`USE_SD_CRC` defaults to 0 in installed SdFat and is not overridden by our P4
+target. Link CRC checking is therefore not enabled. A benchmark verify PASS
+is useful but is not equivalent to CRC-protected transfers or broad stress
+coverage. Enabling CRC would be a separate consistently compiled experiment,
+with its own performance cost and tests.
+
+== Read-only experiment and safety
+
+Petr requested a 50 MHz ceiling to test boot/reads before considering writes.
+The source constant and native test expectation are changed, but this trial
+has not yet been firmware-built or flashed. The current device/staged candidate
+remains the verified 261002-1131 40 MHz-request build.
+
+A read-only VTDRV invocation alone cannot ensure a read-only system: terminal
+INI/history saves and catalog updates may write independently. CP/M logical
+write protection also does not cover those host-side paths.
+
+Implemented source-only option `--storage-read-only` mounts FAT32 through a
+board-local FsBlockDeviceInterface rejecting single- and multi-sector writes.
+It also rejects writable opens and common filesystem mutations early. The
+physical card is private to the wrapper; no INI value can enable writes.
+Build-wide `USE_BLOCK_DEVICE_INTERFACE=1` is required alongside the project
+flag. Other targets are deliberately rejected for now. Normal builds retain
+their direct SdFat path.
+
+See link:261002-12%20P4%20forced%20read-only%20storage%20trial.adoc[read-only implementation and build command]
+for validation boundaries and deployment instructions. Native tests pass;
+actual firmware compilation and hardware behavior remain to be verified.
+
+For eventual qualification, use a backed-up/spare card, repeated reads over a
+substantial known dataset, expected hashes, sequential/random access, and cold
+starts. Make sure comparisons do not merely reuse cached data. Write tests
+need a disposable card and remount/power-cycle verification. Do not treat a
+software write barrier as protection against power faults, signal corruption,
+or internal card housekeeping. Petr already observed USB-power instability
+with this large display and hub; that remains a separate uncontrolled factor.
+
+No higher clock is declared a generally safe default from the short tests.
+A 20 MHz request is the conservative fallback discussed; 40 MHz is the
+successful benchmark setting, not universal card qualification.
+
+== Tests, open work and references
+
+* `tests/test_sdfat_array_transfer.py`: actual pinned driver with mocked Arduino
+  SPI; buffer reads and writes, scratch-buffer boundary, caller data preserved.
+* `tests/test_p4_storage.py`: power sequencing and read-only guard using test
+  doubles; these do not measure electrical behavior.
+* `tests/test_build_properties.py`: existing build-property preservation and
+  optimization/array settings. Read-only CLI rejects unsupported/no-build use;
+  end-to-end compiled-flag verification is still pending.
+* Next: explicitly requested read-only firmware build, separate reflash, boot
+  warning and mount check, then Petr's read tests.
+* Resolve the live P4 SPI source clock before labeling results with actual MHz.
+* Later: evaluate buffer mode on the S3 boards; do not silently change them.
+* Later: test build/flash/mirror tooling from a separate clean clone without
+  Codex, documenting dependencies and permissions rather than relying on this
+  workstation's accumulated state.
+
+References (installed sources above govern the exact tested versions):
+
+* https://github.com/greiman/SdFat[SdFat source and configuration]
+* https://docs.espressif.com/projects/esp-idf/en/v6.0.2/esp32p4/api-reference/peripherals/spi_master.html[Espressif P4 SPI clocks and GPIO routing]
+* https://github.com/raspberrypi/pico-sdk/blob/master/src/rp2_common/hardware_spi/spi.c[Pico SDK SPI divider algorithm]
+* https://www.raspberrypi.com/documentation/pico-sdk/hardware.html[Pico SDK hardware APIs]
+* https://www.sdcard.org/downloads/pls/[SD Association physical-layer specifications]
+
+For cache, internal SRAM, in-package serial PSRAM, flash and executable-memory
+placement, see link:261002-10%20P4%20memory%20caches%20and%20PSRAM%20execution.adoc[P4 memory reference].

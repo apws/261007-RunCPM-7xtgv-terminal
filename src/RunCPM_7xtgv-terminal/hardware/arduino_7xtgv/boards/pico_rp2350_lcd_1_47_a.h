@@ -31,7 +31,7 @@ static constexpr uint8_t XTGV_BACKLIGHT_DUTIES[] = {
 // ============================================================================
 // 3. Optional compiler policy (preprocessor attribute seam, not executable code)
 // ============================================================================
-#define XTGV_CPU1_IRAM_O2 0
+#define XTGV_CPU1_O2 0
 
 // Only the sketch defines this guard. Functions below have ordinary external
 // linkage; calling them from the terminal does NOT change task/core ownership.
@@ -51,6 +51,9 @@ static constexpr uint8_t XTGV_BACKLIGHT_DUTIES[] = {
 // RunCPM owns dedicated SPI1; the display uses hardware SPI0.
 #include <SPI.h>
 #include <SdFat.h>
+#include "../sdfat_spi_driver.h"
+
+static XtgvSdSpiDriver xtgvStorageSpi(SPI1);
 
 SdFat32 SD;
 typedef File32 File;
@@ -60,8 +63,15 @@ XtgvBoardStorageStatus xtgvBoardStorageInit() {
     SPI1.setTX(11);
     SPI1.setRX(12);
     const bool mounted = SD.begin(
-        SdSpiConfig(15, DEDICATED_SPI, SD_SCK_MHZ(12), &SPI1));
+        SdSpiConfig(15, DEDICATED_SPI, SD_SCK_MHZ(20), &xtgvStorageSpi));
     return {true, mounted};
+}
+
+// Called only by the card-owner task, after all configuration handles close.
+bool xtgvBoardStorageSetMHz(uint8_t mhz) {
+    if (mhz < 1 || mhz > 60) return false;
+    const bool idle = SD.card()->syncDevice();
+    return idle && xtgvStorageSpi.changeClock(uint32_t(mhz) * 1000000UL);
 }
 
 void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus &status,
@@ -70,8 +80,10 @@ void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus &status,
     write("CONFIGURED\r\n");
     write("Mount MicroSD card ...");
     if (status.mediaReady) {
-        write("12");
-        write(" Mhz\r\n");
+        char detail[48];
+        snprintf(detail, sizeof(detail), "%lu Hz requested\r\n",
+                 (unsigned long)xtgvStorageSpi.requestedHz());
+        write(detail);
     }
 }
 

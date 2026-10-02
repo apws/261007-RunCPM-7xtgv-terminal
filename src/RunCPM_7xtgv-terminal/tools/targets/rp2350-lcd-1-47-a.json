@@ -1,10 +1,12 @@
 {
   "display_id": "RP2_147",
   "description": "RP2350 Waveshare LCD 1.47-inch A",
-  "port_globs": ["/dev/serial/by-id/usb-Generic_RP2350*-if00"],
+  "port_globs": [
+    "/dev/serial/by-id/usb-Generic_RP2350*-if00"
+  ],
   "method": "bootsel-uf2",
   "profile": "rp2350-lcd-1-47-a",
   "build_properties": {
-    "build.extra_flags": "-DRUNCPM_TARGET_RP2350_LCD_1_47_A -DXTGV_RUNCPM=1 -DXTGV_TERMINAL=1 -DXTGV_CCP_7XF=1"
+    "build.extra_flags": "-DRUNCPM_TARGET_RP2350_LCD_1_47_A -DXTGV_RUNCPM=1 -DXTGV_TERMINAL=1 -DXTGV_CCP_7XF=1 -DSPI_DRIVER_SELECT=3"
   }
 }

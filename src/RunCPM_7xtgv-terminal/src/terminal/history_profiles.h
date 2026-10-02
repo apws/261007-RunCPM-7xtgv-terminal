@@ -85,6 +85,7 @@ struct GlobalProfile {
     bool gutterOverride = false, activeGutterOverride = false;
     OutputMode mode = OutputAnsi;
     uint8_t consoleBits = 7;
+    uint8_t sdfatSpiMHz = 20; // Requested Arduino clock; applied at boot only.
     GlobalKey exitKey = GlobalKeyDualAltEscape;
     GlobalKey clearKey = GlobalKeyDualAltDelete;
     uint16_t cursorBlinkMs = 500;

@@ -39,9 +39,10 @@ key PgDown    +Shift+Alt+Ctrl : "\E[>63;34v"
 key 1         +Shift+Alt+Ctrl : "\E[>1v"
 key 2         +Shift+Alt+Ctrl : "\E[>2v"
 
-# Global backlight: Ctrl+Shift+digit presets are OFF, then module-specific levels.
+# Global backlight: add Alt for OFF, matching fine adjustment; 1..9 presets
+# retain Ctrl+Shift (Alt+Ctrl+Shift+1/2 select ANSI/VT52).
 # Fine adjustment uses lit levels 1..31 (0 is separate OFF).
-key 0         +Shift-Alt+Ctrl : "\E[>63;0v"
+key 0         +Shift+Alt+Ctrl : "\E[>63;0v"
 key 1         +Shift-Alt+Ctrl : "\E[>63;4v"
 key 2         +Shift-Alt+Ctrl : "\E[>63;7v"
 key 3         +Shift-Alt+Ctrl : "\E[>63;11v"

@@ -54,9 +54,11 @@ def main():
     parser.add_argument("--build-only", action="store_true",
                         help="build and stage a target-aware new candidate without uploading")
     parser.add_argument("--optimization", choices=("O2", "O3"),
-                        help="RP2_147 trial build: override the core/profile optimization")
+                        help="RP2_147 or P4 trial build: override whole source-build optimization")
     parser.add_argument("--w535-sd-mmc", action="store_true",
                         help="W535 fallback build: select the former one-bit SD_MMC adapter instead of default SPI3/SdFat")
+    parser.add_argument("--storage-read-only", action="store_true",
+                        help="P4 test build: reject filesystem sector writes, independent of INI")
     parser.add_argument("--promote-new", action="store_true",
                         help="accept the tested new candidate as current, then upload it")
     parser.add_argument("--current", action="store_true",
@@ -71,6 +73,8 @@ def main():
                                        args.current, args.restore)) > 1:
         parser.error("--build, --build-only, --promote-new, --current, and --restore are mutually exclusive")
     building = args.build or args.build_only
+    if args.storage_read_only and (not building or args.target != "jc8012p4a1c"):
+        parser.error("--storage-read-only requires --target jc8012p4a1c and --build or --build-only")
     if args.optimization and not building:
         parser.error("--optimization requires --build or --build-only")
     if not args.target:
@@ -81,8 +85,8 @@ def main():
         _, definition = load_target(args.target, TARGETS)
     except RuntimeError as error:
         parser.error(str(error))
-    if args.optimization and args.target != "rp2350-lcd-1-47-a":
-        parser.error("--optimization trials currently support only rp2350-lcd-1-47-a")
+    if args.optimization and args.target not in ("rp2350-lcd-1-47-a", "jc8012p4a1c"):
+        parser.error("--optimization trials support rp2350-lcd-1-47-a and jc8012p4a1c")
     if args.w535_sd_mmc and (args.target != "jc8048w535" or not building):
         parser.error("--w535-sd-mmc requires --target jc8048w535 and --build or --build-only")
     if definition.get("method") != "arduino-cli" and not (
@@ -127,11 +131,16 @@ def main():
     build_properties = dict(definition.get("build_properties", {}))
     if building:
         try:
-            overrides = ({"build.flags.optimize": f"-{args.optimization}"}
+            optimization_key = ("compiler.optimization_flags" if args.target == "jc8012p4a1c"
+                                else "build.flags.optimize")
+            overrides = ({optimization_key: f"-{args.optimization}"}
                          if args.optimization else None)
             build_properties = resolved_build_properties(cli, definition, stamp, overrides)
             if args.w535_sd_mmc:
                 build_properties["build.extra_flags"] += " -DXTGV_W535_SD_MMC=1"
+            if args.storage_read_only:
+                build_properties["build.extra_flags"] += (
+                    " -DXTGV_STORAGE_READ_ONLY=1 -DUSE_BLOCK_DEVICE_INTERFACE=1")
         except RuntimeError as error:
             parser.error(str(error))
     for key, value in build_properties.items():

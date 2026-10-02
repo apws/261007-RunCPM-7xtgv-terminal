@@ -567,6 +567,21 @@ static void _xtgvHardwarePrint(const char *text) {
         _putch((uint8)*text++);
 }
 
+// Native diagnostics remain outside RunCPM; this is only the guest I/O seam.
+#include "hardware/arduino_7xtgv/cardmark.h"
+#if XTGV_CARDMARK_AVAILABLE
+static char xtgvCardmarkArgs[128];
+static uint8 xtgvCardmarkLength = 0;
+static bool xtgvCardmarkOverflow = false;
+static bool _xtgvCardmarkCancelled() {
+#if XTGV_TERMINAL
+    return forcedWarmReturn().pending();
+#else
+    return false;
+#endif
+}
+#endif
+
 static void _xtgvCPUBegin(bool quiet, bool use8x) {
     xtgvCpuQuiet = quiet;
     xtgvCpu8x = use8x;
@@ -666,6 +681,25 @@ void _HardwareInit(void) {
 void _HardwareOut(const uint32 Port, const uint32 Value) {
     const uint8 port = Port & 0xff;
     const uint8 value = Value & 0xff;
+#if XTGV_CARDMARK_AVAILABLE
+    if (port == 0x78) {
+        if (xtgvCardmarkLength < sizeof(xtgvCardmarkArgs) - 1)
+            xtgvCardmarkArgs[xtgvCardmarkLength++] = char(value);
+        else xtgvCardmarkOverflow = true;
+        return;
+    }
+    if (port == 0x77) {
+        if (value == 1) {
+            xtgvCardmarkLength = 0;
+            xtgvCardmarkOverflow = false;
+        } else if (value == 2) {
+            xtgvCardmarkArgs[xtgvCardmarkLength] = 0;
+            if (xtgvCardmarkOverflow) _xtgvHardwarePrint(" CARDMARK: argument overflow\r\n");
+            else xtgvCardmarkRun(xtgvCardmarkArgs, _xtgvHardwarePrint, _xtgvCardmarkCancelled);
+        }
+        return;
+    }
+#endif
     if (port == XTGV_CPU_PORT) {
         switch (value) {
             case 1: _xtgvCPUBegin(false, false); break;
@@ -746,6 +780,7 @@ void _HardwareOut(const uint32 Port, const uint32 Value) {
 
 uint32 _HardwareIn(const uint32 Port) {
     const uint8 port = Port & 0xff;
+    if (port == 0x77) return XTGV_CARDMARK_AVAILABLE ? 'C' : 0;
     if (port == XTGV_CPU_PORT)
         return 'V';
     if (port == XTGV_DRV_PORT)

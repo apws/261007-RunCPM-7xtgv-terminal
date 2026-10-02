@@ -65,6 +65,11 @@ int main(int argc, char **argv) {
         self.assertIn(b"view_zoom = 4  ; chosen by hand\r\n", result)
         self.assertIn(b"mode_palette=2\r\n", result)
 
+    def test_backlight_save_preserves_storage_clock(self):
+        source = b"[global]\r\nsdfat_spi=40\r\nbacklight_level=16\r\n"
+        result = self.rewrite(source, "backlight")
+        self.assertIn(b"sdfat_spi=40\r\n", result)
+
     def test_preserves_palettes_comments_and_other_displays(self):
         palette = b"[palette3]\r\n; keep me\r\npaper0=1,2,3\r\nink08=9,8,7\r\n"
         other = b"[display:ES3_5]\r\nview_zoom=4\r\n"

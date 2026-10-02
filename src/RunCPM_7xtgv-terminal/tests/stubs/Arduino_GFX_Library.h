@@ -67,6 +67,29 @@ class Arduino_ESP32RGBPanel {
 public:
     template <typename... Args> Arduino_ESP32RGBPanel(Args...) {}
 };
+struct lcd_init_cmd_t {
+    int cmd;
+    const void *data;
+    size_t data_bytes;
+    unsigned int delay_ms;
+};
+class Arduino_ESP32DSIPanel {
+public:
+    Arduino_ESP32DSIPanel(int, int, int, int, int, int, int, int) {}
+};
+class Arduino_DSI_Display : public Arduino_GFX {
+public:
+    Arduino_DSI_Display(int w, int h, Arduino_ESP32DSIPanel *panel,
+                        int rotation, bool flush, int rst,
+                        const lcd_init_cmd_t *commands, size_t count)
+        : panel_(panel) {
+        assert(w == 800 && h == 1280 && rotation == 1 && !flush && rst == 27);
+        assert(commands && count > 100);
+    }
+    ~Arduino_DSI_Display() override { delete panel_; }
+private:
+    Arduino_ESP32DSIPanel *panel_;
+};
 class Arduino_RGB_Display : public Arduino_GFX {
 public:
     // Keep this pixel fixture 320x240; board construction is checked separately.

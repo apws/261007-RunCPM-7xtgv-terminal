@@ -53,6 +53,57 @@ renamed, or changes behavior.
 
 == Colour, transfer, boards, and storage
 
+End-of-day `261002` reconciliation records successful A0 CARDMARK deployment:
+Petr's `CARDMARK 4096 50` compared 6 MiB and passed, reporting raw reads at
+1923.72 KiB/s and restored clock. His global INI SPI request of 40 MHz is
+confirmed applied at boot. The earlier firmware-wide read-only 50 MHz trial
+passed two VTDRV read checks; these are not write or electrical qualification.
+Seven missing AsciiDoc opening table delimiters were repaired in the P4
+optimization comparison and memory notes, with rendered structure checked.
+
+At `261002-17`, the link:../261002-17%20P4%20backlight%20calibration%20preparation.adoc[P4 calibration preparation]
+adds a diagnostic PWM ladder spanning 0 through 255, with extra near-dark steps.
+The fetched device INI remains unchanged. Host backlight tests pass; firmware
+rebuild is pending. Display clock/refresh visibility in boot output or VTINFO
+is recorded as follow-up, not implemented.
+The subsequent `261002-1732` checkpoint moves backlight OFF to
+LAlt+Ctrl+Shift+0 in the host maps, retaining Ctrl+Shift+1 through 9 presets
+and the existing ANSI/VT52 chords. The private device control code is unchanged.
+After testing that firmware, Petr chose PWM duty 3 as the P4 minimum. The
+`261002-1758` rebuild replaces the diagnostic ladder with gamma-2.2 shaping,
+matching RP2_2's formula while keeping the P4 table board-local.
+At `261002-1923`, after acceptance of the curve, a P4-only reboot trial explicitly
+zeros and detaches backlight PWM and drives GPIO23 LOW before ESP.restart.
+This addresses missing pre-reboot blanking, not a proven fix for the reported
+blue startup frame or occasional early boot stall. Host call-order tests pass;
+firmware rebuild and hardware testing remain pending.
+P4 build `261002-1932` was then built, flashed and boot-verified. Petr confirms
+the blue interval is absent during reboot/reflash and accepts the brightness
+curve. Other modules remain untested for this change. A separate intermittent
+CLS failure during rapid reboot testing is recorded without an established cause.
+
+At `261002-15`, a link:../261002-15%20P4%20full-frame%20redraw%20budget%20trial.adoc[P4 redraw trial]
+enables the W535-style full-frame rendering budget after reported light-blue
+flashes. That initial HAL-only trial changed no DSI timing or buffering.
+Subsequent hardware testing exposed a DSI framebuffer underrun, with occasional
+stuck blue display despite a working mirror. At `261002-1645`, a separate trial
+halves the P4 pixel-clock request from 80 to 40 MHz (calculated refresh about
+34.3 Hz), retaining the full-frame budget and native resolution. Hardware
+validation of this lower timing remains pending.
+
+The `261002-13` link:../261002-13%20Global%20SdFat%20SPI%20clock%20and%20CARDMARK%20preparation.adoc[configurable SPI checkpoint]
+adds `[global] sdfat_spi` to all five direct-SdFat boards: 12 MHz startup/fallback,
+runtime clock selection through SdFat's external hardware-SPI driver interface,
+and unchanged per-board buffer policy. Host tests pass; firmware rebuild and
+board retests remain pending. CARDMARK's backend/COM launcher are not yet implemented.
+The subsequent `261002-1510` checkpoint corrects startup/fallback to 20 MHz,
+implements the P4 read-only native CARDMARK service plus 128-byte COM launcher,
+and stages a successful P4 build. Host comparison/error/cancellation tests pass;
+reflash, COM transfer and device tests are pending.
+Petr then removed the CARDMARK firmware-wide read-only prerequisite. Writable
+P4 build `261002-1520` stages successfully with the diagnostic enabled; its
+operations remain read-only and restore the clock before normal storage resumes.
+
 [cols="1,4,2",options="header"]
 |===
 |Checkpoint |What changed |Evidence
@@ -155,6 +206,107 @@ was staged as `++new++`; no flash/card verification yet. Program storage
 `++261002-00++`: flashed W550 build 261002-0002, restored its mirror, and
 received Petr's successful-test confirmation. The 40 MHz SdFat candidate
 is accepted; no numeric throughput result was supplied.
+
+== P4 HAL preparation
+
+`++261002-09++`: added the JC8012P4A1C NewPanel board header and build target
+(`EP4_10`), reusing our working 7xtgv demo's DSI initialization. Initial
+storage is direct SdFat/SPI at 12 MHz. Native HAL/identity checks pass;
+combined firmware build and hardware validation remain pending. No RunCPM
+core changes. See link:../261002-09%20P4%20NewPanel%20HAL%20first%20checkpoint.adoc[P4 checkpoint].
+
+`++261002-0934++`: first integrated P4 firmware build passed and was staged
+as its target's `new` candidate; 545437 bytes program and 98700 bytes static
+globals. No firmware flash or hardware acceptance yet.
+
+Subsequent first P4 reflash booted this build and restored the mirror, but
+SD initialization failed (`CPU halted`). Storage and physical display
+acceptance remain pending; the candidate was not promoted.
+
+`++261002-09++`: traced the card-power omission to schematic supply
+`ESP_LDO_VO4`; added board-local LDO4 3.3 V enable before SPI initialization
+and a separate power-status line. Native power-order/failure tests pass;
+the correction awaits rebuild and hardware validation.
+
+`++261002-0945++`: P4 rebuild with LDO4 power correction passed and was
+staged as `new`; hardware verification remains pending reflash.
+
+The subsequent requested reflash confirmed LDO4 ON, SD mount at 12 MHz,
+profile/history load and `A0>` on the restored mirror. Physical display
+acceptance and benchmarks remain pending.
+
+`++261002-1005++`: generalized the existing CPU1 IRAM attribute policy to
+Arduino ESP32 targets while retaining W535's local O2 and global `-Os`
+elsewhere. P4 SD SPI raised to 20 MHz. P4 build passed and ELF confirms
+Z80run in IRAM; reflash/benchmarks and other-target builds remain pending.
+
+The requested reflash of 261002-1005 subsequently booted successfully:
+20 MHz SD mount, profile/history load and A0> confirmed in the restored
+mirror. Comparative benchmarks remain for Petr.
+
+`++261002-1012++` / `++261002-1013++`: prepared whole-source P4 O2/O3
+trial images, preserving the Os baseline. Both passed; all 203 compiled
+units use the selected level, while precompiled SDK libraries remain unchanged.
+Added target-aware P4 optimization overrides without changing normal defaults.
+No trial flash yet. See link:../261002-10%20P4%20whole-build%20Os%20O2%20O3%20comparison.adoc[size and placement comparison].
+
+The O3 trial 261002-1013 was subsequently flashed on request: mirror confirms
+the build, SD mounted at 20 MHz, profile/history OK and A0>. Benchmarks pending;
+O2 remains unflashed.
+
+Petr's O3 benchmarks then showed roughly 4% lower CPU throughput than Os,
+with disk rates unchanged and verify PASS. On request, O2 261002-1012 was
+selected as `new`, flashed and the visible mirror restored to A0>.
+Os/O2/O3 archives remain available; O2 benchmark results pending.
+
+Petr's O2 results were similar to O3, both slower than Os for VTCPU.
+Inspection confirmed hardware SPI but exposed SdFat's ESP32 byte-at-a-time
+payload default versus RP2350 buffer transfers. Approved P4 trial now sets
+build-wide `USE_SPI_ARRAY_TRANSFER=1`; native buffer/flag tests pass,
+firmware rebuild and throughput verification remain pending.
+
+`++261002-1101++`: O2 P4 buffer-transfer build passed and was staged as
+`new`. Compilation flags verified in SdFat sources; reflash and benchmarks
+remain pending.
+
+Subsequent requested reflash succeeded; mirror confirms 261002-1101,
+20 MHz SD mount, profile/history OK and A0>. Disk comparison pending.
+
+Petr's buffer-transfer O2 results: 10.16 KiB/s write and 26.08 KiB/s read,
+verify PASS (previously 5.41/13.06). Requested default-Os rebuild
+`++261002-1127++` passed with the same buffer mode, IRAM and 20 MHz SPI;
+staged as new, not yet flashed.
+
+Subsequent reflash of 261002-1127 succeeded; boot, SD and profile/history
+confirmed in the restored mirror. Captured user VTCPU: 33.98/33.91 MHz;
+Os buffer-transfer disk results pending.
+
+Petr reports Os buffer-transfer write/read 10.17/26.02 KiB/s, verify PASS.
+Requested P4-only 40 MHz SPI trial built successfully as `++261002-1131++`,
+retaining Os, IRAM and buffer transfers. Staged as new; not yet flashed.
+
+The requested 261002-1131 reflash then booted successfully: SD mount at
+the requested 40 MHz, profile/history and A0> confirmed. Disk tests pending.
+
+Petr then confirmed the 40 MHz benchmark: VTDRV write/read 13.98/37.88 KiB/s,
+verify PASS; VTCPU 33.89/33.88 MHz. Roughly 37%/46% disk improvement over
+the 20 MHz Os buffer baseline. Long-duration testing and promotion are separate.
+
+The next source-only experiment raises the P4 requested SPI clock to 50 MHz
+and adds build option `--storage-read-only`: board-local sector-write rejection
+covers CP/M and terminal persistence, without an INI override or core edits.
+Native tests pass; firmware build and device verification remain pending.
+See link:../261002-12%20P4%20forced%20read-only%20storage%20trial.adoc[read-only trial].
+The link:../261002-12%20SdFat%20buffer%20transfers%20and%20SPI%20clock%20audit.adoc[consolidated SPI audit]
+records the full reasoning, benchmark comparison and 10--60 MHz divider tables.
+Earlier clock labels are requested values; actual P4 SCK remains unmeasured.
+Requested read-only P4 build `261002-1223` subsequently passed and staged as
+`new` with the 50 MHz ceiling, Os and array transfers (547185 bytes program).
+Embedded stamp/read-only warning verified; flash and hardware test pending.
+
+The accompanying link:../261002-10%20P4%20memory%20caches%20and%20PSRAM%20execution.adoc[P4 memory reference]
+records SRAM headroom, S3/P4 cache and external-memory differences, and
+PSRAM execution as a supported but disabled future option, not a delivered feature.
 
 == Command and catalog name lineage
 

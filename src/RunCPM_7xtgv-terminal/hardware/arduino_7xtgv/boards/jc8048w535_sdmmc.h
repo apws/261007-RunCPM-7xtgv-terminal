@@ -32,7 +32,7 @@ static constexpr uint8_t XTGV_BACKLIGHT_DUTIES[] = {
 // ============================================================================
 // 3. Optional compiler policy (preprocessor attribute seam, not executable code)
 // ============================================================================
-#define XTGV_CPU1_IRAM_O2 1
+#define XTGV_CPU1_O2 1
 
 // Only the sketch defines this guard. Functions below have ordinary external
 // linkage; calling them from the terminal does NOT change task/core ownership.
@@ -187,6 +187,8 @@ RunCPMStorage SD;
 // Preserve RunCPM's historical ESP32-only BDOS extension hook.  Existing ESP32
 // board headers implement it as a no-op too.
 static uint8_t esp32bdos(uint16_t) { return 0; }
+
+bool xtgvBoardStorageSetMHz(uint8_t) { return false; } // Not an SPI transport.
 
 XtgvBoardStorageStatus xtgvBoardStorageInit() {
     const bool pinsReady = SD.setPins();

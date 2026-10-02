@@ -39,6 +39,7 @@ struct XtgvBoardStorageStatus {
 };
 
 XtgvBoardStorageStatus xtgvBoardStorageInit();
+bool xtgvBoardStorageSetMHz(uint8_t mhz);
 void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus &status,
                                 void (*write)(const char *));
 void xtgvBoardPrintBootExtra(void (*write)(const char *));
@@ -56,6 +57,8 @@ void runCPMHardwareReboot();
     #else
         #include "boards/jc8048w535.h"
     #endif
+#elif defined(RUNCPM_TARGET_JC8012P4A1C)
+    #include "boards/jc8012p4a1c.h"
 #elif defined(RUNCPM_TARGET_JC8048W550)
     #include "boards/jc8048w550.h"
 #elif defined(RUNCPM_TARGET_RP2350_LCD_1_47_A)

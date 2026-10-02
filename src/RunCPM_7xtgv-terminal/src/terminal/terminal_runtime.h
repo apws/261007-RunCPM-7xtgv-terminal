@@ -10,6 +10,7 @@ void terminalConfigBegin();
 void terminalConfigFeed(uint8_t byte);
 unsigned terminalConfigEnd();
 uint8_t terminalConfiguredConsoleBits();
+uint8_t terminalConfiguredSdSpiMHz();
 unsigned terminalConfigErrorCount();
 uint8_t terminalConfigErrorLineCount();
 bool terminalConfigErrorLine(uint8_t index, uint16_t &number, const char *&section, const char *&text);

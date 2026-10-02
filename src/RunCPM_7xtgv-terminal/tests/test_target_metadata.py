@@ -114,6 +114,7 @@ class TargetMetadataTests(unittest.TestCase):
     def test_compiled_identity_and_display_group_match_host_data(self):
         # Host substitutes for architecture macros supplied by these Arduino cores.
         profiles = {
+            'jc8012p4a1c': ['-DARDUINO_ARCH_ESP32', '-DCONFIG_IDF_TARGET_ESP32P4'],
             'jc8048w550': ['-DARDUINO_ARCH_ESP32', '-DCONFIG_IDF_TARGET_ESP32S3'],
             'jc8048w535': ['-DARDUINO_ARCH_ESP32', '-DCONFIG_IDF_TARGET_ESP32S3'],
             'rp2350-touch-lcd-2': ['-DARDUINO_ARCH_RP2040'],

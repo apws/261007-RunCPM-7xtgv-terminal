@@ -613,6 +613,13 @@ void HistoryProfiles::parseLine() {
             else fail();
         } else if (!strcmp(keyName, "mode")) {
             if (!parseOutputMode(value, sets_[loading_].global.mode)) fail();
+        } else if (!strcmp(keyName, "sdfat_spi")) {
+            unsigned mhz = 0;
+            char tail = 0;
+            sets_[loading_].global.sdfatSpiMHz = 20;
+            if (sscanf(value, "%u%c", &mhz, &tail) == 1 && mhz >= 1 && mhz <= 60)
+                sets_[loading_].global.sdfatSpiMHz = uint8_t(mhz);
+            else fail();
         } else if (!strcmp(keyName, "console_bits")) {
             if (!strcmp(value, "7")) sets_[loading_].global.consoleBits = 7;
             else if (!strcmp(value, "8")) sets_[loading_].global.consoleBits = 8;

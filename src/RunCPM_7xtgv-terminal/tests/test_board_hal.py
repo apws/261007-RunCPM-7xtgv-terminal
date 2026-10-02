@@ -14,8 +14,11 @@ class BoardHalTests(unittest.TestCase):
 #define XTGV_TERMINAL 1
 #include "hardware/arduino_7xtgv/board.h"
 #include <cassert>
+#if defined(RUNCPM_TARGET_JC8012P4A1C)
+static_assert(XTGV_DISPLAY_FULL_FRAME_BUDGET);
+#endif
 #if defined(RUNCPM_TARGET_JC8048W535) && !defined(XTGV_W535_SD_MMC)
-static_assert(XTGV_STORAGE_HZ == 40000000UL);
+static_assert(XTGV_STORAGE_HZ == 20000000UL);
 #endif
 int client();
 int main() {
@@ -45,6 +48,7 @@ int client() {
             (temp / 'owner.cpp').write_text(owner)
             (temp / 'client.cpp').write_text(client)
             variants = (
+                ('JC8012P4A1C', ()),
                 ('JC8048W535', ()),
                 ('JC8048W535_SD_MMC', ('-DRUNCPM_TARGET_JC8048W535',
                                        '-DXTGV_W535_SD_MMC')),
@@ -56,13 +60,14 @@ int client() {
                 with self.subTest(target=target):
                     binary = temp / target
                     target_flags = list(extra_flags) or [f'-DRUNCPM_TARGET_{target}']
-                    subprocess.run([
+                    result = subprocess.run([
                         'g++', '-std=c++17', '-Wall', '-Wextra', '-Werror',
                         *target_flags,
                         '-I', str(ROOT / 'tests/stubs'), '-I', str(ROOT),
                         str(temp / 'owner.cpp'), str(temp / 'client.cpp'),
                         '-o', str(binary),
-                    ], check=True, capture_output=True, text=True)
+                    ], capture_output=True, text=True)
+                    self.assertEqual(result.returncode, 0, result.stderr)
                     subprocess.run([str(binary)], check=True)
 
 
