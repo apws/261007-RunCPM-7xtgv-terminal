@@ -1,7 +1,7 @@
 #pragma once
 
 namespace vt {
-// Call once after the cold-start CCP header, never on guest warm boots/VER.
+// Startup warnings and fatal errors only, never guest warm boots/VER.
 // The HAL stores plain text; this presentation helper owns terminal syntax.
 template <typename Write>
 void writeBootWarning(Write write, const char *message, bool ansi) {

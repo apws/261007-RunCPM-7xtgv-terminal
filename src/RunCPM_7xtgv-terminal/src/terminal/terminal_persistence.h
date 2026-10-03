@@ -138,21 +138,33 @@ bool terminalHistoryStoragePoll() {
 // settings snapshot; this buffer preserves the complete human-authored file.
 static vt::IniText terminalConfigText;
 static bool terminalConfigGuestWriting = false;
+static const char *terminalConfigCacheFailure = "file unavailable";
+static size_t terminalConfigCacheRequestedBytes = 0;
 
 static bool readTerminalConfigText(File &source) {
     const size_t size = source ? source.size() : 0;
+    terminalConfigCacheRequestedBytes = size;
     uint8_t *data = terminalConfigText.beginLoad(size);
-    if (!data) return false;
+    if (!data) {
+        terminalConfigCacheFailure = size > vt::IniText::MaxBytes
+                                  ? "file exceeds 64 KiB limit" : "allocation failed";
+        return false;
+    }
     for (size_t offset = 0; offset < size;) {
         const size_t count = size - offset < 512 ? size - offset : 512;
-        if (source.read(data + offset, count) != int(count)) return false;
+        if (source.read(data + offset, count) != int(count)) {
+            terminalConfigCacheFailure = "file read incomplete";
+            return false;
+        }
         offset += count;
     }
     terminalConfigText.finishLoad();
+    terminalConfigCacheFailure = nullptr;
     return true;
 }
 
 static bool loadTerminalConfigText() {
+    terminalConfigCacheFailure = "file unavailable";
     File source = SD.open(TerminalConfigPath, FILE_READ);
     const bool loaded = (bool(source) || !SD.exists(TerminalConfigPath)) &&
                         readTerminalConfigText(source);

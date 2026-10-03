@@ -43,13 +43,18 @@ is not required for deterministic ledger generation.
 
 ## Build
 
-The main sketch uses the pinned Arduino profile in `sketch.yaml`:
+Start with the [Clone, Build and Flash Guide](docs/260912-23%207xtgv%20terminal%20manual/build-guide.adoc)
+for prerequisites, working dependency versions and fresh-clone limitations.
+Use the target-aware wrapper (example: RP2_2):
 
 ```sh
 cd src/RunCPM_7xtgv-terminal
-arduino-cli compile --profile rp2350-touch-lcd-2 \
-  --output-dir ../../build/build-vt100-runcpm .
+python3 tools/reflash.py --target rp2350-touch-lcd-2 --build-only
 ```
+
+This stages a target-specific candidate without flashing. RP2350 platform and
+library versions are pinned; ESP32 profiles currently depend on the installed
+core (working baseline 3.1.0). A full clean-machine setup remains to be verified.
 
 ## Test
 

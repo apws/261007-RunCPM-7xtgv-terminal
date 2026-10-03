@@ -10,6 +10,7 @@ the planned native 7xtgv terminal. The device's live
 [cols="1,3",options="header"]
 |===
 |Read |For
+|link:build-guide.adoc[Clone, Build and Flash Guide] |Fresh Linux setup, prerequisites, working versions, target selection, staging, upload and troubleshooting; clean-machine verification gaps.
 |link:user-guide.adoc[User Guide] |Starting the mirror, everyday keys, zoom/pan, file transfer, safe INI changes, recovery.
 |link:reference-guide.adoc[Reference Guide] |Exact commands, keys, profiles, escape-sequence behavior and INI settings.
 |link:technical-reference.adoc[Technical Reference] |RunCPM/CCP fork, core and HAL ownership, protocols, persistence, build safety and licensing.

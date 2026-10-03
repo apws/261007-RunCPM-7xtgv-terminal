@@ -4,7 +4,7 @@
 :toclevels: 2
 
 This is a compact history of the *implemented* 7xtgv RunCPM terminal through
-`++261002++`. Each `++YYMMDD-HH++` is a source commit or dated implementation
+`++261004++`. Each `++YYMMDD-HH++` is a source commit or dated implementation
 checkpoint, not necessarily the minute a feature first worked on hardware.
 Later rows can refine earlier behavior. The
 link:../FEATURES.adoc[feature ledger] tracks individual feature states and
@@ -52,6 +52,66 @@ renamed, or changes behavior.
 |===
 
 == Colour, transfer, boards, and storage
+
+At `261004-0010`, both fatal SD startup messages use the common red-paper
+warning helper on every integrated module, with plain text for non-ANSI
+profiles. Host tests cover both rows and attribute reset. See
+link:../261004-0010%20Red%20paper%20SD%20startup%20failure.adoc[SD failure styling].
+
+At `261003-2245`, history retention is reduced from 255 to 100 entries per
+bank on every module, saving 193.75 KiB per history object. Existing larger
+BUF files load unchanged but retain the newest 100 entries per bank; future
+saves drop older entries. Ten banks and line lengths are unchanged. Host
+tests pass; RP2_2 Os build `261003-2248` is flashed and boots without the INI
+cache warning, applying the configured 40 MHz SPI clock. Interactive recall
+checks and other-module rebuilds remain pending. See
+link:../261003-22%20RP2_2%20INI%20cache%20pressure%20and%20Os%20trial.adoc[RAM investigation].
+
+At `261003-22`, RP2_2's generic INI-cache warning is given the existing red
+error-paper style and specific load-failure/byte-count diagnostics. A live
+15,232-byte INI fetch and the 326,944-byte history allocation point to RAM
+pressure; the actual boot failure remains to be confirmed. RP2_2 gains an
+explicit Os build trial without changing history depth. See
+link:../261003-22%20RP2_2%20INI%20cache%20pressure%20and%20Os%20trial.adoc[cache investigation].
+
+At `261003-20`, the manual gains a link:build-guide.adoc[Clone, Build and Flash Guide]
+covering prerequisites, exact target names, baseline dependencies, staging,
+device permissions, SD/COM separation and recovery. README build commands
+are corrected to use the target-aware wrapper. ESP32 version pinning and
+clean-machine reproduction remain explicit pending work, not completed tests.
+
+At `261003-15`, boot branding changes to `7xtgv-terminal` with Petr's HAL
+credit, a runtime Module/Zoom/geometry summary, and the final configured
+SdFat/SPI clock request. Routine success lines are removed; SD failures and
+INI diagnostics remain. The local CCP announces `7XF shell`, and REBOOT's
+text uses `7xtgv-terminal`. Local COM assembled; firmware build and deployment
+pending. See link:../261003-15%20Compact%20boot%20banner%20and%20terminal%20identity.adoc[compact boot checkpoint].
+
+At `261003-1445`, the automatic boot Z80 clock estimate is restored via
+`cpu_mhz_coorect.h`, preserving the upstream header. Corrected instruction
+accounting uses 13,015,509 T-states instead of 14,517,012; VTCPU is unchanged.
+Host regression passes; firmware rebuild is pending. See
+link:../261003-1445%20Corrected%20boot%20Z80%20clock%20estimate.adoc[boot estimate correction].
+
+At `261003-14`, CARDMARK's initial P4-only guard is removed for all five
+current direct-SdFat/SPI boards. The same COM launcher and native handler
+are reused, with no new capability flag or RunCPM injection. Only the
+explicit legacy W535 SD_MMC build stays excluded. Host backend tests cover
+all five target defines; firmware builds and non-P4 hardware tests remain pending.
+
+At `261003-10`, CARDMARK's native output gains explicit RAW Arduino SdFat/SPI
+wording, identity separators, compact requested-clock information, and a
+` ... ` running hint emitted before the raw read loop. The successful result
+continues on that line; clock restoration and diagnostic behavior are unchanged.
+Host tests cover both storage modes. Build `261003-1034` was subsequently
+flashed and Petr confirmed the revised output.
+
+At `261003-11`, CARDMARK gains a case-insensitive `CSD` argument for named
+SD v1/v2 fields, raw-before-decoded identity ordering, whole-MiB capacity,
+decoded TRAN_SPEED, and a query-only CMD6 High Speed capability check.
+SDUC is identified but not supported by the installed backend; MMC uses
+different layouts. Host tests pass; this further change is not yet rebuilt.
+See link:../261003-11%20CARDMARK%20CSD%20decoding%20and%20CMD6%20query.adoc[decoding checkpoint].
 
 End-of-day `261002` reconciliation records successful A0 CARDMARK deployment:
 Petr's `CARDMARK 4096 50` compared 6 MiB and passed, reporting raw reads at

@@ -29,6 +29,10 @@ the Arduino display/storage stack.
 
 ## Build and flash boundary
 
+For a new machine, use the [Clone, Build and Flash Guide](../../docs/260912-23%207xtgv%20terminal%20manual/build-guide.adoc).
+It separates firmware dependencies, native tests, desktop tools and guest COM
+assemblers, and records setup gaps rather than claiming clean-clone validation.
+
 From this sketch directory, build a candidate for the *explicit* attached
 target; this example is for the 2-inch RP2350 module:
 
@@ -44,8 +48,10 @@ supported and blocks a mismatch. Old unidentified firmware requires an
 explicit one-shot recovery allowance, not a persistent bypass. RP2350
 modules require manual BOOTSEL/UF2 copy on a separately authorized flash.
 The Technical Reference describes the identity guard and staging model.
-The local `sketch.yaml` and target metadata specify the pinned toolchain
-and upload method; dated port reports are historical evidence.
+The local `sketch.yaml` and target metadata specify dependencies and the
+upload method. Libraries and the RP2350 core are version-pinned; ESP32
+currently uses the installed core (working baseline 3.1.0). Dated port
+reports are historical evidence.
 
 ## Host-side checks
 

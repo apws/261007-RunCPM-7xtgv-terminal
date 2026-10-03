@@ -1,0 +1,50 @@
+= Compact boot banner and terminal identity
+:source-highlighter: highlight.js
+
+== Requested presentation
+
+The sketch now credits `Arduino 7xtgv HAL by Petr Antos (@apws/@7alken)`
+and prints `Build:  7xtgv-terminal / YYMMDD-HHMM`. The corrected automatic
+Z80 clock estimate remains in the banner.
+
+Normal successful startup replaces the verbose storage/profile/history
+status lines with two compact lines after banked memory information:
+
+[source,text]
+----
+Module:  ES3_5 800x480 Zoom: 2 (80x24 / 66x24)
+Storage: Arduino SdFat/SPI (40 MHz)
+----
+
+The numbers above are an example, not fixed configuration. Module geometry
+is taken from the same runtime terminal fields used by VTINFO: panel size,
+zoom, logical columns/rows and visible columns/rows. The terminal owner is
+briefly paused for a coherent snapshot and resumed before writing output.
+The SPI setting is read after applying the INI request; a rejected change
+retains the actual configured driver request. MHz denotes the Arduino
+request, not measured SCK or a hardware-divider readback. The initial 20 MHz
+mount clock is no longer the normal summary when INI subsequently changes it.
+
+Missing SD still produces board-specific failure details and `CPU halted`.
+Missing/unreadable INI reports compiled defaults; failed INI caching and
+clock changes remain visible. Existing colored parser-error detail lines
+come after the compact summaries. Normal history OK/EMPTY status is omitted;
+history loading itself is unchanged. Serial-only builds omit the terminal
+geometry line. The retained historical SD_MMC build is not mislabeled as SPI.
+
+The local ccp7xf.h overrides its banner to append ` + "7XF shell"` inside
+the RunCPM version parentheses. Original ccp.h and globals.h are untouched.
+REBOOT's message becomes `7xtgv-terminal reboot in 3 seconds...`.
+
+== Validation and delivery
+
+REBOOT.Z80 was assembled with the installed z88dk assembler after using
+portable double quotes for strings; the resulting 69-byte COM is in the
+local A0 mirror. Its opcode/address prefix is unchanged. No device transfer
+has taken place. Firmware changes still require a requested rebuild/reflash.
+
+The native terminal INI/runtime test and benchmark-port integration tests
+pass, as do CARDMARK tests. The timing-port test harness now explicitly stubs
+out CARDMARK (which has its own storage-backed tests), rather than relying
+on the former P4-only compile guard. Real boot layout remains to be checked
+on hardware.

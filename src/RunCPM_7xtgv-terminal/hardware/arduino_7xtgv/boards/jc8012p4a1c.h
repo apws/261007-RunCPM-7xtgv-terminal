@@ -77,6 +77,10 @@ static XtgvSdSpiDriver xtgvStorageSpi(SPI);
 // write through a File32 or directory handle reaches this rejecting boundary.
 class XtgvReadOnlyCard : public FsBlockDeviceInterface {
 public:
+    bool checkHighSpeed(uint8_t *status) {
+        // Fixed mode-0 query, never expose a caller-selected switch argument.
+        return card_.cardCMD6(0x00FFFFFFUL, status);
+    }
     bool readIdentity(cid_t *cid, csd_t *csd) {
         return card_.readCID(cid) && card_.readCSD(csd);
     }
@@ -101,6 +105,7 @@ private:
 
 class XtgvReadOnlyStorage : public FatVolume {
 public:
+    bool checkHighSpeed(uint8_t *status) { return card_.checkHighSpeed(status); }
     bool syncCard() { return card_.syncDevice(); }
     bool readIdentity(cid_t *cid, csd_t *csd) { return card_.readIdentity(cid, csd); }
     uint32_t cardSectors() { return card_.sectorCount(); }

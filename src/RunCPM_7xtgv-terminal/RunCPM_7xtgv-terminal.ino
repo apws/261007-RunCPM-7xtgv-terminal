@@ -5,7 +5,7 @@
 #define XTGV_HAL_IMPLEMENTATION
 #include "hardware/arduino_7xtgv/board.h"
 // RunCPM - mixworx mods
-#define BUILD  "7xtgv-runcpm-v2"
+#define BUILD  "7xtgv-terminal"
 
 #if XTGV_TERMINAL
 #include "src/terminal/terminal_runtime.h"
@@ -58,6 +58,7 @@
 #include "disk.h"
 #include "host.h"
 #include "cpm.h"
+#include "cpu_mhz_coorect.h" // Corrected boot estimate; upstream copy stays intact.
 
 // Target-aware builds inject a fresh stamp even when Arduino reuses the
 // sketch object. Direct Arduino builds fall back to the sketch compile time.
@@ -99,9 +100,9 @@ static void printBootBanner() {
 
     _puts("CP/M 2.2 Emulator v" VERSION " by Marcelo Dantas\r\n");
     _puts("Arduino read/write support by Krzysztof Klis\r\n");
-    _puts("HAL tweaks by 7alken\r\n");
+    _puts("Arduino 7xtgv HAL by Petr Antos (@apws/@7alken)\r\n");
     xtgvBoardPrintBootExtra(_puts);
-    _puts("Build "); _puts(BUILD); _puts(" / ");
+    _puts("Build:  "); _puts(BUILD); _puts(" / ");
 #ifdef XTGV_BUILD_STAMP
     _puts(XTGV_STRINGIZE(XTGV_BUILD_STAMP));
 #else
@@ -113,7 +114,7 @@ static void printBootBanner() {
 
     _puts("------------------------------------------------\r\n");
     _puts("CPU is "); _puts(CPU_IS); _puts("\r\n");
-    _puts("Run VTCPU.COM for active/quiet Z80 speed\r\n");
+    xtgvZ80estimateClock();
     _puts("BIOS at 0x"); _puthex16(BIOSjmppage);  _puts(" - ");
     _puts("BDOS at 0x"); _puthex16(BDOSjmppage);  _puts("\r\n");
     _puts("CCP " CCPname " at 0x"); _puthex16(CCPaddr); _puts("\r\n");
@@ -149,7 +150,7 @@ static void runCPM() {
     const bool storageReady = storage.mediaReady;
 
 #if XTGV_TERMINAL
-    bool profileLoaded = false, historyLoaded = false;
+    bool profileLoaded = false;
     unsigned profileErrors = 0;
     if (storageReady) {
         // Load the shared-card settings before any boot text is painted. The
@@ -179,7 +180,6 @@ static void runCPM() {
         }
         File historyFile = openTerminalHistory();
         if (historyFile) {
-            historyLoaded = true;
             terminalHistoryLoadBegin();
             while (historyFile.available())
                 terminalHistoryLoadFeed(uint8_t(historyFile.read()));
@@ -198,7 +198,8 @@ static void runCPM() {
     terminalBootConfigComplete();
 #endif
     printBootBanner();
-    xtgvBoardPrintStorageStatus(storage, _puts);
+    if (!storageReady)
+        xtgvBoardPrintStorageStatus(storage, _puts);
     // All INI/history handles have closed; retain the mount and change only
     // the SPI transaction setting. Serial-only builds keep the 20 MHz default.
 #if XTGV_TERMINAL
@@ -207,21 +208,44 @@ static void runCPM() {
                           ? terminalConfiguredSdSpiMHz() : 20;
         char clockMessage[96];
         const bool applied = xtgvBoardStorageSetMHz(mhz);
-        snprintf(clockMessage, sizeof(clockMessage),
-                 "SD INI SPI request ...%u MHz (%s)\r\n", unsigned(mhz),
-                 applied ? "APPLIED" : "NOT APPLIED: unsupported or busy");
-        _puts(clockMessage);
+        if (!applied) {
+            snprintf(clockMessage, sizeof(clockMessage),
+                     "SD SPI request %u MHz NOT APPLIED: unsupported or busy\r\n", unsigned(mhz));
+            _puts(clockMessage);
+        }
     }
 #endif
 
     if (storageReady)
     {
 #if XTGV_TERMINAL
-        _puts("Terminal profile .....");
+        terminalPrintBootModule(_puts);
+#endif
+#if !defined(XTGV_W535_SD_MMC)
+        char storageMessage[80];
+        // This is the applied Arduino request, not independently measured SCK.
+        snprintf(storageMessage, sizeof(storageMessage),
+                 "Storage: Arduino SdFat/SPI (%lu MHz)\r\n",
+                 (unsigned long)(xtgvStorageSpi.requestedHz() / 1000000UL));
+        _puts(storageMessage);
+#else
+        _puts("Storage: legacy Arduino SD_MMC\r\n");
+#endif
+#if XTGV_TERMINAL
+        if (!profileLoaded)
+            _puts("INI unavailable; using compiled defaults.\r\n");
+        if (!terminalConfigText.valid()) {
+            char cacheMessage[128];
+            snprintf(cacheMessage, sizeof(cacheMessage),
+                     "INI cache: %s (%lu bytes); autosave will retry.",
+                     terminalConfigCacheFailure ? terminalConfigCacheFailure : "unavailable",
+                     (unsigned long)terminalConfigCacheRequestedBytes);
+            vt::writeBootWarning(_puts, cacheMessage, terminalConfigUsesAnsi());
+        }
         if (profileLoaded) {
             if (profileErrors) {
                 char status[48];
-                snprintf(status, sizeof(status), "LOADED WITH ERRORS (%u)\r\n", profileErrors);
+                snprintf(status, sizeof(status), "INI LOADED WITH ERRORS (%u)\r\n", profileErrors);
                 _puts(status);
                 for (uint8_t index = 0; index < terminalConfigErrorLineCount(); ++index) {
                     uint16_t number = 0;
@@ -239,16 +263,8 @@ static void runCPM() {
                         _puts("*** "); _puts(detail); _puts("\r\n");
                     }
                 }
-            } else {
-                _puts("OK\r\n");
             }
-        } else {
-            _puts("COMPILED DEFAULTS\r\n");
         }
-        if (!terminalConfigText.valid())
-            _puts("INI RAM cache unavailable; autosave will retry.\r\n");
-        _puts("Terminal history .....");
-        _puts(historyLoaded ? "OK\r\n" : "EMPTY\r\n");
 #endif
         _puts("-------------------------------------------------");
 
@@ -335,7 +351,12 @@ static void runCPM() {
     }
     else
     {
-      _puts("Unable to initialize SD card.\r\nCPU halted.\r\n");
+        #if XTGV_TERMINAL
+            vt::writeBootWarning(_puts, "Unable to initialize SD card.", terminalConfigUsesAnsi());
+            vt::writeBootWarning(_puts, "CPU halted.", terminalConfigUsesAnsi());
+        #else
+            _puts("Unable to initialize SD card.\r\nCPU halted.\r\n");
+        #endif
     }
 }
 

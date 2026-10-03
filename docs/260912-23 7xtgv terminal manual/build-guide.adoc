@@ -1,0 +1,257 @@
+= 7xtgv terminal Clone, Build and Flash Guide
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+
+== Scope and verification status
+
+This guide describes the current Linux workflow, reviewed on 261003.
+The firmware and tools run without Codex or any AI service. Arduino IDE is
+optional; our maintained build entry point uses Arduino CLI and Python.
+
+Existing-machine builds and device uploads have been exercised. The complete
+installation below has *not yet been tested in a fresh machine/container*.
+Do not confuse a successful local build with a proven clean-clone setup.
+Native Windows support for these host scripts is not established: even the
+build wrapper imports POSIX serial helpers. macOS/WSL are not validated paths.
+
+== Clone the repository
+
+[source,sh]
+----
+git clone https://github.com/apws/260906-7xtgv.git
+cd 260906-7xtgv
+git status --short
+git log -1 --oneline
+----
+
+Use an empty destination name if that directory already exists; do not overwrite
+an existing checkout. Record the commit when comparing builds. A clone contains
+only committed/pushed content, not Petr's uncommitted working tree or device files.
+
+* `src/RunCPM_7xtgv-terminal/`: integrated firmware, board HALs and host tools.
+* `cpmdrive/`: local CP/M file mirror, not a complete automatic SD installer.
+* `docs/`: manual and development evidence.
+* `build/`, `private/`, `docs/private/`, backups and local comparison material:
+  ignored/local content, not supplied by cloning.
+
+The firmware uses the RunCPM-derived sources already in this repository.
+Do not replace them by independently cloning current upstream RunCPM; that
+would be a separate port. There is no RunCPM submodule setup step.
+
+== Prerequisites
+
+[cols="1,2,3",options="header"]
+|===
+|Task |Requirement |Notes
+|Clone |Git, network access |Authentication if repository access requires it.
+|Build wrapper |Python 3, Linux/POSIX |Uses Python standard-library modules; no project pip environment is needed for the basic wrapper/mirror.
+|Firmware compiler |Arduino CLI |Available through PATH, ARDUINO_CLI, or executable `$HOME/.local/bin/arduino-cli`.
+|ESP32 boards |Arduino-ESP32 3.1.0 |Working local baseline; currently not version-pinned in the ESP32 sketch profiles.
+|RP2350 boards |Arduino-Pico 5.4.4 |Version and package index pinned in sketch.yaml.
+|Firmware libraries |GFX Library for Arduino 1.6.4; SdFat 2.3.0 |Pinned in each sketch profile.
+|Native tests |g++ with C++17; Python 3 |Separate from the Arduino cross-compiler; sanitizer support for relevant tests.
+|Normal PC mirror |tmux and Konsole, or Kitty |A desktop session is required for the GUI launchers; a direct terminal.py invocation is possible.
+|Flash/transfer |USB data cable, serial permissions |Board-package upload tools; RP2350 BOOTSEL is a separate UF2 workflow.
+|Permission helper |setfacl, optionally sudo |Launcher can request a temporary user ACL; not required when ordinary device-group access works.
+|Rebuild CP/M helpers |Assembler appropriate to that helper |Not required to compile firmware or use existing COM files.
+|Render manuals |AsciiDoc renderer |Optional; no documentation renderer is needed to build firmware.
+|===
+
+Local Arduino CLI observed during this review: `1.5.2-rc.1`, commit
+`fef6e48df`. This records the working installation, not a tested minimum version.
+An alternative CLI release should be verified rather than assumed equivalent.
+The Arduino board packages provide their cross-compilers and SDK components;
+a separate hand-installed ESP-IDF or Pico SDK is not the normal build path.
+Allow network access for package downloads and several GB of working space;
+no measured minimum disk/RAM requirement has yet been established.
+
+=== Install tools and packages
+
+Install Git, Python 3 and optional desktop/test tools through your Linux
+distribution. Names commonly include `git`, `python3`, `g++`, `tmux`,
+`konsole` or `kitty`, and `acl`; exact names vary by distribution.
+
+Obtain Arduino CLI using the https://docs.arduino.cc/arduino-cli/installation/[official installation instructions].
+Put the executable on PATH, or set `ARDUINO_CLI` to its executable path.
+Do not run builds as root. Check availability:
+
+[source,sh]
+----
+git --version
+python3 --version
+arduino-cli version
+arduino-cli config dump
+arduino-cli core list
+----
+
+For a new CLI installation without a config file, run `arduino-cli config init`.
+Do not force-overwrite an existing configuration. Add the relevant package
+index if it is not already listed. Install only the MCU families you need:
+
+[source,sh]
+----
+# ESP32-S3 and ESP32-P4:
+arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+arduino-cli core update-index
+arduino-cli core install esp32:esp32@3.1.0
+
+# RP2350:
+arduino-cli config add board_manager.additional_urls https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
+arduino-cli core update-index
+arduino-cli core install rp2040:rp2040@5.4.4
+----
+
+Package URLs come from the https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html[Espressif installation guide]
+and https://arduino-pico.readthedocs.io/en/latest/install.html[Arduino-Pico installation guide].
+Use the project baseline versions above, not an unreviewed latest-core upgrade.
+The ESP32 SDK bundle observed locally is `idf-release_v5.3-083aad99-v2`.
+
+Arduino CLI profile builds resolve the library versions declared in sketch.yaml;
+the first build may download those dependencies. Library installation errors
+must be resolved before compiling, not bypassed with unrelated latest versions.
+If manually inspecting/installing matching libraries, the CLI commands are:
+
+[source,sh]
+----
+arduino-cli lib update-index
+arduino-cli lib install "GFX Library for Arduino@1.6.4" "SdFat@2.3.0"
+----
+
+Profile-managed dependencies may use an isolated installation; a global
+`lib install` is not proof of what a profile build selected. Check build output.
+
+== Select and build the exact target
+
+[cols="1,2,2",options="header"]
+|===
+|Module ID |Target/profile argument |Module
+|ES3_35 |jc8048w535 |ESP32-S3 3.5-inch
+|ES3_5 |jc8048w550 |ESP32-S3 5-inch
+|EP4_10 |jc8012p4a1c |ESP32-P4 10-inch
+|RP2_147 |rp2350-lcd-1-47-a |RP2350 1.47-inch
+|RP2_2 |rp2350-touch-lcd-2 |RP2350 2-inch
+|===
+
+From the clone root, for example:
+
+[source,sh]
+----
+cd src/RunCPM_7xtgv-terminal
+python3 tools/reflash.py --target jc8012p4a1c --build-only
+----
+
+Replace the target with the table entry for your board. No device connection
+is required for `--build-only`. The wrapper reads tools/targets/*.json and
+sketch.yaml, preserves platform flags, adds our target/product/SPI flags and
+a fresh YYMMDD-HHMM stamp, and stages a successfully compiled image in:
+
+[source,text]
+----
+build/RunCPM_7xtgv-terminal/TARGET/new/
+----
+
+That path is relative to the repository root. `current/` is left intact;
+promotion of a hardware-accepted candidate is a separate operation.
+Do not use the old bare `arduino-cli compile --profile ...` recipe: it omits
+target metadata supplied by the wrapper and is not the supported shortcut.
+Do not mix binaries from different target folders.
+
+== Flashing and the desktop mirror
+
+Build and flash are deliberately separate. For an already running, identifiable
+ESP32 target, stop the shared mirror, then upload the staged candidate:
+
+[source,sh]
+----
+# Close the mirror normally, or stop its shared session if it exists:
+tmux kill-session -t 7xtgv-cpm
+# Example only: verify the board and its actual port first.
+python3 tools/reflash.py --target jc8012p4a1c --port /dev/ttyUSB0
+./tools/kon.sh --port /dev/ttyUSB0
+----
+
+The uploader checks firmware target identity. A reported mismatch is a stop
+condition. A blank board/older firmware without the identity protocol needs
+an explicitly checked, one-shot recovery workflow; do not disable the guard
+permanently. Flashing restarts CP/M and loses active application state.
+RP2350 currently requires matching the correct physical device in BOOTSEL
+and copying its target's staged UF2; the ESP32 upload command above is not
+an RP2350 upload recipe. See link:technical-reference.adoc[build/upload boundaries].
+
+Review tools/terminal.conf before using the launcher, especially XTGV_TARGET,
+XTGV_PORT and the optional device-triggered reflash command. They reflect a
+host selection, not automatic physical-board detection. Keyboard defaults
+also reflect Petr's Czech layout and may need adaptation.
+
+Serial port names can change after reconnect. Check `arduino-cli board list`
+and `/dev/serial/by-id/` rather than assuming ttyUSB0. Use your distribution's
+serial-device group (often dialout or uucp), with a fresh login after membership
+changes, or a narrowly scoped temporary ACL. Such an ACL can disappear when
+USB recreates the device node. Never open two serial readers simultaneously.
+Restore one visible mirror after uploading/transferring and confirm the build
+stamp, module identity, SD mount and CP/M prompt.
+
+== SD card and CP/M tools are separate
+
+Flashing firmware does not copy the cpmdrive mirror to an SD card or install
+every COM file. Use the RunCPM FAT directory layout, e.g. drive A user 0 is
+`A/0`; repository descriptive folder names are not literal SD folder names.
+See link:../../cpmdrive/README.md[CP/M mirror layout] for the mapping and
+link:reference-guide.adoc[transfer commands] for selective file deployment.
+Do not blindly copy historical archives or overwrite live INI/history files.
+An initial card needs appropriate CP/M contents; transfer via VTPUT/VTGET also
+requires those helpers already installed, so it is not a blank-card bootstrap.
+
+Firmware compilation does not require assembling REBOOT, CARDMARK, VTCPU or
+other guest tools. When their sources change, rebuild them separately using
+the documented dialect/tool: Intel 8080 ASM/LOAD and Z80 assemblers are not
+interchangeable. A host assembler is not currently installed by our build wrapper.
+
+== Troubleshooting and expected effort
+
+[cols="2,3",options="header"]
+|===
+|Symptom |Check/remedy
+|Cannot find arduino-cli |PATH or ARDUINO_CLI; the wrapper also checks the user-local bin directory.
+|Cannot resolve Arduino build flags |Read the following CLI diagnostic: absent core/profile dependencies or incompatible board options commonly stop this step.
+|Unknown board/core or missing library |Package index, network access and exact profile versions; installation is normally sufficient.
+|Download/TLS error |Network/proxy/CA certificates and free disk space; do not edit HAL code to compensate.
+|Missing API or compilation fails with a newer core |Return to the recorded baseline before investigating; ESP32 pinning remains an open reproducibility gap.
+|Permission denied or missing serial port |Correct device node, USB data cable, permissions and no competing reader. Building alone does not need serial access.
+|Target mismatch |Stop and select the right physical board and target; never bypass a known mismatch.
+|No staged image |Build this target first; ignored build artifacts do not arrive in a clone.
+|SD failure / CPU halted |Card format/layout, connection and power; flashing does not populate the card.
+|Mirror launcher missing |Install its desktop terminal and tmux, or use terminal.py directly in a compatible terminal.
+|===
+
+Once installed, normal rebuilding is one command. A first setup requires
+package downloads and host/USB configuration, but normally not source porting.
+No universal time estimate is claimed: download speed, caches and host CPU
+dominate. There is no comprehensive bootstrap/doctor script yet.
+
+== Tests and remaining reproducibility work
+
+From the sketch directory:
+
+[source,sh]
+----
+python3 -m unittest discover -s tests -p 'test_*.py' -v
+----
+
+Some tests compile native C++, some expect installed Arduino packages or other
+tools. Use the project README for focused C++ tests. A skipped dependency test
+is not a successful firmware/device qualification. Host tests cannot establish
+SD electrical reliability, panel timing, backlight behavior or USB power margin.
+
+Remaining work, not performed by documenting this guide:
+
+* Pin ESP32 platform versions/indexes in profiles after validation.
+* Reproduce installation and builds with a fresh Arduino data/cache directory.
+* Check all five targets without private/vendor ZIPs or undeclared local patches.
+* Record supported CLI/Python/host versions and actual download/storage needs.
+* Validate mirror, permissions, upload and initial SD preparation from that clone.
+* Consider a small prerequisite checker; separately assess Windows/macOS support.
+
+Commit/push is a separate step: publishing this guide does not publish ignored
+binaries, device configuration, or uncommitted source changes.

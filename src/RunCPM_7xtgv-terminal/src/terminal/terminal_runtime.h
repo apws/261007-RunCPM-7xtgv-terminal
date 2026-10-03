@@ -4,6 +4,7 @@ void terminalSetup();
 void terminalLoop();
 void terminalWaitReady();
 uint16_t terminalLogicalColumns();
+void terminalPrintBootModule(void (*write)(const char *));
 // Storage owner calls this even when SD/INI loading failed: show defaults/errors.
 void terminalBootConfigComplete();
 void terminalConfigBegin();

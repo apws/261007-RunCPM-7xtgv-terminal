@@ -26,6 +26,11 @@ class XtgvIntegrationTests(unittest.TestCase):
         abstraction = (ROOT / 'abstraction_arduino_7xtgv.h').read_text()
         begin = abstraction.index('static const uint8 XTGV_DRV_PORT')
         end = abstraction.index('/* Console abstraction functions */', begin)
+        # This harness tests the timing ports without a storage backend.
+        # CARDMARK's native service is exercised separately in test_cardmark.py.
+        benchmark = abstraction[begin:end].replace(
+            '#include "hardware/arduino_7xtgv/cardmark.h"',
+            '#define XTGV_CARDMARK_AVAILABLE 0')
         harness = r'''
 #include <cassert>
 #include <cstdint>
@@ -52,7 +57,7 @@ bool terminalTextBenchmarkDone() { return true; }
 uint32_t terminalTextBenchmarkElapsedUs() { return 1000; }
 uint32_t terminalTextBenchmarkBytes() { return 100; }
 uint32_t terminalTextBenchmarkChars() { return 100; }
-''' + abstraction[begin:end] + r'''
+''' + benchmark + r'''
 int main() {
     _HardwareInit();
     assert(_HardwareIn(0x7b) == 'V');

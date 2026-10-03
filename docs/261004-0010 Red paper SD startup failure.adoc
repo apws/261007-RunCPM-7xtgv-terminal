@@ -1,0 +1,31 @@
+= Red paper SD startup failure
+:source-highlighter: highlight.js
+
+Petr confirmed the RP2_147 card had not yet been moved from the other module;
+the preceding mount failure is not evidence of an O3 or driver regression.
+He requested red error paper for the two fatal SD startup messages.
+
+The shared sketch now prints "Unable to initialize SD card." and "CPU halted."
+using the existing terminal boot-warning helper. ANSI mode uses black text on
+red paper, extends each message to the right edge and resets attributes after
+each line. The HAL's preceding mount label stays unchanged. Non-ANSI and
+serial-only builds retain ordinary text without leaked escape sequences.
+
+This common failure path covers every integrated module without duplicating
+code in board headers. Other fatal CCP-loading messages are outside this
+small requested change. No RunCPM core file is edited.
+
+Host tests verify both red rows, CRLF positioning, attribute reset and plain
+text fallback. Requested RP2_147 whole-build O3 rebuild uses stamp 261004-0010.
+No flash or CP/M file transfer is included in the rebuild.
+
+Build passed: 308824 program bytes and 170216 static SRAM bytes. The target's
+new candidate contains stamp 261004-0010 and is ready for a separate reflash.
+
+== Requested reflash
+
+Uploaded the staged UF2 to registered RP2_147 chip D60D9318CF30A586 and
+restored the visible mirror. Boot confirms 261004-0010 but still reports SD
+initialization failure and CPU halted. The plain-text tmux capture does not
+prove the red-paper appearance; Petr must confirm the visual result. No
+additional reset, rebuild, promotion or CP/M file transfer was performed.

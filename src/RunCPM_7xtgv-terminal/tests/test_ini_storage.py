@@ -135,6 +135,9 @@ int main() {
         const std::string before=files[TerminalConfigPath];
         pending=true; assert(!terminalConfigStoragePoll());
         assert(!terminalConfigText.valid() && files[TerminalConfigPath]==before);
+        assert(std::string(terminalConfigCacheFailure)==
+               (failure==0 ? "file read incomplete" :
+                failure==1 ? "file unavailable" : "file exceeds 64 KiB limit"));
         shortRead=failOpen=false;
     }
     // Sync failure prevents a guest writer from starting at all.

@@ -943,6 +943,23 @@ int main() {
     edited.input('\r');
     assert(edited.recall(true, recalled));
     assert(std::string(recalled.text, recalled.length) == "10 PRINTX 42");
+    // The .BUF loader appends oldest first: an older 255-entry file must
+    // retain the newest entries in every bank under the smaller RAM budget.
+    vt::LineHistory imported;
+    static_assert(vt::LineHistory::Depth == 100, "Shared history budget changed");
+    for (uint8_t bank = 0; bank < vt::LineHistory::Banks; ++bank) {
+        for (int i = 0; i < 255; ++i) {
+            const std::string line = "L" + std::to_string(i);
+            assert(imported.appendEntry(bank, line.data(), uint8_t(line.size())));
+        }
+        assert(imported.bankCount(bank) == 100);
+        char text[vt::LineHistory::MaxLine];
+        uint8_t length = 0;
+        assert(imported.copyEntry(bank, 0, text, length));
+        assert(std::string(text, length) == "L155");
+        assert(imported.copyEntry(bank, 99, text, length));
+        assert(std::string(text, length) == "L254");
+    }
     vt::LineHistory wrapped;
     for (int i = 0; i <= vt::LineHistory::Depth; ++i) {
         std::string line = "L" + std::to_string(i);
@@ -954,7 +971,8 @@ int main() {
     assert(wrapped.copyEntry(0, 0, oldest, oldestLength) &&
            std::string(oldest, oldestLength) == "L1");
     assert(wrapped.recall(true, recalled));
-    assert(std::string(recalled.text, recalled.length) == "L255");
+    const std::string newest = "L" + std::to_string(vt::LineHistory::Depth);
+    assert(std::string(recalled.text, recalled.length) == newest);
     for (int i = vt::LineHistory::Depth - 1; i >= 1; --i) {
         assert(wrapped.recall(true, recalled));
         assert(std::string(recalled.text, recalled.length) == "L" + std::to_string(i));
@@ -964,11 +982,11 @@ int main() {
     wrapped.select(0);
     wrapped.input('L');
     assert(wrapped.recall(true, recalled) &&
-           std::string(recalled.text, recalled.length) == "L255 ");
+           std::string(recalled.text, recalled.length) == newest + " ");
     for (int i = vt::LineHistory::Depth - 1; i >= 1; --i)
         assert(wrapped.recall(true, recalled));
     assert(wrapped.recall(true, recalled) &&
-           std::string(recalled.text, recalled.length) == "L255 ");
+           std::string(recalled.text, recalled.length) == newest + " ");
     // Random hostile streams must never escape fixed buffers or screen bounds.
     std::mt19937 rng(42);
     for (int i = 0; i < 200000; i++) {

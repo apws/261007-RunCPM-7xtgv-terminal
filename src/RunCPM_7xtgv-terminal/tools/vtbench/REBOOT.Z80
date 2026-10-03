@@ -12,5 +12,5 @@
         out     (7ch),a
         ret
 clear_screen:
-        db      27,'[2J',27,'[H','$'
-message: db      '7xtgv reboot in 3 seconds...',13,10,'$'
+        db      27,"[2J",27,"[H",'$'
+message: db      "7xtgv-terminal reboot in 3 seconds...",13,10,'$'

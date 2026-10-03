@@ -1,0 +1,188 @@
+= RP2_2 INI cache pressure and Os trial
+:source-highlighter: highlight.js
+
+== Report and evidence
+
+RP2_2 build 261003-2159 boots but prints `INI RAM cache unavailable; autosave
+will retry.` Its profile geometry is applied, while the SPI summary remains
+20 MHz. Petr requested a red-paper error marker and investigation, then
+authorized fetching the live INI and suggested an Os optimization trial.
+
+The live A0:7XTGVTRM.INI was fetched to a temporary inspection folder:
+15,232 bytes, with global sdfat_spi=40 and an RP2_2 display section. Fetch
+succeeded; the device file was not changed and the visible mirror was restored.
+This rules out an oversized current file and demonstrates later readability,
+but does not prove the original boot-time block read succeeded.
+
+The RP2_2 profile selects Optimize3 (O3). Its build reports 170,204 bytes of
+static globals out of 524,288 SRAM bytes, leaving 354,084 before runtime heap
+and stack consumption. LineHistory contains ten banks of 255 entries and is
+allocated by the board during terminal initialization. Native sizeof gives
+326,944 bytes, leaving approximately 27,140 bytes before other allocations
+and stacks. The INI cache additionally requests roughly 15 KiB, rounded in
+256-byte increments. RAM pressure is therefore a strong allocation-failure
+candidate, not yet a measured boot-time free-heap diagnosis.
+
+The earlier generic warning cannot distinguish opening, allocation, size-limit
+or incomplete-read failures. Startup can parse the INI by streaming when the
+full cache fails; the subsequent SPI policy conservatively uses 20 MHz unless
+the full cache is valid. Thus the geometry and clock output are consistent
+with this failure path. This investigation does not change that clock policy.
+
+== Changes and next hardware check
+
+The cache loader now records the attempted byte count and distinguishes
+allocation failure, exceeding the 64 KiB cap, and an incomplete file read.
+The boot warning uses the existing ANSI red-paper helper, resets attributes
+after the line, and retains plain text for non-ANSI profiles. Tests cover
+short-read, unavailable-file and oversized-file diagnoses. History depth and
+device configuration are unchanged.
+
+The build wrapper accepts Os alongside O2/O3 and permits the same trial for
+RP2_2 as RP2_147. A requested RP2_2 Os candidate is prepared; no automatic
+flash is part of this trial. Os primarily reduces program code; it cannot
+shrink the fixed history object. Any benefit to the remaining SRAM must be
+checked in build/link results and on hardware, not assumed from flash savings.
+
+After an authorized flash, record whether caching succeeds, or the specific
+red diagnostic. If allocation failure is confirmed, review history depth or
+allocation ordering separately; no history reduction is silently applied.
+
+== 2245 approved history reduction
+
+Petr approved reducing history, then preferred a common limit because the
+BUF file is shared between modules. All modules now retain 100 entries per
+bank instead of 255; ten banks and the 127-character entry limit are unchanged.
+This is one constant in the terminal's LineHistory class, not another HAL
+switch. Keyword-list capacity remains a separate future design question.
+
+The host-measured history object shrinks from 326944 to 128544 bytes, saving
+198400 bytes (193.75 KiB). The INI cache remains in ordinary RAM. RP2_2 has no
+onboard PSRAM in the
+https://files.waveshare.com/wiki/RP2350-Touch-LCD-2/RP2350-Touch-LCD-2.pdf[Waveshare schematic];
+the ESP32 boards already allocate history in PSRAM.
+
+The BUF v1/v2 format and checksum rules are unchanged. The loader appends
+oldest first, so a larger saved history retains the newest 100 entries per
+bank. The next normal save writes only those retained entries: older entries
+will be dropped from that saved file. No device BUF has been overwritten or
+transferred by the agent. Tests cover importing 255 entries into every bank
+and recalling across wraparound with the new limit.
+
+The earlier Os candidate 261003-2237 has 239376 program bytes and 169096 static
+SRAM bytes, compared with 308152 and 170204 respectively in the preceding O3
+build. It predates this history reduction: another requested rebuild is needed
+before flashing the smaller-history implementation. No flash was performed.
+
+== Future compact history storage (not implemented)
+
+RP2_2's SRAM pressure makes variable-length storage worth considering later.
+Human-paced input and recall do not require every command to reserve the full
+127-character slot. C++ can use a vector of strings, but each string can add
+allocation overhead and heap fragmentation; vector growth can temporarily
+require both old and new allocations. A vector of the current fixed-size
+entries alone would not remove the wasted space inside short commands.
+
+The preferred candidate is a bounded packed text buffer with an index of
+entry offsets and lengths. Store only the actual command bytes, maintain ten
+bank identities and chronological order, and evict oldest commands when the
+byte budget is full. Ordinary functions can handle insertion and occasional
+compaction; this does not require a new RunCPM hook or HAL macro. Define and
+test per-bank fairness, index capacity and full-buffer behavior before changing
+the implementation. Future keyword dictionaries need a separate budget and
+must not silently consume the history allocation.
+
+Such storage could use PSRAM on the equipped ESP32 modules, while RP2_2 uses
+internal SRAM. Keep the editable BUF v1/v2 on-disk representation unchanged;
+in-memory layout need not match the file. This is a documented option, not an
+implemented dynamic allocator: the requested rebuild still uses fixed
+100-entry banks.
+
+== Rebuild 261003-2248
+
+Requested RP2_2 build completed with whole-build -Os and fixed 100-entry
+history banks. Target-aware tooling stages the UF2 under the target's new
+directory; no upload or promotion was performed.
+
+[cols="2,1",options="header"]
+|===
+|Item |Bytes
+|Program |239352
+|Static SRAM |169096
+|SRAM remaining before heap and stacks |355192
+|History object (heap allocation, host-measured) |128544
+|===
+
+The Arduino static-memory report excludes the history allocation. Subtracting
+that object leaves 226648 bytes before other heap allocations and stacks,
+not a measured runtime free-heap value. Host terminal/history and INI storage
+tests pass. Hardware gate: after a requested reflash, check INI cache warning
+disappearance, the configured SPI clock, and history recall.
+
+== Reflash and boot confirmation
+
+Uploaded staged 261003-2248 UF2 to the registered RP2_2 BOOTSEL disk
+C885F192AD4984B5. The same chip returned as serial; the user-visible Konsole
+mirror was reopened and shows the matching build and A0 prompt. No rebuild,
+promotion or CP/M file transfer was performed during this reflash.
+
+The INI-cache warning is absent and Storage reports 40 MHz, matching Petr's
+INI setting rather than the earlier 20 MHz fallback. This confirms successful
+cache-dependent startup on this boot after the history reduction. Interactive
+history recall and sustained performance remain for Petr to test. The boot
+estimator reports 13015509 T-states in 827 ms (integer 15 MHz) for this Os
+build; no VTCPU or disk benchmark was run by the agent. Upload restarted the
+previous CP/M session.
+
+== RP2_2 optimization comparison with smaller history
+
+Petr confirms build 261003-2248 is working and requested fresh whole-build
+O3 and O2 candidates to compare against Os. All three use the same fixed
+100-entry banks and the same source configuration; only optimization and the
+fresh build stamp differ. O3 build 261003-2337 completed and is retained in
+the target-local archive `261003-2337 O3 history100`. O2 is built next as new.
+Neither trial is flashed automatically, and current is not promoted.
+
+The boot estimator alone is not an SD throughput measurement. Compare VTCPU
+and VTDRV under matching card, INI clock and display conditions. In particular,
+the earlier cache failure used the 20 MHz fallback while the successful
+smaller-history boot applies the INI's 40 MHz: do not attribute that change in
+disk speed to compiler optimization alone.
+
+Both requested builds passed. Sizes below are program/linker and static SRAM
+reports; history remains a separate 128544-byte heap allocation in every case.
+
+[cols="1,1,1,1",options="header"]
+|===
+|Optimization |Build stamp |Program bytes |Static SRAM bytes
+|Os |261003-2248 |239352 |169096
+|O2 |261003-2338 |277176 |169488
+|O3 |261003-2337 |308512 |170216
+|===
+
+O2 is staged as new and is the default next reflash candidate. O3 remains
+separately archived for an explicit O3 test; neither was flashed here. The
+running device is still Os 261003-2248. No source defaults, device files or
+INI settings were changed by these two builds.
+
+== O2 reflash
+
+At Petr's request, uploaded the staged O2 261003-2338 UF2 to the same
+registered RP2_2 BOOTSEL chip. The same serial identity returned and the
+visible Konsole mirror was reopened. No rebuild, promotion or file transfer.
+The mirror shows a working prompt and Petr's subsequent CARDMARK output with
+40 MHz restore clock and PASS. The boot banner was no longer visible when
+captured; exact image identification here relies on the checked staged ELF
+stamp and the copied target UF2, not a claimed boot-banner observation. No
+benchmark commands were sent by the agent. O3 remains separately archived.
+
+== 261004 O3 reflash
+
+Petr requested the saved O3 candidate. Preserved O2 in target-local archive
+`261003-2338 O2 history100`, selected O3 261003-2337 as new, and uploaded its
+UF2 to the registered RP2_2 BOOTSEL chip. No rebuild or promotion. The same
+chip returned as serial and the visible mirror was restored; it shows the
+working CCP prompt and Petr's input. The boot banner was not retained in the
+captured screen. No CP/M files, INI settings or source defaults were changed;
+the preceding CP/M session was restarted. Matched O2/O3 measurements remain
+for Petr to report.

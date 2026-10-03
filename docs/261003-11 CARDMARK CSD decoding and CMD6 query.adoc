@@ -1,0 +1,101 @@
+= CARDMARK CSD decoding and CMD6 query
+:source-highlighter: highlight.js
+:toc:
+
+== Scope and state
+
+Petr approved a `CSD` argument, rather than `V`, and raw-register lines before
+their decoded summaries. This extends the native P4 diagnostic only; the
+existing CARDMARK.COM launcher already passes the command tail unchanged.
+No RunCPM CPU, BDOS, CCP or common abstraction changes are needed.
+
+Build `261003-1034` contains the earlier output/running-hint update and was
+confirmed on hardware. The decoding changes described here pass host tests
+but have not been rebuilt, flashed or tested on a physical card.
+
+== Command and output
+
+[source,text]
+----
+CARDMARK [CSD] [sectors [MHz [start-sector]]]
+CARDMARK 4096 50 CSD
+----
+
+`CSD` is case-insensitive and may appear before, between or after numeric
+arguments. Duplicate CSD or unknown tokens are rejected. Numeric defaults and
+bounds are unchanged. Summary order:
+
+* Raw CID, then MID/OEM/product/revision/serial/date.
+* Raw CSD, then capacity in comma-grouped whole MiB and exact 512-byte sectors.
+* Decoded CSD TRAN_SPEED and a separate CMD6 capability result.
+* Optional named CSD fields, separator, requested clocks, then running hint/result.
+
+For Petr's card, capacity is `15,332 MiB (31399936 LBA 512B sectors)`.
+Whole MiB are rounded down; no sector precision is lost in the parenthesis.
+`TRAN_SPEED=0x32` decodes to 25 MHz, not measured SCK. OEM `TI` is an identifier,
+not verified evidence that Texas Instruments manufactured this card.
+
+== CSD discriminator and fields
+
+[cols="1,1,2,2",options="header"]
+|===
+|CSD_STRUCTURE |Layout |Card family |Current diagnostic
+|0 |v1.0 |SDSC |Named fields decoded
+|1 |v2.0 |SDHC/SDXC |Named fields decoded
+|2 |v3.0 |SDUC |Identified only; installed SdFat backend does not support it
+|3 |Reserved |Unknown |No speculative decoding
+|===
+
+Wire bits are extracted explicitly, avoiding compiler bit-field layout
+assumptions. Common output includes timing, command classes, block length,
+partial/misaligned access flags, erase/protection fields, format/copy flags,
+CRC7 and end bit. CRC7 is displayed, not independently verified.
+
+Version 1 adds encoded current fields and C_SIZE_MULT; capacity uses C_SIZE,
+C_SIZE_MULT and READ_BL_LEN. Version 2 uses a 22-bit C_SIZE in 512 KiB units:
+`(C_SIZE + 1) * 512 KiB`. Petr's C_SIZE is 30663. Compatibility timing/erase
+fields must not be mistaken for physical NAND geometry. Reserved bit ranges
+are not listed. Installed SdFat supplies raw registers and basic accessors,
+not this complete human-readable report.
+
+== CMD6 safety and interpretation
+
+When CSD command class 10 is advertised, the diagnostic sends CMD6 with
+`0x00FFFFFF`: mode 0 (check), all function groups set to no change. The query
+runs at the 20 MHz requested baseline. Group 1 support bit 1 indicates the
+50 MHz High Speed function. Query failure means unknown support, not lack
+of support; raw read testing may continue. Missing command-class support
+skips the query.
+
+No function-switch command is sent. A positive capability result does not
+enable High Speed or qualify present experimental clocks. Read agreement
+still does not qualify writes. The read-only storage wrapper exposes only
+this fixed query, not an arbitrary CMD6 argument. Existing cancellation,
+clock restoration and fail-stop on restoration failure remain unchanged.
+
+== MMC and licensing boundaries
+
+MMC also has CID and CSD; modern eMMC adds a 512-byte EXT_CSD register.
+Their layouts and version rules differ from SD. Supporting MMC requires a
+separate decoder and suitable transport/backend; these SD routines are not
+a generic MMC decoder.
+
+Publicly accessible specifications, permission to redistribute their text,
+implementation patent licences, and trademarks are separate questions.
+No claim is made here that every MMC/JEDEC specification or implementation
+licence is free. This diagnostic reports register values through SdFat;
+the technical discussion is not commercial licensing clearance.
+
+== Verification and sources
+
+Native tests cover writable and forced-read-only storage, argument placement,
+the supplied CSD, capacity formatting, supported/unsupported/failed/skipped
+CMD6 queries, discriminator handling, raw-read errors, cancellation and clock
+restoration. The P4 storage adapter tests also pass. Hardware CMD6 results
+remain to be collected after a requested rebuild/reflash.
+
+* https://github.com/greiman/SdFat/blob/2.3.0/examples/SdInfo/SdInfo.ino[SdFat SdInfo example]: query-only CMD6 pattern.
+* https://github.com/greiman/SdFat/blob/2.3.0/src/SdCard/SdCardInfo.h[SdFat register definitions and capacity helpers].
+* https://www.sdcard.org/downloads/pls/[SD Association simplified specifications]: CSD layouts and CMD6.
+* https://github.com/torvalds/linux/blob/master/drivers/mmc/core/mmc.c[Linux MMC register handling]: separate CID/CSD/EXT_CSD handling; consulted, not copied.
+* https://www.sdcard.org/developers/use-and-licensing/[SD Association licensing information].

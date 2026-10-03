@@ -1,0 +1,39 @@
+= RP2_147 O3 smaller history build
+:source-highlighter: highlight.js
+
+Petr requested a fresh RP2_147 whole-build O3 candidate after testing the
+RP2_2 Os/O2/O3 sequence. The target-aware build uses profile
+rp2350-lcd-1-47-a with stamp 261004-0005 and build.flags.optimize=-O3.
+Shared history retains 100 entries per bank, matching all other modules.
+
+See link:261003-22%20RP2_2%20INI%20cache%20pressure%20and%20Os%20trial.adoc[history RAM investigation and comparison].
+This is a build-only request: no device access, flash, CP/M file transfer,
+source default change or candidate promotion. RP2_2 artifacts remain separate.
+INI and BUF files on the device are not overwritten.
+
+Build completed successfully and stages the verified target image under
+build/RunCPM_7xtgv-terminal/rp2350-lcd-1-47-a/new.
+
+[cols="2,1",options="header"]
+|===
+|Item |Bytes
+|Program |308656
+|Static SRAM |170216
+|SRAM remaining before heap and stacks |354072
+|History object (separate heap allocation, host-measured) |128544
+|===
+
+Hardware checks after a separately requested flash: matching boot stamp,
+INI-cache status and configured SPI clock, history recall, VTCPU and VTDRV.
+Build size does not establish hardware performance.
+
+== Requested reflash
+
+Matched BOOTSEL chip D60D9318CF30A586 to the registered RP2_147, checked
+RP2350 bootloader identity, and copied the staged O3 UF2. The same chip
+returned as serial and the user-visible mirror was restored. Boot confirms
+261004-0005 and reports 13015509 T-states in 684 ms (integer 19 MHz), but
+SD mount fails: "Unable to initialize SD card." followed by "CPU halted."
+No further resets or device tests were attempted. Card seating/presence and
+power need checking before attributing this to firmware. No source edits,
+rebuild, promotion or CP/M file transfer during this reflash.

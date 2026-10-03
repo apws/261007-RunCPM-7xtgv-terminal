@@ -1,0 +1,28 @@
+= CARDMARK output and running hint
+:source-highlighter: highlight.js
+
+Petr requested a presentation-only update to the native CARDMARK backend:
+explicit RAW Arduino SdFat/SPI wording, separators around card identity,
+a compact Arduino SPI clock line, and ` ... ` printed before raw test reads.
+The successful result continues on that same line. The redundant final clock
+restoration sentence is removed; actual restoration and fail-stop behavior
+remain unchanged. Approximate MHz still means the Arduino request, not a
+measurement of physical SCK. Read agreement still does not qualify writes.
+
+The native test checks that the hint is present before any raw test read and
+that PASS has not already appeared; it also checks the new successful layout.
+Both writable and forced-read-only backend variants are exercised, including
+errors, mismatch, cancellation and clock-restoration failure.
+No RunCPM seam or COM launcher change, no device INI edit, rebuild or flash.
+
+Petr's supplied pre-change example also reports `CARDMARK 4096 60` PASS,
+6291456 bytes compared at 1923.90 KiB/s, restoring the 40 MHz operating request.
+This is another short read agreement result, not broad card qualification.
+
+== Build and flash 261003-1034
+
+Requested P4 rebuild passed: 550771 bytes program storage (17%). Target-aware
+upload confirmed the connected P4, verified flash hashes and restarted CP/M.
+Visible mirror restored; boot confirms 261003-1034, successful SD mount,
+40 MHz INI request applied, profile/history OK and A0>. No COM transfer, INI
+edit, benchmark command or stable-image promotion. User visual output test pending.

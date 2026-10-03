@@ -333,14 +333,29 @@ query/reply bytes are in the link:technical-reference.adoc#private-protocol-boun
 [[a7-visual-tests-and-dec-graphics]]
 === CARDMARK raw SD read diagnostic
 
-`CARDMARK [sectors [MHz [start-sector]]]` currently requires matching P4
-firmware. Defaults: 1024 sectors, the configured operating SPI request, and
+`CARDMARK [CSD] [sectors [MHz [start-sector]]]` requires matching firmware
+on our direct-SdFat/SPI targets: ES3_35, ES3_5, EP4_10, RP2_147 and RP2_2.
+The optional legacy W535 SD_MMC build is excluded.
+Defaults: 1024 sectors, the configured operating SPI request, and
 start sector 0. Sectors are 512 bytes; count range is 1..1048576 and requested
 clock range is 1..60 MHz. Example: `CARDMARK 4096 50`.
+
+Add `CSD` anywhere among the arguments for named CSD fields, for example
+`CARDMARK 4096 50 CSD`. Matching is case-insensitive. The compact report orders
+raw CID, decoded identity, raw CSD, capacity in whole MiB (rounded down, with
+exact 512-byte sector count), and encoded speed. CMD6 checks High Speed support
+where advertised; it does not select High Speed mode. An unsuccessful query
+reports unknown support and does not prevent the raw read test.
+
+Detailed decoding covers SD CSD v1.0 (SDSC) and v2.0 (SDHC/SDXC). CSD v3.0
+(SDUC) is identified but not decoded or supported by this SdFat backend.
+These are SD layouts, not MMC/eMMC layouts. See
+link:../261003-11%20CARDMARK%20CSD%20decoding%20and%20CMD6%20query.adoc[register decoding notes].
 
 The native service reads reference data at requested 20 MHz and compares three
 trial reads per batch at the selected clock. It reports card CID/CSD, capacity,
 compared bytes and raw-read throughput, then restores the operating clock.
+The ` ... ` hint appears before test reads and the result follows on that line.
 Ctrl+Alt+C cancels in the integrated terminal build. It runs in ordinary writable
 firmware too; CARDMARK itself uses only read operations. If clock restoration
 fails, storage is stopped and a reset is required rather than returning to CP/M.

@@ -34,6 +34,7 @@ struct FsBlockDeviceInterface {
 static int reads = 0, writes = 0, opens = 0;
 static bool cardOK = true;
 struct SdSpiCard {
+    bool cardCMD6(unsigned long arg, uint8_t *) { assert(arg == 0x00FFFFFFUL); return true; }
     bool readCID(cid_t *) { return true; }
     bool readCSD(csd_t *) { return true; }
     uint8_t errorCode() { return 0; }

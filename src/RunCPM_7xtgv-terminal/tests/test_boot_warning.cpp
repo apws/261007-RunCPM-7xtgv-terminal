@@ -24,4 +24,19 @@ int main() {
     for (uint8_t c : std::string("A0>")) terminal.feed(c);
     for (int col = 0; col < 3; ++col)
         assert((terminal.attrRAM[terminal.index(col, 1)] & 0x30) == 0);
+    output.clear();
+    vt::writeBootWarning(write, "Unable to initialize SD card.", true);
+    vt::writeBootWarning(write, "CPU halted.", true);
+    vt::Terminal failed;
+    for (uint8_t c : output) failed.feed(c);
+    assert(failed.x == 0 && failed.y == 2);
+    for (int row = 0; row < 2; ++row)
+        for (int col = 0; col < failed.cols; ++col)
+            assert((failed.attrRAM[failed.index(col, row)] & 0x30) == 0x10);
+    failed.feed('X');
+    assert((failed.attrRAM[failed.index(0, 2)] & 0x30) == 0);
+    output.clear();
+    vt::writeBootWarning(write, "Unable to initialize SD card.", false);
+    vt::writeBootWarning(write, "CPU halted.", false);
+    assert(output == "Unable to initialize SD card.\r\nCPU halted.\r\n");
 }

@@ -220,8 +220,11 @@ for design context; do not treat proposed commander behavior as implemented.
 
 == Build, upload and test boundary
 
+See the link:build-guide.adoc[Clone, Build and Flash Guide] for prerequisites,
+installation commands, working versions and unverified fresh-machine steps.
+
 `++tools/reflash.py --target TARGET --build-only++` stages a target-specific
-candidate under `++build/7xtgv-vt100-runcpm/TARGET/new/++`; staging alone
+candidate under `++build/RunCPM_7xtgv-terminal/TARGET/new/++`; staging alone
 does not flash or promote it. Select the exact target in host configuration.
 The uploader queries compiled firmware identity and blocks a reported
 mismatch. An unidentified older firmware needs a one-shot, explicitly named

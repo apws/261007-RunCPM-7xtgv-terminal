@@ -54,11 +54,10 @@ static constexpr uint32_t XTGV_STORAGE_HZ = 20000000UL;
 #include <SdFat.h>
 #include "../sdfat_spi_driver.h"
 
-static XtgvSdSpiDriver xtgvStorageSpi(xtgvSdSpi);
-
 // The display QSPI driver owns SPI2. On ESP32-S3 Arduino HSPI is SPI3; its
 // signals can use the card's existing GPIOs through the GPIO matrix.
 static SPIClass xtgvSdSpi(HSPI);
+static XtgvSdSpiDriver xtgvStorageSpi(xtgvSdSpi);
 SdFat32 SD;
 
 // Preserve RunCPM's historical ESP32-only BDOS extension hook.

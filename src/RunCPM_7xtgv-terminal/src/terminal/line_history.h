@@ -9,7 +9,9 @@ namespace vt {
 class LineHistory {
   public:
     static constexpr uint8_t Banks = 10;
-    static constexpr uint8_t Depth = 255;
+    // Shared retention limit for every module and the portable .BUF file.
+    // Keep SRAM-only boards comfortable; keyword lists have a separate budget.
+    static constexpr uint8_t Depth = 100;
     static constexpr uint8_t MaxLine = 127;
     // RunCPM's internal CCP auto-submits at its 125-character BDOS input
     // limit.  A recalled command must stay one character below that limit.

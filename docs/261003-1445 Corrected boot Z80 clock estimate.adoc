@@ -1,0 +1,39 @@
+= Corrected boot Z80 clock estimate
+:source-highlighter: highlight.js
+
+== Requested restoration
+
+Petr requested replacing the boot banner's `Run VTCPU.COM for active/quiet
+Z80 speed` advice with the original automatic Z80 clock test. He approved a
+separate corrected copy named `cpu_mhz_coorect.h`; the spelling is intentional.
+The original `cpu_mhz.h` is unchanged, including its existing CPU-header
+inclusions. The sketch includes the new header and calls the distinctly named
+`xtgvZ80estimateClock()` to avoid collisions with the original function.
+
+== Correction
+
+The original timing table gives LD A,B / LD A,D and HALT seven T-states;
+each actually takes four. The corrected copy retains the original test bytes,
+loop counts, millisecond timing, integer-MHz display and CPU resets, but uses
+explicit timings for the small fixed instruction set instead of that table.
+Arduino's 500 outer by 1000 inner loops total 13,015,509 T-states, not
+14,517,012. The old numerator inflated the estimate by approximately 11.5%.
+
+The test loads its bytes at emulated address zero and runs through Z80run until
+HALT, then resets the CPU before normal CP/M startup. It does not preserve
+guest RAM at zero and must remain a boot-only test, not an in-session command.
+VTCPU remains available unchanged for active/quiet measurements. Boot timing
+includes the current startup/display conditions and integer rounding; it is
+not interchangeable with a quiet VTCPU measurement.
+
+== IRAM and verification
+
+On ESP32, the existing HAL applies IRAM_ATTR to the CPU1 Z80run dispatcher.
+The boot test uses that same dispatcher, so adding IRAM_ATTR to the brief
+timing/printing wrapper is unnecessary. No placement or optimization policy
+was changed, and no CPU-core include was edited.
+
+The host test executes the test bytes in a small independent instruction
+interpreter, checks the 13,015,509 total, expected output and both resets.
+It is an accounting regression test, not a hardware performance measurement.
+Firmware rebuild and hardware confirmation remain pending.

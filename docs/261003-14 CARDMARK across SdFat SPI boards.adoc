@@ -1,0 +1,45 @@
+= CARDMARK across SdFat SPI boards
+:source-highlighter: highlight.js
+
+== Correction of initial scope
+
+Petr requested that CARDMARK work on all current Arduino SdFat/SPI boards,
+not just P4. The existing single header was portable in its ordinary storage
+path but unnecessarily guarded by the P4 target name. All five board headers
+already supply SdFat32, xtgvStorageSpi and xtgvBoardStorageSetMHz.
+
+The diagnostic now compiles for ES3_35, ES3_5, EP4_10, RP2_147 and RP2_2.
+No new capability flag or board-name list is needed. Only the retained
+`XTGV_W535_SD_MMC` historical adapter is excluded: it does not provide the raw
+SdFat interface. This exclusion uses its existing build flag, since the
+SPI_DRIVER_SELECT setting alone can also remain set in that legacy build.
+Petr confirms SD_MMC was a historical misunderstanding, not a supported
+alternative to preserve as a design direction. Its retained source is not
+deleted as part of this narrowly scoped enablement.
+
+== Existing execution path
+
+CARDMARK.COM probes emulated port 77h, resets the argument buffer through
+that port, sends its command tail through port 78h, and triggers the native
+routine through port 77h. The synchronous service runs under the existing
+sole SD owner. Output goes through _xtgvHardwarePrint and _putch. There is
+no new CCP, CPU, BDOS or common-abstraction edit and no replacement COM file.
+
+The normal backend uses SD.card() for CID/CSD, CMD6 and raw sector reads.
+The optional P4 firmware-wide read-only wrapper remains supported separately;
+it is not required for the diagnostic, which itself performs no writes.
+Clock restoration, cancellation, range checking and fail-stop are unchanged.
+
+== Verification and deployment boundary
+
+Native backend tests compile and execute the actual cardmark.h with each of
+the five target defines using deterministic storage doubles; P4 is also
+tested in forced-read-only mode. The legacy SD_MMC exclusion is compiled
+without any raw storage interface. These tests do not establish physical SPI
+reliability or replace full Arduino cross-builds.
+
+The previously staged ES3_5 build 261003-1405 predates this change and still
+reports CARDMARK unavailable. A new rebuild is required. P4 build
+261003-1355 was flashed with the CSD decoder; other boards still need physical
+CARDMARK tests after rebuilding. No firmware was built or flashed during
+this generalization.

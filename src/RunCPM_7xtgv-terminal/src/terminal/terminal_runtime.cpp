@@ -2225,6 +2225,20 @@ void terminalWaitDisplayProfileApplied() {
 uint16_t terminalLogicalColumns() {
     return logicalColumns.load(std::memory_order_acquire);
 }
+void terminalPrintBootModule(void (*write)(const char *)) {
+    char line[128];
+    // Snapshot runtime geometry under the existing display-owner handshake.
+    // Resume before output: the consumer must run while the boot text is sent.
+    terminalPause(true);
+    const vt::DisplayHalDefaults &hal = vt::displayHalDefaults();
+    snprintf(line, sizeof(line),
+             "Module:  %s %ux%u Zoom: %u (%ux%u / %ux%u)\r\n",
+             hal.id, unsigned(hal.physicalWidth), unsigned(hal.physicalHeight),
+             unsigned(terminal.zoom), unsigned(terminal.cols), unsigned(terminal.rows),
+             unsigned(terminal.visibleCols), unsigned(terminal.visibleRows));
+    terminalPause(false);
+    write(line);
+}
 void terminalWaitReady() {
     while (!ready.load(std::memory_order_acquire))
         delay(1);

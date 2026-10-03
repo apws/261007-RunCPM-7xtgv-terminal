@@ -3,6 +3,10 @@
 #ifndef CCP7XF_H
 #define CCP7XF_H
 
+// Identify only this local shell; leave the original CCP banner unchanged.
+#undef CCPHEAD
+#define CCPHEAD "\r\nRunCPM Version " VERSION " (" CCPname " / 7XF shell)" DBG ABD "\r\n"
+
 // CP/M BDOS calls
 #include "cpm.h"
 

@@ -53,8 +53,8 @@ def main():
                         help="build a target-aware candidate as new, then upload it for hardware test")
     parser.add_argument("--build-only", action="store_true",
                         help="build and stage a target-aware new candidate without uploading")
-    parser.add_argument("--optimization", choices=("O2", "O3"),
-                        help="RP2_147 or P4 trial build: override whole source-build optimization")
+    parser.add_argument("--optimization", choices=("Os", "O2", "O3"),
+                        help="RP2350 or P4 trial build: override whole source-build optimization")
     parser.add_argument("--w535-sd-mmc", action="store_true",
                         help="W535 fallback build: select the former one-bit SD_MMC adapter instead of default SPI3/SdFat")
     parser.add_argument("--storage-read-only", action="store_true",
@@ -85,8 +85,9 @@ def main():
         _, definition = load_target(args.target, TARGETS)
     except RuntimeError as error:
         parser.error(str(error))
-    if args.optimization and args.target not in ("rp2350-lcd-1-47-a", "jc8012p4a1c"):
-        parser.error("--optimization trials support rp2350-lcd-1-47-a and jc8012p4a1c")
+    if args.optimization and args.target not in (
+            "rp2350-lcd-1-47-a", "rp2350-touch-lcd-2", "jc8012p4a1c"):
+        parser.error("--optimization trials support RP2350 targets and jc8012p4a1c")
     if args.w535_sd_mmc and (args.target != "jc8048w535" or not building):
         parser.error("--w535-sd-mmc requires --target jc8048w535 and --build or --build-only")
     if definition.get("method") != "arduino-cli" and not (
