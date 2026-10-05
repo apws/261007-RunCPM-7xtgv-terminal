@@ -28,7 +28,6 @@ static constexpr uint8_t XTGV_BACKLIGHT_DUTIES[] = {
 // ============================================================================
 // 3. Optional compiler policy and storage clock
 // ============================================================================
-#define XTGV_CPU1_O2 0
 
 static constexpr uint32_t XTGV_STORAGE_HZ = 20000000UL;
 

@@ -35,7 +35,20 @@ mirror redraw after USB reconnect is normal. `++Ctrl+] q++` exits the host
 bridge. The exact host variables and port precedence are in the
 link:reference-guide.adoc[Reference Guide].
 
-== Work at the prompt and in applications
+== First contact: power, boot and configuration
+
+* Power the module from a suitable supply; large panels can overload a USB hub.
+* A successful boot reaches `A0>` or a configured 7XF named prompt.
+* `Build` identifies the firmware; `Module` identifies the panel and view.
+* `Storage` shows the requested Arduino SPI clock, not a measured clock.
+* C6 additionally reports internal heap; two FreeRTOS tasks share one CPU.
+* A red diagnostic or `CPU halted` is not a normal successful startup.
+
+`A0:7XTGVTRM.INI` holds global settings, display settings and ten application
+profiles. `A0:7XTGVTRM.BUF` holds their histories; do not edit BUF as text.
+The card can move between modules: each display has its own INI section.
+
+== Profiles, history and application controls
 
 Choose a profile with `++Alt+0++` through `++Alt+9++`; `++Alt+Space++` shows
 the selected profile without changing it. Up/Down normally recall its
@@ -53,21 +66,61 @@ for ordinary command work.
 |`++Ctrl+Shift+Home++` / `++End++` |Scan all viewports backward / forward.
 |`++Alt+PgUp++` / `++PgDn++` |Previous / next profile.
 |`++Ctrl+Shift+X++` |Open the transfer panel at an idle CCP prompt.
-|`++Ctrl+Alt+C++` |Force a running external COM back to CCP if it ignores Ctrl+C (RP2_147 GCLS correction flashed; behavior retest pending).
+|`++Ctrl+Alt+C++` |Force a running external COM back to CCP if it ignores Ctrl+C; cancel the remaining SUBMIT batch.
 |===
 
 The link:reference-guide.adoc#global-terminal-keys[complete key table]
 includes backlight, modes, exits, history deletion and host-layout notes.
 Normal zoom and pan do not edit the INI or resize the logical CP/M screen.
 
-On the new RP2_147 test firmware, `++Ctrl+Alt+C++` is a one-press emergency
+In the integrated firmware, `++Ctrl+Alt+C++` is a one-press emergency
 exit. It cancels the external COM and any remaining SUBMIT batch commands;
 at CCP or in an internal CCP command it is inert. Ordinary Ctrl+C is
 unchanged. This is an *unclean* return: unsaved application data and final
 file writes may be lost. It cannot recover a wedged device or SD driver.
-The prior RP2_147 image `++260928-1131++` had a prompt-layout bug when an
-interrupted COM was inside GCLS/xterm-256 plotting. Corrected image
-`++260928-1612++` is flashed; its on-device retest is pending.
+
+[cols="2,3",options="header"]
+|===
+|Try |What happens
+|Alt+PgUp / Alt+PgDn |Select previous / next named profile.
+|Alt+Space |Briefly show its name in emphasized ink; do not execute its selection command.
+|Up / Down |Recall history in line-oriented profiles; type a prefix to filter.
+|Alt+Up / Alt+Down |Recall history where the profile gives plain arrows to its editor.
+|Ctrl+Shift+Backspace |Delete the currently recalled unwanted entry.
+|Alt+Backspace |Configured clear action: typically CLS at CCP, app-specific elsewhere.
+|Alt+Esc |Configured application exit: for example SYSTEM in MBASIC, QUIT in BBC BASIC.
+|===
+
+Each of ten profiles keeps up to 100 history entries. If keys seem wrong,
+check Alt+Space and select the right profile. At a recognized CCP prompt,
+effective bank 0 handles shell commands even while another profile is selected.
+
+Selection may execute an INI `on_select` command *at CCP only*.
+Inside an application it changes controls without issuing that command.
+Separate editable keyword lists are a plan, not a delivered feature.
+
+== Explore CP/M with the 7XF shell
+
+`7XF` is an internal CCP command, not a COM file or a separate filesystem.
+Names come from catalogs; CP/M still uses flat drive/user areas.
+
+[source,text]
+----
+7XF
+LS /
+LL /A
+LS
+LS VT*
+----
+
+* `LS` lists short sizes/names; `LL` or `LS -L` adds details.
+* `CD /A/xterm256` changes to a catalogued area; aliases depend on your card.
+* `7XF DD` returns to decimal `A0>`; `7XF DH` uses hexadecimal users.
+* `7XF D` shows only the drive; `7XF DN` selects the named prompt.
+* `VOL` remains the original INFO.TXT command; it does not use 7XF catalogs.
+
+Missing aliases do not mean files disappeared. Use the ordinary DU, e.g.
+`A6:`, or inspect the actual catalog. Our repository and your card can differ.
 
 == Check or change terminal size
 
@@ -85,6 +138,89 @@ geometry *before* launching the application, or reconfigure the application.
 An 80x24 logical terminal on a small panel is usable as several panned views;
 the PC mirror still shows all 80x24 cells. See
 link:reference-guide.adoc#display-and-per-bank-geometry[geometry rules].
+
+== Colors, emphasis and brightness
+
+Try `VTPAL 0` through `VTPAL 5`: supplied presets are PAPER, green CRT,
+amber CRT, white CRT, red plasma and cyan VFD. INI edits can redefine them.
+Palette selection is saved lazily; `SYNC` requests pending persistence.
+
+* On light paper, emphasis can be darker; on dark paper it can be brighter.
+* ANSI colors map to the terminal's own ink/paper roles; this is not full ANSI.
+* CLS clears cells without resetting text attributes.
+* If Turbo leaves CCP emphasized, configure TINST's *terminal reset* string
+  as `ESC [ 0 m`. Initialization and exit reset are different settings.
+
+[cols="2,3",options="header"]
+|===
+|Key |Backlight
+|LAlt+Ctrl+Shift+PgUp / PgDn |Raise / lower through the module's tuned levels.
+|LAlt+Ctrl+Shift+0 |OFF; raise brightness to restore it.
+|Ctrl+Shift+1 through 9 |Still-supported coarse presets; fine stepping is preferable.
+|===
+
+Backlight affects the panel, not PC mirror colors. The last non-off level
+persists. EC6_147 is capped at 50% duty following vendor thermal advice;
+the same level number need not mean equal brightness on different panels.
+
+== Terminal modes and demonstration recipes
+
+ANSI/VT100 is the usual output mode. `VT52` / `VT100`, or
+LAlt+Ctrl+Shift+2 / 1, select the implemented interpretations.
+RAW input, zoom, profiles and graphics are separate controls.
+ADM3a and the full native 7xtgv chip specification remain future work.
+
+=== Try the MBASIC terminal tests
+
+Use the card's MBASIC/test area; the repository layout normally uses A7.
+Select the MBASIC or VTESTS profile before interactive work.
+
+[source,text]
+----
+A7:
+MBASIC
+LOAD "VTESTS"
+RUN
+----
+
+Also try `LOAD "VTPAL"`, then `RUN`. Alt+Esc uses the configured SYSTEM
+exit. Save maintained BASIC with `SAVE "NAME",A` for ASCII; ordinary SAVE
+can create tokenized data.
+
+=== Try the xterm256 plot
+
+If the alias exists, use `7XF`, then `CD /A/xterm256`; otherwise use A6.
+
+[source,text]
+----
+A6:
+CLS
+SUBMIT BROT_BS
+----
+
+`SUBMIT BROT_PS` is the alternate renderer. Scripts initialize the plot.
+Ctrl+Alt+C can abort a running COM. Normal completion or forced return ends
+graphics mode while retaining the image until later text/repaint replaces it.
+The direct plot is on the panel, not a pixel image in the PC mirror.
+
+=== Inspect and compare the module
+
+[cols="2,3",options="header"]
+|===
+|Command |Use
+|VTINFO |Module, build, logical screen, viewport and zoom presets.
+|VTCPU |Compare emulator speed with terminal active and quiet.
+|VTDRV |Read/verify its existing 32 KiB test fixture.
+|VTDRV W |Create/write the fixture, then read/verify; writes the current DU.
+|VTDRV W Q |Quiet timed write/read passes; matching firmware required.
+|CARDMARK 4096 40 CSD |Native raw reads and decoded card registers; no test-file writes.
+|SYNC |Request pending history/config saves.
+|REBOOT |Restart the complete module, not merely CP/M warm boot.
+|REFLASH |Request the configured host uploader; cannot build firmware itself.
+|===
+
+CARDMARK clocks are requests, not measured SCK. Read agreement is not write
+qualification; use a backed-up/spare card for experimental clocks.
 
 == Transfer one file
 
@@ -107,6 +243,27 @@ before retrying. Exact options and failure behavior are in
 link:reference-guide.adoc#vtput--vtget-from-the-mirror[the transfer reference].
 
 == Edit the device INI safely
+
+You can also edit the file directly from CP/M using the configured Turbo
+Pascal editor: choose the TURBO profile, open `A0:7XTGVTRM.INI`, save,
+exit and reboot. Verify the file's area rather than editing a similarly named
+copy in another DU. TE is unsuitable for some long INI files.
+Do not interrupt saves. See the reference's exact INI grammar and diagnostics.
+
+[source,ini]
+----
+[global]
+sdfat_spi=20
+
+[display:EC6_147]
+view_zoom=1
+zoom1_terminal=80x24
+zoom2_terminal=80x24
+----
+
+This is a *fragment*, not a replacement INI: retain the other settings and
+profiles. The view fields describe boot presets; ordinary keyboard zoom
+does not rewrite them.
 
 The device loads `++A0:7XTGVTRM.INI++` at boot. Before editing it, fetch the
 *live* A0 file using `++tools/fetch-7xtgvtrm-ini.sh++` from the sketch directory

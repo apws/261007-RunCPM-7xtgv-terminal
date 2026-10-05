@@ -1,17 +1,34 @@
 profiles:
+  esp32c6-lcd-1-47:
+    fqbn: esp32:esp32:esp32c6:CDCOnBoot=cdc,FlashSize=4M,PartitionScheme=huge_app
+    platforms:
+      - platform: esp32:esp32 (3.1.0)
+        platform_index_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+    libraries:
+      - GFX Library for Arduino (1.6.4)
+      - SdFat (2.3.0)
   jc8012p4a1c:
     # P4 3.1.0 has no LoopCore menu; target flags select Arduino core 1.
     fqbn: esp32:esp32:esp32p4:CDCOnBoot=default,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,PSRAM=enabled
+    platforms:
+      - platform: esp32:esp32 (3.1.0)
+        platform_index_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
     libraries:
       - GFX Library for Arduino (1.6.4)
       - SdFat (2.3.0)
   jc8048w535:
     fqbn: esp32:esp32:esp32s3:CDCOnBoot=cdc,USBMode=hwcdc,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,PSRAM=opi,LoopCore=1
+    platforms:
+      - platform: esp32:esp32 (3.1.0)
+        platform_index_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
     libraries:
       - GFX Library for Arduino (1.6.4)
       - SdFat (2.3.0)
   jc8048w550:
     fqbn: esp32:esp32:esp32s3:CDCOnBoot=default,USBMode=hwcdc,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,PSRAM=opi,LoopCore=1
+    platforms:
+      - platform: esp32:esp32 (3.1.0)
+        platform_index_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
     libraries:
       - GFX Library for Arduino (1.6.4)
       - SdFat (2.3.0)

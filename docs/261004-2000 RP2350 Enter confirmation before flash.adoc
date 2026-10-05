@@ -1,0 +1,22 @@
+= RP2350 Enter confirmation before flash
+:source-highlighter: highlight.js
+
+Petr reports RP2_147's target launcher built/staged 261004-1954, mounted chip
+D60D9318CF30A586, copied the UF2 successfully and launched the mirror.
+The former long target-name confirmation was inconvenient.
+
+RP2350 upload now always pauses before disk selection/mount/copy with a red
+warning naming the short module ID and requiring BOOTSEL. Enter confirms the
+physical module is ready; Ctrl+C cancels. No long identifier retyping.
+Noninteractive input is rejected. The ROM still cannot identify the attached
+display, so the human confirmation remains meaningful.
+
+Unique-disk selection, optional chip-ID matching, INFO_UF2 RP2350 verification,
+embedded UF2 target/family checks and immediate pre-write identity recheck remain.
+Mount/copy paths and chip details go to the adjacent log; console retains short
+upload status and necessary warning/prompt.
+ESP targets, including C6, do not use this BOOTSEL prompt.
+
+Fourteen offline workflow tests pass, including Enter confirmation, rejecting
+noninteractive confirmation and cancelling before disk access. No agent-triggered
+rebuild/upload. User test of this new prompt remains pending.

@@ -129,7 +129,7 @@ int main() {
 '''
         with tempfile.TemporaryDirectory(prefix='xtgv-cardmark-test-') as temp:
             binary = Path(temp) / 'test'
-            targets = ('JC8012P4A1C', 'JC8048W550', 'JC8048W535',
+            targets = ('ESP32C6_LCD_1_47', 'JC8012P4A1C', 'JC8048W550', 'JC8048W535',
                        'RP2350_LCD_1_47_A', 'RP2350_TOUCH_LCD_2')
             variants = [(target, 0) for target in targets] + [('JC8012P4A1C', 1)]
             for target, read_only in variants:

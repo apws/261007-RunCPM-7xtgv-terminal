@@ -1,0 +1,35 @@
+= Explicit Arch setup and missing-tool notifications
+:source-highlighter: highlight.js
+
+== Agreed plan
+
+Keep installation explicit: rebuild/reflash only report missing prerequisites
+and point to `tools/setup.sh`. Implement Arch/CachyOS first, with future
+OS-specific adapters separated from common Arduino dependencies.
+
+== Implementation
+
+* Setup supports `--dry-run`, interactive approval, and explicit `--yes`.
+* Normal-user execution is required. Only pacman package installation uses sudo.
+* Install git, Python, curl, tar, CA certificates, tmux, util-linux and udisks2;
+  sudo must already be available to bootstrap system installation.
+* Reuse existing Arduino CLI, or download checksummed 1.5.0 to `~/.local/bin`.
+* Install ESP32 3.1.0, Arduino-Pico 5.4.4, GFX 1.6.4 and SdFat 2.3.0.
+* Respect explicit Arduino configuration. Do not change terminal.conf, USB
+  groups, firmware artifacts, active mirrors, or cards. No system upgrade.
+* Wrapper shell guards report missing Python. Python workflow checks required
+  CLI/mirror/BOOTSEL tools before device access. Dependency-related build
+  failures suggest setup without treating every compiler error as missing tools.
+
+== Testing and remaining gates
+
+Twenty offline workflow tests pass, including fake sudo/Arduino installers
+in a temporary fixture. Dry-run on CachyOS prints the plan without installing.
+No real sudo, package download, build or flash was performed during verification.
+Docker and Podman are absent here. A disposable Arch VM/container is the next
+real installation gate; a VM or real host is needed for USB/desktop integration.
+
+The existing fresh-build script isolates Arduino caches/configuration for real
+dependency-download/build tests, but still reuses host OS tools. It is not an
+empty-OS simulation. DEB/RPM adapters and Windows/macOS mirror/upload portability
+are deferred, not claimed supported by this setup script.

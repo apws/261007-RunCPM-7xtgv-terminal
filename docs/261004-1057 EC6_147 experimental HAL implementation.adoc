@@ -1,0 +1,258 @@
+= EC6_147 experimental HAL implementation
+:source-highlighter: highlight.js
+:toc:
+
+== Scope and current state
+
+Petr approved implementing the non-touch Waveshare ESP32-C6-LCD-1.47 as
+EC6_147. Source implementation and host tests are prepared; no firmware build,
+device flash or CP/M file transfer has been performed. This remains experimental.
+See link:261004-0030%20ESP32-C6%20single-core%20integrated%20runtime%20feasibility.adoc[feasibility findings].
+
+One uniformly sectioned board header contains identity, geometry, shared
+SPI initialization, display construction, SRAM history allocation, backlight
+and reboot. The target name/profile is esp32c6-lcd-1-47 and the runtime INI
+display ID is EC6_147. No INI is edited or sent automatically; a later device
+configuration edit must begin by fetching Petr's live file.
+
+== Shared SPI and ownership
+
+Existing integrated modules do not have two independent owners of the card.
+RunCPM owns all SdFat activity, including delayed terminal INI/history writes;
+the terminal task publishes requests rather than writing the filesystem.
+Existing dual-core modules also use separate display/SD peripherals. CPU task
+priorities do not substitute for protecting a shared physical bus.
+
+C6's LCD and SD share GPIO6 MOSI and GPIO7 SCK, with GPIO5 MISO, GPIO14 LCD
+CS and GPIO4 SD CS. This HAL creates exactly one SPIClass(FSPI) object.
+Arduino_HWSPI receives that same object with shared-interface mode, and the
+existing XtgvSdSpiDriver receives it for SdFat SHARED_SPI mode.
+
+The installed Arduino 3.1.0 SPIClass holds its parameter mutex from
+beginTransaction to endTransaction. Arduino_HWSPI deasserts LCD CS before
+ending its transaction; SdFat deselects the card and clocks its release byte
+before deactivating the transport. Consequently only one task can configure
+or transfer on this object at a time. Arduino_ESP32SPI is deliberately not
+used here: its private low-level bus object would not share the SPIClass lock.
+No new lock framework or library fork is added.
+
+Clarification: FreeRTOS supplies the mutex primitives and schedules a waiting
+task, but does not automatically lock arbitrary hardware access. Arduino's
+SPIClass transaction methods take/release those mutexes; our HAL deliberately
+connects the two libraries through the same instance. CONFIG_DISABLE_HAL_LOCKS
+must remain disabled. Direct-register backends or nontransactional access
+would bypass this guarantee. Neither the scheduler nor this bus lock replaces
+one-task filesystem ownership. The manual's technical reference now records
+this distinction and the experimental single-core runtime arrangement.
+
+Panel initialization precedes launching RunCPM. The card is deselected before
+panel initialization. Integrated SD startup must not reset/toggle the LCD CS
+while the terminal could already be drawing; serial-only startup initializes
+that deselect state separately. Both device clocks initially request 20 MHz;
+the existing sdfat_spi INI policy and CARDMARK backend remain available for
+SD trials. Hardware must verify arbitration and initialization under traffic.
+
+== Single-core scheduling
+
+runtime.h selects runtime_esp32_integrated_single.h when the SDK defines
+CONFIG_FREERTOS_UNICORE. The dual-core runtime is unchanged. The single-core
+runtime creates a priority-1 RunCPM task with a 16 KiB stack; Arduino's terminal
+loop task is also priority 1 in the installed core. They time-slice one CPU.
+After each terminalLoop, the terminal task blocks for one RTOS tick.
+
+Petr approved using the existing HAL-owned abort-check seam for guest
+cooperation. runcpm_hooks.h adds a single-core-only tick check to
+_xtgvAbortRequested: after at least 25 ms since the previous yield it blocks
+for one tick, then performs the normal forced-return check. CPU1 already calls
+this seam every 65536 emulated instructions; the existing BDOS checks also
+call it. Actual yield cadence therefore depends on the next seam invocation,
+not a guaranteed 25 ms deadline. Watchdog protection is not disabled.
+
+CPU, BDOS/BIOS, CCP, globals, disk and common RunCPM abstraction files are not
+edited for this port. runcpm-config.h only adds the new selector to its
+exactly-one-board validation. No helper externally suspends a task that could
+be holding the shared SPI transaction lock. The task deletes itself when
+runCPM returns; failed task creation releases terminal startup blanking and
+reports the failure.
+
+This policy needs busy-guest, busy-rendering and idle/watchdog hardware tests.
+Do not infer that dual-core performance carries over, or that task priority
+alone ensures idle time. First verify scheduler behavior and stack usage on
+the installed C6 SDK before adjusting cooperation frequency.
+
+== Initial panel and memory policy
+
+The ST7789 is configured as native 172x320 with rotation 3 and controller
+offsets 34/0, giving a landscape 320x172 panel, matching the existing RP2_147
+layout. Initial logical backing plane is 80x24; visible columns at zoom 1 are
+52, and the panel fits 16 full ten-pixel rows. Rotation, offsets and colors
+remain hardware-unverified.
+
+History uses ordinary new(nothrow), not ps_malloc: C6 has no onboard PSRAM.
+The shared 100-entry-per-bank history budget is retained. Memory placement,
+IRAM fit, allocator headroom and stack high-water marks require a real build
+and hardware validation. CPU1 uses the existing ESP32 IRAM attribute policy,
+without a function-local O2 override.
+
+The initial 32-level backlight curve is deliberately capped at duty 127,
+approximately 50% of the 8-bit range, following the vendor thermal warning.
+Physical writes are capped too. This is a conservative starting curve, not
+Petr-calibrated brightness. The existing boot-warning mechanism reports the
+cap. Treat future recalibration and maximum brightness as an explicit decision.
+
+== Host checks and next checkpoint
+
+* Target configuration/selection tests include EC6_147 and its small-panel layout.
+* CARDMARK mock tests include the C6 selector and unchanged private-port protocol.
+* Single-core runtime host test covers task priority/stack request, task return,
+  terminal tick delay and task-creation failure reporting.
+* Profile options were checked against installed Arduino-ESP32 3.1.0: C6,
+  CDC-on-boot and 4 MB flash with huge_app partition are available.
+
+These checks do not compile Arduino_GFX/SdFat for C6 or prove FreeRTOS timing.
+The next requested rebuild is:
+
+[source,shell]
+----
+cd src/RunCPM_7xtgv-terminal
+python3 tools/reflash.py --target esp32c6-lcd-1-47 --build-only
+----
+
+Stop and consult Petr if compilation reveals an unsupported backend, SRAM/IRAM
+overflow or a need for RunCPM core edits. Flash only on request, using the
+target guard; old/vendor firmware may require explicit confirmation of the
+physical EC6_147 before a one-shot unidentified-target recovery. First device
+checks: panel geometry/backlight, SD mount and SPI clock, mirror/input, busy
+Z80 computation, simultaneous disk/display activity, forced abort and saves.
+
+== First requested firmware build: 261004-1103
+
+The target-aware C6 build completed successfully and stages new under
+build/RunCPM_7xtgv-terminal/esp32c6-lcd-1-47. No compiler or linker backend
+failure occurred and no source correction was needed during this build.
+The staged ELF identifies esp32c6-lcd-1-47 and stamp 261004-1103. No flash.
+
+[cols="2,1",options="header"]
+|Arduino build report |Bytes
+|===
+|Program |450199
+|Program partition ceiling |3145728
+|Static data |170232
+|Reported data ceiling |327680
+|Reported remaining before dynamic allocations |157448
+|===
+
+ELF sections include 90020 bytes of iram0.text, 12 bytes of iram0.data,
+7717 bytes of dram0.data, 162512 bytes of dram0.bss and 3 bytes of noinit.
+Debug sections and the flash_rodata_dummy alignment section are not runtime
+heap or additional program-storage allocations.
+
+Memory needs a hardware measurement. The Arduino board definition hardcodes
+327680 as upload.maximum_data_size; its reported remaining bytes are NOT an
+ESP-IDF allocator measurement. Subtracting the 128544-byte history and 16384-byte
+RunCPM task stack from that report leaves 12520 bytes before INI/drivers,
+which flags a risk but does not prove exhaustion: actual usable regions and
+startup allocations must be observed. Do not silently reduce history or
+claim that the remaining heap is precisely 12520 bytes.
+
+Installed SDK confirms CONFIG_FREERTOS_UNICORE=1, CONFIG_FREERTOS_HZ=1000,
+CONFIG_ESP_TASK_WDT_EN=1 and CONFIG_ESP_TASK_WDT_INIT=1 (five-second timeout).
+This establishes one-tick duration and enabled task-watchdog initialization,
+not proof that all desired tasks/idle monitoring are subscribed or that the
+cooperation policy works under load.
+
+Next decision before deployment: either try the existing experimental image
+and inspect boot allocation warnings, or add a small board-owned free/largest
+heap diagnostic before and after startup to measure the C6 budget. No automatic
+hardware operation or history-policy change accompanies this build.
+
+== Approved heap diagnostics (pending rebuild)
+
+Petr approved C6-only heap reporting. The single-core runtime captures a
+baseline immediately before terminalSetup. The C6 board's existing boot-extra
+hook prints that baseline plus a current snapshot when the RunCPM banner runs,
+after RunCPM task creation, SD mount attempt and INI/history startup, but before
+the CPU estimate and CCP. No new sketch/core hook is added.
+
+[source,text]
+----
+Heap before: free=... largest=... B
+Heap startup: free=... largest=... B
+----
+
+Both queries use MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT and report actual
+allocator bytes, not the Arduino 320 KiB reporting ceiling. Largest is the
+largest single allocatable block, not total free space. Each snapshot contains
+two separate allocator queries; other task activity can change the heap between
+them. These are startup snapshots, not peak-memory or stack high-water readings.
+No additional heap buffer is allocated for reporting. Serial-only C6 builds,
+which do not run the integrated capture, show only the startup snapshot.
+
+Other boards' banner hooks are unchanged. Host single-core runtime tests verify
+baseline capture precedes terminalSetup. The compiled 261004-1103 image predates
+this diagnostic and must be rebuilt on request before the diagnostic is flashed.
+
+== Heap-diagnostic rebuild: 261004-1109
+
+Requested C6 rebuild passed with the diagnostics included. Staged new ELF
+contains the matching target, stamp 261004-1109 and both heap-report strings.
+Program report is 450603 bytes; static data is 170248 bytes, leaving 157432
+under Arduino's fixed 327680-byte reporting ceiling. No flash or promotion.
+Runtime free/largest values remain unknown until the first authorized boot.
+
+== First flash: boot output pending
+
+Petr connected and confirmed EC6_147 for its first flash. Guarded uploader
+used a one-shot unidentified-target override because vendor firmware cannot
+answer our identity query. USB serial identity is
+E4:B3:23:B2:DE:E4; esptool identified ESP32-C6FH4 revision v0.1 and verified
+all upload hashes for build 261004-1109, then reset via RTS. No rebuild,
+promotion or CP/M file transfer. The configured uucp account membership was
+used through newgrp for upload; no persistent permission change was needed.
+
+The visible mirror was restored with one serial owner on the same port, but
+its screen remained blank on the first connection check. Neither boot banner,
+heap values nor a working prompt have been observed. Stop here and request one
+hardware reset or power-cycle from Petr instead of repeated control sequences.
+Upload success is not claimed as successful C6 runtime validation. Screen state
+and subsequent boot output need Petr's report before diagnosis or changes.
+
+== Hardware reset restored startup
+
+Petr reports a physical reset helped. The mirror now shows EC6_147 320x172,
+zoom 1, logical 80x16 and visible 52x16 (INI-applied values), SdFat/SPI 40 MHz,
+the 7XF CCP prompt and the backlight cap warning. Boot estimator reports
+13015509 T-states in 1456 ms (integer 8 MHz). No benchmark commands were sent.
+The earlier banner/heap rows are not retained in the reconstructed mirror
+capture, so actual allocator readings remain unrecorded. First-flash blank
+startup versus successful hardware reset is an unresolved observation, not
+proof of a particular reset, power or scheduling fault. Busy disk/display,
+forced abort, persistence and runtime performance still need interactive tests.
+
+== 1122 user-confirmed first benchmarks
+
+Petr reports that EC6_147 works without issues so far. VTINFO confirms build
+261004-1109, target esp32c6-lcd-1-47 and panel 320x172. Its current configured
+view is zoom 1, logical 80x24, visible 52x17; resolved presets are 80x24,
+80x24, 26x5 and 20x4. These are runtime INI-resolved values, not a change to
+the HAL's compiled presets. They differ from the earlier captured startup
+view; no device INI was edited or transferred by the agent.
+
+[cols="2,1,1",options="header"]
+|===
+|Test |Elapsed microseconds |Reported rate
+|VTCPU active, 13015509 T-states |1411315 |9.22 MHz
+|VTCPU quiet, 13015509 T-states |947426 |13.74 MHz
+|VTDRV W write, 32768 bytes |7234558 |4.42 KiB/s
+|VTDRV W read, 32768 bytes |3153496 |10.15 KiB/s
+|===
+
+Disk verify reports PASS. Quiet VTCPU is about 49% faster than active in this
+run, consistent with substantial shared-CPU terminal/rendering workload.
+This is not isolation of scheduling, rendering, SPI or yield costs individually,
+and not a universal half-speed comparison against dual-core modules.
+These are initial user-supplied runs, not sustained stress or write reliability
+qualification. Actual heap values remain unrecorded; first-upload reset behavior,
+forced-abort tests, persistence and longer shared-bus operation remain open.
+No additional build, flash, promotion or automated device test was performed
+while recording these results.

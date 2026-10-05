@@ -1,0 +1,10 @@
+{
+  "display_id": "EC6_147",
+  "description": "Waveshare ESP32-C6 LCD 1.47-inch",
+  "method": "arduino-cli",
+  "profile": "esp32c6-lcd-1-47",
+  "port_globs": ["/dev/serial/by-id/*Espressif*", "/dev/ttyACM*"],
+  "build_properties": {
+    "build.extra_flags": "-DRUNCPM_TARGET_ESP32C6_LCD_1_47 -DXTGV_RUNCPM=1 -DXTGV_TERMINAL=1 -DXTGV_CCP_7XF=1 -DSPI_DRIVER_SELECT=3"
+  }
+}

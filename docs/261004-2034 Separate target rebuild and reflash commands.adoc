@@ -1,0 +1,31 @@
+= Separate target rebuild and reflash commands
+:source-highlighter: rouge
+
+== Layout and behavior
+
+All six modules use `tools/targets/TARGET = DISPLAY_ID/` folders, following
+Petr's EC6_147 example. Target JSON metadata stays in `tools/targets/`.
+
+* `rebuild.sh`: compile and stage a fresh candidate; no device or mirror access.
+* `reflash.sh`: upload staged `new`, otherwise `current`; no compilation.
+* Separate adjacent `rebuild.log` and `reflash.log` retain detailed commands,
+  image paths and section delimiters. Existing reflash logs were preserved.
+* Conditional connection prompts, target checks and mirror restoration remain
+  unchanged. No automatic promotion or recovery bypass.
+
+[source,sh]
+----
+cd "src/RunCPM_7xtgv-terminal/tools/targets/esp32c6-lcd-1-47 = EC6_147"
+./rebuild.sh
+./reflash.sh
+----
+
+== Verification boundary
+
+Petr reports the preceding quiet workflow and connection behavior tested on
+ALL modules and working perfectly. This confirmation precedes the command split;
+it is not a hardware test of the newly split wrappers.
+
+Offline workflow tests and wrapper shell syntax checks pass. Dry-run checks
+verify rebuild selects compilation only and reflash selects upload only.
+No firmware was built or flashed by the agent during this reorganization.

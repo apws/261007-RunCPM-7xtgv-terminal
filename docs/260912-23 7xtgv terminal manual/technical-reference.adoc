@@ -14,6 +14,24 @@ feature and hardware-test status.
 The link:features_timeline.adoc[Features Timeline] gives a shorter history
 of delivered changes and command/file renames.
 
+== Current findings and developer reading map
+
+[cols="1,3",options="header"]
+|===
+|Topic |Current lesson and evidence
+|Recovered RunCPM baseline |The project is based on the recovered old CP/M 2.2 sources; newer upstream CP/M 3 work is a separate port, not a drop-in update. See link:../260928-16%20RunCPM%20recovered%20baseline%20and%20upstream%20drift%20note.adoc[baseline history].
+|HAL/core seams |Readable board-local definitions and narrow XTGV hooks isolate product behavior. See link:../261001-1322%20HAL%20challenge%20and%20readable%20board%20consolidation.adoc[HAL consolidation].
+|Storage performance |Direct SdFat/SPI and buffered transfers matter independently of compiler optimization. Requested SPI clock is not measured SCK. See link:../261002-12%20SdFat%20buffer%20transfers%20and%20SPI%20clock%20audit.adoc[SPI audit].
+|RAM/history |Reducing all histories to 100 entries recovered RP2350 headroom; do not infer usable heap from a simplistic linker-size subtraction. See link:../261003-22%20RP2_2%20INI%20cache%20pressure%20and%20Os%20trial.adoc[RAM findings].
+|Single-core runtime |C6 uses time-sliced tasks and one shared SPI object, not a second application CPU. See link:../261004-1057%20EC6_147%20experimental%20HAL%20implementation.adoc[C6 ownership].
+|Build tuning |IRAM placement and whole-build optimization are separate; W535 no longer forces local O2. See link:../261004-1302%20Build%20performance%20options%20and%20uniform%20optimization.adoc[build options].
+|Reproducibility |link:build-guide.adoc[Fresh-clone instructions] exist; the isolated all-target acceptance test is still outstanding.
+|===
+
+Dated documents preserve evidence and experiments. Their historical frequencies,
+pending-test statements and temporary implementations are not automatically
+the current firmware defaults.
+
 == ESP32-P4 memory and build settings
 
 The link:../261002-12%20SdFat%20buffer%20transfers%20and%20SPI%20clock%20audit.adoc[SdFat and SPI audit]
@@ -57,6 +75,35 @@ silently overrunning. The terminal continues draining output while input is
 full. No USB write occurs from the CP/M core. The sketch coordinates startup
 so CP/M does not start before display initialization. Other targets retain
 the same logical ownership but may use different board/task primitives.
+
+=== Single-core FreeRTOS and shared SPI
+
+EC6_147 experimentally runs the same two owners as separate FreeRTOS tasks
+on one application CPU. They are concurrent by preemption/time slicing, not
+simultaneously executing. Blocking queue waits and periodic one-tick delays
+allow the other task and the idle task to run. This does not use the C6
+low-power processor as a second Arduino core. Initial CPU and verified disk
+tests work; other single-core families such as C5 remain separate, untested ports.
+
+The bus lock is not automatic protection supplied by scheduling. In our
+installed Arduino-ESP32 3.1.0, SPIClass::beginTransaction takes a FreeRTOS
+mutex and endTransaction releases it (HAL locks must remain enabled).
+EC6_147 explicitly gives Arduino_HWSPI and SdFat the *same SPIClass object*,
+uses shared-interface/SHARED_SPI mode, and lets both drivers deselect their
+device before releasing the transaction. A competing task blocks on that
+mutex rather than changing SPI mode/clock or asserting its CS mid-transfer.
+
+FreeRTOS supplies the mutex and waiting mechanism; Arduino SPI uses it;
+our HAL connects both clients to it. Arbitrary GPIO/direct-register SPI access,
+an unrelated SPI wrapper, or a caller omitting transactions is not protected
+by this arrangement. Task priorities are not a replacement for mutual exclusion.
+Protecting SPI also does not synchronize filesystem objects or terminal state:
+their existing single-task ownership and queues remain required. Terminal
+INI/history saves are requests serviced by the RunCPM/storage owner, not a
+second task independently writing the card.
+
+See link:../261004-1057%20EC6_147%20experimental%20HAL%20implementation.adoc[C6 implementation and first hardware results]
+and link:../261004-0030%20ESP32-C6%20single-core%20integrated%20runtime%20feasibility.adoc[feasibility notes].
 
 Ctrl+Alt+C is a versioned host key event consumed before profile bindings,
 also in RAW mode. The terminal task only posts an atomic request; the RunCPM

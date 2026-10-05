@@ -53,6 +53,23 @@ renamed, or changes behavior.
 
 == Colour, transfer, boards, and storage
 
+At `261004-1057`, EC6_147 gains an experimental source HAL and build target:
+single-core FreeRTOS runtime, shared LCD/SD Arduino SPI transactions and
+SRAM history. Backlight is initially capped at approximately 50%. Host checks
+pass; full firmware build and hardware verification are still pending. See
+link:../261004-1057%20EC6_147%20experimental%20HAL%20implementation.adoc[C6 implementation checkpoint].
+
+The first C6 build `261004-1103` linked successfully. A subsequent approved
+C6-only diagnostic captures free/largest internal heap before terminal setup
+and reports it with the startup snapshot through the existing banner hook.
+That diagnostic is pending a new rebuild; the earlier image does not contain it.
+
+Build `261004-1109` includes heap diagnostics and was flashed. A hardware
+reset restored initially blank startup. Petr then confirms EC6_147 working:
+VTCPU active/quiet 9.22/13.74 MHz, VTDRV W write/read 4.42/10.15 KiB/s with
+verify PASS. These are initial measurements, not sustained qualification;
+heap readings and first-upload reset behavior remain to be recorded.
+
 At `261004-0010`, both fatal SD startup messages use the common red-paper
 warning helper on every integrated module, with plain text for non-ANSI
 profiles. Host tests cover both rows and attribute reset. See
@@ -367,6 +384,95 @@ Embedded stamp/read-only warning verified; flash and hardware test pending.
 The accompanying link:../261002-10%20P4%20memory%20caches%20and%20PSRAM%20execution.adoc[P4 memory reference]
 records SRAM headroom, S3/P4 cache and external-memory differences, and
 PSRAM execution as a supported but disabled future option, not a delivered feature.
+
+== 261004-1302: uniform dispatcher optimization and build-option inventory
+
+W535's function-local O2 override is removed from the product HAL.
+ESP32 dispatcher IRAM placement remains; optimization now follows whole-build
+flags on all targets. No core changes, rebuild or flash in this checkpoint.
+The link:../261004-1302%20Build%20performance%20options%20and%20uniform%20optimization.adoc[build-options reference]
+records compiler/LTO, memory placement, clocks, SPI backend, scheduling and
+STM32-specific considerations. Future tuning remains a separate measured task.
+
+== 261004-1647: practical manual reorganization, first pass
+
+Petr's manual-reorg outline becomes practical boot/profile/history, shell,
+palette/backlight and demo recipes in the User Guide, with chord/control
+mapping and corrected history/CARDMARK entries in the Reference Guide.
+Technical findings receive a compact evidence map; the Build Guide includes
+C6 and explicit fresh-clone acceptance gates, still unverified.
+Catalog/bank reorganization and keyboard/font SVGs remain proposals.
+See link:../261004-1647%20Manual%20task-first%20reorganization%20and%20reproducibility%20gates.adoc[scope and remaining work].
+
+== 261004-1848: isolated dependency builds and target launchers
+
+Six per-target shell launchers add a build/stage, guarded upload and mirror
+workflow. RP2350 BOOTSEL supports disk/chip selection and UF2 identity/family
+checks with physical-board confirmation; ESP serial group re-entry is handled
+without running builds as root. C6's reported failed attempt was wrong target
+selection; successful upload still required hardware RESET.
+
+The fresh-build script downloads tools/dependencies into isolated directories;
+working snapshot and published clone are explicitly different modes.
+ESP32 3.1.0 platform/index is now pinned in profiles, and an explicit Arduino
+config reaches property resolution, build and upload.
+Offline tests pass; actual isolated builds and device workflows are not tested
+at this checkpoint. See link:../261004-1848%20Isolated%20fresh%20builds%20and%20per-target%20reflash%20launchers.adoc[tooling details].
+
+== 261004-1907: concise launchers and recoverable build cleanup
+
+All target launchers show short step/status lines and selected image/stamp,
+retain detailed logs and report C6's possible hardware-reset requirement.
+49 old top-level build folders move to a private archive, not deletion;
+active per-target artifacts remain intact.
+See link:../261004-1907%20Quiet%20target%20workflows%20and%20legacy%20build%20archive.adoc[quiet-output and archive record].
+
+== 261004-1931: clear blocked-flash errors and adjacent logs
+
+Logs move beside each target command as TARGET-reflash.log, replaced per run
+and ignored by Git. Default failures report one reason rather than a log tail;
+identity-check rejection explicitly says no flash occurred. Petr's C6 1925
+build succeeded but its upload was blocked, explaining the prior running image.
+See link:../261004-1931%20Launcher%20error%20summaries%20and%20adjacent%20logs.adoc[error-report correction].
+
+== 261004-1944: minimal status and separated logs
+
+Petr's marked screenshot defines the normal launcher output: module, build,
+embedded stamp, upload and mirror-launch lines only. Paths/details move to the
+adjacent log with explicit BUILD/FLASH section separators. C6 remains serial
+upload without BOOTSEL. Short errors and target safety checks remain.
+
+== 261004-2000: RP2350 ready-to-flash Enter confirmation
+
+RP2350 launchers warn in red to connect the correct short-ID module in
+BOOTSEL, then accept Enter rather than retyping a long target name.
+Disk/chip and UF2 checks remain; mount/copy detail goes to the adjacent log.
+Petr reported the preceding RP2_147 1954 build/upload workflow successful.
+
+== 261004-2010: prompt only for absent device connections
+
+Already-connected RP2350 BOOTSEL disks skip Enter. Missing disks prompt with
+BOOTSEL wording; missing ESP serial nodes prompt without it, then rediscover.
+Ambiguity/mismatch checks remain. Petr reported both RP2350 launcher runs
+successful before requesting this refinement.
+
+== Separate module rebuild and reflash commands (261004-2034)
+
+Petr confirms the preceding quiet workflow and connection behavior on all six
+modules. Launchers now live in `DISPLAY_ID -- TARGET` folders: `rebuild.sh`
+stages a fresh candidate without device access; `reflash.sh` uploads existing
+`new`/`current` without compiling. Logs are separate and adjacent; existing
+logs were preserved. The split itself has offline validation, not new device tests.
+
+See link:../261004-2034%20Separate%20target%20rebuild%20and%20reflash%20commands.adoc[layout and verification boundary].
+
+== Explicit Arch setup (261004-2158)
+
+Rebuild/reflash notify about missing tools without installing automatically.
+Separate `tools/setup.sh` installs Arch/CachyOS prerequisites after approval;
+sudo is restricted to system packages. Arduino dependencies stay user-owned.
+Twenty offline tests pass; real disposable-system installation remains pending.
+See link:../261004-2158%20Explicit%20Arch%20setup%20and%20missing-tool%20notifications.adoc[plan and verification boundaries].
 
 == Command and catalog name lineage
 

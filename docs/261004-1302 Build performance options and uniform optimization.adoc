@@ -1,0 +1,91 @@
+= Build performance options and uniform optimization
+:source-highlighter: highlight.js
+:toc:
+
+== Scope and decision
+
+Petr requested documentation of performance-related build options beyond
+`-Os`, `-O2` and `-O3`, and removal of W535's function-local O2 override.
+This is not authorization for new tuning experiments.
+
+The product HAL now supplies only `IRAM_ATTR` for ESP32 `Z80run()`.
+Its optimization follows the whole-build compiler flags, including W535.
+The obsolete `XTGV_CPU1_O2` board definitions are removed, including the
+historical W535 SD_MMC alternative. No RunCPM core file is changed.
+Previously staged/flashed images retain their old settings until rebuilt.
+IRAM capacity still needs a target-specific link check; placement is not
+a promise of faster execution.
+
+== Options worth recording
+
+[cols="1,3",options="header"]
+|===
+|Category |Potential effect and qualification
+|CPU/peripheral clocks |CPU execution and peripheral dividers; increasing CPU clock does not guarantee faster SPI.
+|Flash/PSRAM mode and clocks |Instruction-fetch and framebuffer bandwidth, cache stalls; SPI/QSPI/OPI settings depend on the module.
+|Code/data placement |IRAM or ARM SRAM/ITCM versus cached flash; internal buffers versus PSRAM. Internal memory is limited, and not every memory region supports DMA.
+|SPI backend |Byte versus buffer transfers, DMA where implemented, shared versus dedicated bus, transaction overhead. Our SdFat buffer-transfer change produced much larger gains than O2/O3 trials.
+|Display settings |SPI clock, refresh/flush cadence and RGB/DSI pixel clock affect CPU and memory-bus load independently of compiler optimization.
+|RTOS settings |Task priority, affinity, tick frequency, stack sizes and yielding; especially relevant to C6's single-core CPU sharing.
+|LTO |`-flto` allows cross-translation-unit optimization when the compile/link workflow supports it. Precompiled libraries limit its reach; not enabled by this decision.
+|Optional runtime features |Logging, assertions, instrumentation, exceptions, RTTI and stack protection can affect resources or overhead. Do not disable safety features blindly.
+|Linker/library configuration |Memory-region layout, stack/heap reservations, unused-section collection, smaller C libraries and optional floating-point formatting.
+|===
+
+== Compiler choices and cautions
+
+* `-O0`: unoptimized debugging; `-O1`: lighter optimization.
+* `-Og`: debugging-oriented optimization.
+* `-Os`: size optimization; `-Oz`: more aggressive size optimization,
+  if the installed compiler supports it.
+* `-O2` and `-O3`: speed-oriented choices, not a ranking of measured results.
+  Larger code can increase cache pressure and be slower.
+* `-Ofast` relaxes language guarantees; it is not an approved blanket setting.
+* Inlining, alignment, loop unrolling and switch conversion have individual
+  flags, but should be investigated only against a measured bottleneck.
+
+Installed ESP32 SDK flags disable jump tables and some switch conversions.
+These may matter for the Z80 dispatcher, but changing them requires review
+of IRAM/flash-access constraints and correctness, not just a speed comparison.
+
+Architecture/ABI flags such as `-mcpu`, `-march`, `-mfpu` and
+`-mfloat-abi` should normally remain core-selected. Native floating-point
+hardware does not directly accelerate integer-based Z80 emulation.
+
+Debug-symbol information alone does not imply slower flashed code;
+debug logging and executable instrumentation are different.
+Changing source compilation flags does not rebuild precompiled ESP-IDF
+libraries. Check actual C, C++ and linker commands, not only requested flags.
+
+== Current profiles and STM32 applicability
+
+ESP32 whole-build defaults are generally Os. RP2350 project profiles select
+O3, with explicit trial overrides available. ESP32 dispatcher IRAM placement
+is separate from optimization; W535 no longer overrides it with local O2.
+
+STM32duino supports custom HAL configuration, including chip-dependent
+prefetch/cache settings, interrupt priorities and unused-peripheral removal.
+Exact options depend on the STM32 series and Arduino core version.
+DMA buffers must be accessible to the DMA engine; cached systems also need
+correct cache maintenance. Do not assume that our ESP32 SPI locking or
+FreeRTOS arrangements automatically carry over to another Arduino core.
+
+== Future experiment checklist
+
+* Consider a supported LTO trial, then memory-placement/cache investigation.
+* Change one variable at a time and retain a recoverable baseline.
+* Record toolchain/core/library versions and effective compile/link commands.
+* Record flash, IRAM, DRAM, free/largest heap and stack headroom where available.
+* Compare VTCPU active/quiet, VTDRV and display responsiveness on the same card,
+  supply and workload. Compiler tuning is not storage reliability qualification.
+
+No firmware rebuild, flash or new hardware benchmark was requested here.
+All five host core-hook regression tests pass; ledger validation and
+whitespace checks pass.
+
+== References
+
+* https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html[GCC optimization options]
+* https://gcc.gnu.org/onlinedocs/gcc/ARM-Options.html[GCC ARM target/ABI options]
+* https://github.com/stm32duino/Arduino_Core_STM32/wiki/HAL-configuration[STM32duino HAL configuration]
+* https://arduino-pico.readthedocs.io/en/stable/ide.html[Arduino-Pico board options]

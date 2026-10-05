@@ -1,0 +1,24 @@
+= Display-ID-first target folders
+:source-highlighter: highlight.js
+
+Petr tested the separate rebuild/reflash scripts successfully and renamed their
+folders to put the familiar module identifier first. The current layout is:
+
+* `EC6_147 -- esp32c6-lcd-1-47`
+* `EP4_10 -- jc8012p4a1c`
+* `ES3_35 -- jc8048w535`
+* `ES3_5 -- jc8048w550`
+* `RP2_147 -- rp2350-lcd-1-47-a`
+* `RP2_2 -- rp2350-touch-lcd-2`
+
+Each folder under `src/RunCPM_7xtgv-terminal/tools/targets/` contains
+`rebuild.sh` and `reflash.sh`, with separate adjacent logs. The log resolver
+now follows this naming scheme rather than recreating old target-first folders.
+JSON metadata and firmware artifact directories retain their target identifiers.
+
+In Double Commander, enter the module folder and use Shift+Enter on the desired
+script to launch it in a terminal, as tested by Petr.
+
+Rebuild stages a new candidate without accessing the device. Reflash uploads
+the existing candidate without compiling and restores the mirror. No firmware
+build or device operation was performed for this folder-name correction.

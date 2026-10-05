@@ -1,0 +1,2366 @@
+= 261005 7XTGV / RunCPM / z80pack / RomWBW Discussion — Literal Transcript
+Petr / Lyra
+:toc:
+:toclevels: 2
+:sectnums!:
+
+NOTE: This transcript contains the visible user and assistant messages from this conversation thread only. System/developer/tool messages are intentionally omitted. Formatting is preserved as closely as practical in AsciiDoc.
+
+== Petr
+
+261005-05 hi Lyra pls what is difference between RunCPM (for rp2350) and "pico z80" solution of cp/m emulation used in GEEK2350 ??
+
+== Lyra
+
+Hi Petr — the essential difference is **where the CP/M abstraction boundary is**.
+
+**RunCPM** is basically a *CP/M-oriented virtual machine*. It contains a Z80 emulator, but it does **not primarily try to emulate a particular historical Z80 computer with real disk controllers, ROM, I/O ports, etc.** Instead, CP/M programs run on the emulated Z80 and RunCPM provides its own BIOS/BDOS-facing environment, mapping CP/M drives rather conveniently onto host directories/filesystems. The Pico/RP2350 ports simply bring that architecture onto the microcontroller.
+
+The **Pico-Z80 style solution** is lower-level. It treats the RP2350 much more as a **Z80 machine emulator**: emulate the processor, give it 64 KB or banked memory, emulate I/O devices/storage, and then boot a more conventional CP/M 2.2 system *inside that machine*. In other words:
+
+[cols="1,1,1",options="header"]
+|===
+|
+| RunCPM
+| Pico-Z80 / GEEK2350-style CP/M
+
+| Main object being emulated
+| CP/M execution environment
+| Z80 computer
+
+| Z80 instructions
+| emulated
+| emulated
+
+| CP/M BIOS
+| specially adapted to RunCPM
+| ordinary/emulated-machine BIOS
+
+| Disk model
+| often directories/files on SD mapped directly to A:…P:
+| usually sector/block/disk-image oriented
+
+| I/O ports
+| only what RunCPM needs/extensions
+| actual emulated Z80 I/O model
+
+| Hardware fidelity
+| deliberately low
+| much higher
+
+| CP/M system image
+| partially integrated/virtualized
+| boots as guest software
+
+| Best for
+| running CP/M apps conveniently
+| pretending the RP2350 actually is a Z80 computer
+|===
+
+That distinction is particularly relevant to what we've been doing with your **7XTGV RunCPM**.
+
+RunCPM effectively says:
+
+[source,text]
+----
+CP/M program
+     ↓
+emulated Z80
+     ↓
+RunCPM BDOS/BIOS glue
+     ↓
+FatFs / SD / terminal / RP2350 hardware
+----
+
+Whereas Pico-Z80 says approximately:
+
+[source,text]
+----
+CP/M program
+     ↓
+real CP/M BDOS
+     ↓
+real CP/M BIOS for the virtual machine
+     ↓
+emulated Z80 + RAM + I/O ports + disks
+     ↓
+RP2350
+----
+
+So with Pico-Z80, something like:
+
+[source,asm]
+----
+IN   A,(10h)
+OUT  (20h),A
+----
+
+can represent a genuine emulated hardware interface. With RunCPM, arbitrary historical hardware ports normally **don't exist unless we deliberately implement an extension for them**.
+
+And this explains one of the things you've encountered with **FAND/MZ-821**. RunCPM is wonderful for application-level CP/M compatibility, but as soon as software expects peculiar BIOS calls, exact disk geometry, special console behaviour, or machine-specific hardware, we start adding compatibility machinery. A full machine emulator naturally has a place for those things.
+
+There is another subtle distinction: a modern Z80 emulator library can be **extremely faithful at CPU level**, including undocumented flags/instructions, while RunCPM doesn't necessarily need cycle-accurate hardware behaviour because CP/M application software generally doesn't care.
+
+One thing I could **not verify publicly** is the exact source/architecture called **“GEEK2350 Pico Z80”** — searches find the Waveshare RP2350-GEEK hardware but not documentation tying that precise product/name to a particular Pico-Z80 CP/M implementation. So I don't want to invent details about *its exact* FDC, disk format, or Z80 core.
+
+But architecturally, if the GEEK2350 package you're looking at says that it runs **Pico Z80 + CP/M 2.2**, the important distinction is almost certainly:
+
+> **RunCPM emulates the environment needed to run CP/M software. Pico-Z80 emulates a Z80 machine capable of running CP/M.**
+
+For our purposes, that also means **RunCPM is much easier to hack into the “7XTGV operating environment” we're building**, while Pico-Z80 would be the more interesting basis if we wanted an RP2350 to become a **generic virtual Z80 hardware platform**, with our own BIOS, banked memory, MMU-ish tricks, ports, DMA, etc.
+
+And *that latter architecture is actually rather close philosophically to your VMEX/ASLIX thinking*. 🙂
+
+== Petr
+
+okay, ya, I actually know already RunCPM, only that GEEK2350 I am curious, WHAT machine hardware it actually emulates .. I know there is Dazzler also, as its in fact tiny USB device with display, VERY likely that waveshare rp2350 1.47inch  TFT  in a box, or very similar thing, but you sed it is not documented what the SW emulation does, ?? this implementation is not open source ?? even that z80 emulator for pico ??
+
+== Lyra
+
+Yes — I found it now, and it is much more concrete than I implied before. The GEEK2350 project is **open source**, and it is not some vague “Pico Z80” black box. It is Udo Munk’s **z80pack** port for the Waveshare RP2040-GEEK / RP2350-GEEK boards.
+
+What it emulates is basically a **mid-1970s S-100 / Altair-class 8080/Z80 system**, not a specific later commercial CP/M computer.
+
+The emulated machine has:
+
+* switchable **Intel 8080 or Zilog Z80 CPU**
+* on RP2350, **352 KB RAM total** arranged as **7 × 48 KB banked segments + 16 KB common memory**
+* a tiny **256-byte boot ROM** at the top of memory
+* **three MITS Altair 88SIO Rev.1 serial interfaces**
+* another simple output-only printer port
+* a **DMA floppy-disk controller**
+* **four 8-inch, single-density IBM 3740-compatible floppy drives**
+* a **Cromemco Dazzler** graphics adapter, displayed on the little LCD
+* virtual disk images and configuration stored on microSD.
+
+So this is actually a lovely little thing. Architecturally, think:
+
+[source,text]
+----
+RP2350-GEEK
+   |
+   +-- Z80pack CPU emulator
+   |      +-- Intel 8080
+   |      `-- Zilog Z80
+   |
+   +-- 352 KB banked RAM
+   +-- 256 B boot ROM
+   +-- Altair 88SIO serial boards
+   +-- DMA floppy controller
+   +-- 4 x IBM 3740 8" floppy
+   `-- Cromemco Dazzler
+          |
+          `--> 1.47" LCD
+----
+
+And **CP/M is then simply software booted from those emulated floppy disks**. It can run CP/M 2.2, banked CP/M 3, UCSD p-System IV, FIG Forth, and — on RP2350 — even banked **MP/M II with two terminals**.
+
+That last part is especially interesting: the 352 KB arrangement isn't accidental. The RP2350 build exposes enough banked memory for genuine CP/M 3 / MP/M-style memory management.
+
+=== And yes, source is available
+
+The board-specific project is here:
+
+`RP2xxx-GEEK-80`
+
+and it uses Udo Munk's existing **z80pack** emulator.
+
+The build instructions explicitly say to clone z80pack, select its `dev` branch, then build the GEEK frontend around it. There are also ready-made UF2 binaries for both RP2040 and RP2350, including ARM and RP2350 RISC-V builds.
+
+So yes: **fully inspectable/hackable**.
+
+One terminology trap: this is **not the same project as “picoZ80”** by Philip Smart. That is another current RP2350 project entirely — a rather wild **drop-in DIP-40 Z80 replacement**, using RP2350 PIO to reproduce actual Z80 bus cycles and plug into original Z80 hardware. That project is also open-source GPLv3 firmware.
+
+For GEEK2350, the correct lineage is:
+
+[source,text]
+----
+Udo Munk z80pack
+        |
+        +-- complete virtual 8080/Z80 computer
+        |
+        `-- RP2xxx-GEEK-80 frontend
+                 |
+                 `-- Waveshare RP2350-GEEK
+----
+
+rather than the Philip Smart picoZ80.
+
+And yes, your observation about the **Dazzler** is exactly right: the little display isn't merely being used as a character terminal. It can display the actual **Cromemco Dazzler framebuffer**, while the machine's serial console remains via USB/UART. The LCD can also switch to register display, IMSAI-style front panel, disk status, I/O-port activity, memory dump, etc.
+
+So compared with our RunCPM work, this is considerably more “real computer”:
+
+> **RunCPM:** CP/M application environment with virtualized BDOS/BIOS/files.  
+> **GEEK-80:** an emulated 1976-ish S-100 computer on which unmodified-ish CP/M boots from an emulated 8-inch floppy.
+
+For **your experiments**, the GEEK-80 source may actually be very interesting to inspect, because its **banked 352 KB + common 16 KB + CP/M 3/MP/M implementation** is almost the opposite end of the design spectrum from the increasingly enhanced RunCPM environment we've been building.
+
+== Petr
+
+yup, I forgot, z80pack ... well, I know this is real hw emulation, umm, and in our RunCPM based 7xtgv-terminal, we use extended internal CCP and RunCPM has those io port hooks for some our commands, ... has z80pack also some custom hooks for measurement of time by cp/m apps?? would be hard to connect our 7xtgv-terminal to THIS cp/m emulation in fact?? they hae some linux port with own SDL display, ya ... I am considering still that our 7xtgv-terminal/RunCPM emulation for linux native using SDL (that shim for Arduino_GFX, you already found) ... may be this rather straightforward option to try to build that emulator?? rather than to connect it to z80pack (not sure about all seams and feasibility of our CCP internal commands and all tools ... probably somehow possible too, but more complex ...) ....
+
+== Lyra
+
+Yes — **I think your instinct is right: for a Linux-native 7XTGV-terminal, porting/compiling your existing RunCPM stack with an SDL Arduino_GFX shim is probably the much straighter path** than grafting 7XTGV onto z80pack.
+
+z80pack *can* expose host-backed services through emulated I/O ports, so in principle you could add your own “7XTGV device” exactly as an emulated peripheral. Its architecture already does this for things like serial ports, MMU/bank switching, disks, etc. But then your 7XTGV features become **guest-visible hardware/BIOS extensions**, rather than direct RunCPM host hooks.
+
+For date/time specifically, z80pack absolutely has the concept of host/RTC-backed time. What I have *not* yet found is a canonical “read host monotonic milliseconds through port XX” service comparable to the kind of custom timing hook you can simply add in RunCPM. That would be trivial to add to z80pack, though: reserve one or several ports and have the host side return seconds, ticks, µs, whatever representation you want.
+
+But the more important issue is your **CCP**.
+
+Your current thing is roughly:
+
+[source,text]
+----
+7XTGV extended CCP
+       |
+       +---- normal CP/M commands
+       |
+       +---- RunCPM-specific internal commands
+       |
+       +---- custom IN/OUT hooks
+       |
+       +---- terminal/history/editor/profile machinery
+       |
+       `---- Arduino_GFX
+                |
+                `---- physical LCD
+----
+
+RunCPM itself explicitly supports BIOS/BDOS handoff through its host side. So your architecture is already deliberately **half CP/M, half host application**.
+
+With Linux + SDL, we can instead make:
+
+[source,text]
+----
+                 SAME 7XTGV SOURCES
+                         |
+                  +------+------+
+                  |             |
+               RP2350         Linux
+                  |             |
+             Arduino_GFX   Arduino_GFX shim
+                  |             |
+                 TFT           SDL2
+----
+
+while leaving:
+
+[source,text]
+----
+extended CCP
+RunCPM
+custom commands
+history
+profiles
+host hooks
+filesystem abstraction
+----
+
+almost untouched.
+
+That is a very attractive property.
+
+=== z80pack would mean moving the seam
+
+To use your existing terminal with z80pack cleanly, I'd probably design an emulated **7XTGV peripheral**:
+
+[source,text]
+----
+        CP/M / your CCP
+              |
+          IN / OUT
+              |
+       virtual 7XTGV ports
+              |
+    +---------+----------+
+    |         |          |
+ keyboard   display     timer
+    |         |          |
+    +---------+----------+
+              |
+          Linux/SDL
+----
+
+Perfectly feasible.
+
+But then several things which are currently “free” because RunCPM itself owns CP/M become explicit interfaces:
+
+* screen operations → virtual device protocol
+* keyboard/events → virtual device protocol
+* host timing → virtual device registers
+* possibly files/host directory access → another virtual device or BIOS extension
+* internal CCP commands which directly call RunCPM host functionality → need refactoring
+* anything that assumes RunCPM's peculiar BDOS/BIOS implementation → has to be replaced or emulated
+* your extended CCP would need to become a **real guest CCP/COM-ish CP/M component**, rather than code partly living in RunCPM's host program.
+
+That last one is the killer. It doesn't mean impossible — actually it could be intellectually very nice — but you'd be converting 7XTGV from a **RunCPM-derived system** into an **actual CP/M machine/software distribution**.
+
+Meanwhile z80pack itself is deliberately much more faithful. Its `cpmsim` literally boots a BIOS and disk images, and reports simulated T-states and effective CPU frequency. That's excellent if the goal is “7XTGV hardware exists as a Z80 machine.”
+
+It is unnecessary friction if the immediate goal is:
+
+> **run precisely our current 7XTGV-terminal on CachyOS in a normal resizable SDL window.**
+
+So I'd split these as two different experiments:
+
+=== 7XTGV/Linux — do this first
+
+[source,text]
+----
+RunCPM
+ + current extended CCP
+ + all current hooks
+ + Arduino compatibility layer
+ + Arduino_GFX -> SDL2 backend
+----
+
+This should preserve an enormous percentage of your code. And since you already found that Arduino_GFX SDL-ish shim/library path, this isn't even a speculative architecture anymore.
+
+=== 7XTGV/z80pack — interesting later
+
+Treat it as another target:
+
+[source,text]
+----
+7XTGV-VIRTUAL-HARDWARE
+          |
+       z80pack
+          |
+      real CP/M
+----
+
+Then we'd deliberately define perhaps:
+
+[source,text]
+----
+E0-EF   7XTGV display/control
+F0-F3   host timer
+F4      keyboard status
+F5      keyboard data
+...
+----
+
+and make the terminal accessible to *any* CP/M program, not merely your CCP. That would actually be a quite cool end state — but it's a different project.
+
+One additional advantage of trying native RunCPM/Linux now: **RunCPM itself already has a normal host executable architecture.** z80pack supports Linux/X11/SDL2 broadly, but that SDL support belongs to z80pack's machine/front-panel/display ecosystem, not magically to Arduino_GFX or your terminal rendering model. So z80pack having SDL does **not** save us the 7XTGV display-porting job.
+
+Therefore my rough difficulty estimate is:
+
+[cols="2,1",options="header"]
+|===
+| Target
+| Relative effort
+
+| **RunCPM + existing 7XTGV + SDL Arduino_GFX shim**
+| **1×**
+
+| RunCPM + manually rewritten SDL renderer
+| ~1.5×
+
+| z80pack + 7XTGV virtual peripheral + adapted CCP
+| ~3–5×
+
+| z80pack + fully “real” 7XTGV CP/M machine/BIOS
+| ~5×+
+|===
+
+Not because z80pack is difficult — rather because **you'd intentionally throw away several convenient seams that we've already exploited in RunCPM**.
+
+And there's a nice strategic result: if the SDL/RunCPM version works, it gives us a **desktop reference implementation of 7XTGV**. Later, if we want the z80pack experiment, that reference tells us exactly what the emulated 7XTGV peripheral has to reproduce.
+
+So yes: **I would definitely try the Linux RunCPM + Arduino_GFX→SDL route first.** The z80pack route is the more “proper computer emulation” experiment, but not the shortest path to getting *your present terminal* running natively on Linux.
+
+== Petr
+
+okay, pls so that "`WANT_SDL=YES` — but that SDL support belongs to z80pack's machine/front-panel/display ecosystem" means this is NOT used in z80pack to implement terminal?? only those some front panels??
+
+== Lyra
+
+Yes — **that’s what I meant**: in z80pack, `WANT_SDL=YES` is mainly about the **graphical machine UI** — front panels, Dazzler/video-style displays, status windows, etc. It is **not the normal CP/M text terminal implementation**.
+
+For `cpmsim`, the ordinary CP/M console is basically a **serial/TTY-style host terminal**. You run `cpmsim` from a Linux terminal and CP/M I/O goes through that terminal/pty path, not through an SDL terminal window.
+
+So conceptually:
+
+[source,text]
+----
+z80pack cpmsim
+
+CP/M CON:
+   ↓
+emulated SIO / console interface
+   ↓
+host terminal / tty
+   ↓
+xterm / Konsole / Kitty / etc.
+----
+
+while SDL is more like:
+
+[source,text]
+----
+emulated machine graphics
+       ↓
+front panel / Dazzler / visual peripheral
+       ↓
+SDL window
+----
+
+That distinction matters a lot for **7XTGV**, because your terminal is not merely “some ANSI terminal around CP/M.” Your display/editor/history/UI is itself the interesting thing.
+
+So enabling:
+
+[source,make]
+----
+WANT_SDL=YES
+----
+
+would **not suddenly give cpmsim a graphical 80×25 SDL terminal** that you could easily replace with your 7XTGV renderer.
+
+You’d still need to build one of two bridges:
+
+[source,text]
+----
+CP/M console chars
+      ↓
+7XTGV terminal engine
+      ↓
+Arduino_GFX/SDL
+----
+
+or make 7XTGV an emulated hardware device.
+
+That reinforces the attraction of the other route: with your current RunCPM tree, the **7XTGV renderer already sits in the right place**. Replace only the bottom graphics/input backend:
+
+[source,text]
+----
+RP2350:
+7XTGV → Arduino_GFX → ST7796/etc.
+
+Linux:
+7XTGV → Arduino_GFX-compatible shim → SDL
+----
+
+and RunCPM/CCP above it hardly needs to know.
+
+One qualification: z80pack’s graphical emulations absolutely **can use SDL for a guest display device** — the Dazzler is the obvious example — so technically you could implement an SDL-backed terminal peripheral there too. It’s just **not what `WANT_SDL` already provides for the CP/M console**.
+
+So my earlier phrase “machine/front-panel/display ecosystem” was intentional, yes. The console and SDL graphics paths are different beasts.
+
+== Petr
+
+well, pls how much is our "terminal/history/editor/profile machinery" bound to RunCPM internals?? I saw in source  ""something"" but in fact its only reactions on some bound keyevents to browse that history and enter line and/or delete line from history, nothing so dramatic ....
+
+== Lyra
+
+Yes — I think I overstated the coupling a bit earlier.
+
+From what we have already done in **7XTGV-terminal**, the **terminal/history/editor/profile machinery itself is probably only lightly coupled to RunCPM**. The deeper coupling is more specifically in the **extended internal CCP commands and host-service hooks**, not in the editor/history engine.
+
+What you describe matches my understanding: most of the interactive layer is essentially this:
+
+[source,text]
+----
+key event
+   ↓
+7XTGV line editor
+   ├─ cursor left/right
+   ├─ insert/delete
+   ├─ history prev/next
+   ├─ history delete
+   ├─ filtered recall
+   └─ Enter
+        ↓
+completed command line
+----
+
+That is almost entirely independent of *why* somebody is asking for a line.
+
+So we can think of it as three layers:
+
+[source,text]
+----
+ ┌──────────────────────────────────┐
+ │  7XTGV terminal UI               │
+ │                                  │
+ │  screen rendering                │
+ │  keyboard decoding               │
+ │  command-line editor             │
+ │  history                         │
+ │  history filtering               │
+ │  profiles                        │
+ └──────────────┬───────────────────┘
+                │ line / characters
+ ┌──────────────▼───────────────────┐
+ │  console / CCP integration       │
+ └──────────────┬───────────────────┘
+                │
+ ┌──────────────▼───────────────────┐
+ │ RunCPM-specific services         │
+ │ internal CCP commands            │
+ │ I/O-port host hooks              │
+ │ filesystem shortcuts etc.        │
+ └──────────────────────────────────┘
+----
+
+The **top block should be highly reusable**.
+
+For example, your clever history behavior — type perhaps one or two characters, then recall only matching commands, while edited recall lines don't necessarily pollute history — doesn't need to know anything about RunCPM.
+
+The same is true of profiles.
+
+The interesting seam is probably just something similar to:
+
+[source,cpp]
+----
+int GetChar();
+void PutChar(uint8_t c);
+void SubmitLine(const char *line);
+----
+
+and perhaps events:
+
+[source,cpp]
+----
+KeyEvent GetKey();
+uint32_t GetMilliseconds();
+----
+
+If that abstraction is already approximately present, then attaching the **same 7XTGV terminal frontend to z80pack might actually be much less work than I suggested**.
+
+=== Where RunCPM really enters
+
+The things that *are* RunCPM-specific are likely commands such as your added:
+
+[source,text]
+----
+ls
+ll
+cd
+...
+----
+
+depending on how we implemented them.
+
+If an internal CCP command does:
+
+[source,cpp]
+----
+if (!strcmp(cmd, "cd"))
+{
+    chdir(...);       // host filesystem
+}
+----
+
+or invokes one of your custom RunCPM I/O hooks, then that piece is host/RunCPM-specific.
+
+But that's very different from saying the **line editor** is RunCPM-specific.
+
+Likewise:
+
+[source,text]
+----
+Ctrl-Up
+Alt-something
+history recall
+delete history entry
+profile hotkey
+editor movement
+----
+
+are just terminal events.
+
+They can survive unchanged.
+
+=== z80pack might therefore need surprisingly little
+
+Potentially:
+
+[source,text]
+----
+                7XTGV terminal
+                /            \
+         character out     keyboard in
+              ↓                 ↑
+          z80pack SIO / console device
+----
+
+Instead of letting z80pack's serial device send output to Unix `stdout`, we'd make its console callback feed:
+
+[source,cpp]
+----
+Terminal.PutChar(c);
+----
+
+And instead of getting input from Unix `stdin`:
+
+[source,cpp]
+----
+c = Terminal.GetChar();
+----
+
+Then the CP/M guest sees an ordinary serial terminal.
+
+That alone could give us:
+
+* 7XTGV renderer
+* history
+* editor
+* profiles
+* keyboard mappings
+* terminal escape decoding
+* MZ-821/FAND terminal profile
+* all your display machinery
+
+with **no CP/M awareness at all in that layer**.
+
+That is actually rather elegant.
+
+=== The CCP is the separate question
+
+Your current internal CCP is more complicated because RunCPM owns it.
+
+Some commands are probably ordinary enough to port into a genuine CP/M CCP; some are really host extensions.
+
+So if we connected 7XTGV to z80pack tomorrow, initially we could simply run z80pack's normal CP/M CCP:
+
+[source,text]
+----
+CP/M guest CCP
+      ↓
+   console
+      ↓
+7XTGV editor/display
+----
+
+The 7XTGV **history/editor would still work**, because it can intercept and edit keyboard input before giving characters to CP/M.
+
+There's one subtlety here.
+
+If 7XTGV performs line editing *outside* CP/M and only sends the completed line after Enter, then CP/M sees:
+
+[source,text]
+----
+DIR<CR>
+----
+
+all at once.
+
+That works beautifully for CCP commands.
+
+But interactive CP/M applications such as editors, FAND, games, etc. need **individual keystrokes immediately**. Therefore I expect you already effectively have two behaviours:
+
+[source,text]
+----
+line-edit/history mode
+        versus
+raw/application mode
+----
+
+or some equivalent distinction.
+
+Again, neither requires RunCPM specifically.
+
+=== So I would revise my earlier estimate
+
+Instead of saying:
+
+> z80pack + 7XTGV = 3–5× harder
+
+I'd now distinguish two goals.
+
+**Just use 7XTGV as z80pack's terminal:**
+
+Probably quite modest work:
+
+[source,text]
+----
+z80pack console output → 7XTGV PutChar()
+7XTGV keyboard → z80pack console input
+SDL/Arduino_GFX underneath
+----
+
+Maybe **~1.5× the Linux RunCPM port**, not 3–5×.
+
+**Reproduce our whole modified RunCPM environment including its internal CCP and host commands:**
+
+That's where the larger effort appears.
+
+[source,text]
+----
+terminal/history/editor/profile    easy to transplant
+terminal protocol decoders         easy
+SDL renderer                       common work
+keyboard handling                  easy/moderate
+
+extended RunCPM CCP                needs adaptation
+host filesystem commands           needs adaptation
+RunCPM-specific I/O hooks          needs replacement
+special BDOS/BIOS assumptions      investigate individually
+----
+
+And interestingly, z80pack could give us a very clean experiment:
+
+[source,text]
+----
+              7XTGV
+                │
+       ┌────────┴────────┐
+       │                 │
+    RunCPM            z80pack
+       │                 │
+ virtual CP/M       "real" CP/M
+----
+
+**same terminal frontend, two CP/M backends.**
+
+That would actually tell us exactly which parts of 7XTGV have accidentally become RunCPM-dependent.
+
+Given what I remember of the way we've built the history/profile/editor side, I suspect the answer will be: **surprisingly little.** The messier dependency is in our enhanced CCP, not in the terminal.
+
+== Petr
+
+ya, I know that extended CCP is different thing and those hooks for our mostly benchmark commands and xterm256 sgr256 (how best to call this?) ... not necessary now, the first RunCPM for linux using Arduino_GFX/SDL is good things .... ya - but sure, if some "minimal seam" can be prepared for say BIOS-only (?) related to input(??) for any CP/m system, including say RomWBW ...then such 7xtgv-terminal things can work also in those, ya?
+
+== Lyra
+
+Yes — **that is exactly the right abstraction to aim for**.
+
+The cleanest design is not “bind 7XTGV to RunCPM” or even “bind it to z80pack.” It is:
+
+> **make 7XTGV a generic terminal frontend with a tiny character-I/O seam.**
+
+For classic CP/M, that seam is almost embarrassingly small because the BIOS already defines the basic console contract:
+
+* `CONST` — is a character available?
+* `CONIN` — read one character
+* `CONOUT` — write one character
+* optionally `LIST` etc.
+
+So conceptually 7XTGV could expose something like:
+
+[source,cpp]
+----
+bool ConsoleInputReady();
+uint8_t ConsoleInput();
+void ConsoleOutput(uint8_t c);
+
+uint32_t Millis();      // host convenience, not CP/M-required
+----
+
+and everything above that remains yours:
+
+[source,text]
+----
+keyboard events
+history
+filtered recall
+line editor
+profiles
+terminal parser
+ANSI / SGR / xterm-256 handling
+screen model
+renderer
+----
+
+Then the backend changes.
+
+RomWBW is especially promising because it already has its own **hardware abstraction BIOS layer (HBIOS)** underneath the operating systems.
+
+So in a RomWBW build you could conceptually hook 7XTGV either at:
+
+[source,text]
+----
+CP/M BIOS CONIN/CONOUT
+----
+
+or even lower:
+
+[source,text]
+----
+RomWBW HBIOS character-device layer
+----
+
+The latter is probably nicer if you ever wanted the same terminal to serve not only CP/M but also other RomWBW-hosted environments.
+
+And yes, I'd call your `SGR256` feature something like **“xterm-256color / ANSI SGR 256-color support”**. More precisely, the thing being parsed is ANSI/ECMA-48-style SGR with the widely used xterm extension:
+
+[source,text]
+----
+ESC [ 38 ; 5 ; n m    foreground
+ESC [ 48 ; 5 ; n m    background
+----
+
+So internally I'd probably name it something boring like:
+
+[source,cpp]
+----
+AnsiSgr256
+----
+
+or:
+
+[source,cpp]
+----
+Xterm256Color
+----
+
+rather than tying it to RunCPM.
+
+The interesting architectural point is that the terminal should know **nothing** about CP/M commands. It should only see:
+
+[source,text]
+----
+bytes out
+bytes in
+key events
+time/ticks
+----
+
+and perhaps a few optional capabilities.
+
+Something like:
+
+[source,cpp]
+----
+struct TerminalHost
+{
+    bool (*InputReady)();
+    uint8_t (*ReadByte)();
+    void (*WriteByte)(uint8_t c);
+
+    uint32_t (*Millis)();
+
+    // optional
+    void (*Bell)();
+    void (*SetClipboard)(...);
+};
+----
+
+Then your existing history/editor/profile machinery lives entirely above this.
+
+There is only one important distinction to preserve: **line-edit mode versus raw terminal mode**.
+
+At a CP/M prompt, 7XTGV may want to intercept keys and provide its fancy history/editor.
+
+But when running FAND, WordStar, games, editors, etc. physical keys should become immediate input bytes.
+
+That boundary is generic enough that **RunCPM, z80pack, RomWBW, or even a physical Z80 over UART could all sit behind it**.
+
+So yes: **BIOS-like character I/O is enough for the terminal itself**. The fancy RunCPM hooks can remain a separate optional extension layer, rather than being part of the terminal contract.
+
+== Petr
+
+ya, in fact, who is first to see the conin?? is this cp/m bios which sends it to terminal in all cases? if the terminal recognizes tha cursor up/dn and recalls history to line and handles its own line editing always, in fact, until Enter, then we dont need much hooks in cp/m / ccp or yes?? fact is there are custom jandlers for now for bbcbasic and mbasic also ... I wonder still how the history is bound into cp/m ... I expected mostly its only terminal thing ...
+
+== Lyra
+
+Yes — your intuition is basically right: **the history can be almost entirely a terminal-side feature**. The interesting part is *when the terminal decides to keep keystrokes for itself instead of immediately delivering them to CP/M*.
+
+In ordinary CP/M the chain is roughly:
+
+[source,text]
+----
+keyboard
+   ↓
+terminal / console device
+   ↓
+BIOS CONIN / CONST
+   ↓
+BDOS console functions
+   ↓
+CCP or application
+----
+
+For the normal CCP command prompt, the CCP typically asks BDOS for a **buffered console line**. BDOS then repeatedly obtains characters via the BIOS console input path and performs the traditional CP/M editing rules.
+
+But with 7XTGV we can insert ourselves *before* CP/M sees those characters:
+
+[source,text]
+----
+physical key
+    ↓
+7XTGV terminal
+    │
+    ├─ Up/Down → history
+    ├─ Left/Right → local editor
+    ├─ Backspace/Delete → local editor
+    ├─ text → edit local line
+    │
+    `─ ENTER
+         ↓
+ send resulting characters to CP/M
+         ↓
+ BIOS CONIN → BDOS → CCP
+----
+
+So while you're editing:
+
+[source,text]
+----
+DIR *.COM
+----
+
+CP/M does **not necessarily need to receive** every byte as you type it.
+
+7XTGV can hold that whole editable line internally and, at Enter, make the CP/M side see essentially:
+
+[source,text]
+----
+D I R   * . C O M CR
+----
+
+through successive `CONIN` calls.
+
+That means **Up/Down history, filtered recalls, deletion of history entries, cursor editing, etc. require essentially no CCP modifications at all.**
+
+=== Why do BASIC handlers exist then?
+
+That's the revealing part.
+
+The distinction isn't really:
+
+> CCP vs application
+
+but rather:
+
+> **line-oriented interactive program vs raw/key-oriented program.**
+
+The CCP is very easy because it waits for a command line.
+
+MBASIC and BBC BASIC also have interactive prompts and you quite reasonably want history there too.
+
+But their console behaviour is not necessarily identical to CCP/BDOS buffered-input behaviour. They may use different BDOS calls, read characters themselves, implement their own editing, react differently to control characters, etc.
+
+Hence your custom handlers are probably telling 7XTGV something like:
+
+> “We're at an MBASIC command prompt, so treat this as an editable/history-aware line.”
+
+rather than adding history *inside MBASIC*.
+
+Conceptually:
+
+[source,text]
+----
+                  7XTGV
+                    │
+           ┌────────┴────────┐
+           │                 │
+       LINE MODE          RAW MODE
+           │                 │
+ history/editor       immediate keys
+           │                 │
+       CCP prompt         WordStar
+       MBASIC prompt      games
+       BBC BASIC          FAND editor
+       etc.               cursor apps
+----
+
+Why can't we simply use line mode always? Because WordStar expects cursor keys immediately.
+
+So we need some concept of:
+
+[source,text]
+----
+History/Edit mode
+----
+
+versus:
+
+[source,text]
+----
+Raw/Application mode
+----
+
+but **that state can still belong almost entirely to the terminal**, not CP/M.
+
+The CP/M side can remain almost ignorant.
+
+One subtle issue is echo: if 7XTGV visually displays the line while editing locally and then feeds the whole line into BDOS at Enter, CP/M may echo it again. So somewhere the implementation must deal with that. That is probably the exact place worth inspecting in source.
+
+So I would describe the architecture now as:
+
+[source,text]
+----
+                    7XTGV TERMINAL
+ ┌────────────────────────────────────────────────┐
+ │ screen / ANSI / xterm-256                     │
+ │ keyboard mapping                              │
+ │                                               │
+ │ smart input layer                             │
+ │   ├─ line editor                              │
+ │   ├─ history                                  │
+ │   ├─ filtered recall                          │
+ │   ├─ CCP profile                              │
+ │   ├─ MBASIC profile                           │
+ │   └─ BBC BASIC profile                        │
+ │                                               │
+ │ raw input fallback                            │
+ └────────────────────┬───────────────────────────┘
+                      │ characters
+                      ↓
+             CP/M console interface
+                      ↓
+           BIOS / BDOS / application
+----
+
+And yes — **I now think “history belongs to the terminal” is the right mental model**, with only a small amount of cooperation needed to know when line mode is appropriate and perhaps to handle echo cleanly.
+
+== Petr
+
+ya, okay, in fact, for there "different in-app situations" we have that explicit switch of app bank/profiles, where are defined custom handlings, so in fact, as in wordstar history may not have sense, it still may be somehow useable and configured for say ALT+up/dn ... (or that proposed "filtered keywords" support instead of FIFO history ...) ... ya, okay for now ... good
+
+== Lyra
+
+Yes, exactly. Your **explicit app/profile bank** is the clean way to handle this rather than trying to infer too much from CP/M itself.
+
+So for example WordStar could have a profile where plain ↑/↓ go straight through, while `Alt+↑/↓` invokes 7XTGV history—or perhaps better there, the **filtered keyword/snippet recall** you were planning. MBASIC could have command history on normal ↑/↓, CCP another profile, and FAND its own mappings.
+
+That makes the terminal layer look even more portable: the backend only supplies characters; the active 7XTGV profile decides which key events are local terminal functions and which become CP/M input.
+
+So yes, for now I’d keep the mental split as: **profiles own interaction policy; CP/M backend owns byte transport.** That’s a very nice seam.
+
+== Petr
+
+ok, tell me pls also based mostly on chapter 9 and this section "10.7 Video Display Adapter (VDA)" or RomWBW system guide, what is actually style of support of terminals in RomWBW - there IS something like ANSI/VT100 embedded, but connected to those VDU-drivers for different chips ... here I expected in fact also my chip-like "7xtgv" in case of sw-emulation possible, or just some hw with MCU and TFT display (so, our modules ... conencted to ports or possibly some memory bank ...) ... how this in fact relates?? it seems as I read that VDU docs, that in fact also RomWBW handles ANSI colors slighty differently, rather possible like us, for INK, but it retains that default ANSI ability for 16 background colors, sure ... (we have only those 4) and its question how/IF it handles also that BRIGHTNESS attribute specifically or only reverse/underline/blink .... try pls to deeply analyze this "system guide" related to internal RomWBW terminal emulation and possibily to integrate our 7xtgv-terminal there (or only "7xtgv-chip", but in fact, for us is interesting also that "smart-terminal" ....)
+
+== Lyra
+
+Yes — after reading chapter 9, §10.7, and then checking the current `term.asm` / `ansi.asm`, RomWBW’s design is **very close to the separation we were just converging on for 7XTGV**, but it has one important extra layer.
+
+The key diagram on page 24 is really the whole story:
+
+[source,text]
+----
+                    RomWBW HBIOS
+
+                CIO character stream
+                       │
+          ┌────────────┴────────────┐
+          │                         │
+       UART/ASCI                  CRT pseudo-device
+                                    │
+                             terminal emulator
+                              TTY / ANSI
+                                    │
+                                  VDA API
+                                    │
+                      ┌─────────────┼─────────────┐
+                     VDU           TMS           Xosera ...
+                      │
+                 physical display
+----
+
+RomWBW explicitly says that ordinary OS code normally uses **CIO** byte streams. If the target is the special `CRT` character device, those bytes are routed through the built-in terminal emulator; the emulator interprets TTY/ANSI sequences and then calls the device-independent VDA operations.
+
+That distinction is crucial for thinking about 7XTGV.
+
+=== 1. VDA is not really a “terminal”
+
+VDA is much more like a **generic character-video chip API**.
+
+Its interface is already surprisingly close to what you could call a hypothetical **7XTGV chip**:
+
+[source,text]
+----
+initialize display
+query rows/columns
+reset
+set cursor shape
+set cursor position
+set attributes
+set foreground/background colour
+write character
+fill region
+copy characters
+scroll screen
+
+keyboard status
+keyboard flush
+keyboard read
+read character+attribute from screen
+----
+
+So yes: a completely reasonable addition would conceptually be
+
+[source,text]
+----
+VDADEV_7XTGV
+    |
+    +-- RP2350/ESP32 MCU
+    +-- TFT
+    +-- keyboard
+----
+
+with a tiny RomWBW Z80-side driver talking to it over I/O ports or a memory-mapped/banked interface.
+
+The MCU could then implement the VDA operations and RomWBW would consider it simply another local video adapter.
+
+That is **7XTGV-as-chip**.
+
+=== 2. RomWBW's ANSI emulator sits ABOVE those chip drivers
+
+The VDU/TMS/Xosera driver does **not** parse ANSI itself.
+
+RomWBW does:
+
+[source,text]
+----
+CP/M writes:
+
+ESC [ 31 ; 1 m Hello
+
+             ↓
+
+        RomWBW ANSI emulator
+
+             ↓
+
+VDASCO red+bright
+VDAWRC H
+VDAWRC e
+...
+----
+
+Chapter 9 explicitly says the emulator implements “TTY, ANSI, etc. escape sequences”, and then uses VDA for cursor positioning, scrolling and so forth; the emulation code therefore does not know which physical video adapter is underneath it.
+
+The current source confirms this even more strongly. `term.asm` says that a **VDA driver attaches itself to the terminal layer**, and the terminal layer selects either the TTY or ANSI emulator. That resulting object is then registered as a **CIO terminal device**.
+
+So:
+
+[source,text]
+----
+physical VDA
+     ↑
+ ansi.asm
+     ↑
+ term.asm
+     ↑
+ CIODEV_TERM
+     ↑
+ CRT
+----
+
+This is quite elegant.
+
+=== 3. Colours
+
+The VDA itself has a full **4-bit RGBI foreground + 4-bit RGBI background** byte.
+
+So it genuinely represents **16 foreground × 16 background = 256 combinations**.
+
+But RomWBW's ANSI parser does not expose all of that through ordinary SGR.
+
+It recognizes:
+
+[source,text]
+----
+SGR 0       reset
+SGR 1       bold/intensity
+SGR 4       underline
+SGR 5       blink
+SGR 7       reverse
+
+SGR 30..37  foreground
+SGR 40..47  background
+----
+
+It does not currently parse bright foreground/background ranges or xterm-256/truecolor.
+
+And this answers the brightness question precisely.
+
+`SGR 1` is not stored as an attribute.
+
+RomWBW maps it to foreground RGBI intensity.
+
+Meanwhile the VDA attribute byte is only:
+
+[source,text]
+----
+bit 2   reverse
+bit 1   underline
+bit 0   blink
+----
+
+So there is **no separate bold/brightness attribute in VDA**.
+
+It is colour intensity.
+
+The VDA can absolutely represent bright backgrounds because background has its own intensity bit, but the stock ANSI parser doesn't provide SGR 100–107.
+
+Your current restriction of **4 background colours** would simply be a reduced-capability VDA implementation. Unsupported colours/attributes may simply be ignored.
+
+=== 4. Keyboard handling is richer than ordinary CP/M CONIN
+
+VDA keyboard read returns:
+
+[source,text]
+----
+Scancode
+Keystate
+Keycode
+----
+
+not merely ASCII.
+
+Keystate includes modifiers like Shift, Control, Alt, Windows/Super, lock states, etc.
+
+This means RomWBW already has an interface capable of representing precisely things such as:
+
+[source,text]
+----
+Alt + Up
+Ctrl + Left
+Shift + F5
+----
+
+at the VDA boundary.
+
+That is extremely suitable for 7XTGV.
+
+But the stock `ansi.asm` then converts special keys into VT-style escape sequences, losing some of the richer structure.
+
+=== 5. Therefore there are really TWO sensible 7XTGV integrations
+
+==== A. `7XTGV-VDA` — the “chip”
+
+[source,text]
+----
+CP/M
+ ↓
+CIO CRT
+ ↓
+RomWBW ANSI emulator
+ ↓
+RomWBW VDA
+ ↓
+7XTGV VDA driver
+ ↓
+MCU + TFT + keyboard
+----
+
+Here 7XTGV is equivalent to a VDU/TMS/Xosera-like device.
+
+==== B. `7XTGV smart terminal`
+
+[source,text]
+----
+CP/M
+ ↓
+CIO byte stream
+ ↓
+7XTGV terminal
+      ├─ ANSI/xterm parser
+      ├─ screen model
+      ├─ history
+      ├─ line editor
+      ├─ profiles
+      ├─ filtered recall
+      └─ keyboard policy
+ ↓
+TFT
+----
+
+Here we deliberately **do not want RomWBW ANSI emulation in between**.
+
+RomWBW should think 7XTGV is effectively some kind of external terminal.
+
+Then an application emits ANSI bytes and **our existing 7XTGV parser receives them intact**.
+
+For **our existing project**, this is probably the more interesting architecture.
+
+=== 6. Could the smart machinery live behind VDA anyway?
+
+Yes, but then the original byte stream has already been translated into VDA operations.
+
+That is fine for rendering but makes the 7XTGV terminal parser redundant.
+
+So I’d call this device a **7XTGV VDA adapter** rather than 7XTGV terminal.
+
+=== 7. History/profile/editor changes the choice
+
+RomWBW's ANSI layer is basically a terminal protocol translator.
+
+Your 7XTGV is:
+
+[source,text]
+----
+terminal protocol translator
++
+interactive keyboard policy
++
+history
++
+line editor
++
+application profiles
++
+filtered keyword/snippet system
+----
+
+That second category has no obvious equivalent in RomWBW's terminal emulator.
+
+So I'd preserve those functions before keys are converted into ordinary VT sequences.
+
+=== 8. A third option
+
+The actual current `term.asm` contains:
+
+[source,text]
+----
+VDAEMU == EMUTYP_TTY
+or
+VDAEMU == EMUTYP_ANSI
+----
+
+So architecturally, it is tempting to imagine:
+
+[source,text]
+----
+VDAEMU == EMUTYP_7XTGV
+----
+
+with a parallel 7XTGV emulation module.
+
+Conceptually neat, but practically backwards because it would mean porting substantial smart-terminal logic into Z80-side HBIOS.
+
+=== 9. Clean hardware-module architecture
+
+For an RP2350/ESP32 TFT module connected to a Z80 machine, two distinct modes are worth defining:
+
+[source,text]
+----
+MODE 1: VDA DEVICE
+
+Z80/RomWBW                RP2350
+-----------               ----------------
+VDASCP       ───────────► cursor
+VDASCO       ───────────► colour
+VDASAT       ───────────► attributes
+VDAWRC       ───────────► character
+VDASCR       ───────────► scroll
+VDAKRD       ◄─────────── keyboard event
+
+RomWBW performs ANSI
+----
+
+and:
+
+[source,text]
+----
+MODE 2: SMART TERMINAL
+
+Z80/RomWBW                RP2350
+-----------               ----------------
+CIOOUT byte  ───────────► 7XTGV parser
+                          ANSI/SGR256
+                          screen
+                          profiles
+                          history/editor
+
+CIOIN byte   ◄─────────── 7XTGV keyboard engine
+
+7XTGV performs ANSI
+----
+
+Mode 2 is essentially what your existing 7XTGV-terminal already is.
+
+Mode 1 would be a new, elegant way to make your modules native RomWBW video hardware.
+
+== Petr
+
+well, okay, that our xterm256 is hack which is not infact possible now in 7xtg-native, only by using that SEMI mode of cells, ... btw, while our 7yrgv-native attributes define 16 inks and only 4 papers, we have (planned/specifiedd) in fact 2 layers of char cells (+ also that logical backlight/brightness layer) - and I am not sure now how much possible using curret "spec" not yet simulated, nothing) we are possible to "abuse" this to somehow present ALSO more additional background/paper colors (at least intensities of those pale/dawn RGB ...) ... as far as I know, I wanted to use those brightness levels somehow for "entire cell" (??) or to have separate brightness to effective ink and paper ??? -- can you peek this from these specs made sevaral days ago ??? ---- you know, I myself cant fully imagine what all might be with "7xtgv-native" possible ... but it seems it may be quite surprising engine even for some cool demos ... and this "mimicking" of more background colors/intensities may be interesting also --- as last thing related to our biggest 10inch display at 1280x800 we also settled on 204x80 "big terminal desktop size" (which fits with entire cells memory under 64kB ... AND I recently also thought, that may be FAR better to "interleave" the buffers to have just all 4 bytes per cell nearby as just single 32bit word - for easy "cell-blt" and overlapping windows support ...
+
+== Lyra
+
+Yes — I checked both specs, and the current native design is actually **richer than “one cell brightness”**. We had already settled on **separate 4-bit paper and ink brightness**, not one common cell brightness.
+
+For `TEXT/WIND/INST`, the native cell is:
+
+[source,text]
+----
+CHAR_A
+CHAR_B
+ATTR = MM PP IIII
+EXTA = PPPP IIII
+----
+
+where `ATTR.PP` selects one of **4 base paper colors**, `ATTR.IIII` one of **16 base ink colors**, while `EXTA.PPPP` is **paper brightness 0..15** and `EXTA.IIII` is **ink brightness 0..15**.
+
+So your memory was right in the stronger form:
+
+> **paper has its own 16-level brightness and ink has its own 16-level brightness.**
+
+And there is still potentially a completely separate physical backlight control beneath all of that.
+
+=== This already gives much more than “4 paper colours”
+
+Logically you encode only:
+
+[source,text]
+----
+4 paper hues × 16 paper levels
+----
+
+so potentially **64 visibly different paper RGB565 outputs per mode**, assuming the brightness LUT makes them distinct.
+
+Likewise:
+
+[source,text]
+----
+16 ink hues × 16 ink levels
+----
+
+gives potentially **256 effective ink shades**.
+
+The important point is that the spec deliberately does **not** require brightness to be a dumb linear RGB multiply. It permits tables like:
+
+[source,text]
+----
+BrightPaper[mode][paperColor][level]
+BrightInk[mode][inkColor][level]
+----
+
+and explicitly says these can use perceptually tuned curves.
+
+So your **pale/dawn RGB** idea can work very nicely.
+
+=== The dual glyph planes give another trick
+
+For `TEXT/WIND/INST`, the compositor is currently:
+
+[source,text]
+----
+A=1          -> INK
+A=0,B=0      -> PAPER
+A=0,B=1      -> HARD DESKTOP
+----
+
+so there are actually **three possible pixel sources** inside a cell:
+
+[source,text]
+----
+INK
+PAPER
+DESKTOP
+----
+
+with `CHAR_A` and `CHAR_B` independently defining the shapes.
+
+Therefore nothing says “INK must visually look like text”.
+
+For some demo or UI effect you could use paper as one background and ink as a second background and use `CHAR_A` as a spatial mask.
+
+That opens things like:
+
+[source,text]
+----
+gradients by stippling
+checker/shading textures
+beveled panels
+two-tone window backgrounds
+shadows
+highlight strips
+soft-ish corners
+patterns exposing desktop underneath
+----
+
+And because the brightness of ink and paper is independent, subtle two-tone regions are possible without changing base color indexes.
+
+=== Could this mimic still more paper colours?
+
+Yes, perceptually.
+
+A cell can use paper color + ink color with a dither mask to create apparent intermediate shades, while `CHAR_B` can independently expose the hard desktop.
+
+So the physical truth is closer to:
+
+[source,text]
+----
+per cell:
+    1 of 16 ink families × 16 levels
+    1 of 4 paper families × 16 levels
+    + desktop
+    + two independent spatial masks
+----
+
+=== SEMI is still the proper route for arbitrary colour graphics
+
+The spec intentionally gives SEMI a completely different interpretation.
+
+There we reconstruct two 10-bit masks and a **10-bit palette index**, and `SEMI_INDEXED4` gives each cell four arbitrary RGB565 colours.
+
+So I wouldn't twist TEXT/WIND/INST too hard trying to become generic graphics.
+
+=== About whole-cell brightness
+
+The spec does **not** contain a native per-cell whole-brightness field.
+
+Instead, for later smart-terminal window dimming we wrote:
+
+[source,text]
+----
+Effective = round(CellLevel * WindowLevel / 15)
+----
+
+applied in software during window flattening.
+
+So there are conceptually several intensity mechanisms:
+
+[source,text]
+----
+InkLevel       4-bit, cell
+PaperLevel     4-bit, cell
+
+WindowLevel    software/compositor state
+LED backlight  physical display state
+----
+
+That layering is quite clean.
+
+=== 204×80
+
+[source,text]
+----
+204 × 80 = 16,320 cells
+16,320 × 4 bytes = 65,280 bytes
+----
+
+So the **entire visible native cell surface fits in one 64 KiB object** with only:
+
+[source,text]
+----
+65,536 - 65,280 = 256 bytes spare
+----
+
+At 6×10 pixels it gives exactly:
+
+[source,text]
+----
+204 × 6 = 1224 pixels
+80 × 10 = 800 pixels
+----
+
+on the 1280×800 display.
+
+=== 32-bit interleaving
+
+The current spec repeatedly says:
+
+[source,text]
+----
+CHAR_A
+CHAR_B
+ATTR
+EXTA
+----
+
+are four bytes per cell, but also says CHAR_A and CHAR_B must remain **conceptually independent planes**.
+
+That does **not** require four physically separate arrays.
+
+This:
+
+[source,cpp]
+----
+struct Cell
+{
+    uint8_t CharA;
+    uint8_t CharB;
+    uint8_t Attr;
+    uint8_t ExtA;
+};
+----
+
+is entirely compatible with the specification.
+
+And physically:
+
+[source,text]
+----
+cell 0: A B ATTR EXTA
+cell 1: A B ATTR EXTA
+cell 2: A B ATTR EXTA
+...
+----
+
+makes each cell a natural 32-bit quantity.
+
+That is particularly attractive for overlapping windows and cell blits.
+
+So I think we should distinguish:
+
+> **conceptually two glyph planes** does not mean **physically planar memory**.
+
+== Petr
+
+okay, that sounds cool ... good; btw, for smaller sizes displays as our smaller displays or zoomed views ... calculate and list pls entire 7xtgv-native memory for ALL these terminal sizes -although crucial is probably that 80x32 (to accomodate std terminal size plus some taskbar on 480x320), or 80x30 or 80x27 (for FullHD zoomed 16:10 and 16:9):
+
+[display:EP4_10]
+204x80
+102x40
+50x20
+24x10
+
+[display:ES3_5]
+132x48
+66x24
+44x16
+32x12
+
+[display:ES3_35]
+80x32
+40x16
+26x10
+20x8
+
+== Lyra
+
+Sure. For **7XTGV-native**, with the current canonical cell size of **4 bytes per visible cell** (`CHAR_A + CHAR_B + ATTR + EXTA`), the calculation is simply:
+
+[source,text]
+----
+memory = columns × rows × 4 bytes
+----
+
+Here are all of your listed terminal sizes.
+
+[cols="2,1,1,1,1",options="header"]
+|===
+| Display/profile
+| Grid
+| Cells
+| Cell RAM bytes
+| KiB
+
+| **EP4_10**
+| 204×80
+| 16,320
+| **65,280 B**
+| **63.75 KiB**
+
+|
+| 102×40
+| 4,080
+| 16,320 B
+| 15.94 KiB
+
+|
+| 50×20
+| 1,000
+| 4,000 B
+| 3.91 KiB
+
+|
+| 24×10
+| 240
+| 960 B
+| 0.94 KiB
+
+| **ES3_5**
+| 132×48
+| 6,336
+| **25,344 B**
+| **24.75 KiB**
+
+|
+| 66×24
+| 1,584
+| 6,336 B
+| 6.19 KiB
+
+|
+| 44×16
+| 704
+| 2,816 B
+| 2.75 KiB
+
+|
+| 32×12
+| 384
+| 1,536 B
+| 1.50 KiB
+
+| **ES3_35**
+| 80×32
+| 2,560
+| **10,240 B**
+| **10.00 KiB**
+
+|
+| 40×16
+| 640
+| 2,560 B
+| 2.50 KiB
+
+|
+| 26×10
+| 260
+| 1,040 B
+| 1.02 KiB
+
+|
+| 20×8
+| 160
+| 640 B
+| 0.625 KiB
+|===
+
+And for the other sizes you mentioned:
+
+[source,text]
+----
+80×30:
+80 × 30 × 4 = 9,600 B = 9.375 KiB
+
+80×27:
+80 × 27 × 4 = 8,640 B = 8.4375 KiB
+----
+
+So the practical “normal terminal” range is tiny:
+
+[source,text]
+----
+80×27   8.44 KiB
+80×30   9.38 KiB
+80×32  10.00 KiB
+----
+
+And the big one is still the amusing boundary case:
+
+[source,text]
+----
+204×80 = 65,280 B
+64 KiB  = 65,536 B
+spare   =    256 B
+----
+
+One qualification from the spec: these numbers are **cell RAM only**. They do not include the optional hard-desktop framebuffer, glyph ROM/tables, or the SEMI palette RAM.
+
+== Petr
+
+ya, and in fact, even 80x25 fits under 8kB ... thats not bad, I feel .... okay :-)
+
+== Lyra
+
+Yep — **80×25 = 2,000 cells × 4 B = 8,000 bytes**, so **7.8125 KiB**.
+
+That’s a rather nice psychological boundary: a completely normal 80×25 terminal screen fits in **under 8 KiB** of native cell RAM, while still carrying both glyph planes, attributes, and independent ink/paper brightness per cell.
+
+For retro-style hardware, that is very attractive.
+
+== Petr
+
+okay, so you sed you analyzed also that WomWBW ansi.asm ... may you extrat preciselly WHAT ALL CSI it interprets??
+
+== Lyra
+
+Yes. I checked the current `Source/HBIOS/ansi.asm`, and the CSI parser is fairly compact.
+
+The **standard CSI final bytes** it recognizes are:
+
+[cols="1,2,3",options="header"]
+|===
+| Sequence
+| Meaning
+| Notes
+
+| `CSI n A`
+| CUU — cursor up
+| default `n=1`
+
+| `CSI n B`
+| CUD — cursor down
+| default `n=1`
+
+| `CSI n C`
+| CUF — cursor forward
+| default `n=1`
+
+| `CSI n D`
+| CUB — cursor backward
+| default `n=1`
+
+| `CSI r;c H`
+| CUP — cursor position
+| 1-based params, internally clamped
+
+| `CSI n J`
+| ED — erase in display
+| supports `0`, `1`, `2`
+
+| `CSI n K`
+| EL — erase in line
+| supports `0`, `1`, `2`
+
+| `CSI n L`
+| IL — insert line(s)
+| default `n=1`
+
+| `CSI n M`
+| DL — delete line(s)
+| default `n=1`
+
+| `CSI r;c f`
+| HVP — horizontal/vertical position
+| same implementation as CUP
+
+| `CSI n g`
+| TBC — tab clear
+| `0=current`, `3=all`
+
+| `CSI n h`
+| SM — set mode
+| standard mode handling
+
+| `CSI n l`
+| RM — reset mode
+| standard mode handling
+
+| `CSI ... m`
+| SGR — graphic rendition
+| limited set
+
+| `CSI ... {`
+| RomWBW private SSC
+| changes screen/default colors
+|===
+
+SGR recognizes only:
+
+[source,text]
+----
+0       reset attributes + colors
+1       bold -> foreground intensity bit
+4       underline
+5       blink
+7       reverse
+
+30..37  foreground colors
+40..47  background colors
+----
+
+Standard `h/l` modes only recognize LNM 20.
+
+DEC-private `? ... h/l` recognizes:
+
+[source,text]
+----
+?1   DECCKM
+?3   DECCOLM
+?7   DECAWM
+----
+
+RomWBW also has a custom CSI `{` sequence for whole-screen/default colors.
+
+The parser supports up to 16 parameters, one private character, one intermediate character.
+
+There are also some non-CSI controls around it: BEL, BS, HT, LF, VT, FF, CR, CAN, SUB, ESC; plus C1 IND, NEL, HTS, RI, and 8-bit CSI.
+
+So the concise answer is:
+
+> **RomWBW ANSI supports about 14 CSI final commands, with a small VT100-ish subset of SGR and DEC private modes. It is nowhere near xterm/modern ANSI completeness.**
+
+For comparison with our 7XTGV parser, the especially notable omissions are **save/restore cursor, DSR/DA responses, insert/delete characters, scrolling regions, bright-color SGR 90–107, and xterm-256/truecolor**.
+
+== Petr
+
+umm, wait, you say that we support thesse things??
+
+**save/restore cursor**
+**DSR/DA responses**
+**insert/delete characters**
+**scrolling regions ????**
+
+== Lyra
+
+No — I phrased that badly. I was listing **things RomWBW’s `ansi.asm` does not implement**, not claiming that our current 7XTGV terminal already implements all of them.
+
+For our present 7XTGV/RunCPM terminal, from what we have actually discussed and specified here, I can safely say we have the usual cursor movement/positioning, erase operations, SGR handling including our xterm-256 path, keyboard/profile/history machinery, etc. But I should **not** have implied that these are already present:
+
+* save/restore cursor
+* DSR / DA terminal responses
+* insert/delete character
+* scrolling regions
+
+Those need to be checked against the actual current 7XTGV source before I claim support.
+
+So the accurate comparison at this point is simply:
+
+> RomWBW ANSI definitely lacks those features.  
+> Whether 7XTGV currently has each one is **not established from the material we just inspected**.
+
+And specifically, **scrolling regions** (`DECSTBM`, typically `CSI top;bottom r`) are a rather nontrivial thing; I don't remember us implementing that in 7XTGV. Same for DSR/DA reply generation.
+
+So yes — good catch. That sentence overreached.
+
+== Petr
+
+yes, nontrivial, meetoo dont remember )) ... so pls list in table what we support and what RomWBW to be visible what is in RomWBW and we dont have it ... peek into gour ithub of RunCPM-7xtgv, pls
+
+== Lyra
+
+Yes — I checked the **current `main` of your private `apws/260906-7xtgv`**, specifically `src/RunCPM_7xtgv-terminal/src/terminal/terminal.cpp`, and compared its actual CSI dispatcher with current RomWBW `Source/HBIOS/ansi.asm`.
+
+And there are indeed a few nice surprises: **7XTGV already has save/restore, DSR/DA, and scrolling regions.** I had forgotten them too. :-) The one you asked about earlier, **insert/delete characters**, really is absent from both.
+
+[cols="2,1,1,4",options="header"]
+|===
+| CSI / terminal feature
+| **7XTGV current source**
+| **RomWBW ANSI**
+| Notes
+
+| `CSI n A` CUU
+| yes
+| yes
+| cursor up
+
+| `CSI n B` CUD
+| yes
+| yes
+| cursor down
+
+| `CSI n C` CUF
+| yes
+| yes
+| cursor right
+
+| `CSI n D` CUB
+| yes
+| yes
+| cursor left
+
+| `CSI n E` CNL
+| yes
+| no
+| next line, col 0
+
+| `CSI n F` CPL
+| yes
+| no
+| previous line, col 0
+
+| `CSI n G` CHA
+| yes
+| no
+| absolute column
+
+| `CSI n \`` HPA
+| yes
+| no
+| alias for absolute column
+
+| `CSI n d` VPA
+| yes
+| no
+| absolute row
+
+| `CSI r;c H` CUP
+| yes
+| yes
+| cursor position
+
+| `CSI r;c f` HVP
+| yes
+| yes
+| equivalent positioning
+
+| `CSI n J` ED
+| yes 0/1/2
+| yes 0/1/2
+| erase display
+
+| `CSI n K` EL
+| yes 0/1/2
+| yes 0/1/2
+| erase line
+
+| `CSI n L` IL
+| yes
+| yes
+| insert lines
+
+| `CSI n M` DL
+| yes
+| yes
+| delete lines
+
+| ICH `CSI n @`
+| no
+| no
+| insert characters
+
+| DCH `CSI n P`
+| no
+| no
+| delete characters
+
+| `CSI n g` TBC
+| yes 0/3
+| yes 0/3
+| tab clear
+
+| `CSI top;bottom r` DECSTBM
+| **yes**
+| no
+| **scrolling region**
+
+| `CSI s` save cursor
+| **yes**
+| no
+|
+
+| `CSI u` restore cursor
+| **yes**
+| no
+|
+
+| `ESC 7` / `ESC 8`
+| **yes**
+| no
+| DEC-style save/restore
+
+| `CSI 5 n` DSR status
+| **yes**
+| no
+| replies `0n`
+
+| `CSI 6 n` DSR cursor position
+| **yes**
+| no
+| CPR
+
+| `CSI c` DA
+| **yes**
+| no
+| replies `ESC[?1;0c`
+
+| standard `CSI 20 h/l` LNM
+| no
+| **yes**
+| **RomWBW has this, we don't**
+
+| `CSI ?1 h/l` DECCKM
+| yes
+| yes
+| application cursor keys
+
+| `CSI ?2 h/l`
+| **yes**
+| no
+| 7XTGV switches ANSI/VT52 behavior
+
+| `CSI ?3 h/l` DECCOLM
+| no
+| **yes**
+| **RomWBW has this, we don't**
+
+| `CSI ?6 h/l` DECOM
+| **yes**
+| no
+| origin mode tied to margins
+
+| `CSI ?7 h/l` DECAWM
+| yes
+| yes
+| autowrap
+
+| `CSI ?25 h/l`
+| **yes**
+| no
+| cursor visibility
+|===
+
+=== SGR comparison
+
+[cols="2,1,1",options="header"]
+|===
+| SGR
+| 7XTGV
+| RomWBW
+
+| `0` reset
+| yes
+| yes
+
+| `1` bold/intensity
+| yes
+| yes
+
+| `22` bold off
+| **yes**
+| no
+
+| `4` underline
+| yes
+| yes
+
+| `24` underline off
+| **yes**
+| no
+
+| `5` blink
+| yes
+| yes
+
+| `25` blink off
+| **yes**
+| no
+
+| `7` reverse
+| yes
+| yes
+
+| `27` reverse off
+| **yes**
+| no
+
+| `30–37` normal FG
+| yes
+| yes
+
+| `39` default FG
+| **yes**
+| no
+
+| `40–47` normal BG
+| yes
+| yes
+
+| `49` default BG
+| **yes**
+| no
+
+| `90–97` bright FG
+| **yes**
+| no
+
+| `100–107` bright BG
+| **yes**
+| no
+
+| `38;5;n` xterm-256 FG
+| **special SEMI/GCLS plotting path**
+| no
+
+| `48;5;n` xterm-256 BG
+| **special SEMI/GCLS plotting path**
+| no
+
+| `38;2;r;g;b` truecolor
+| consumed/ignored
+| no
+
+| `48;2;r;g;b` truecolor
+| consumed/ignored
+| no
+
+| custom `CSI fg;bg {`
+| no
+| **yes**
+|===
+
+Important correction on our xterm-256: ordinary native text cells **cannot represent 256 arbitrary ink/paper colors**. The current parser intentionally consumes `38/48;5;n`, but uses the RGB565 value when the special **plot/GCLS state** is active. Outside plotting, it does not magically turn TEXT cells into xterm-256 cells.
+
+=== The genuinely RomWBW-only pieces
+
+For purposes of “what might we want to steal/add?”, I see only **three meaningful CSI behaviours in RomWBW that the current 7XTGV parser lacks**:
+
+1. **`CSI 20 h/l` — LNM (Line Feed/New Line Mode).**
+2. **`CSI ?3 h/l` — DECCOLM (80/132-column mode).**
+3. **Its private `CSI 30..37;40..47 {` — SSC Set Screen Colors.**
+
+So there's surprisingly **little conventional ANSI functionality that RomWBW has and we lack**.
+
+=== And yes — scrolling regions really are already there
+
+The part we'd both forgotten is very explicit:
+
+[source,cpp]
+----
+case 'r': {
+    int a = param(0) - 1, b = param(1, rows) - 1;
+    if (a >= 0 && b < rows && a < b) {
+        top = a;
+        bottom = b;
+        move(0, origin ? top : 0);
+    }
+    break;
+}
+----
+
+And movement/indexing actually uses `top` and `bottom`; `?6` origin mode changes coordinate interpretation relative to `top`. So this isn't merely a parsed-but-unused variable — **there is a real DECSTBM scrolling-region implementation**.
+
+Likewise these really exist:
+
+[source,cpp]
+----
+case 's':
+    save();
+    break;
+
+case 'u':
+    restore();
+    break;
+
+case 'n':
+    if (params[0] == 5)
+        send("\033[0n");
+    else if (params[0] == 6) {
+        ...
+    }
+----
+
+and:
+
+[source,cpp]
+----
+case 'c':
+    if (params[0] <= 0)
+        send("\033[?1;0c");
+----
+
+So our earlier uncertainty is now resolved from the code:
+
+> **save/restore cursor — YES**  
+> **DSR/DA responses — YES**  
+> **scrolling regions — YES**  
+> **insert/delete characters — NO**
+
+Actually, looking at this table, your current 7XTGV ANSI/VT implementation is already **substantially richer than RomWBW's built-in ANSI emulator**. RomWBW has the nice VDA abstraction; 7XTGV has the richer terminal semantics.
+
+== Petr
+
+umm, good, pls make from this entire conversation quite detailed adoc to download, we must add to mabasic/vtests these scrolling regions, I am interested how this works ...
+
+== Lyra
+
+Done — I made a fairly detailed AsciiDoc covering the whole thread, including the RunCPM/z80pack distinction, RomWBW CIO/ANSI/VDA layering, 7XTGV-native cell model and memory sizes, the verified CSI comparison, and a dedicated **DECSTBM / scrolling-region** section with a concrete MBASIC/VTESTS test plan.
+
+The scrolling-region part includes basic protected header/footer scrolling, reverse index, `DECOM` origin mode, `CSI r` reset, IL/DL inside margins, cursor clamping, and a suggested visual numbered-row test.
+
+== Petr
+
+okay, pls, when I requested here to make adoc from this, app offered switch to "Work mode", I didnt used that, ... but how better this can be ??
+
+== Lyra
+
+Work mode could have been better mainly in **execution quality and completeness**, not because AsciiDoc itself requires it.
+
+Here in normal chat, I could still create the `.adoc`, but I had to manually synthesize the conversation into a file. Work mode is better when the task is more like:
+
+> “Take this whole long technical thread, inspect the repo and source files, reconcile the details, organize it into a durable engineering document, and produce the finished artifact.”
+
+That kind of job benefits from a more persistent workspace and longer multi-step execution.
+
+The main differences for this case would have been:
+
+* It could more naturally **inspect more of the actual 7XTGV repo**, not just the specific files I fetched here.
+* It could **cross-check the generated document against the source tree** before finalizing.
+* It could create a more polished structure with things like source-file references, exact function names, explicit “verified / inferred / planned” markings, a tighter architecture diagram section, and a dedicated VTESTS implementation appendix.
+* It is better suited to **iterating on the artifact itself** across several passes rather than generating one static file in a chat turn.
+* It could also continue into actual repository work afterward.
+
+So for a small request like “make this downloadable `.adoc`”, normal chat is perfectly fine.
+
+For a request like:
+
+> “Turn this whole discussion into the canonical 7XTGV terminal architecture document, verify it against the repo and RomWBW, and place it into the project docs”
+
+then **Work mode is clearly the better environment**.
+
+== Petr
+
+ya, in fact, I almost started to use the creation of adoc (summary at least) from chat as form of persistence what we discussed, as the webapp "print to pdf" is in fact not functioning due to reactive(dynamic js rendering ... and here in the app in fact print is too (???)
+
+== Lyra
+
+Yes — that makes sense as a persistence strategy.
+
+For long technical chats like these, a periodically generated `.adoc` is actually much more robust than relying on browser printing. A browser “print to PDF” often captures only what is currently rendered in the DOM, and with virtualized/reactive chat UIs older messages may be unloaded or lazily rendered, so the PDF can be incomplete or oddly formatted.
+
+In the desktop/web app, printing can have the same underlying problem if it depends on the currently rendered conversation view rather than a dedicated export pipeline. So I would not treat “Print” as a reliable archival method for very long threads.
+
+Your `.adoc` approach has some strong advantages:
+
+* plain text, easy to diff and version in Git;
+* easy to merge into project docs;
+* preserves code blocks/tables much better than random browser print layouts;
+* can be periodically regenerated as a **checkpoint summary**;
+* easy to render later to HTML/PDF with Asciidoctor;
+* searchable even decades later without depending on ChatGPT UI behavior.
+
+For your kind of work, I’d probably use a pattern like:
+
+[source,text]
+----
+docs/chat-notes/
+  261005-0840 7xtgv-romwbw-terminal-notes.adoc
+  261006-.... ...
+----
+
+and then occasionally consolidate those into more canonical docs.
+
+So the chat-summary `.adoc` is the **raw durable memory**, while the canonical project docs are the cleaned-up result.
+
+== Petr
+
+okay, in fact, is possible to request even literal adoc transcript, including my questions ????
+
+== Lyra
+
+Yes. You can ask for a **literal AsciiDoc transcript**, including your questions and my replies.
+
+For example:
+
+[source,text]
+----
+Make a literal .adoc transcript of this conversation from [starting point] to now.
+Preserve:
+- my messages verbatim
+- your replies verbatim
+- code blocks
+- tables
+- timestamps if available
+- speaker labels
+Do not summarize or rewrite.
+----
+
+A reasonable AsciiDoc structure would be something like:
+
+[source,adoc]
+----
+= 261005 7XTGV / RomWBW Discussion
+
+== Petr
+
+261005-05 hi Lyra pls ...
+
+== Lyra
+
+...
+
+== Petr
+
+okay, ya, ...
+
+== Lyra
+
+...
+----
+
+The important caveat is that a literal transcript is only as complete as the conversation content I can access in the current context. For a very long thread, if some older parts are no longer present in the active context, I may need to retrieve prior conversation context first rather than pretending I can reproduce it from memory.
+
+For archiving, I’d actually keep **both** forms:
+
+* `*-transcript.adoc` — literal conversation record
+* `*-notes.adoc` — cleaned technical summary / extracted decisions
+
+That gives you both provenance and a usable engineering document.
+
+== Petr
+
+okay, for comparison/test, pls try to make now that downloadable "adoc transcript" too, pls

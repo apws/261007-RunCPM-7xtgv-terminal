@@ -92,8 +92,9 @@ int main(void) {
         board = (ROOT / 'hardware/arduino_7xtgv/boards/jc8048w535.h').read_text()
         self.assertIn('#ifdef XTGV_Z80RUN_ATTRIBUTES', cpu)
         self.assertNotIn('RUNCPM_TARGET_JC8048W535', cpu)
-        self.assertIn('IRAM_ATTR __attribute__((optimize("O2")))', hooks)
-        self.assertIn('#define XTGV_CPU1_O2 1', board)
+        self.assertIn('#define XTGV_Z80RUN_ATTRIBUTES IRAM_ATTR', hooks)
+        self.assertNotIn('optimize("O2")', hooks)
+        self.assertNotIn('XTGV_CPU1_O2', board)
 
     def test_esp32_iram_is_independent_of_o2(self):
         for arch in ('ESP32', 'RP2040'):
@@ -115,7 +116,7 @@ NO_ATTRIBUTES
                     ], input=source, text=True, capture_output=True, check=True)
                     if arch == 'ESP32':
                         self.assertIn('TEST_IRAM', result.stdout)
-                        self.assertEqual('optimize("O2")' in result.stdout, bool(o2))
+                        self.assertNotIn('optimize("O2")', result.stdout)
                     else:
                         self.assertIn('NO_ATTRIBUTES', result.stdout)
 

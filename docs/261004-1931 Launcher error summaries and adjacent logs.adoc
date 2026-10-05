@@ -1,0 +1,23 @@
+= Launcher error summaries and adjacent logs
+:source-highlighter: highlight.js
+
+Petr's actual C6 run built 261004-1925 successfully, then the identity check
+reported no firmware target reply and stopped before invoking Arduino upload.
+Therefore the new image was not flashed; RESET could only restart the existing
+firmware (reported by Petr as 1919). This is not image-selection evidence of
+the uploader choosing an old archive. The reason for the missing identity reply
+is not established; do not silently bypass the guard or add reset retry loops.
+
+All target launcher logs now use tools/targets/TARGET-reflash.log, beside the
+shell command; each run replaces that target's preceding log. These files are
+git-ignored. Default errors print one diagnostic, not a tail containing the
+earlier build transcript. Guard failure explicitly says Flash NOT performed
+and that existing firmware remains. Other upload failures do not claim flash
+was untouched: partial uploads are possible.
+
+Reset and retry --upload-only avoids unnecessary rebuilding. For intentional
+recovery on a physically confirmed ESP target, the existing explicit
+--allow-unidentified-target TARGET remains available, never automatic.
+Mirror relaunch is cleanup, not evidence of flash success.
+
+Eleven offline workflow tests pass; no agent-triggered rebuild/reset/flash.

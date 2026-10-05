@@ -57,6 +57,8 @@ void runCPMHardwareReboot();
     #else
         #include "boards/jc8048w535.h"
     #endif
+#elif defined(RUNCPM_TARGET_ESP32C6_LCD_1_47)
+    #include "boards/waveshare_esp32c6_lcd_1_47.h"
 #elif defined(RUNCPM_TARGET_JC8012P4A1C)
     #include "boards/jc8012p4a1c.h"
 #elif defined(RUNCPM_TARGET_JC8048W550)

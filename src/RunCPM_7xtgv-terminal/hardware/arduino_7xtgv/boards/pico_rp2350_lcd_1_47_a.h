@@ -31,7 +31,6 @@ static constexpr uint8_t XTGV_BACKLIGHT_DUTIES[] = {
 // ============================================================================
 // 3. Optional compiler policy (preprocessor attribute seam, not executable code)
 // ============================================================================
-#define XTGV_CPU1_O2 0
 
 // Only the sketch defines this guard. Functions below have ordinary external
 // linkage; calling them from the terminal does NOT change task/core ownership.

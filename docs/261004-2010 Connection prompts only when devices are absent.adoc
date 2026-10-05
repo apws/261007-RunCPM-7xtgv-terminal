@@ -1,0 +1,23 @@
+= Connection prompts only when devices are absent
+:source-highlighter: highlight.js
+
+Petr tested RP2_147 2001 and RP2_2 2003 build/upload workflows; a subsequent
+C6 2004 build had no serial device attached and exited. The host workflow now
+prompts for missing connections instead of terminating at that point.
+
+* RP2350: if one eligible BOOTSEL disk is already present, continue without Enter.
+  Otherwise show the red short-ID BOOTSEL warning and wait for Enter, then
+  rediscover. Mount/INFO_UF2 and firmware target/family checks remain before copy.
+* ESP32: if the resolved serial node exists, continue without a prompt.
+  Otherwise show the red short-ID connection warning, without BOOTSEL wording,
+  wait for Enter and rediscover. The firmware target guard still runs afterward.
+* Ambiguous candidates, explicit chip mismatch and firmware target mismatch
+  remain errors, not prompts that silently select/bypass an incompatible device.
+* Missing-device noninteractive runs fail rather than silently approving.
+
+This detects a ROM chip/disk or serial node, not its attached display hardware.
+RP2350's ROM cannot distinguish display variants; --chip-id supplies an explicit
+physical mapping when needed. Presence alone is not full board identification.
+
+17 workflow tests and nine target-config tests pass. No agent build/flash/reset.
+This supersedes the unconditional Enter gate documented at 2000.

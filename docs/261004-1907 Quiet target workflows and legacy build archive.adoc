@@ -1,0 +1,96 @@
+= Quiet target workflows and legacy build archive
+:source-highlighter: highlight.js
+
+== User-facing launcher output
+
+All six target launchers now suppress compiler/uploader chatter by default.
+They print module, detailed-log path, build started/completed, selected firmware
+directory and image, embedded build stamp when uniquely identifiable, upload
+started/completed and mirror-launch status.
+Failure prints the log path and last 15 lines; no success message follows a
+failed step. `--verbose` restores live CLI output (the retained log then records
+commands, not a duplicate transcript of that live output).
+
+Detailed logs are under build/RunCPM_7xtgv-terminal/TARGET/logs/.
+Images remain under TARGET/new/, or current/ as upload-only fallback.
+Default launch builds; --build-only and --upload-only remain separate operations.
+No automatic promotion. The script's mirror-launch success is not proof that
+the device is responsive: verify its boot Build line or VTINFO.
+
+C6 prints an explicit hardware RESET reminder after successful upload if the
+panel remains blank. Its observed reset behavior differs from other tested
+modules; the cause has not been established, and no blind retries are added.
+
+Petr reports his launcher attempt uploaded and reopened the mirror; hardware
+RESET produced a redraw, but he suspected an old build. Read-only inspection
+found new C6 image stamp 261004-1849 and archived previous image 261004-1109.
+The actual device stamp was not independently obtained; do not claim the
+staged timestamp proves the flashed/running build.
+
+== Recoverable build-folder cleanup
+
+49 top-level legacy folders were moved, not deleted, into ignored
+private/261004-1907 legacy build folders/.
+Only build/RunCPM_7xtgv-terminal/ remains at the build root; its per-target
+new/current/history directories are untouched.
+
+The archive includes source/palette backups, vendor sources, toolchain copies
+and experiment scripts/results, so indiscriminate deletion was inappropriate.
+RunCPM_linux's generated build directory is archived too and can be regenerated.
+Historical VALIDATION.md references to build/build-vt100-runcpm now refer to
+the archived old snapshot, not the active target workflow.
+
+Moved folders:
+
+* `RunCPM_linux`
+* `basic-source-backups`
+* `build-demo`
+* `build-demo-2in`
+* `build-demo-2in-offset0`
+* `build-print`
+* `build-print-counter`
+* `build-print-fixed`
+* `build-print-stable`
+* `build-runcpm`
+* `build-runcpm-backlight`
+* `build-vnub??`
+* `build-vt100-runcpm`
+* `iram-experiment`
+* `jc8012p4a1c-demo-code`
+* `jc8012p4a1c-demo-code-palette`
+* `jc8012p4a1c-demo-print`
+* `jc8012p4a1c-demo-print-palette`
+* `jc8012p4a1c-demo-print-paper2`
+* `jc8012p4a1c-display-test`
+* `jc8048-toolchain-backup`
+* `jc8048-vendor-hello-original`
+* `jc8048-vendor-original`
+* `jc8048-vendor-python`
+* `jc8048w535-demo-code`
+* `jc8048w535-demo-print`
+* `jc8048w535-direct`
+* `jc8048w550-demo-code`
+* `jc8048w550-demo-code-init`
+* `jc8048w550-demo-code-vendor`
+* `jc8048w550-demo-print`
+* `jc8048w550-demo-print-active-high`
+* `jc8048w550-demo-print-init`
+* `jc8048w550-demo-print-vendor`
+* `jc8048w550-log`
+* `jc8048w550-vendor-parity`
+* `jc8048w550-vendor-parity2`
+* `jc8048w550-vendor-parity3`
+* `palette-backups`
+* `rp2350-demo-code-check`
+* `rp2350-demo-print-check`
+* `rp2350-demo-print-marker-paper`
+* `rp2350-demo-print-palette`
+* `rp2350-demo-print-paper-blue10`
+* `rp2350-demo-print-paper-bright10`
+* `rp2350-demo-print-paper-hls-lift`
+* `rp2350-demo-print-paper-lighter`
+* `rp2350-demo-print-paper-lighter2`
+* `rp2350-demo-print-paper-red`
+
+Ten offline workflow tests and whitespace checks pass after the quiet-output
+change. No rebuild, flash or device input was performed by the agent.

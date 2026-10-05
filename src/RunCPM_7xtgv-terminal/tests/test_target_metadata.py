@@ -114,6 +114,7 @@ class TargetMetadataTests(unittest.TestCase):
     def test_compiled_identity_and_display_group_match_host_data(self):
         # Host substitutes for architecture macros supplied by these Arduino cores.
         profiles = {
+            'esp32c6-lcd-1-47': ['-DARDUINO_ARCH_ESP32', '-DCONFIG_IDF_TARGET_ESP32C6'],
             'jc8012p4a1c': ['-DARDUINO_ARCH_ESP32', '-DCONFIG_IDF_TARGET_ESP32P4'],
             'jc8048w550': ['-DARDUINO_ARCH_ESP32', '-DCONFIG_IDF_TARGET_ESP32S3'],
             'jc8048w535': ['-DARDUINO_ARCH_ESP32', '-DCONFIG_IDF_TARGET_ESP32S3'],
@@ -130,11 +131,11 @@ int main() {
     const auto &hal = vt::displayHalDefaults();
     assert(hal.logicalMaxCols == vt::MaxCols && hal.logicalMaxRows == vt::MaxRows);
     assert(hal.diskIndicatorYOffset + 7 <= hal.physicalHeight);
-#if !defined(RUNCPM_TARGET_RP2350_LCD_1_47_A)
+#if !defined(RUNCPM_TARGET_RP2350_LCD_1_47_A) && !defined(RUNCPM_TARGET_ESP32C6_LCD_1_47)
     assert(hal.diskIndicatorYOffset == 0);
     assert(hal.bootWarning == nullptr);
 #endif
-#if defined(RUNCPM_TARGET_RP2350_LCD_1_47_A)
+#if defined(RUNCPM_TARGET_RP2350_LCD_1_47_A) || defined(RUNCPM_TARGET_ESP32C6_LCD_1_47)
     assert(hal.physicalWidth == 320 && hal.physicalHeight == 172);
     assert(hal.diskIndicatorYOffset == 10);
     assert(hal.bootWarning && hal.bootWarning[0]);

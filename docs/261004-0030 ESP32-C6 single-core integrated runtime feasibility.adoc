@@ -1,0 +1,159 @@
+= ESP32-C6 single-core integrated runtime feasibility
+:source-highlighter: highlight.js
+:toc:
+
+== Conclusion and scope
+
+Petr asked whether the Waveshare ESP32-C6-LCD-1.47 could run integrated
+RunCPM plus 7xtgv-terminal despite having only one application CPU core.
+Yes in principle: Arduino-ESP32 uses FreeRTOS, which can preempt and time-slice
+two tasks on the same core. Concurrency is not simultaneous dual-core execution.
+The low-power RISC-V processor is not a second ordinary Arduino application
+core. Earlier classification as terminal-only because of single-core hardware
+was too restrictive; integrated operation remains a feasible experiment.
+
+This is a feasibility note, not a supported target or implementation promise.
+No firmware edit, build, flash or device test was performed for this study.
+Petr requested documentation for the next session, not implementation.
+
+== Board evidence
+
+The local vendor PDF is under
+`docs/private/tft-ips-modules/waveshare esp32-c6 1,47 inch/`
+and is named `ESP32-C6-LCD-1.47 _ WaveShare Documentation Platform.pdf`.
+The initial search under root private missed it; this is the docs/private
+folder. Keep vendor/private resources ignored, not copied into tracked docs.
+
+The non-touch ESP32-C6-LCD-1.47 has a 160 MHz high-performance RISC-V CPU,
+512 KB HP SRAM, 16 KB LP SRAM, 4 MB flash, ST7789 display at 172x320 and a
+TF slot. No onboard PSRAM is advertised; plan ordinary SRAM allocation.
+Do not conflate this with the newer Touch-LCD-1.47 or ESP32-S3 variants.
+
+The local PDF and
+https://docs.waveshare.com/ESP32-C6-LCD-1.47[Waveshare board documentation]
+give the following wiring:
+
+[cols="1,1,1",options="header"]
+|===
+|Signal |LCD |TF / SD
+|MOSI |GPIO6 |GPIO6
+|SCK |GPIO7 |GPIO7
+|MISO |Not listed |GPIO5
+|CS |GPIO14 |GPIO4
+|DC |GPIO15 |--
+|Reset |GPIO21 |--
+|Backlight |GPIO22 |--
+|===
+
+The display and SD physically share their SPI signal bus. C6's installed SoC
+capability header lists SPI0/SPI1 for flash and one general-purpose SPI2;
+do not assume the independent SD/display controllers used on our S3/RP2350
+boards. The vendor also warns against sustained full display brightness;
+initial backlight policy should respect its recommendation of 50% or less.
+
+== Current project fit
+
+Our integrated ESP32 runtime is in
+`src/RunCPM_7xtgv-terminal/hardware/arduino_7xtgv/runtime_esp32_integrated.h`.
+It starts a RunCPM/storage task at priority 1 on core 0, while Arduino's
+loop task runs terminalLoop. It also starts a priority-2 idle-window helper,
+which periodically suspends RunCPM for one tick to let the idle task run.
+The runtime selection currently chooses this header for ARDUINO_ARCH_ESP32;
+there is no C6-specific board or single-core runtime today.
+
+The terminal already communicates through input, output and reply queues.
+virtualRead waits with delay(1), virtualWrite yields on a full output queue,
+and terminal pause/profile acknowledgements also wait with delay(1).
+These are compatible with two preemptively scheduled tasks on one core:
+a blocking handshake does not require the other task to have another CPU.
+One-task ownership of SdFat and one-task ownership of parser/display should
+remain intact; sharing a core does not mean moving filesystem calls into
+the terminal task.
+
+The installed Arduino-ESP32 3.1.0 main.cpp already has a
+CONFIG_FREERTOS_UNICORE path and creates loopTask with priority 1. Its loop
+also periodically blocks to allow idle time. FreeRTOS tick preemption can
+schedule the terminal while a guest Z80 loop runs; a new per-instruction
+emulator scheduling hook is not inherently necessary. This is architectural
+reasoning, not measured C6 responsiveness or speed.
+
+== Proposed narrow runtime change
+
+A separate `runtime_esp32_integrated_single.h` is a reasonable option if its
+policy differs enough from dual-core operation. Select it from the runtime
+dispatcher using the SDK single-core configuration rather than scattered
+board-name checks. Retain ordinary functions and one readable board HAL.
+
+* Start a separate RunCPM task; keep the terminal in Arduino's loop task.
+* Initially consider equal application-task priorities for time slicing.
+* Review idle/watchdog behavior under busy guest computation and busy drawing.
+* Do not blindly copy the periodic task-suspension helper: it can suspend the
+  owner inside a storage operation or while holding a future bus lock.
+* Check task-creation failures and actual stack high-water marks.
+* Keep queues and persistence ownership unchanged wherever possible.
+
+SDK settings and a proof build must establish the actual scheduler behavior.
+No change to RunCPM CPU, BDOS, CCP or disk implementation is currently shown
+to be required. If such a core edit becomes necessary, stop and discuss it
+under the repository's existing RunCPM seam rule.
+
+== Shared SPI is the main integration risk
+
+Single-core operation alone does not protect a transaction: FreeRTOS can
+switch tasks while a device's CS is asserted or registers are configured.
+RunCPM and terminal tasks must not overlap SD and display transactions.
+
+* Use SdFat shared-bus policy, not our existing DEDICATED_SPI assumption.
+* Check the exact Arduino_GFX SPI backend and SdFat custom SPI adapter.
+* Establish one compatible bus/controller initialization and transaction policy.
+* Verify clock/mode changes and CS deassertion for both devices.
+* Use compatible driver locking or an explicit shared-bus guard if needed.
+* Do not assume ESP-IDF SPI-driver locking automatically protects Arduino_GFX
+  register access or two different Arduino wrappers around the same controller.
+* Ensure cancellation, startup failure and rendering paths release bus ownership.
+
+SD mount, raw CARDMARK reads and normal CP/M filesystem activity must remain
+compatible with display traffic. CARDMARK may require a clearly scoped
+display pause while it changes SD clock settings. This needs implementation
+review before choosing a policy, not an unconditional new pause rule now.
+
+Whether terminal code can remain entirely unchanged depends mainly on where
+this arbitration can be placed. A runtime header alone is not a complete port.
+
+== Memory and build checklist for the next session
+
+The current shared history budget is 100 entries per bank, ten banks, with a
+host-measured LineHistory object of 128544 bytes. For this board allocate it
+in SRAM rather than unconditionally calling ps_malloc as on the PSRAM boards.
+512 KB HP SRAM is a hardware total, not guaranteed free application heap.
+Budget RunCPM RAM, terminal planes and queues, INI cache, task stacks, drivers
+and IRAM code. Do not treat LP SRAM as a transparent extension of malloc heap.
+
+Before approving a first port:
+
+. Confirm the exact board and decide its short module/display ID with Petr.
+. Add one uniformly sectioned HAL header and explicit target/build profile.
+. Verify Arduino core, GFX and SdFat support for this RISC-V target.
+. Inspect SPI transaction/locking behavior before sharing the bus.
+. Choose single-core task/idle policy and measure memory/stack requirements.
+. Build without changing RunCPM core; inspect flash partition and SRAM placement.
+. On separately authorized hardware work, test boot, SD plus simultaneous output,
+  history/INI persistence, a busy Z80 loop, forced warm return and watchdog safety.
+. Only then compare VTCPU, VTDRV and CARDMARK; do not infer performance from
+  the C6 clock or from dual-core module benchmarks.
+
+Standalone UART-terminal mode remains a separate project composition with its
+already documented storage/configuration questions; time-sliced integrated
+operation does not implement or replace that work.
+
+== Primary references
+
+* https://docs.espressif.com/projects/esp-idf/en/latest/esp32c6/api-reference/system/freertos.html[ESP-IDF C6 FreeRTOS overview]: C6 always selects single-core configuration.
+* https://docs.espressif.com/projects/arduino-esp32/en/latest/boards/boards.html[Arduino-ESP32 supported SoCs]: C6 supported.
+* https://github.com/espressif/arduino-esp32/blob/master/libraries/ESP32/examples/FreeRTOS/BasicMultiThreading/BasicMultiThreading.ino[Official Arduino multitasking example].
+* https://docs.espressif.com/projects/esp-idf/en/stable/esp32c6/api-reference/peripherals/spi_master.html[ESP-IDF C6 SPI master documentation]: bus sharing and task-safety rules; applicability depends on the actual backend used.
+* https://docs.waveshare.com/ESP32-C6-LCD-1.47[Waveshare board specifications and pins].
+
+Current web documentation and the locally installed Arduino 3.1.0 source were
+examined on 261004. A future implementation must use the chosen installed
+SDK/library versions rather than assuming latest documentation is identical.

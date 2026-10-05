@@ -7,7 +7,8 @@ from pathlib import Path
 import subprocess
 import sys
 from firmware_identity import require_target, IdentityUnavailable, TargetMismatch
-from target_config import load_target, resolve_port, arduino_cli, target_label
+from target_config import (load_target, resolve_port, arduino_cli, target_label,
+                           arduino_command, ensure_serial_access)
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -25,8 +26,8 @@ def resolved_build_properties(cli, definition, stamp, overrides=None):
     if overrides:
         properties.update(overrides)
     additions = properties.pop("build.extra_flags", "")
-    command = [cli, "compile", "--profile", definition["profile"],
-               "--show-properties=expanded"]
+    command = arduino_command(cli, "compile", "--profile", definition["profile"],
+                              "--show-properties=expanded")
     for key, value in properties.items():
         command.extend(["--build-property", f"{key}={value}"])
     command.append(str(ROOT))
@@ -96,6 +97,8 @@ def main():
     try:
         port = None if args.build_only else resolve_port(args.port, args.target, definition)
         cli = arduino_cli()
+        if port and not args.dry_run and os.path.exists(port):
+            ensure_serial_access(port)
     except RuntimeError as error:
         parser.error(str(error))
     print("7xtgv target:", target_label(args.target, definition), flush=True)
@@ -127,8 +130,8 @@ def main():
             parser.error(f"no target archive named {restore_name!r}")
     if args.promote_new and not build_dir.is_dir():
         parser.error(f"no new candidate for {args.target}: run host reflash with --build first")
-    compile_command = [cli, "compile", "--profile", definition["profile"],
-                       "--output-dir", str(build_dir)]
+    compile_command = arduino_command(cli, "compile", "--profile", definition["profile"],
+                                      "--output-dir", str(build_dir))
     build_properties = dict(definition.get("build_properties", {}))
     if building:
         try:
@@ -153,9 +156,9 @@ def main():
     upload_dir = candidate_dir if building else (
         current_dir if args.current or args.promote_new or args.restore or not candidate_dir.is_dir()
         else candidate_dir)
-    upload_command = [] if args.build_only else [
+    upload_command = [] if args.build_only else arduino_command(
         cli, "upload", "--profile", definition["profile"],
-        "--port", port, "--input-dir", str(upload_dir), str(ROOT)]
+        "--port", port, "--input-dir", str(upload_dir), str(ROOT))
     if building:
         print("7xtgv reflash build:", " ".join(compile_command), flush=True)
     if args.promote_new:
@@ -170,8 +173,10 @@ def main():
     # promotion/restoration or invoking the uploader. Build-only is offline.
     def check_device():
         try:
+            if os.path.exists(port):
+                ensure_serial_access(port)
             require_target(port, args.target, args.allow_unidentified_target)
-        except (IdentityUnavailable, TargetMismatch, OSError) as error:
+        except (RuntimeError, OSError) as error:
             print(f"7xtgv reflash blocked: {error}", file=sys.stderr)
             if isinstance(error, IdentityUnavailable):
                 print("For intentional recovery/first installation only, repeat with "

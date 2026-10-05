@@ -1,0 +1,1458 @@
+= 7XTGV, RunCPM, z80pack/GEEK2350, and RomWBW Terminal Architecture
+Petr / Lyra technical notes
+:toc:
+:toclevels: 4
+:sectnums:
+:source-highlighter: highlight.js
+
+== Purpose
+
+This document consolidates the technical discussion around:
+
+* RunCPM versus z80pack / GEEK2350 style CP/M emulation,
+* how much the current `7XTGV-terminal` is coupled to RunCPM,
+* how to define a small reusable console seam,
+* how RomWBW structures character I/O, terminal emulation, and VDA hardware,
+* how a future `7XTGV-chip` could integrate with RomWBW,
+* how the current `7XTGV-terminal` compares with RomWBW `ansi.asm`,
+* the current `7XTGV-native` four-byte cell model and memory use,
+* and, especially, how scrolling regions already work in the current 7XTGV terminal and how to add explicit tests for them in MBASIC / VTESTS.
+
+This is written as an engineering note, not as a finished external specification.
+
+== 1. RunCPM versus z80pack / GEEK2350
+
+=== 1.1 RunCPM
+
+RunCPM is primarily a CP/M execution environment.
+
+It emulates the Z80 CPU, but its design center is not faithful reproduction of one historical Z80 computer with exact ROM, FDC, UART, and board-level devices.
+
+Its normal layering is approximately:
+
+[source,text]
+----
+CP/M application
+    |
+emulated Z80
+    |
+RunCPM BDOS / BIOS integration
+    |
+host filesystem / terminal / MCU platform
+----
+
+Important consequences:
+
+* CP/M drives are conveniently mapped onto host directories/files.
+* The environment is easy to extend with host-side hooks.
+* The internal CCP can be modified heavily.
+* CP/M applications generally do not care about exact cycle timing or exact historical I/O hardware.
+* This makes RunCPM a very convenient basis for 7XTGV-terminal experiments.
+
+=== 1.2 GEEK2350 / RP2xxx-GEEK-80
+
+The GEEK2350 CP/M solution discussed is based on Udo Munk's `z80pack`, specifically the RP2xxx-GEEK-80 port.
+
+This is much closer to a virtual historical computer:
+
+[source,text]
+----
+RP2350
+  |
+z80pack CPU emulation
+  |
+virtual 8080/Z80 machine
+  |
+serial interfaces / disks / Dazzler / banked RAM
+  |
+ordinary CP/M family software
+----
+
+The emulated platform is Altair/S-100-like rather than a specific later commercial microcomputer.
+
+Relevant characteristics found during the discussion:
+
+* Intel 8080 and Z80 emulation.
+* Banked memory on RP2350.
+* serial interfaces.
+* virtual floppy disks.
+* Cromemco Dazzler graphics.
+* CP/M 2.2, CP/M 3 and MP/M style environments.
+* z80pack is open source.
+* the GEEK frontend is open source.
+
+The architectural distinction can be summarized as:
+
+[source,text]
+----
+RunCPM:
+    emulate enough CP/M environment to run CP/M software conveniently
+
+z80pack:
+    emulate a Z80/8080 computer capable of booting CP/M
+----
+
+This distinction matters when deciding where 7XTGV belongs.
+
+== 2. SDL and Linux
+
+z80pack's `WANT_SDL=YES` should not be confused with "an SDL text terminal for CP/M".
+
+The SDL support is associated with graphical machine interfaces, front panels, and graphical guest devices such as the Dazzler.
+
+The normal CP/M console path remains a character-device / host-terminal style path.
+
+Therefore enabling SDL in z80pack does not automatically provide a graphical 80x25 terminal frontend suitable for direct substitution with 7XTGV.
+
+For the current 7XTGV project, the shortest Linux-native route remains:
+
+[source,text]
+----
+RunCPM
+ + current extended CCP
+ + current terminal/profile/history machinery
+ + Arduino_GFX compatibility layer
+ + SDL backend
+----
+
+The desirable platform split is:
+
+[source,text]
+----
+same 7XTGV code
+      |
+  +---+---+
+  |       |
+RP2350   Linux
+  |       |
+TFT      SDL
+----
+
+This preserves the existing RunCPM behavior while replacing only the lowest graphics/input layer.
+
+== 3. How tightly is 7XTGV-terminal coupled to RunCPM?
+
+The answer is: less than initially feared.
+
+The deeper RunCPM coupling is mainly in:
+
+* the extended internal CCP,
+* custom host-side commands,
+* custom I/O hooks,
+* benchmark helpers,
+* other host services.
+
+The terminal/history/editor/profile machinery itself is mostly independent.
+
+A useful decomposition is:
+
+[source,text]
+----
+7XTGV terminal UI
+  |
+  +-- keyboard decoding
+  +-- line editing
+  +-- history
+  +-- filtered recall
+  +-- profiles
+  +-- ANSI / VT parsing
+  +-- screen model
+  +-- rendering
+  |
+tiny console seam
+  |
+RunCPM / z80pack / RomWBW / real serial machine
+----
+
+The minimal backend-facing API can be very small:
+
+[source,cpp]
+----
+bool InputReady();
+uint8_t ReadInput();
+void WriteOutput(uint8_t c);
+----
+
+Optional convenience services may include:
+
+[source,cpp]
+----
+uint32_t Millis();
+void Bell();
+----
+
+The key architectural point is:
+
+*profiles own interaction policy; the CP/M backend owns byte transport.*
+
+== 4. History and line editing are primarily terminal-side
+
+The useful mental model is that history does not fundamentally belong to CP/M.
+
+The input path is:
+
+[source,text]
+----
+physical key
+   |
+7XTGV profile / editor / history
+   |
+guest-visible bytes
+   |
+CP/M console input
+----
+
+At a line-oriented prompt, the terminal may intercept:
+
+* Up / Down
+* Left / Right
+* Home / End
+* Delete / Backspace
+* insert mode
+* filtered recall
+* history-bank operations
+
+and only emit the resulting byte stream to the guest.
+
+This is why the same machinery can in principle sit in front of:
+
+* CCP,
+* MBASIC,
+* BBC BASIC,
+* another line-oriented REPL,
+* or even non-CP/M software.
+
+The existing explicit app/profile banks are especially important.
+
+They allow behavior such as:
+
+[source,text]
+----
+CCP profile:
+    Up/Down -> history
+
+MBASIC profile:
+    custom line-edit transport
+    Up/Down -> BASIC history
+
+WordStar profile:
+    Up/Down -> guest
+    Alt+Up/Down -> optional 7XTGV history/snippet recall
+
+future profile:
+    filtered keyword recall rather than FIFO history
+----
+
+This avoids trying to infer application state automatically.
+
+== 5. RomWBW architecture
+
+The most important RomWBW chapter for this subject is the Character / Emulation / Video Services design.
+
+RomWBW separates three layers:
+
+[source,text]
+----
+CIO character I/O
+      |
+      +-- serial devices directly
+      |
+      +-- CRT pseudo-device
+              |
+          terminal emulation
+          TTY / ANSI
+              |
+             VDA
+              |
+      hardware-specific video driver
+----
+
+This is a very clean separation.
+
+=== 5.1 CIO
+
+CIO is the byte-stream character I/O abstraction.
+
+It covers:
+
+* serial ports,
+* terminal pseudo-devices,
+* console routing,
+* input status,
+* output status,
+* device query.
+
+For an ordinary serial console, bytes go directly through CIO.
+
+For the special CRT pseudo-device, bytes are routed through the terminal emulator.
+
+=== 5.2 terminal emulator
+
+RomWBW's terminal emulator is above the physical display driver.
+
+The terminal emulator parses ANSI / VT-like control sequences and emits abstract video operations.
+
+The current terminal driver can choose emulation types such as:
+
+[source,text]
+----
+TTY
+ANSI
+----
+
+The current `term.asm` attaches a VDA instance to a terminal-emulation instance and then registers the result as a CIO terminal device.
+
+=== 5.3 VDA
+
+VDA is not itself a terminal parser.
+
+It is better understood as a generic character-video hardware API.
+
+The interface includes operations conceptually like:
+
+[source,text]
+----
+initialize
+query dimensions
+reset
+set cursor style
+set cursor position
+set character attributes
+set character colors
+write character
+fill
+copy
+scroll
+keyboard status
+keyboard flush
+keyboard read
+read character at current position
+----
+
+Therefore a hypothetical `7XTGV-chip` maps very naturally onto VDA.
+
+== 6. Two possible RomWBW integrations for 7XTGV
+
+=== 6.1 7XTGV as a VDA device
+
+This model is:
+
+[source,text]
+----
+CP/M
+ |
+CIO CRT
+ |
+RomWBW ANSI emulator
+ |
+VDA
+ |
+7XTGV hardware driver
+ |
+RP2350 / ESP32 + TFT + keyboard
+----
+
+In this mode RomWBW owns terminal semantics:
+
+* ANSI parsing,
+* cursor motion,
+* SGR interpretation,
+* scrolling,
+* VT cursor-key generation.
+
+7XTGV owns rendering and local hardware:
+
+* pixels / glyphs,
+* colors,
+* framebuffer or cell RAM,
+* scrolling implementation,
+* keyboard scanning,
+* TFT controller,
+* possibly cursor hardware.
+
+This is the natural `7XTGV-chip` interpretation.
+
+=== 6.2 7XTGV as a smart terminal
+
+This model is closer to the current project:
+
+[source,text]
+----
+CP/M / RomWBW
+ |
+CIO byte stream
+ |
+7XTGV terminal
+  +-- ANSI / VT parser
+  +-- screen model
+  +-- history
+  +-- line editor
+  +-- profiles
+  +-- filtered recall
+  +-- custom controls
+ |
+TFT
+----
+
+In this mode RomWBW should *not* parse the ANSI stream first.
+
+7XTGV receives the original byte stream intact and therefore retains:
+
+* its own parser,
+* xterm-256-related plot/GCLS behavior,
+* history/editor/profile machinery,
+* application-specific key policy.
+
+This is the more natural integration for the present `7XTGV-terminal`.
+
+== 7. RomWBW VDA colors and attributes
+
+RomWBW VDA uses an RGBI color byte:
+
+[source,text]
+----
+high nibble  = background RGBI
+low nibble   = foreground RGBI
+----
+
+Therefore the abstract VDA supports:
+
+[source,text]
+----
+16 foreground colors
+x
+16 background colors
+----
+
+The attribute byte is separate and contains:
+
+[source,text]
+----
+Reverse
+Underline
+Blink
+----
+
+A separate bold attribute is not present.
+
+RomWBW's ANSI parser interprets `SGR 1` by setting the foreground intensity bit in the RGBI color.
+
+Thus:
+
+[source,text]
+----
+31m      -> red
+1;31m    -> bright red
+----
+
+The VDA is therefore richer than the ANSI parser in some respects.
+
+The VDA can represent bright backgrounds, but current `ansi.asm` does not expose the normal modern `100..107` SGR range.
+
+== 8. RomWBW current ANSI CSI support
+
+The current RomWBW `ansi.asm` recognizes the following standard CSI final characters:
+
+[cols="1,2,3",options="header"]
+|===
+| Final | Mnemonic | Meaning
+
+| `A` | CUU | Cursor up
+| `B` | CUD | Cursor down
+| `C` | CUF | Cursor forward
+| `D` | CUB | Cursor backward
+| `H` | CUP | Cursor position
+| `J` | ED | Erase in display
+| `K` | EL | Erase in line
+| `L` | IL | Insert line
+| `M` | DL | Delete line
+| `f` | HVP | Horizontal / vertical position
+| `g` | TBC | Tab clear
+| `h` | SM | Set mode
+| `l` | RM | Reset mode
+| `m` | SGR | Select Graphic Rendition
+| `{` | SSC | RomWBW private Set Screen Colors
+|===
+
+Its implemented SGR subset is:
+
+[source,text]
+----
+0       reset
+1       bold -> foreground intensity
+4       underline
+5       blink
+7       reverse
+30..37  foreground colors
+40..47  background colors
+----
+
+It does not currently implement:
+
+[source,text]
+----
+22
+24
+25
+27
+39
+49
+90..97
+100..107
+38;5;n
+48;5;n
+38;2;r;g;b
+48;2;r;g;b
+----
+
+RomWBW standard mode support includes:
+
+[source,text]
+----
+CSI 20 h/l    LNM
+----
+
+DEC private mode support includes:
+
+[source,text]
+----
+CSI ? 1 h/l   DECCKM
+CSI ? 3 h/l   DECCOLM
+CSI ? 7 h/l   DECAWM
+----
+
+== 9. Verified current 7XTGV CSI support
+
+The current `src/RunCPM_7xtgv-terminal/src/terminal/terminal.cpp` was inspected directly.
+
+The current 7XTGV terminal is significantly richer than RomWBW's built-in ANSI emulator.
+
+[cols="2,1,1,4",options="header"]
+|===
+| Feature | 7XTGV | RomWBW | Notes
+
+| `CSI n A` CUU
+| yes
+| yes
+| cursor up
+
+| `CSI n B` CUD
+| yes
+| yes
+| cursor down
+
+| `CSI n C` CUF
+| yes
+| yes
+| cursor right
+
+| `CSI n D` CUB
+| yes
+| yes
+| cursor left
+
+| `CSI n E` CNL
+| yes
+| no
+| next line, column 0
+
+| `CSI n F` CPL
+| yes
+| no
+| previous line, column 0
+
+| `CSI n G` CHA
+| yes
+| no
+| absolute column
+
+| `CSI n \`` HPA
+| yes
+| no
+| alias for absolute column
+
+| `CSI n d` VPA
+| yes
+| no
+| absolute row
+
+| `CSI r;c H` CUP
+| yes
+| yes
+| cursor position
+
+| `CSI r;c f` HVP
+| yes
+| yes
+| same positioning family
+
+| `CSI n J` ED
+| yes
+| yes
+| 0 / 1 / 2
+
+| `CSI n K` EL
+| yes
+| yes
+| 0 / 1 / 2
+
+| `CSI n L` IL
+| yes
+| yes
+| insert lines
+
+| `CSI n M` DL
+| yes
+| yes
+| delete lines
+
+| `CSI n @` ICH
+| no
+| no
+| insert characters
+
+| `CSI n P` DCH
+| no
+| no
+| delete characters
+
+| `CSI n g` TBC
+| yes
+| yes
+| 0 current tab / 3 all tabs
+
+| `CSI top;bottom r` DECSTBM
+| *yes*
+| no
+| scrolling region
+
+| `CSI s`
+| *yes*
+| no
+| save cursor
+
+| `CSI u`
+| *yes*
+| no
+| restore cursor
+
+| `ESC 7`
+| yes
+| no
+| DEC save cursor
+
+| `ESC 8`
+| yes
+| no
+| DEC restore cursor
+
+| `CSI 5 n`
+| *yes*
+| no
+| DSR, replies OK
+
+| `CSI 6 n`
+| *yes*
+| no
+| DSR cursor position report
+
+| `CSI c`
+| *yes*
+| no
+| DA response
+
+| `CSI 20 h/l`
+| no
+| *yes*
+| LNM; one of the meaningful RomWBW-only items
+
+| `CSI ?1 h/l`
+| yes
+| yes
+| application cursor mode
+
+| `CSI ?2 h/l`
+| yes
+| no
+| ANSI/VT52 mode behavior in current implementation
+
+| `CSI ?3 h/l`
+| no
+| *yes*
+| DECCOLM in RomWBW
+
+| `CSI ?6 h/l`
+| *yes*
+| no
+| origin mode
+
+| `CSI ?7 h/l`
+| yes
+| yes
+| autowrap
+
+| `CSI ?25 h/l`
+| *yes*
+| no
+| cursor visibility
+|===
+
+The most important correction from the discussion is:
+
+[source,text]
+----
+save / restore cursor    YES
+DSR / DA responses       YES
+scrolling regions        YES
+insert/delete characters NO
+----
+
+== 10. 7XTGV current SGR support
+
+The current 7XTGV SGR implementation supports:
+
+[source,text]
+----
+0       reset
+1       bold on
+22      bold off
+
+4       underline on
+24      underline off
+
+5       blink on
+25      blink off
+
+7       reverse on
+27      reverse off
+
+30..37  normal foreground
+39      default foreground
+
+40..47  normal background
+49      default background
+
+90..97  bright foreground
+100..107 bright background
+----
+
+Extended color forms are parsed safely.
+
+The current `38;5;n` / `48;5;n` path is associated with the special plotting / GCLS style path and does not mean that normal native text cells magically have 256 arbitrary colors.
+
+Truecolor forms are consumed as units so their numeric components do not accidentally become unrelated SGR commands.
+
+== 11. 7XTGV-native four-byte cell model
+
+The current native design defines each visible cell as four bytes:
+
+[source,text]
+----
+CHAR_A
+CHAR_B
+ATTR
+EXTA
+----
+
+At 80x24:
+
+[source,text]
+----
+1920 cells x 4 = 7680 bytes
+----
+
+The canonical logical model keeps `CHAR_A` and `CHAR_B` conceptually independent.
+
+That does *not* require physically separate arrays.
+
+A software-friendly packed representation is perfectly compatible:
+
+[source,cpp]
+----
+struct Cell
+{
+    uint8_t CharA;
+    uint8_t CharB;
+    uint8_t Attr;
+    uint8_t ExtA;
+};
+----
+
+or equivalently one packed 32-bit cell word.
+
+This is especially attractive for:
+
+* cell blits,
+* scrolling,
+* window composition,
+* overlapping windows,
+* save/restore of cell rectangles,
+* flattened smart-terminal surfaces.
+
+== 12. Native TEXT/WIND/INST attributes
+
+For TEXT, WIND, and INST:
+
+[source,text]
+----
+ATTR = MM PP IIII
+----
+
+where:
+
+[source,text]
+----
+MM    mode
+PP    paper/base color index 0..3
+IIII  ink/base color index 0..15
+----
+
+EXTA is:
+
+[source,text]
+----
+EXTA = PPPP IIII
+----
+
+where:
+
+[source,text]
+----
+PPPP  paper brightness 0..15
+IIII  ink brightness 0..15
+----
+
+These brightness levels are separate from physical TFT backlight brightness.
+
+Therefore the apparent color capability is richer than "16 inks and 4 papers".
+
+Potential effective shades are:
+
+[source,text]
+----
+4 paper families x 16 paper levels
+16 ink families x 16 ink levels
+----
+
+The brightness LUT should remain conceptually brightness/intensity rather than arbitrary hue remapping, but it may be perceptually tuned.
+
+== 13. Native dual-plane compositor
+
+For TEXT/WIND/INST the compositor is:
+
+[source,text]
+----
+A = CHAR_A glyph bit
+B = CHAR_B glyph bit
+
+A=1          -> INK
+A=0, B=0     -> PAPER
+A=0, B=1     -> HARD DESKTOP
+----
+
+Thus a cell has three potential pixel sources:
+
+[source,text]
+----
+INK
+PAPER
+HARD DESKTOP
+----
+
+This can be exploited for:
+
+* rounded corners,
+* shadows,
+* shaped windows,
+* two-tone backgrounds,
+* stipple/dither-like effects,
+* direct text-over-desktop,
+* visual hierarchy,
+* demos.
+
+== 14. SEMI mode
+
+SEMI is a separate mode using two 10-bit masks and a 10-bit palette index.
+
+For the indexed interpretation:
+
+[source,text]
+----
+AB=00 -> palette color 0
+AB=01 -> palette color 1
+AB=10 -> palette color 2
+AB=11 -> palette color 3
+----
+
+Each cell therefore gets a local four-color palette chosen from the 1024-entry palette table.
+
+This is the proper route for arbitrary colorful graphics.
+
+Normal TEXT/WIND/INST should not be distorted into generic graphics merely to emulate xterm-256.
+
+== 15. Cell RAM sizes
+
+With four bytes per cell:
+
+[source,text]
+----
+bytes = columns x rows x 4
+----
+
+=== EP4_10
+
+[cols="1,1,1,1",options="header"]
+|===
+| Grid | Cells | Bytes | KiB
+| 204x80 | 16320 | 65280 | 63.75
+| 102x40 | 4080 | 16320 | 15.9375
+| 50x20 | 1000 | 4000 | 3.90625
+| 24x10 | 240 | 960 | 0.9375
+|===
+
+=== ES3_5
+
+[cols="1,1,1,1",options="header"]
+|===
+| Grid | Cells | Bytes | KiB
+| 132x48 | 6336 | 25344 | 24.75
+| 66x24 | 1584 | 6336 | 6.1875
+| 44x16 | 704 | 2816 | 2.75
+| 32x12 | 384 | 1536 | 1.5
+|===
+
+=== ES3_35
+
+[cols="1,1,1,1",options="header"]
+|===
+| Grid | Cells | Bytes | KiB
+| 80x32 | 2560 | 10240 | 10.0
+| 40x16 | 640 | 2560 | 2.5
+| 26x10 | 260 | 1040 | 1.015625
+| 20x8 | 160 | 640 | 0.625
+|===
+
+Other useful standard sizes:
+
+[source,text]
+----
+80x25 = 8000 bytes = 7.8125 KiB
+80x30 = 9600 bytes = 9.375 KiB
+80x27 = 8640 bytes = 8.4375 KiB
+----
+
+The large 204x80 surface is a particularly neat boundary:
+
+[source,text]
+----
+204 x 80 x 4 = 65280 bytes
+
+65536 - 65280 = 256 bytes spare
+----
+
+So a complete 204x80 native cell surface fits under 64 KiB by exactly 256 bytes.
+
+== 16. Why packed/interleaved 32-bit cells are attractive
+
+The current specification says the fields remain conceptually distinct.
+
+That is compatible with physical storage as:
+
+[source,text]
+----
+[A B ATTR EXTA][A B ATTR EXTA][A B ATTR EXTA]...
+----
+
+This is attractive because a full cell can be copied with one 32-bit operation on suitable CPUs.
+
+For future smart-terminal windows this gives efficient:
+
+* rectangle copy,
+* clipped blit,
+* overlap composition,
+* scroll,
+* save/restore,
+* z-order flattening.
+
+The semantic rule should remain:
+
+[source,text]
+----
+CHAR_A and CHAR_B are independent fields, not a combined 16-bit glyph index.
+----
+
+Physical memory organization may still be interleaved.
+
+== 17. Scrolling regions in current 7XTGV
+
+This is the most interesting rediscovery.
+
+The current parser implements DECSTBM:
+
+[source,text]
+----
+CSI top ; bottom r
+----
+
+The implementation stores:
+
+[source,text]
+----
+top
+bottom
+----
+
+as zero-based internal scrolling margins.
+
+Conceptually:
+
+[source,cpp]
+----
+case 'r':
+{
+    int a = param(0) - 1;
+    int b = param(1, rows) - 1;
+
+    if (a >= 0 && b < rows && a < b)
+    {
+        top = a;
+        bottom = b;
+        move(0, origin ? top : 0);
+    }
+    break;
+}
+----
+
+This means:
+
+[source,text]
+----
+ESC [ 5 ; 20 r
+----
+
+defines rows 5 through 20 as the scrolling region.
+
+The terminal then uses `top` and `bottom` when performing cursor motion and index/reverse-index behavior.
+
+=== 17.1 What DECSTBM does
+
+A scrolling region defines a vertical interval in which line-feed/index scrolling occurs.
+
+Without a region:
+
+[source,text]
+----
+top = first row
+bottom = last row
+----
+
+With:
+
+[source,text]
+----
+CSI 5;20 r
+----
+
+the scrolling area becomes:
+
+[source,text]
+----
+rows 5..20
+----
+
+Rows above 5 and below 20 remain fixed when normal scrolling occurs within the region.
+
+Typical use cases:
+
+* fixed status line,
+* fixed menu bar,
+* split screen,
+* full-screen editors,
+* terminals with a permanent header,
+* terminals with bottom command/status areas.
+
+=== 17.2 Interaction with origin mode
+
+The current 7XTGV implementation also supports:
+
+[source,text]
+----
+CSI ? 6 h    DECOM on
+CSI ? 6 l    DECOM off
+----
+
+When origin mode is enabled, vertical cursor addressing becomes relative to the top scrolling margin.
+
+So after:
+
+[source,text]
+----
+CSI 5;20 r
+CSI ?6h
+----
+
+a cursor position of row 1 means the first row of the scrolling region, not physical row 1 of the display.
+
+This is a proper VT-style interaction, not merely a stored pair of unused variables.
+
+=== 17.3 Normal index behavior
+
+Inside the active region:
+
+[source,text]
+----
+LF / IND at bottom margin
+    ->
+scroll only the region upward
+----
+
+Similarly reverse index at the top margin scrolls the region downward.
+
+Rows outside the region remain unchanged.
+
+This is exactly what should be demonstrated explicitly in VTESTS.
+
+== 18. Proposed MBASIC / VTESTS scrolling-region tests
+
+The existing VTESTS suite should gain a dedicated page or numbered test for DECSTBM.
+
+The test should be visually obvious and should not depend on subtle cursor tracking.
+
+=== 18.1 Basic protected-header/protected-footer test
+
+Suggested setup on an 80x24 screen:
+
+[source,text]
+----
+row 1      HEADER -- MUST NOT MOVE
+rows 2..22 scrolling region
+row 23     FOOTER -- MUST NOT MOVE
+row 24     diagnostics / prompt
+----
+
+Sequence:
+
+[source,text]
+----
+ESC[2;22r
+ESC[2;1H
+----
+
+Then print more than 21 lines.
+
+Expected result:
+
+* row 1 remains unchanged,
+* rows 2..22 scroll,
+* row 23 remains unchanged,
+* content leaving row 22 disappears,
+* content newly entering the region appears at row 22.
+
+This is the most important first test.
+
+=== 18.2 Reverse-index test
+
+Set:
+
+[source,text]
+----
+ESC[5;15r
+ESC[5;1H
+----
+
+Then issue:
+
+[source,text]
+----
+ESC M
+----
+
+or the corresponding reverse-index sequence at the top margin.
+
+Expected result:
+
+* only rows 5..15 shift downward,
+* a blank line appears at row 5,
+* rows 1..4 and 16..end remain unchanged.
+
+=== 18.3 Origin-mode test
+
+Sequence:
+
+[source,text]
+----
+ESC[5;20r
+ESC[?6h
+ESC[1;1H
+----
+
+Expected cursor location:
+
+[source,text]
+----
+physical row 5, column 1
+----
+
+Then:
+
+[source,text]
+----
+ESC[16;1H
+----
+
+should address physical row 20 if the origin-relative coordinates are clamped properly.
+
+Finally:
+
+[source,text]
+----
+ESC[?6l
+----
+
+returns to absolute screen coordinates.
+
+=== 18.4 Reset-region test
+
+Normal VT convention resets the scrolling region to full height with:
+
+[source,text]
+----
+ESC[r
+----
+
+The current code uses default parameters to derive:
+
+[source,text]
+----
+top = 0
+bottom = rows - 1
+----
+
+This should be verified explicitly.
+
+Suggested test:
+
+1. Set a small region.
+2. Scroll within it.
+3. Issue `CSI r`.
+4. Move to the physical bottom row.
+5. line-feed repeatedly.
+6. verify the whole screen now scrolls again.
+
+=== 18.5 Insert/delete line interaction
+
+Because `IL` / `DL` already exist, test them while a scrolling region is active.
+
+Suggested:
+
+[source,text]
+----
+ESC[5;20r
+ESC[10;1H
+ESC[3L
+----
+
+Expected:
+
+* lines 10..20 shift downward by 3 inside the active region,
+* lines outside the region remain untouched.
+
+Then:
+
+[source,text]
+----
+ESC[10;1H
+ESC[2M
+----
+
+Expected:
+
+* lines 10..20 shift upward by 2 within the region.
+
+=== 18.6 Cursor-motion clamp test
+
+Inside a scrolling region with origin mode active:
+
+[source,text]
+----
+CSI 5;20 r
+CSI ?6h
+CSI 999 A
+CSI 999 B
+----
+
+Expected:
+
+* cursor never leaves the region vertically.
+
+Without origin mode, ordinary cursor moves should use whole-screen bounds according to current implementation rules.
+
+=== 18.7 Visual test pattern
+
+A very useful visual pattern is to fill every row with its row number:
+
+[source,text]
+----
+01 ------------------------------------------------
+02 ------------------------------------------------
+03 ------------------------------------------------
+...
+24 ------------------------------------------------
+----
+
+Then apply a region and scroll.
+
+The preserved and moving rows become immediately obvious.
+
+This is preferable to a test containing only text paragraphs.
+
+== 19. Suggested VTESTS menu item
+
+A new VTESTS entry could be named approximately:
+
+[source,text]
+----
+SCROLL REGION / DECSTBM
+----
+
+or:
+
+[source,text]
+----
+DECSTBM + DECOM
+----
+
+Recommended subtests:
+
+[source,text]
+----
+1 Basic region scroll
+2 Reverse index
+3 Origin mode
+4 Reset full-screen region
+5 IL/DL inside region
+6 Cursor clamp
+----
+
+If VTESTS is MBASIC-based, the helper routines should emit escape sequences by byte values rather than rely on source-editor escape notation.
+
+For example conceptually:
+
+[source,basic]
+----
+PRINT CHR$(27);"[5;20r";
+PRINT CHR$(27);"[?6h";
+PRINT CHR$(27);"[1;1H";
+----
+
+A "restore normal terminal state" helper should always run at the end:
+
+[source,basic]
+----
+ESC[r
+ESC[?6l
+ESC[0m
+ESC[H
+----
+
+This prevents a failed/manual test from leaving the terminal in a confusing restricted scrolling mode.
+
+== 20. Good candidate future additions
+
+The current comparison reveals surprisingly few useful RomWBW ANSI features that 7XTGV lacks.
+
+The most relevant are:
+
+[source,text]
+----
+CSI 20 h/l    LNM
+CSI ?3 h/l    DECCOLM
+RomWBW private screen-color command
+----
+
+Of these, only LNM is obviously interesting as a standard terminal feature.
+
+DECCOLM is less useful unless the terminal genuinely supports an 80/132-column mode switch.
+
+The RomWBW private screen-color command is not a general standard and should only be implemented for deliberate compatibility reasons.
+
+By contrast, 7XTGV already exceeds RomWBW in:
+
+* scrolling regions,
+* save/restore cursor,
+* DSR,
+* DA,
+* origin mode,
+* cursor visibility,
+* more cursor-positioning commands,
+* richer SGR reset/off variants,
+* bright foreground/background ranges.
+
+== 21. Architectural conclusion
+
+The clean long-term model is:
+
+[source,text]
+----
+                    7XTGV terminal core
+        +--------------------------------------+
+        | ANSI / VT parser                     |
+        | screen model                         |
+        | keyboard mapping                     |
+        | history                              |
+        | line editor                          |
+        | profiles                             |
+        | filtered recall                      |
+        +------------------+-------------------+
+                           |
+                    tiny byte-stream seam
+                           |
+          +----------------+----------------+
+          |                |                |
+        RunCPM           z80pack          RomWBW
+          |                |                |
+         CP/M             CP/M          CP/M / others
+----
+
+For RomWBW specifically there are two valid personalities:
+
+[source,text]
+----
+7XTGV smart terminal
+    attaches at CIO / console stream level
+
+7XTGV-chip
+    attaches at VDA level
+----
+
+Both are useful, but they solve different problems.
+
+The immediate practical path remains:
+
+[source,text]
+----
+1. Linux-native RunCPM + Arduino_GFX/SDL.
+2. Keep terminal/backend seam small and generic.
+3. Add explicit DECSTBM/DECOM tests to VTESTS.
+4. Later consider a RomWBW CIO smart-terminal backend.
+5. Separately consider a RomWBW VDA "7XTGV-chip" driver.
+----
+
+== 22. Immediate action item
+
+The next concrete implementation task suggested by this discussion is:
+
+[source,text]
+----
+Add DECSTBM / scrolling-region coverage to MBASIC VTESTS.
+----
+
+Minimum acceptance criteria:
+
+* fixed header survives scrolling,
+* fixed footer survives scrolling,
+* reverse index scrolls only inside region,
+* `CSI r` restores full-screen scrolling,
+* `CSI ?6h/l` origin mode is visibly verified,
+* insert/delete line behave correctly inside the region,
+* test restores normal terminal state before return.

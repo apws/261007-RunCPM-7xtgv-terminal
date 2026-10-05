@@ -6,8 +6,16 @@ import os
 from pathlib import Path
 import re
 import shutil
+import grp
+import pwd
+import shlex
+import sys
 
 TARGETS = Path(__file__).resolve().parent / 'targets'
+
+
+class NoSerialPort(RuntimeError):
+    pass
 
 
 def load_target(name=None, directory=None):
@@ -53,7 +61,7 @@ def resolve_port(port=None, target=None, definition=None):
         return next(iter(matches.values()))
     if definition.get('port'):
         return definition['port']
-    raise RuntimeError(f'No serial port found for {target}; specify --port or XTGV_PORT')
+    raise NoSerialPort(f'No serial port found for {target}; specify --port or XTGV_PORT')
 
 
 def arduino_cli():
@@ -67,6 +75,32 @@ def arduino_cli():
         if local.is_file() and os.access(local, os.X_OK):
             return str(local)
     raise RuntimeError('Cannot find arduino-cli; set ARDUINO_CLI or add it to PATH')
+
+
+def arduino_command(cli, *args):
+    """Use the same explicit config for property resolution, build and upload."""
+    config = os.environ.get('XTGV_ARDUINO_CONFIG')
+    return [cli, *args, *(['--config-file', config] if config else [])]
+
+
+def ensure_serial_access(port):
+    """Re-enter an already configured group; never grant new privileges."""
+    if os.access(port, os.R_OK | os.W_OK):
+        return
+    try:
+        device_gid = os.stat(port).st_gid
+        account = pwd.getpwuid(os.getuid())
+        configured = os.getgrouplist(account.pw_name, account.pw_gid)
+        current = set(os.getgroups()) | {os.getgid(), os.getegid()}
+        newgrp = shutil.which('newgrp')
+        if device_gid in configured and device_gid not in current and newgrp:
+            command = shlex.join([sys.executable, os.path.realpath(sys.argv[0]),
+                                  *sys.argv[1:]])
+            os.execv(newgrp, [newgrp, grp.getgrgid(device_gid).gr_name, '-c', command])
+    except (OSError, KeyError):
+        pass
+    raise RuntimeError(f'Cannot read/write {port}; join its serial group and log in '
+                       'again, or obtain a temporary device ACL. Do not build as root.')
 
 
 def main():

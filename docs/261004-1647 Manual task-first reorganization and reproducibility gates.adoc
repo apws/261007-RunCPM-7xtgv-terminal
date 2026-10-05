@@ -1,0 +1,117 @@
+= Manual task-first reorganization and reproducibility gates
+:source-highlighter: highlight.js
+:toc:
+
+== Source and scope
+
+Petr's authored source is
+link:260912-23%207xtgv%20terminal%20manual/261004-11%20manual%20reorg.txt[261004-11 manual reorg.txt].
+Preserve that original and its observations; do not silently rewrite its history.
+This checkpoint records a first documentation pass, not a finished exhaustive
+reference audit or a change to SD contents, INI, profiles or firmware.
+
+== Guide ownership and desired structure
+
+[cols="1,3",options="header"]
+|===
+|Guide |Owns
+|User |Power/boot; profiles/history; 7XF navigation; zoom/pan; colors; brightness; modes; MBASIC/plot recipes; transfer; safe configuration; recovery.
+|Reference |Exact implemented chords and internal controls; command grammar; profile behavior; complete INI tables/examples; limits and supported output sequences, organized by the same tasks.
+|Technical |Runtime/storage ownership; HAL and core seams; parser/renderer state; persistence; protocols; build/placement; upstream baseline; licensing.
+|Build |Fresh-clone prerequisites, pinned dependencies, exact target builds/uploads, SD bootstrap and reproducibility evidence.
+|Timeline |Compact implementation and naming/behavior history; not current instructions or duplicated deep design prose.
+|===
+
+Use short introductions, bullets, compact comparison tables and runnable
+examples. Keep warnings next to the operation that creates the risk.
+Explicitly distinguish implemented behavior, card-specific configuration,
+historical experiments and future plans.
+
+== First pass delivered
+
+* User guide gains boot interpretation, profile/history controls, 7XF examples,
+  palette/backlight controls, modes and practical MBASIC/plot/benchmark recipes.
+* Reference gains a physical-chord to internal-control table and task lookup.
+  History capacity is corrected to 100; CARDMARK is not P4-only.
+  C6/P4 geometry entries and obsolete abort caveats are corrected.
+* Build guide includes the experimental sixth target and an explicit isolated
+  clean-clone acceptance gate.
+* Technical guide gets a current-findings map to selected evidence, rather than
+  treating every dated log as current architecture.
+
+Corrections to the rough outline: 7XF is a CCP built-in, not 7XF.COM.
+A 320x240 panel showing an 80x24 logical terminal requires horizontal panning
+because only 52 columns fit. Coarse brightness keys remain supported, not removed.
+ANSI attributes can outlive an app; CLS does not imply SGR reset.
+
+== Catalog and application-bank proposals: no moves yet
+
+Prefer *catalog-first cleanup* over immediate physical DU reorganization.
+
+. Inventory the actual card and repository separately, including duplicate
+  utilities, test fixtures, app installers and source/archive-only content.
+. Keep shared tools/configuration in A0; retain current executable locations
+  until SUBMIT scripts and application paths are audited.
+. Populate every active area's DIR.7XF with a short stable alias/description;
+  populate VOL.7XF and file descriptions where useful.
+. Consider aliases such as cpm-os, mbasic, bbc, turbo, comal, dev and xterm256.
+  These are proposals, not assertions about the current card.
+. Move files only after a backed-up mapping and updated scripts/catalogs are
+  approved. Archives need not consume device areas.
+
+Application profiles are *input modes and separate histories*, not DU slots.
+Several profiles may share one area, and a test profile can deliberately have
+separate history from its interpreter profile.
+
+Suggested labels: `CP/M /a/cpm-os`, `MBASIC /a/mbasic`,
+`TURBO /a/turbo`, `BBC /a/bbc`, `TESTS /a/mbasic`.
+The current name limit is 20 bytes; keep labels short and verify aliases.
+The label is descriptive: only on_select performs navigation at a CCP prompt.
+Keep automated-transfer bank 9 separate. Do not rename/reorder banks casually:
+history generations and bindings depend on bank numbers.
+Fetch live INI before any later approved edits.
+
+== Fresh-clone reproducibility: essential unfinished gate
+
+Existing-machine successful builds are not proof of fresh-clone reproducibility.
+Test a selected published commit with empty Arduino data/user/download/cache
+directories, no private files and no inherited patched libraries.
+
+* Confirm both property resolution and compilation use the same isolation.
+* Pin/verify the ESP32 platform profiles; libraries and RP2350 core already
+  declare baseline versions.
+* Build all six targets, retaining dependency logs, commands, sizes and failures.
+* Separate compiler acceptance from first flash, USB permission/mirror checks,
+  minimal SD population and actual panel/storage checks.
+* Document actual missing tools and remedies, not an assumed universal install.
+
+No package installation, network-heavy clean build or hardware test is performed
+in this documentation pass. The next implementation task should close this gate;
+avoid declaring it complete merely because instructions exist.
+
+== Remaining editorial work
+
+Validation of this pass: User, Reference, Technical, Build, Timeline and this
+checkpoint render with Asciidoctor 2.0.26 without warnings. Generated HTML
+contains no leaked table delimiters/column declarations or literal section
+markers. Ledger validation and git whitespace checks pass. This does not
+validate Chrome extension-specific navigation or physical PDF pagination.
+
+* Audit all user-facing bindings against both shipped keymaps and firmware.
+  Generated key events need exact IDs/modifiers in the developer protocol map.
+* Regroup the remaining long reference paragraphs by task without losing
+  accepted INI values, limits, examples or existing anchors.
+* Audit every setting accepted by the parser against the INI tables.
+* Curate technical findings from dated notes; link provenance and label
+  tentative conclusions. Do not paste every experiment into the manual.
+* Review recipes against the actual catalog; fallback DUs remain examples.
+
+== Optional graphics, later
+
+Small repo-native SVG keyboard diagrams can highlight chords without an
+image-generation service. For authentic screen miniatures, decode the repository
+6x10 font bitmap into rectangles or use captured terminal-cell data; do not
+substitute an arbitrary desktop monospace font and call it a real device image.
+Use a reusable layout with highlighted keys, a brief action caption and
+timestamp-prefixed assets under docs/images. Reference images from AsciiDoc.
+No new graphics are required for this first pass.

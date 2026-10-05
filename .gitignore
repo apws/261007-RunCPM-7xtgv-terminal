@@ -2,6 +2,9 @@ nukedc-recovery-mostly-corrupted-some-valid/
 # Local material deliberately kept outside the published repository.
 /private/
 /docs/private/
+/src/RunCPM_7xtgv-terminal/tools/targets/*-reflash.log
+/src/RunCPM_7xtgv-terminal/tools/targets/*/rebuild.log
+/src/RunCPM_7xtgv-terminal/tools/targets/*/reflash.log
 /src/RunCPM_comparison/
 # Local comparison snapshots; the committed history is the reproducible baseline.
 /src/260928_260126_RunCPM_comparison.zip

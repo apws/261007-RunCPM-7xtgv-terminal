@@ -1,0 +1,20 @@
+= Minimal launcher status and separated log sections
+:source-highlighter: highlight.js
+
+Petr's screenshot marks the desired normal output: Module; build start/OK;
+Embedded build; upload start/OK; Launching mirror. Paths and explanatory
+messages are now log-only. Status is green on a color terminal, plain when
+redirected or NO_COLOR is set. Concise actionable errors remain visible.
+
+The adjacent TARGET-reflash.log separates BUILD, IMAGE, FLASH and MIRROR with
+two blank lines and explicit three-asterisk section headings. It retains
+commands, paths, image stamp and reset advice. C6 is serial-upload, not BOOTSEL;
+physical RESET is only a recovery for a blank/unresponsive post-upload device.
+Target identity guard remains required; no automatic bypass/reset retry.
+
+Petr's later screenshot reports successful upload of staged 261004-1936.
+This differs from the earlier 1925 run, whose guard blocked upload.
+The screenshot is not independent confirmation of the actual booted stamp.
+
+Twelve offline workflow tests pass, including exact minimal build output and
+log delimiters. No agent-triggered firmware build, upload or device input.

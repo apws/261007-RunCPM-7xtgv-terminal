@@ -1,0 +1,149 @@
+= Isolated fresh builds and per-target reflash launchers
+:source-highlighter: highlight.js
+:toc:
+
+== Request and scope
+
+Petr requested a local fresh-system simulation and one-command per-board
+build/reflash launchers. This adds host tooling and pins existing ESP32 3.1.0
+profiles. No firmware compilation, download-heavy installation, device reset,
+upload, INI/BUF transfer or candidate promotion is performed in this checkpoint.
+
+== What caused the C6 difficulty
+
+Petr confirms the failed attempt selected the wrong target; explicit
+`--target esp32c6-lcd-1-47` worked with the one-shot unidentified-target
+option, but needed hardware RESET afterward.
+
+The host tools also had two independent workflow gaps: direct uploads did not
+handle stale serial-group membership, and reflash.py deliberately excluded
+RP2350 upload. Neither gap alone proves the cause of Petr's particular attempt.
+The configured host terminal.conf still selects P4; wrappers do not rewrite it.
+
+Per-target launchers fix the selected target at the end of their argument list.
+They do not silently select a target from a generic ttyACM name.
+Recovery bypass is not enabled by default and still cannot override a firmware
+target mismatch. C6 may require a physical RESET after the uploader's RTS reset;
+there are no blind reset/recovery loops.
+
+== Per-target workflow
+
+From the sketch directory:
+
+[source,sh]
+----
+./tools/targets/esp32c6-lcd-1-47-reflash.sh
+./tools/targets/esp32c6-lcd-1-47-reflash.sh --upload-only
+./tools/targets/rp2350-touch-lcd-2-reflash.sh
+----
+
+Six thin shell entry points call tools/target_reflash.py. Default is build-only
+staging through existing reflash.py, then upload of that target's new image
+(current fallback when upload-only has no new), then restore the visible mirror.
+No automatic promotion. Build failure leaves the mirror running.
+
+* `--build-only`: stage firmware only, no serial/mirror changes.
+* `--upload-only`: use staged firmware, no build.
+* `--port PATH`: override unambiguous target discovery.
+* `--dry-run`: print workflow without property query, build or device access.
+* `--mirror auto|konsole|kitty|terminal|none`: auto chooses available desktop
+  launcher, otherwise shared tmux terminal. None is an explicit no-mirror choice.
+* `--allow-unidentified-target TARGET`: explicit ESP first-install/recovery;
+  exact target required. Never persist in terminal.conf.
+* `--chip-id HEX16`: explicit known physical RP2350 chip for BOOTSEL.
+
+Uploading restarts CP/M and loses active app state. Shared mirror is stopped
+only for the upload phase and restored on success or failure when a serial
+device is available. If USB does not return within the bounded wait, the tool
+reports that restoration failed and asks for reset/relaunch; it does not claim
+a visible or responsive mirror when none could be started.
+
+=== RP2350 BOOTSEL
+
+This is a host-launcher workflow; bare reflash.py and device-triggered REFLASH
+still do not implement RP2350 BOOTSEL upload.
+
+. Enter BOOTSEL manually, or follow the interactive prompt when no ROM disk exists.
+. Discover /dev/disk/by-id/usb-RPI_RP2350_* partition links.
+. Reject multiple candidates unless an explicit chip ID chooses one.
+. Mount the exact candidate with udisksctl if needed; verify INFO_UF2.TXT says RP2350.
+. Validate every UF2 block's magic/length and RP2350 absolute/ARM-secure families;
+  require selected target identity in its payload.
+. Without a supplied chip mapping, require typing the physical board's exact
+  target name. ROM identity alone cannot distinguish different display modules.
+. Recheck the disk identity before copying; wait for that same chip's serial link.
+
+An explicit chip ID is the user's physical-board mapping, not a firmware reply.
+The current implementation supports our ARM-secure RP2350 images, not arbitrary
+RISC-V or other-family UF2s. No picotool/sudo boot-mode automation is introduced.
+
+=== ESP serial permissions
+
+target_config.ensure_serial_access checks read/write access. If the account is
+already configured in the device group but the current login lacks it, re-enter
+the same uploader using newgrp. It does not grant membership, run the whole
+build as root or silently add ACLs. Otherwise report the required group/ACL
+remedy. Perform this check before compilation to avoid rebuilding on re-entry.
+
+== Fresh dependencies without disturbing the working installation
+
+tools/fresh-build.sh creates a retained mktemp run directory. It isolates Arduino
+data, downloads, user libraries, build cache and temporary/cache directories.
+XTGV_ARDUINO_CONFIG is passed to property resolution, compilation and upload,
+so the normal wrapper does not accidentally fall back to the developer config.
+Inherited ARDUINO_* overrides are cleared.
+
+[source,sh]
+----
+# Current uncommitted files, isolated dependencies: not clean-clone proof.
+./tools/fresh-build.sh --snapshot --target esp32c6-lcd-1-47
+
+# After publishing current sources: genuine GitHub clone, one target.
+./tools/fresh-build.sh --target esp32c6-lcd-1-47
+
+# All targets from a selected published commit.
+./tools/fresh-build.sh --target all --ref COMMIT
+----
+
+Default downloads Arduino CLI 1.5.0 release and verifies its published SHA256
+checksum before extraction. This release is a prospective portable baseline,
+not yet verified by a real project compile here; local working CLI remains
+1.5.2-rc.1. `--use-cli /absolute/path/arduino-cli` can reuse only the executable,
+with empty package/cache directories unchanged. `--source URL_OR_PATH` selects
+a Git clone source; `--snapshot` instead copies current non-ignored tracked
+and untracked files without a Git directory or vendor/private files.
+
+Only required MCU families are installed; platform baselines are ESP32 3.1.0
+and Arduino-Pico 5.4.4, libraries GFX 1.6.4 and SdFat 2.3.0.
+ESP32 profiles now declare their platform/index explicitly.
+Logs and artifacts remain in the printed run directory; nothing is auto-deleted.
+The script does not change the working repo's build candidates.
+
+This simulates a *fresh Arduino dependency environment*, not a fresh OS:
+Linux, bash/coreutils, git, Python 3, curl, tar, certificates and working
+network access are prerequisites. It does not install distro packages, tmux,
+desktop terminals or USB permissions; those remain a separate host setup test.
+A VM/container or second machine is needed to validate those absent-OS-package
+cases. No Codex/AI service is required.
+
+Current C6/tooling changes are uncommitted/unpublished: a GitHub clone cannot
+contain them yet. Snapshot success must not be called published-clone success.
+
+== Validation and remaining gates
+
+* Ten new offline workflow tests pass, including shell orchestration using
+  a local fixture clone and fake CLI; no download or firmware compilation.
+* Existing identity guard: 12 tests; build properties: 7; target config: 9;
+  target metadata: 6 pass.
+* Real staged RP2_2 UF2 passes the new family/embedded-target validation,
+  read-only; no upload.
+* Shell syntax, per-target dry runs and whitespace checks pass.
+
+Still required: real isolated downloads/build, host-run C6 upload/mirror/reset
+check and RP2350 BOOTSEL copy/mirror check. Do not interpret offline tests as
+hardware qualification or reproducibility proof.
+
+== External references
+
+* https://docs.arduino.cc/arduino-cli/configuration/[Arduino CLI directory/configuration controls]
+* https://github.com/arduino/arduino-cli/releases/tag/v1.5.0[Prospective downloaded CLI baseline]

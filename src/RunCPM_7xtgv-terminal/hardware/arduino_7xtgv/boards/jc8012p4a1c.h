@@ -32,7 +32,6 @@ static constexpr uint8_t XTGV_BACKLIGHT_DUTIES[] = {
 // ============================================================================
 // 3. Optional compiler policy and storage clock
 // ============================================================================
-#define XTGV_CPU1_O2 0
 
 // Requested 40 MHz trial after successful 20 MHz buffer-transfer verification.
 // Read configuration at the conservative startup clock.

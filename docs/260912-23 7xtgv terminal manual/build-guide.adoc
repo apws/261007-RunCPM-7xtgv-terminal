@@ -5,7 +5,7 @@
 
 == Scope and verification status
 
-This guide describes the current Linux workflow, reviewed on 261003.
+This guide describes the current Linux workflow, reviewed on 261004.
 The firmware and tools run without Codex or any AI service. Arduino IDE is
 optional; our maintained build entry point uses Arduino CLI and Python.
 
@@ -47,7 +47,7 @@ would be a separate port. There is no RunCPM submodule setup step.
 |Clone |Git, network access |Authentication if repository access requires it.
 |Build wrapper |Python 3, Linux/POSIX |Uses Python standard-library modules; no project pip environment is needed for the basic wrapper/mirror.
 |Firmware compiler |Arduino CLI |Available through PATH, ARDUINO_CLI, or executable `$HOME/.local/bin/arduino-cli`.
-|ESP32 boards |Arduino-ESP32 3.1.0 |Working local baseline; currently not version-pinned in the ESP32 sketch profiles.
+|ESP32 boards |Arduino-ESP32 3.1.0 |Working local baseline; version/index pinned in sketch profiles.
 |RP2350 boards |Arduino-Pico 5.4.4 |Version and package index pinned in sketch.yaml.
 |Firmware libraries |GFX Library for Arduino 1.6.4; SdFat 2.3.0 |Pinned in each sketch profile.
 |Native tests |g++ with C++17; Python 3 |Separate from the Arduino cross-compiler; sanitizer support for relevant tests.
@@ -91,7 +91,7 @@ index if it is not already listed. Install only the MCU families you need:
 
 [source,sh]
 ----
-# ESP32-S3 and ESP32-P4:
+# ESP32-S3, ESP32-P4 and ESP32-C6:
 arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
 arduino-cli core update-index
 arduino-cli core install esp32:esp32@3.1.0
@@ -131,6 +131,7 @@ Profile-managed dependencies may use an isolated installation; a global
 |EP4_10 |jc8012p4a1c |ESP32-P4 10-inch
 |RP2_147 |rp2350-lcd-1-47-a |RP2350 1.47-inch
 |RP2_2 |rp2350-touch-lcd-2 |RP2350 2-inch
+|EC6_147 |esp32c6-lcd-1-47 |Experimental single-core ESP32-C6 1.47-inch
 |===
 
 From the clone root, for example:
@@ -157,7 +158,88 @@ Do not use the old bare `arduino-cli compile --profile ...` recipe: it omits
 target metadata supplied by the wrapper and is not the supported shortcut.
 Do not mix binaries from different target folders.
 
+== Explicit Arch/CachyOS setup
+
+From the sketch directory:
+
+[source,sh]
+----
+./tools/setup.sh --dry-run
+./tools/setup.sh
+----
+
+Setup asks before installation. Only system packages use sudo/pacman; Arduino
+CLI, pinned cores and libraries are installed as your user. Do not run the script
+with sudo. It does not upgrade the system, build, flash, install a desktop,
+or change serial groups. Existing Arduino CLI is reused; when absent, a
+checksummed 1.5.0 executable is installed under `~/.local/bin`.
+`XTGV_ARDUINO_CONFIG` is honored when supplied.
+
+Rebuild/reflash report missing required tools and suggest setup, never install
+automatically. This is currently Arch-specific; DEB/RPM/macOS/Windows adapters
+remain future work. Missing USB permissions need separate administrator setup.
+
+Offline tests use fake installers and isolated temporary files. They are not
+proof of a real fresh Arch installation. `fresh-build.sh` remains the separate
+dependency-isolated download/build test; it does not install OS prerequisites.
+
+== Separate rebuild and reflash commands
+
+From the sketch directory:
+
+[source,sh]
+----
+cd "tools/targets/EC6_147 -- esp32c6-lcd-1-47"
+./rebuild.sh
+./reflash.sh
+----
+
+Each of the six targets has a `DISPLAY_ID -- TARGET` folder containing
+`rebuild.sh` and `reflash.sh`. Rebuild creates/stages a fresh `new` candidate
+without device or mirror access. Reflash uploads the existing `new` candidate
+(falling back to `current`), without compiling, then restores the visible mirror.
+Neither command promotes the candidate or edits terminal.conf.
+Use the wrapper for your physical board, not the one for a previously attached
+module. Upload restarts CP/M and loses active application state.
+
+* `--port /dev/serial/by-id/...`: explicit port when discovery is ambiguous.
+* `--dry-run`: show workflow without building or touching the device.
+* Default output is concise step/status lines. Full details are saved beside
+  the launcher as `rebuild.log` or `reflash.log` (replaced each run).
+  Normal output is module, build/upload progress and completion, embedded
+  stamp and mirror launch. Paths stay in the log, with BUILD/FLASH separators.
+  Failures show one short reason, not a CLI transcript; a blocked target check
+  explicitly reports that flashing was not performed.
+* `--verbose`: show live compiler/uploader output instead.
+* `--mirror terminal`: use the shared tmux terminal without a desktop GUI.
+
+For RP2350, an eligible BOOTSEL disk already connected skips the prompt.
+If none is connected, a red warning names the module and asks you to connect it
+in BOOTSEL mode, then press Enter. No long target-name retyping.
+The tool verifies RP2350 and the UF2 target/family. An optional
+`--chip-id HEX16` further restricts disk selection; ROM alone cannot identify
+the display variant.
+More than one candidate is rejected without a chip selector.
+For C6, uploader reset may leave a blank screen: physical RESET restored the
+tested module. Do not add recovery bypass merely to fix a wrong target.
+Missing ESP serial connections similarly prompt in red and wait for Enter,
+without BOOTSEL wording. Ambiguous ports and mismatched firmware remain errors.
+
+First-install/old ESP firmware may need the explicit one-shot option
+`--allow-unidentified-target TARGET`; normal launchers never add it themselves.
+Missing serial permissions are reported; existing configured group membership
+can be entered without sudo via newgrp.
+
+See link:../261004-1848%20Isolated%20fresh%20builds%20and%20per-target%20reflash%20launchers.adoc[workflow implementation and test boundaries].
+
 == Flashing and the desktop mirror
+
+Existing latest images are in `build/RunCPM_7xtgv-terminal/TARGET/new/`.
+Upload-only falls back to `current/` when no new candidate exists.
+The launcher prints the embedded stamp when identifiable; exact image paths
+are recorded in the adjacent log.
+Archived top-level legacy build folders were moved into ignored
+`private/261004-1907 legacy build folders/`; active target artifacts are intact.
 
 Build and flash are deliberately separate. For an already running, identifiable
 ESP32 target, stop the shared mirror, then upload the staged candidate:
@@ -175,9 +257,9 @@ The uploader checks firmware target identity. A reported mismatch is a stop
 condition. A blank board/older firmware without the identity protocol needs
 an explicitly checked, one-shot recovery workflow; do not disable the guard
 permanently. Flashing restarts CP/M and loses active application state.
-RP2350 currently requires matching the correct physical device in BOOTSEL
-and copying its target's staged UF2; the ESP32 upload command above is not
-an RP2350 upload recipe. See link:technical-reference.adoc[build/upload boundaries].
+For RP2350 use its target shell launcher, which handles the guarded BOOTSEL
+copy; the bare ESP32 upload command above is not an RP2350 recipe.
+See link:technical-reference.adoc[build/upload boundaries].
 
 Review tools/terminal.conf before using the launcher, especially XTGV_TARGET,
 XTGV_PORT and the optional device-triggered reflash command. They reflect a
@@ -217,7 +299,7 @@ interchangeable. A host assembler is not currently installed by our build wrappe
 |Cannot resolve Arduino build flags |Read the following CLI diagnostic: absent core/profile dependencies or incompatible board options commonly stop this step.
 |Unknown board/core or missing library |Package index, network access and exact profile versions; installation is normally sufficient.
 |Download/TLS error |Network/proxy/CA certificates and free disk space; do not edit HAL code to compensate.
-|Missing API or compilation fails with a newer core |Return to the recorded baseline before investigating; ESP32 pinning remains an open reproducibility gap.
+|Missing API or compilation fails with a newer core |Use the core version pinned in the profile before investigating; isolated installation/build still needs validation.
 |Permission denied or missing serial port |Correct device node, USB data cable, permissions and no competing reader. Building alone does not need serial access.
 |Target mismatch |Stop and select the right physical board and target; never bypass a known mismatch.
 |No staged image |Build this target first; ignored build artifacts do not arrive in a clone.
@@ -228,7 +310,8 @@ interchangeable. A host assembler is not currently installed by our build wrappe
 Once installed, normal rebuilding is one command. A first setup requires
 package downloads and host/USB configuration, but normally not source porting.
 No universal time estimate is claimed: download speed, caches and host CPU
-dominate. There is no comprehensive bootstrap/doctor script yet.
+dominate. The isolated dependency script below is not a distro installer or
+a complete device/permissions doctor.
 
 == Tests and remaining reproducibility work
 
@@ -246,12 +329,58 @@ SD electrical reliability, panel timing, backlight behavior or USB power margin.
 
 Remaining work, not performed by documenting this guide:
 
-* Pin ESP32 platform versions/indexes in profiles after validation.
+* Verify the explicitly pinned ESP32 platform/index resolves in a clean install.
 * Reproduce installation and builds with a fresh Arduino data/cache directory.
-* Check all five targets without private/vendor ZIPs or undeclared local patches.
+* Check all six targets without private/vendor ZIPs or undeclared local patches.
 * Record supported CLI/Python/host versions and actual download/storage needs.
 * Validate mirror, permissions, upload and initial SD preparation from that clone.
 * Consider a small prerequisite checker; separately assess Windows/macOS support.
 
 Commit/push is a separate step: publishing this guide does not publish ignored
 binaries, device configuration, or uncommitted source changes.
+
+=== Clean-clone acceptance gate
+
+This gate is essential and still *not passed*. Documentation and existing
+machine builds do not substitute for it.
+
+. Choose a published commit and a disposable checkout on a separate machine
+  or isolated environment; record Linux, Python and Arduino CLI versions.
+. Use empty Arduino data/download/user directories and an empty build cache.
+  Do not borrow the developer's packages, vendor ZIPs or modified libraries.
+. Install only the declared package indexes, baseline cores and pinned libraries.
+. Build each target through `tools/reflash.py --build-only`; save dependency
+  resolution logs, effective flags, image sizes and failure/remediation notes.
+. Confirm artifacts contain the correct target and new build stamp.
+. Separately verify USB permissions, first upload, mirror launch and a minimally
+  populated SD card. A compiler-only environment cannot prove those steps.
+
+The wrapper now passes `XTGV_ARDUINO_CONFIG` to dependency resolution and
+compilation (and upload). ESP32 profiles now pin their platform/index.
+These mechanisms still need a real isolated build before claiming reproducibility.
+Do not run builds as root.
+
+=== Local dependency-isolation script
+
+From the sketch directory:
+
+[source,sh]
+----
+# Current non-ignored working files; not proof of published-clone completeness:
+./tools/fresh-build.sh --snapshot --target esp32c6-lcd-1-47
+
+# Published GitHub checkout with downloaded tools/dependencies:
+./tools/fresh-build.sh --target all --ref COMMIT
+----
+
+The script downloads a checksummed Arduino CLI release, installs baseline
+cores/libraries into empty temporary directories, then uses the normal
+build-only wrapper. Property resolution and compilation use the same explicit
+config. Logs and artifacts are retained outside the working checkout.
+`--use-cli PATH` reuses only that executable, not its packages/cache;
+`--source URL_OR_PATH` changes the clone source. See `--help`.
+
+It still requires Linux, bash/coreutils, Git, Python, curl, tar, certificates
+and network access. It does not simulate missing OS packages or install
+desktop/USB tools. A VM/container/second-machine check remains necessary.
+New uncommitted targets cannot exist in a GitHub clone until published.

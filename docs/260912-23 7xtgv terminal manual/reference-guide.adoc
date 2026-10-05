@@ -11,6 +11,20 @@ device INI may differ from compiled defaults and from the local copy.
 The link:features_timeline.adoc[Features Timeline] tracks command and file
 name changes; syntax below is the current reference.
 
+== Find details by task
+
+[cols="1,3",options="header"]
+|===
+|Task |Reference sections
+|Boot/configuration |Global settings; INI diagnostics; display geometry; build guide for a fresh host.
+|Profiles/history |Global terminal keys; histories/banks; application profiles; editing details; bank settings.
+|7XF/files |CP/M commands and user areas; shared A0 commands; boot/SUBMIT handling.
+|Colors/backlight |Global terminal keys; global settings; palette slots and ANSI mapping.
+|Zoom/pan |Physical chord mappings; display and per-bank geometry; VTINFO/VTZOOM.
+|Modes/graphics |Output interpretations; escape-sequence subset; xterm256 graphics; visual tests.
+|Transfer |VTPUT/VTGET from the mirror; ZIP transfer/extraction.
+|===
+
 [[starting-the-pc-mirror]]
 == Starting the PC mirror
 
@@ -89,6 +103,42 @@ entry was replaced; CONSOLE8 or RAW input alone does not make it binary-safe.
 [[global-terminal-keys]]
 == Global terminal keys
 
+=== Physical chords to internal controls
+
+`CSI` means ESC followed by `[`. These controls are not CP/M command
+strings. Supplied host keymaps deliver them; desktop shortcuts may intercept them.
+
+[cols="2,2,3",options="header"]
+|===
+|Physical chord |Internal control / route |Meaning
+|Alt+PgUp / PgDn |CSI >12v / >13v |Previous / next profile.
+|Alt+0 through 9 |CSI >20v through >29v |Select profile 0 through 9.
+|Alt+Space |CSI >14v |Show selected profile.
+|Alt+Shift+3 |CSI >15v |Toggle RAW input.
+|Alt+Backspace / Alt+Esc |CSI >61v / >60v |Configured clear / exit action.
+|Alt+Up / Alt+Down |CSI >38v / >39v |Profile key events, normally alternate history.
+|Up / Down |Profile key events |History or app navigation, according to profile.
+|Ctrl+Shift+Backspace |CSI >65v |Delete recalled history entry.
+|Ctrl+Shift+PgDn / PgUp |CSI >66v / >67v |Zoom in / out without resizing logical screen.
+|Ctrl+Shift+arrows |Versioned CSI >70 key events |Pan by axis, not ordinary guest arrows.
+|Ctrl+Shift+Home / End |Versioned CSI >70 key events |Scan viewports backward / forward.
+|Alt+Shift+Home / End |CSI 1;3H / 1;3F |Legacy horizontal-only pan aliases.
+|LAlt+Ctrl+Shift+PgUp / PgDn |CSI >63;33v / >63;34v |Backlight up / down one level.
+|LAlt+Ctrl+Shift+0 |CSI >63;0v |Backlight OFF.
+|Ctrl+Shift+1 through 9 |CSI >63;Nv; N=4,7,11,14,18,21,25,28,31 |Still-supported coarse brightness.
+|LAlt+Ctrl+Shift+1 / 2 |CSI >1v / >2v |ANSI/VT100 / VT52 interpretation.
+|Alt+Shift+Backspace |CSI >4v |Arm GCLS graphics.
+|Ctrl+Alt+C |CSI >70;1;52;5;v |Emergency COM return, not guest Ctrl+C.
+|Ctrl+Shift+X |Host bridge interception |Transfer panel, no firmware key action.
+|===
+
+Exact generated key-event payloads/modifiers are maintained in
+`tools/7xtgv-cpm.keytab` and `tools/kitty-cpm.conf`; see also the
+link:technical-reference.adoc#private-protocol-boundaries[protocol reference].
+Intended LAlt use does not imply Konsole can distinguish both Alt keys.
+
+=== ASCII prefix fallbacks
+
 The commands below are intercepted by the host bridge or terminal before ordinary profile bindings. They do not become CP/M keystrokes; some deliberately invoke a profile's configured command.
 
 [cols="1,1",options="header"]
@@ -161,7 +211,7 @@ The PC key tables provide the more natural shortcuts:
 |`++Alt+Space++` |Show the currently selected profile without changing it.
 |`++Ctrl+Shift+Backspace++` |Delete the currently recalled history entry.
 |`++Ctrl+Shift+X++` |Open the host VTPUT/VTGET dialog; not a CP/M key binding.
-|`++Ctrl+Alt+C++` |One-press forced warm return from an external COM only; MBASIC and xterm-256 abort confirmed on RP2_147. New retained-plot behavior awaits device test. Does not send guest Ctrl+C; cancels remaining `++$$$.SUB++` commands.
+|`++Ctrl+Alt+C++` |One-press forced warm return from an external COM only. Does not send guest Ctrl+C; cancels remaining `++$$$.SUB++` commands and ends active plotting without a forced full-screen clear.
 |`++Alt+Up++` / `++Alt+Down++` |Profile-level alternate history controls where configured.
 |`++Alt+Esc++` |Configured profile exit.
 |`++Alt+Backspace++` |Configured profile clear.
@@ -187,15 +237,24 @@ A stopped MCU, terminal task or SD driver still needs a physical reset.
 Konsole cannot distinguish Left Alt from AltGr in this key table; if
 AltGr{plus}C produces Ctrl{plus}Alt{plus}C on a particular host layout, it
 is unsafe during a COM. Do not rely on this shortcut until the device has
-been hardware-tested on your target. The prior RP2_147 image
-`++260928-1131++` had a prompt-layout bug after interrupting active
-GCLS/xterm-256 plotting; corrected image `++260928-1612++` has been flashed
-but awaits that interaction retest.
+been hardware-tested on your target. Historical prompt-layout regressions and
+corrections belong to the timeline/checkpoints, not current usage instructions.
 
 [[histories-banks-and-the-active-line]]
 == Histories, banks, and the active line
 
-There are ten named FIFO histories, each retaining at most 255 entered lines. Single-character submissions are ignored. Up and Down normally recall entries directly; each profile can instead give those keys to the target application and put history on Alt{plus}Up/Alt{plus}Down. If there is a token immediately before the cursor (characters back to space, tab, or line start), recall filters for history entries beginning with that token, wraps in both directions, replaces only that token while retaining the surrounding line, and adds one trailing space. A filtered completion inside a nonempty prefix (for example `++10 PR++`) is never stored as a new history item; an edited completion at line start remains an ordinary storable REPL command. Tabs are accepted as existing input and filter separators, but spaces are preferred for authored CP/M text.
+There are ten named FIFO histories, each retaining at most 100 entered lines.
+Single-character submissions are ignored.
+
+* Up/Down normally recall entries; profiles may reserve them for the app and
+  use Alt+Up/Down for history.
+* A token immediately before the cursor filters matching entry prefixes.
+  Recall wraps, replaces that token and adds one trailing space.
+* Filtered completion inside a nonempty prefix, e.g. `10 PR`, is not stored
+  as a new history item. Edited completion at line start can be stored.
+* Tabs can delimit a filter; prefer spaces in authored CP/M text.
+* Ctrl+Shift+Backspace deletes the selected recalled entry.
+* Separate editable keyword lists remain planned, not implemented.
 
 The histories live in `++A0:7XTGVTRM.BUF++` and are saved after a quiet
 period or by `++SYNC++`. Boot can recover from verified alternate generations.
@@ -297,7 +356,7 @@ Bare `++CD++` reports both numeric DU and its named view, for example `++A7: /a/
 |`++VTCPU++` / `++VTCPU8X++` |Measure the RunCPM interpreter with the terminal active and paused. `++8X++` uses the 8080/8085 common instruction subset.
 |`++VTDRV++` |Plain invocation read-tests and verifies a retained 32 KiB `++VTDRV.$$$++` fixture. `++VTDRV W++` recreates it, then reads/verifies; old `++RW++` remains an alias. `++VTDRV Q++` quietly reads without writing. `++VTDRV W Q++` (or `++Q W++`) pauses the terminal during both timed write and read passes. Quiet modes require matching firmware; options are case-insensitive whole tokens.
 |`++VTDRV8X++` |Write, read, and verify 32 KiB in the current DU, then remove its temporary test file. Uses the 8080/8085 instruction subset.
-|`++CARDMARK++` |P4-only native raw SD read diagnostic, launched by A0:CARDMARK.COM. Prints CID/CSD identity and compares repeated raw sector reads; see below. Does not write a test file.
+|`++CARDMARK++` |Native raw SD read diagnostic on direct-SdFat/SPI targets, launched by A0:CARDMARK.COM. Prints CID/CSD identity and compares repeated raw sector reads; see below. Does not write a test file.
 |`++VTTERM++` |Run the firmware-native terminal/parser benchmark.
 |`++VTGET++` / `++VTPUT++` |CP/M ends of the host `++tools/cpm-transfer/transfer.py++` protocol; normally use the host tool rather than type their protocol manually.
 |`++UNZIP157 FILE.ZIP A:++` |Extract a Linux ZIP/Deflate archive to drive A in the current user area. Omitting the destination lists/checks only. Installed separately from old `UNZIP.COM`.
@@ -334,7 +393,8 @@ query/reply bytes are in the link:technical-reference.adoc#private-protocol-boun
 === CARDMARK raw SD read diagnostic
 
 `CARDMARK [CSD] [sectors [MHz [start-sector]]]` requires matching firmware
-on our direct-SdFat/SPI targets: ES3_35, ES3_5, EP4_10, RP2_147 and RP2_2.
+on our direct-SdFat/SPI targets: ES3_35, ES3_5, EP4_10, RP2_147, RP2_2 and
+experimental EC6_147.
 The optional legacy W535 SD_MMC build is excluded.
 Defaults: 1024 sectors, the configured operating SPI request, and
 start sector 0. Sectors are 512 bytes; count range is 1..1048576 and requested
@@ -611,6 +671,8 @@ columns round down to even.
 |`++jc8048w535++` |`++ES3_35++` |480x320 |80x32 |80x32 / 40x16 / 26x10 / 20x8
 |`++rp2350-touch-lcd-2++` |`++RP2_2++` |320x240 |80x24 |80x24 / 40x12 / 26x8 / 20x6
 |`++rp2350-lcd-1-47-a++` |`++RP2_147++` |320x172 |80x24 |80x16 / 40x8 / 26x5 / 20x4
+|`jc8012p4a1c` |`EP4_10` |1280x800 |213x80 |212x80 / 106x40 / 70x26 / 52x20
+|`esp32c6-lcd-1-47` |`EC6_147` |320x172 |80x24 |80x16 / 40x8 / 26x5 / 20x4
 |===
 
 These are local display-profile/group IDs, at most eight characters with optional
