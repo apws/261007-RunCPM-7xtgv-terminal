@@ -52,7 +52,8 @@ fi
 
 configured_for_port_group=0
 if [ "${1-}" = "--port" ] && [ -n "${2-}" ] && [ -e "$2" ]; then
-    port_group=$(stat -c '%G' "$2" 2>/dev/null || true)
+    # by-id paths are symlinks owned by root; permissions belong to the device.
+    port_group=$(stat -L -c '%G' "$2" 2>/dev/null || true)
     case " $(id -nG "$USER" 2>/dev/null || true) " in
         *" $port_group "*) configured_for_port_group=1 ;;
     esac

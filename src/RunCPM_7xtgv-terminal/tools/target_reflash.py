@@ -47,6 +47,9 @@ def failure_summary(text):
     return 'Tool exited unsuccessfully; see the detailed log.'
 
 
+from target_mirror import select_mirror
+
+
 def ready_serial(explicit, target, definition):
     while True:
         try:
@@ -72,7 +75,7 @@ def check_prerequisites(build_only, definition):
                 missing.append(tool)
     if missing:
         raise RuntimeError('Missing prerequisites: ' + ', '.join(missing) +
-                           '. Run tools/setup.sh on Arch/CachyOS; nothing installed automatically.')
+                           '. Run tools/setup.sh; nothing installed automatically.')
 
 
 def main():
@@ -140,7 +143,7 @@ def main():
                     if re.search(r'platform.*not installed|library.*not found|No such file or directory',
                                  log_path.read_text(errors='replace'), re.IGNORECASE):
                         print('If a required tool/core/library is missing, run tools/setup.sh '
-                              'on Arch/CachyOS; source-code errors need a separate fix.',
+                              'for your OS; source-code errors need a separate fix.',
                               file=sys.stderr)
                     if summary.startswith('Flash NOT performed:'):
                         print('Existing firmware remains. RESET the module, then retry '
@@ -173,12 +176,7 @@ def main():
     # Resolve before disturbing a working mirror where possible.
     port = (ready_serial(args.port, args.target, definition)
             if definition['method'] == 'arduino-cli' else args.port)
-    mirror = args.mirror
-    if mirror == 'auto':
-        mirror = ('konsole' if (os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY'))
-                  and shutil.which('konsole') else
-                  'kitty' if (os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY'))
-                  and shutil.which('kitty') else 'terminal')
+    mirror = select_mirror(args.mirror)
     subprocess.run(['tmux', 'kill-session', '-t', '7xtgv-cpm'],
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
     with log_path.open('a') as log:

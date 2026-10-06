@@ -158,7 +158,7 @@ Do not use the old bare `arduino-cli compile --profile ...` recipe: it omits
 target metadata supplied by the wrapper and is not the supported shortcut.
 Do not mix binaries from different target folders.
 
-== Explicit Arch/CachyOS setup
+== Explicit Linux setup
 
 From the sketch directory:
 
@@ -168,16 +168,26 @@ From the sketch directory:
 ./tools/setup.sh
 ----
 
-Setup asks before installation. Only system packages use sudo/pacman; Arduino
+Setup asks before installation. System packages use sudo with the selected package manager; Arduino
 CLI, pinned cores and libraries are installed as your user. Do not run the script
-with sudo. It does not upgrade the system, build, flash, install a desktop,
-or change serial groups. Existing Arduino CLI is reused; when absent, a
+with sudo. It does not upgrade the system, build, flash, or install a desktop. USB serial-group membership is offered separately
+with its own confirmation; `--yes` does not approve this account change.
+With the device connected, rerun `./tools/setup.sh --serial-only` to check
+and configure access without repeating dependency installation. Existing
+membership is left unchanged; log out and back in to activate it for all apps.
+Existing Arduino CLI is reused; when absent, a
 checksummed 1.5.0 executable is installed under `~/.local/bin`.
 `XTGV_ARDUINO_CONFIG` is honored when supplied.
 
 Rebuild/reflash report missing required tools and suggest setup, never install
-automatically. This is currently Arch-specific; DEB/RPM/macOS/Windows adapters
-remain future work. Missing USB permissions need separate administrator setup.
+automatically. `setup.sh` detects the OS from `/etc/os-release`: exact `ID` first, then
+ordered `ID_LIKE` families. Arch uses pacman, Debian/Ubuntu uses apt-get,
+and Fedora uses dnf. Unsupported families stop before installation.
+Options are `--dry-run`, `--yes` and `--serial-only`.
+Debian refreshes package indexes with apt-get update before installation.
+The installer never performs a full system upgrade. Debian/Fedora are offline-tested
+with fake installers; real installation remains to be checked on those systems.
+macOS/Windows adapters remain future work. USB group changes require the separate setup confirmation and sudo.
 
 Offline tests use fake installers and isolated temporary files. They are not
 proof of a real fresh Arch installation. `fresh-build.sh` remains the separate
@@ -384,3 +394,11 @@ It still requires Linux, bash/coreutils, Git, Python, curl, tar, certificates
 and network access. It does not simulate missing OS packages or install
 desktop/USB tools. A VM/container/second-machine check remains necessary.
 New uncommitted targets cannot exist in a GitHub clone until published.
+
+== Launch the mirror separately
+
+Each `tools/targets/<module> -- <target>/` directory has `mirror.sh` alongside
+`rebuild.sh` and `reflash.sh`. Run `./mirror.sh` to attach the terminal without
+building, uploading, resetting, or stopping an existing shared session.
+It uses the same automatic Konsole/Kitty/current-terminal selection as reflash.
+Use `--port DEVICE` or `--mirror konsole|kitty|terminal` when needed.

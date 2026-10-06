@@ -469,10 +469,23 @@ See link:../261004-2034%20Separate%20target%20rebuild%20and%20reflash%20commands
 == Explicit Arch setup (261004-2158)
 
 Rebuild/reflash notify about missing tools without installing automatically.
-Separate `tools/setup.sh` installs Arch/CachyOS prerequisites after approval;
-sudo is restricted to system packages. Arduino dependencies stay user-owned.
+Separate `tools/setup.sh` installs prerequisites after approval;
+Arduino dependencies stay user-owned. On 261005, setup gained a separate
+confirmed USB serial-group step and rerunnable `--serial-only` mode.
+Both setup confirmations are red in interactive color terminals and
+honors `NO_COLOR`. `--yes` does not approve group changes. The mirror launcher now checks the
+actual serial device group through by-id symlinks, avoiding an unnecessary
+sudo ACL prompt for configured group members.
 Twenty offline tests pass; real disposable-system installation remains pending.
 See link:../261004-2158%20Explicit%20Arch%20setup%20and%20missing-tool%20notifications.adoc[plan and verification boundaries].
+
+On 261005, `setup.sh` gained OS detection through `/etc/os-release`, selecting
+pacman for Arch families, apt-get for Debian families, or dnf for Fedora.
+Unsupported families stop before installation. Arduino and serial setup remain
+shared in this single installer. Real Debian/Fedora installation is pending.
+
+On 261005, every module gained `mirror.sh` for standalone visible mirror
+launch, sharing reflash's terminal selection without building or uploading.
 
 == Command and catalog name lineage
 

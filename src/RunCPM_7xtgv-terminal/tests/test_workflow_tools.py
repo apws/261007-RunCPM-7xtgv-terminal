@@ -16,6 +16,8 @@ import bootsel_upload
 import target_config
 import target_reflash
 import reflash
+import setup_serial
+import target_mirror
 
 
 def block(target, family=0xe48bff59):
@@ -225,6 +227,32 @@ class WorkflowTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'setup.sh'):
                 target_reflash.check_prerequisites(False, {'method': 'arduino-cli'})
 
+    def test_serial_setup_declined_and_existing_membership(self):
+        account = type('Account', (), {'pw_name': 'tester', 'pw_gid': 1000})()
+        with patch.object(setup_serial.os, 'geteuid', return_value=1000), \
+                patch.object(setup_serial.os, 'getuid', return_value=1000), \
+                patch.object(setup_serial.pwd, 'getpwuid', return_value=account), \
+                patch.object(setup_serial.glob, 'glob', return_value=['/dev/ttyACM0']), \
+                patch.object(setup_serial, 'serial_groups', return_value=['uucp']), \
+                patch.object(setup_serial.grp, 'getgrnam', return_value=type('Group', (), {'gr_gid': 14})()), \
+                patch.object(setup_serial.os, 'getgrouplist', return_value=[1000]) as membership, \
+                patch.object(setup_serial.os, 'getgroups', return_value=[1000]), \
+                patch.object(setup_serial.os, 'getgid', return_value=1000), \
+                patch('builtins.input', return_value='n') as prompt, \
+                patch.object(setup_serial.subprocess, 'run') as run, \
+                contextlib.redirect_stdout(io.StringIO()):
+            setup_serial.main()
+            run.assert_not_called()
+            prompt.return_value = 'y'
+            setup_serial.main()
+            run.assert_called_once_with(['sudo', 'usermod', '-aG', 'uucp', 'tester'], check=True)
+            run.reset_mock()
+            prompt.reset_mock()
+            membership.return_value = [1000, 14]
+            setup_serial.main()
+            run.assert_not_called()
+            prompt.assert_not_called()
+
     def test_setup_with_fake_installers(self):
         # Isolated command fixture: sudo and CLI cannot install or download anything.
         with tempfile.TemporaryDirectory() as temp:
@@ -254,9 +282,67 @@ class WorkflowTests(unittest.TestCase):
             self.assertNotIn('compile', calls)
             self.assertNotIn('upload', calls)
 
+    def test_debian_and_fedora_setup_offline(self):
+        for family, expected in [('debian', 'apt-get install -y'), ('fedora', 'dnf install -y')]:
+            with self.subTest(family=family), tempfile.TemporaryDirectory() as temp:
+                base = Path(temp)
+                (base / 'os-release').write_text('ID=' + family + '\n')
+                common = (TOOLS / 'setup.sh').read_text().replace(
+                    'source /etc/os-release', 'source "' + str(base / 'os-release') + '"')
+                wrapper = 'setup.sh'
+                (base / wrapper).write_text(common)
+                for name in ('sudo', 'arduino-cli'):
+                    executable = base / name
+                    executable.write_text('#!/bin/bash\nprintf "%s\\n" "$*" >> "$XTGV_TEST_COMMANDS"\n')
+                    executable.chmod(0o755)
+                env = dict(os.environ, PATH=str(base) + ':' + os.environ['PATH'],
+                           ARDUINO_CLI=str(base / 'arduino-cli'),
+                           XTGV_TEST_COMMANDS=str(base / 'calls'))
+                result = subprocess.run(['bash', str(base / wrapper), '--yes'],
+                                        env=env, text=True, capture_output=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                calls = (base / 'calls').read_text()
+                self.assertIn(expected, calls)
+                self.assertIn('python3', calls)
+                self.assertIn('esp32:esp32@3.1.0', calls)
+                self.assertNotIn('usermod', calls)
+                self.assertNotIn('upgrade', calls)
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            release = base / 'os-release'
+            script = base / 'setup.sh'
+            script.write_text((TOOLS / 'setup.sh').read_text().replace(
+                'source /etc/os-release', 'source "' + str(release) + '"'))
+            for identity, expected, code in [
+                    ('ID=ubuntu\nID_LIKE=debian\n', 'Debian', 0),
+                    ('ID=omarchy\nID_LIKE=arch\n', 'Arch', 0),
+                    ('ID=unknown\n', 'Unsupported', 1)]:
+                release.write_text(identity)
+                result = subprocess.run(['bash', str(script), '--dry-run'],
+                                        text=True, capture_output=True)
+                self.assertEqual(result.returncode, code)
+                self.assertIn(expected, result.stdout + result.stderr)
+
+    def test_mirror_only_launch(self):
+        with patch.object(sys, 'argv', ['mirror', '--target', 'esp32c6-lcd-1-47']), \
+                patch.object(target_mirror, 'resolve_port', return_value='/dev/test'), \
+                patch.object(target_mirror, 'select_mirror', return_value='terminal'), \
+                patch.object(target_mirror.shutil, 'which', return_value='/usr/bin/tmux'), \
+                patch.object(target_mirror.os, 'execve') as launch:
+            target_mirror.main()
+            executable, argv, env = launch.call_args.args
+            self.assertTrue(executable.endswith('/cpm-session.sh'))
+            self.assertEqual(argv, ['cpm-session.sh', '--port', '/dev/test',
+                                    '--target', 'esp32c6-lcd-1-47'])
+            self.assertEqual(env['XTGV_PORT'], '/dev/test')
+        with patch.dict(os.environ, {'DISPLAY': ':0'}), \
+                patch.object(target_mirror.shutil, 'which', side_effect=lambda name: name if name == 'kitty' else None):
+            self.assertEqual(target_mirror.select_mirror(), 'kitty')
+            self.assertEqual(target_mirror.select_mirror('none'), 'none')
+
     def test_wrappers_shell_syntax(self):
         paths = [TOOLS / 'fresh-build.sh', *sorted((TOOLS / 'targets').glob('* -- */*.sh'))]
-        self.assertEqual(len(paths), 13)
+        self.assertEqual(len(paths), 19)
         for path in paths:
             subprocess.run(['bash', '-n', str(path)], check=True)
 

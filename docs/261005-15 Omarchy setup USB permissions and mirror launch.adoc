@@ -1,0 +1,158 @@
+= Omarchy setup, USB permissions and standalone mirror launch
+:source-highlighter: highlight.js
+
+Record of the 261005 working session with Petr and Ari, written on 261006.
+The filename uses the hour of the initial setup implementation session.
+This records the final implementation and the intermediate naming decisions.
+
+== Starting evidence
+
+Petr tested the project on a fresh Omarchy machine from the desktop chat app.
+The existing setup installed system tools, Arduino CLI and pinned dependencies;
+EC6_147 rebuilding succeeded. The supplied logs were
+`261005 omarchy-7xtgv-setup.txt` and
+`261005 omarchy-7xtgv-reflash.txt` at the repository root.
+The staged firmware reported build stamp `261005-1407`.
+
+The initial upload error was a permissions failure before target detection:
+reflash could not read/write the configured Espressif USB serial device.
+Outside-sandbox inspection found `/dev/ttyACM0` owned by `root:uucp`, mode 0660,
+with no user ACL; falken belonged to wheel but not uucp.
+The sandbox hid the serial node, so its absence there was not evidence of a
+missing or disconnected device.
+
+Petr had added a persistent `--allow-unidentified-target esp32c6-lcd-1-47`
+to the module's reflash wrapper. At his request this was removed.
+It could not resolve permissions and must remain a one-shot, explicitly
+confirmed recovery option rather than a normal launcher default.
+
+== Rerunnable serial-access setup
+
+`tools/setup_serial.py` checks connected `/dev/ttyACM*` and `/dev/ttyUSB*`
+character devices without opening or resetting them. It offers membership
+only in detected uucp or dialout groups with group-write permission; other
+groups are reported for administrator review. Existing membership is skipped.
+After a separate confirmation it runs `sudo usermod -aG GROUP USER`.
+Membership grants access to the group's devices, rather than just one USB node.
+
+`./tools/setup.sh --serial-only` repeats this step without installing packages
+or Arduino dependencies. Run it as the normal user with the device connected.
+A full logout/login activates new membership for all desktop applications.
+The existing reflash/terminal helpers can also enter already configured groups
+through newgrp when the current login predates membership.
+
+Both setup confirmations are red in interactive color terminals and honor
+`NO_COLOR`: installation approval and, when needed, serial-group approval.
+The `--yes` option skips installation confirmation but does not authorize
+account membership changes; it directs the user to `--serial-only` instead.
+Sudo may additionally request its own password, whose characters are invisible.
+
+== Automatic mirror launch permission fix
+
+Petr reported successful reflash followed by a sudo password prompt while the
+mirror launched. The upload log identified Kitty as the selected launcher.
+Inspection found that `cpm-session.sh` used `stat -c '%G'` on a by-id symlink,
+reading its root group rather than the actual serial device's uucp group.
+This could unnecessarily request a temporary ACL despite configured membership.
+
+The check now uses `stat -L -c '%G'` to follow the symlink.
+Petr subsequently confirmed that the mirror launched successfully.
+This confirms the corrected launch path; the conversation does not establish
+whether every earlier password-entry difficulty had the same cause.
+
+== One Linux installer
+
+Petr first requested `setup-arch.sh` plus Debian and Fedora counterparts.
+Those wrappers were implemented with shared setup steps, then replaced at his
+request by a single auto-detecting `tools/setup.sh`. The final tree has no
+setup-arch/debian/fedora launchers or setup-common shell helper.
+
+The installer reads `/etc/os-release`, tries exact `ID`, then ordered
+`ID_LIKE` values, and selects:
+
+[cols="1,1,2",options="header"]
+|===
+|Family |Manager |Package operation
+|Arch, including compatible derivatives |pacman |`-S --needed`
+|Debian, including compatible derivatives |apt-get |`update`, then `install -y`
+|Fedora family |dnf |`install -y`
+|===
+
+Unsupported families stop before installation. Setup never requests a full
+system upgrade, builds firmware, or flashes it. A requested package install
+can still update its named packages or dependencies. Sudo must already be
+available; the script reports its absence rather than running setup as root.
+System package lists include ACL and account-management tools as appropriate.
+
+Arduino dependencies remain normal-user installations: existing CLI is reused,
+or checksummed CLI 1.5.0 is installed in `~/.local/bin` for x86_64/aarch64.
+Pinned versions remain ESP32 3.1.0, RP2040 5.4.4, GFX 1.6.4 and SdFat 2.3.0.
+`ARDUINO_CLI` and `XTGV_ARDUINO_CONFIG` retain their existing roles.
+
+Supported options are `--dry-run`, `--yes`, `--serial-only`, and `--help`.
+Rebuild/reflash prerequisite messages now point to the single installer.
+Their firmware build/upload behavior remains separate and unchanged.
+
+== Standalone per-target mirror
+
+Each of the six module directories under `tools/targets/` now contains
+`mirror.sh` alongside `rebuild.sh` and `reflash.sh`.
+The new wrappers invoke `tools/target_mirror.py` with their explicit target.
+
+The mirror helper resolves the target's serial port and launches the visible
+mirror. It does not build, upload, or deliberately reset the target, and does
+not stop an existing shared tmux session. Serial attachment retains the
+existing terminal helper's behavior; this is not a guarantee against every
+hardware-specific effect of opening a port.
+
+`select_mirror()` is shared with reflash: with a graphical display it prefers
+available Konsole, then Kitty, otherwise the current terminal.
+`--mirror konsole|kitty|terminal` and `--port DEVICE` provide overrides.
+Existing shared sessions are attached through `cpm-session.sh`.
+
+From the EC6 module directory, the normal operations are:
+
+[source,bash]
+----
+./rebuild.sh
+./reflash.sh
+./mirror.sh
+----
+
+Rebuild stages a fresh candidate without flashing; reflash uploads the staged
+candidate and restores the visible mirror; mirror launches it independently.
+Petr confirmed the new `mirror.sh` worked on the attached Omarchy/EC6 setup.
+
+== Verification and remaining boundaries
+
+The final workflow suite reported 23 passing offline tests:
+
+[source,bash]
+----
+python3 -m unittest discover \
+  -s src/RunCPM_7xtgv-terminal/tests -p test_workflow_tools.py
+----
+
+Checks covered fake package/Arduino installers, Debian/Fedora command paths,
+Arch/Ubuntu family detection, unsupported OS rejection, serial membership
+approval/decline/already-configured cases, standalone mirror dispatch and
+shell syntax. Arch dry-run, feature-registry validation/regeneration and
+`git diff --check` also passed during the session.
+
+Petr's live observations confirm dependency setup and EC6 rebuilding on
+Omarchy, subsequent reflash, corrected automatic mirror launch, and standalone
+mirror launch. They do not establish full real-machine Debian/Fedora support;
+those package installation and hardware workflows remain to be tested there.
+The agent did not run a firmware rebuild or flash as part of these edits.
+
+The build guide, curated feature timeline and generated feature overview were
+updated. No commit or push was requested or performed in this session.
+A small tooling/documentation commit checkpoint was suggested.
+
+== Related project records
+
+* `261004-2158 Explicit Arch setup and missing-tool notifications.adoc` is the
+  preceding setup plan; its historical substance is preserved.
+* `260912-23 7xtgv terminal manual/build-guide.adoc` describes current usage.
+* `260912-23 7xtgv terminal manual/features_timeline.adoc` records behavior history.
+* `features.tsv` is the canonical delivery registry; `FEATURES.adoc` is generated.
