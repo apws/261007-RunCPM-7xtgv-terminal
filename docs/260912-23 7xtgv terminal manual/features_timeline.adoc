@@ -648,3 +648,12 @@ targets and replaced the ThinkPad no-focus rules with floating/centering only.
 Normal window switching and focus are restored; guest input remains in the
 mirror. This supersedes the no-focus experiment above. Native stacking change
 awaits rebuild/relaunch and visual acceptance on Omarchy/CachyOS.
+
+== SDL always-on-top restored after CachyOS review (261007)
+
+Petr preferred the earlier stacking on KDE. The shared presenter again requests
+always-on-top for all desktop boards, superseding the preceding stacking choice.
+Minimization, normal focus/Alt+Tab, native initial size, Hyprland decorations and
+mirror-close shutdown are unchanged. This is not a no-focus mode; keyboard input
+still belongs to the mirror. Syntax-checked; desktop rebuild/relaunch and visual
+acceptance remain pending.

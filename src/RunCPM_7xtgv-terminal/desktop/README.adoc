@@ -142,7 +142,9 @@ o.window("^xtgv_desktop$", { float = true, center = true })
 +
   SDL remains focusable for normal window switching and movement. Select the
   mirror to type guest input; SDL itself does not translate keyboard input.
-* SDL does not request always-on-top; other application windows may cover it.
+* SDL requests always-on-top again following the CachyOS review. It remains
+  minimizable and focusable; this does not exclude it from Alt+Tab or prevent
+  clicks from taking keyboard focus away from the mirror.
 * SDL resizing scales/letterboxes the selected panel, not its terminal geometry.
   No-activation on initial show is a request to the window manager, not a promise
   that clicking the window cannot give it focus. SDL keys are deliberately ignored.

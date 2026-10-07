@@ -20,7 +20,7 @@ void xtgvPresenterOpen(int width, int height, const char *title) {
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
     window = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
                               width, height,
-                              SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE);
+                              SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALWAYS_ON_TOP);
     require(window);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (!renderer) renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);

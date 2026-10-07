@@ -1,0 +1,18 @@
+= DONE: Restore SDL always-on-top
+:source-highlighter: highlight.js
+
+Petr preferred the earlier stacking behavior on CachyOS/KDE and requested
+restoring it. The shared SDL presenter again requests
+`SDL_WINDOW_ALWAYS_ON_TOP` for every desktop board, including other hosts.
+This supersedes only the stacking decision in
+`261007-1824 DONE Normal desktop panel stacking and focus.adoc`.
+
+* Minimization and ordinary focus behavior remain available.
+* Alt+Tab and clicking the panel can still take focus from the mirror;
+  always-on-top is not a no-focus policy. SDL still ignores keyboard input.
+* Native initial dimensions, the initial-show no-activation hint, Hyprland
+  decoration preference and cooperative mirror-close shutdown remain unchanged.
+* Requires desktop rebuild and relaunch. No running session or card data changed.
+
+Validation: presenter syntax check and feature-registry check. Visible stacking,
+minimize/restore and mirror input should be checked after rebuilding.
