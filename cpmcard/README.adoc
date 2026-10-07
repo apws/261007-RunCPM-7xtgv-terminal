@@ -37,8 +37,8 @@ Petr's decision on 261007: *version the complete `cpmcard` tree*, not a
 curated seed. All A--P drive content is included without filename or type
 exclusions: applications, sources, configured binaries, catalogs, INI/BUF,
 databases, backups and scratch files. The unfinished FAND area is included too.
-Host-side `.7xtgvtrm-ini-history/` snapshots and the existing root photograph
-are also included. The photograph may be removed separately later.
+Host-side `.7xtgvtrm-ini-history/` snapshots are also included. The unrelated
+root photograph `IMG_20260908_214304.jpg` was removed on 261008.
 
 The root `.gitignore` explicitly includes `cpmcard/` and everything below
 it, overriding generic project filters there. There is no card-local ignore
@@ -46,7 +46,8 @@ file or per-file manifest to maintain. The earlier 200-file selection has
 been removed. The 261007 checkpoint contained 338 files. On 261008 the
 maintainer removed 54 mistakenly included files from `AB:` (Sharp-specific
 NC/NU) and `AC:`/`AD:` (GEEK2350/z80pack-related examples and disk images),
-leaving 284 versioned files. These counts are observations, not limits.
+leaving 284 versioned files; removing the root photograph then left 283.
+These counts are observations, not limits.
 This is a content cleanup, not a new ignore rule or partial-card manifest;
 all remaining working-card content stays eligible for versioning. Earlier
 copies of the removed packages remain in Git history.

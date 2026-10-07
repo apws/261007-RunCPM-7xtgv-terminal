@@ -64,7 +64,7 @@ concern promptly and correct attribution or remove the material as appropriate.
 
 ### Current inventory
 
-The [working card](cpmcard/README.adoc) contains 284 remaining versioned files
+The [working card](cpmcard/README.adoc) contains 283 remaining versioned files
 after the 261008 cleanup, including configured applications, sources, binaries,
 backups and local configuration/history. Inclusion in Git is not a new
 license grant. Catalog names, age, an embedded credit or availability from a
