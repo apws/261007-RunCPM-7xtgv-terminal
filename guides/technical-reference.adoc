@@ -600,8 +600,14 @@ The checked-in and locally installed notices include:
 This is a component inventory, *not* legal advice or a claim that every
 bundled artifact is redistributable. The MIT grant covers original terminal
 material, not the entire collection. The already-versioned card includes
-third-party applications and disk images; unresolved permissions concern
+third-party applications; unresolved permissions concern
 current repository distribution too, not only a future release.
+
+On 261008 the unrelated Sharp-specific `AB:` and GEEK2350/z80pack-related
+`AC:`/`AD:` collections were removed from the working card (54 files).
+They are no longer current inventory entries; old commits and the original
+scan still describe the previous tree. See
+link:../docs/261008-0115%20DONE%20Remove%20unrelated%20AB%20AC%20AD%20card%20packages.adoc[card cleanup checkpoint].
 
 For source, firmware, desktop binaries and card images, prepare separate
 versioned component manifests, check actual transitive dependencies and

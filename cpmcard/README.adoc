@@ -43,8 +43,13 @@ are also included. The photograph may be removed separately later.
 The root `.gitignore` explicitly includes `cpmcard/` and everything below
 it, overriding generic project filters there. There is no card-local ignore
 file or per-file manifest to maintain. The earlier 200-file selection has
-been removed. At this checkpoint the complete tree contains 338 files;
-that is an observation, not a limit on future additions.
+been removed. The 261007 checkpoint contained 338 files. On 261008 the
+maintainer removed 54 mistakenly included files from `AB:` (Sharp-specific
+NC/NU) and `AC:`/`AD:` (GEEK2350/z80pack-related examples and disk images),
+leaving 284 versioned files. These counts are observations, not limits.
+This is a content cleanup, not a new ignore rule or partial-card manifest;
+all remaining working-card content stays eligible for versioning. Earlier
+copies of the removed packages remain in Git history.
 
 After commit/push, a fresh clone receives the committed card files directly.
 Git does not store empty directories. On an existing working copy, desktop
@@ -54,6 +59,9 @@ Do not reset away local changes just to make a pull succeed.
 
 This selection is not a new license grant for third-party software. Firmware
 builds still do not install files automatically onto a physical card.
+For attribution or inclusion concerns, see the
+link:../THIRD_PARTY_NOTICES.md#historical-software-and-rights-holder-contact[historical software and rights-holder contact notice],
+which directs inquiries to the repository's issue tracker.
 
 [source,bash]
 ----

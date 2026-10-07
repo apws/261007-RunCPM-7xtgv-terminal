@@ -1,6 +1,7 @@
 # Third-party notices and review inventory
 
-Inventory scanned on 261007; original-terminal MIT decision recorded on 261008.
+Inventory scanned on 261007; original-terminal MIT decision and removal of
+unrelated AB:/AC:/AD: packages recorded on 261008.
 See [LICENSE.md](LICENSE.md) for the scope of the project's own MIT grant.
 Third-party code and assets retain their existing terms. These notices neither
 relicense them nor certify every imported package for redistribution.
@@ -49,9 +50,23 @@ technical inventory, not legal advice or a completed compliance assessment.
 
 ## Versioned CP/M card: separate package review required
 
-The [working card](cpmcard/README.adoc) contains 338 tracked files at the scan
-checkpoint, including configured applications, sources, binaries, backups,
-disk images and local configuration/history. Inclusion in Git is not a new
+### Historical software and rights-holder contact
+
+The CP/M working card contains independently authored historical software used
+for compatibility testing and experimentation. These components retain their
+respective copyrights and license terms; the 7xtgv-terminal MIT license does
+not apply to them.
+
+If you hold rights to included material and believe its inclusion or attribution
+is inappropriate, please contact the maintainer through the repository's
+[issue tracker](https://github.com/apws/260906-7xtgv/issues). We will review the
+concern promptly and correct attribution or remove the material as appropriate.
+
+### Current inventory
+
+The [working card](cpmcard/README.adoc) contains 284 remaining versioned files
+after the 261008 cleanup, including configured applications, sources, binaries,
+backups and local configuration/history. Inclusion in Git is not a new
 license grant. Catalog names, age, an embedded credit or availability from a
 download site do not establish redistribution permission for the exact copy.
 
@@ -61,20 +76,28 @@ groupings identify candidates; they do not prove binary version or ownership.
 | Location / examples | Separate review needed |
 | --- | --- |
 | `A/0`, `A/4`: `ASM`, `DDT`, `ED`, `LOAD`, `PIP`, `STAT`, `SUBMIT`, `MAC`, `ZSID` and other system utilities | Identify the exact Digital Research or other distribution and applicable grant. RunCPM's emulator license does not license guest utilities. |
-| `A/0`, `A/7`: `MBASIC.COM`, `M522*`, `MBAS529*`, `MBAS530*`; `A/C`: Altair BASIC images | Microsoft/MITS and variant/patch provenance and exact redistribution terms remain unresolved here. |
+| `A/0`, `A/7`: `MBASIC.COM`, `M522*`, `MBAS529*`, `MBAS530*` | Microsoft BASIC and variant/patch provenance and exact redistribution terms remain unresolved here. |
 | `A/0`, `A/2`: `TURBO.COM`, `TINST.COM` and related package files | Borland Turbo Pascal distribution/version and terms, including configured/patched copies. |
 | `A/1`: `BBCBASIC.COM`, `BBCLOWER.COM`, package README and examples | BBC BASIC Z80 package/version terms and local patch provenance. The included test-package README supplies usage instructions, not a complete license determination. |
 | `A/4`: `Z80ASM.COM`, `Z80ASM.PDF`, other assemblers; copies in `A/0` | Identify each assembler/manual separately, including SLR material; do not apply one package's terms to the whole area. |
-| `A/B`, `A/E`, `A/F`: `Nc.com`, `Nu.com`, dBASE programs, FAND programs, databases and backups | Establish package identity, rightsholder and permission. Review data/privacy separately from executable licensing. |
+| `A/E`, `A/F`: dBASE programs, FAND programs, databases and backups | Establish package identity, rightsholder and permission. Review data/privacy separately from executable licensing. |
 | `A/6`: Mandelbrot/Dhrystone programs, `ZEXALL`, `ZEXDOC`, `8085EXER` and other demos/tests | Match each source/binary to its original author, version and license, including any copyleft/source obligations. No permission inferred from benchmark status. |
-| `A/C`: Pico Z80 / z80pack-related examples and binary images | README names Tiny BASIC, Microchess, tests and other examples. These are multiple works, not automatically covered by an emulator's license. |
-| `A/D`: `.dsk` collection | Included README identifies CP/M 2.2/3, MP/M II, FIG Forth, UCSD p-System and application images. Inventory the contents and grants per image/package; the container file is not a license boundary. |
 | Project-authored `VT*`, `CARDMARK`, graphics helpers, scripts, catalogs and configuration | Original terminal material is MIT. Separate it from imported namesakes and variants; preserved third-party code retains its own terms. |
 | Archives, snapshots and other assets | Inspect contained material too. The listed contents of `A/0/7XTGVTRM.ZIP` are a single historical INI; this does not classify other future archives. |
 
 Unresolved does not mean proven infringement; it means this scan cannot attest
 to the necessary permission. The card is already versioned, so these questions
 apply to the current source distribution, not only a future downloadable image.
+
+### Removed unrelated packages
+
+On 261008 the maintainer removed `AB:` (`A/B`, Sharp-specific NC/NU material)
+and `AC:`/`AD:` (`A/C`/`A/D`, examples and disk images copied from GEEK2350 /
+Udo Munk's z80pack-related collection). These 54 files were included by mistake
+and are not part of the current terminal working card. They have therefore
+been removed from the current review queue above. The original 261007 inventory
+describes the earlier tree; old commits still contain those files. This cleanup
+does not rewrite history, relicense them or resolve their historical permissions.
 
 ## Remaining release work
 

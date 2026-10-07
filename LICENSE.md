@@ -38,7 +38,7 @@ license texts and notices too.
 * **Third-party material** retains its own licenses and notices. RunCPM remains
   MIT under its original notice; Apache/BSD/LGPL and other components retain
   their applicable terms. Local modifications do not erase upstream rights.
-* **Imported CP/M applications, disk images, manuals, artwork, quotations and
+* **Imported CP/M applications, manuals, artwork, quotations and
   other third-party assets** are not relicensed by their inclusion in the
   repository. The complete `cpmcard/` tree is not a blanket-MIT software package.
 
