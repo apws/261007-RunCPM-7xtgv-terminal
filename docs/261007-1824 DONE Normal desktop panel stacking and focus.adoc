@@ -1,0 +1,34 @@
+= DONE: Normal desktop panel stacking and focus
+:source-highlighter: highlight.js
+
+Petr requested ordinary window switching after the always-on-top,
+non-focusable panel proved intrusive. This supersedes the earlier no-focus
+experiment and the always-on-top policy in the desktop runtime plan.
+
+Removed SDL_WINDOW_ALWAYS_ON_TOP from the shared Linux desktop presenter.
+Native initial panel size and the initial-show no-activation hint remain.
+The ThinkPad Hyprland rule now only requests floating and centering.
+Normal focus/window switching is restored; guest input still belongs to
+the mirror. SDL keyboard events remain ignored.
+
+Hyprland reload/config validation and presenter C++ syntax checks pass.
+The native change awaits desktop rebuild/relaunch, including on CachyOS.
+No running session was stopped or rebuilt. Petr should check switching
+between SDL, mirror and other apps, movement, and mirror-close cleanup.
+
+== Subsequent user check and publishing checkpoint
+
+Petr rebuilt and reports the panel can now be moved. Moving MC to a dedicated
+workspace before launching the emulator proved useful. Hyprland floating
+stacking still places the panel above tiled windows; Alt+Tab inclusion remains
+unresolved. Native dimensions and focus policy must not be confused with
+ordinary stacking across tiled and floating windows.
+
+The settled published default remains focusable SDL without an explicit
+always-on-top request. A proposed normal/workspace-view launcher option is
+discussion only, not implemented. CachyOS retest is next. No claim of verified
+live mirror-close acceptance is made here.
+
+ThinkPad Hyprland rules are local user configuration, not deployed by this
+commit. Runtime card INI changes (backlight 28 to 31, palette 4 to 1) and history
+buffer changes are preserved locally outside this source checkpoint.

@@ -81,7 +81,7 @@ class DesktopToolsTests(unittest.TestCase):
                 script = root / 'setup.sh'
                 script.write_text((TOOLS / 'setup.sh').read_text().replace(
                     'source /etc/os-release', f'source "{release}"'))
-                result = subprocess.run(['bash', str(script), '--dry-run', '--with-desktop'],
+                result = subprocess.run(['bash', str(script), '--dry-run'],
                                         text=True, capture_output=True, check=True)
                 self.assertIn(package, result.stdout)
                 self.assertIn('cmake make', result.stdout)

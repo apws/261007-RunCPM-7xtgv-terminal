@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build, test or launch a real-board desktop configuration; never flash hardware."""
 import argparse
+import codecs
 import json
 import os
 from pathlib import Path
@@ -45,6 +46,31 @@ def build(args, target):
 
 def tests(directory):
     subprocess.run(['ctest', '--test-dir', str(directory), '--output-on-failure'], check=True)
+
+def wait_for_desktop(child, mirror, report):
+    """Drain output while watching the owning mirror, even when the guest is quiet."""
+    mirror_closed = False
+    decoder = codecs.getincrementaldecoder('utf-8')(errors='replace')
+    with selectors.DefaultSelector() as ready:
+        ready.register(child.stdout, selectors.EVENT_READ)
+        while child.poll() is None or ready.get_map():
+            if not mirror_closed and mirror is not None and mirror.poll() is not None:
+                mirror_closed = True
+                if child.poll() is None:
+                    # SIGTERM follows the native cooperative storage/worker shutdown.
+                    child.terminate()
+            for key, _ in ready.select(timeout=0.1):
+                chunk = os.read(key.fd, 4096)
+                if chunk:
+                    report(decoder.decode(chunk))
+                else:
+                    ready.unregister(key.fileobj)
+        tail = decoder.decode(b'', final=True)
+        if tail:
+            report(tail)
+    code = child.wait()
+    # An explicit window close wins over a simultaneous guest REBOOT.
+    return 0 if mirror_closed and code == 75 else code
 
 def run(args, target, directory):
     def report(line):
@@ -95,25 +121,31 @@ def run(args, target, directory):
                     if pending: report(pending.decode(errors='replace'))
                     if not endpoint:
                         raise RuntimeError('Desktop did not create its mirror endpoint')
-                executable, argv, env = mirror_command(target, endpoint, args.mirror, session)
+                mirror_executable, argv, env = mirror_command(target, endpoint, args.mirror, session)
                 if args.run_log:
                     args.run_log.write('\n\n*** MIRROR ***\n' + repr(argv) + '\n'); args.run_log.flush()
                 if args.quiet: print('Launching mirror ...', flush=True)
                 # Current-terminal mode needs its real tty; GUI launcher chatter
                 # belongs in the log, not in the simple command's status output.
-                gui_log = args.run_log if not executable.endswith('/cpm-session.sh') else None
-                mirror = subprocess.Popen([executable, *argv[1:]], env=env, stdout=gui_log, stderr=gui_log)
-            for line in child.stdout:
-                report(line)
-            code = child.wait()
+                gui_log = args.run_log if not mirror_executable.endswith('/cpm-session.sh') else None
+                mirror = subprocess.Popen([mirror_executable, *argv[1:]], env=env, stdout=gui_log, stderr=gui_log)
+            code = wait_for_desktop(child, mirror, report)
         except KeyboardInterrupt:
             child.terminate(); code = child.wait()
         finally:
             if child.poll() is None:
                 child.terminate(); child.wait()
+            child.stdout.close()
             if mirror is not None:
                 subprocess.run(['tmux', 'kill-session', '-t', session], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                mirror.wait(timeout=10)
+                try:
+                    mirror.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    mirror.terminate()
+                    try:
+                        mirror.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        mirror.kill(); mirror.wait()
         if code != 75:
             if args.quiet: print('Desktop stopped.' if code == 0 else 'FAILED: desktop exited; see ' + args.log.name, flush=True)
             return code

@@ -40,9 +40,10 @@ They emit short status and keep detailed same-named logs beside the scripts.
 Launch uses the last native build, never firmware upload. Normal runs may write
 INI/history and guest files to the selected card directory.
 
-`tools/setup.sh --with-desktop --dry-run` previews the optional CMake/C++/SDL2
-packages for the detected Arch/Debian/Fedora family. Remove `--dry-run` only
-to request installation; this extends normal setup, including Arduino dependencies.
+`tools/setup.sh --dry-run` previews normal setup, including CMake/make/C++/SDL2
+packages for the detected Arch/Debian/Fedora family and Arduino dependencies.
+Remove `--dry-run` to request installation; desktop prerequisites are included
+by default. The former `--with-desktop` flag remains a compatibility alias.
 The shared mirror prefers Konsole, then Kitty, then the current terminal;
 desktop PTYs use isolated sessions and cannot invoke hardware reflash.
 

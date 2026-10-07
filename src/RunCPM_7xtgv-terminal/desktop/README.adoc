@@ -19,9 +19,9 @@ POSIX RunCPM port. No MCU firmware is built or uploaded by these commands.
 
 The native build does not need Arduino MCU cores, SdFat hardware drivers,
 esptool or USB permissions. Dependencies are checked, not automatically installed.
-`tools/setup.sh --with-desktop` adds CMake, make, C++ and SDL2 packages to the
-existing explicit Linux setup. Preview with `--dry-run`. This is additive,
-not a desktop-only installer: it still installs pinned Arduino cores/libraries.
+Normal `tools/setup.sh` includes CMake, make, C++ and SDL2 packages alongside
+pinned Arduino cores/libraries. Preview with `--dry-run`.
+The former `--with-desktop` option remains accepted for compatibility.
 Nothing is installed automatically by launching or rebuilding.
 Windows/macOS transport and packaging are not implemented.
 
@@ -101,8 +101,11 @@ for input and parallel output. Use `--target ES3_35`, `ES3_5`, `EC6_147`,
 Each selection has separate artifacts and `build.log` under
 `build/RunCPM_7xtgv-terminal/desktop/<target>/`.
 Build reconfigures CMake for a fresh stamp; run uses the last build and never
-silently rebuilds. Close the SDL window, press Ctrl+C in the launcher, or use
-guest `EXIT` to stop. Guest `REBOOT` cleanly exits with code 75 and the launcher
+silently rebuilds. Close either the owning mirror or SDL window, press Ctrl+C
+in the launcher, or use guest `EXIT` to stop the whole desktop session.
+Mirror close requests cooperative emulator shutdown before cleaning up its
+own tmux session. On Omarchy, focus the mirror and use Super+W.
+A separate read-only monitor attachment does not own the desktop lifecycle. Guest `REBOOT` cleanly exits with code 75 and the launcher
 starts a fresh process and mirror; invoking the native binary directly leaves
 that restart to its caller. Guest `REFLASH` cannot invoke a hardware uploader.
 
@@ -124,8 +127,24 @@ running; close first, then unmount normally. No automatic synchronization with a
 * Real Arduino_GFX paints RGB565; SDL only uploads and presents its pixels.
 * Buffered boards publish on the production flush scheduler, including INI
   `render_flush_hz=10`; direct boards publish after changed drawing batches.
+* The initial client area requests the selected panel's native dimensions,
+  without automatic fit-to-screen reduction. Desktop scaling and compositor
+  policy can still affect its physical size.
+* On Hyprland, SDL prefers libdecor for a draggable title bar (requires libdecor).
+  An explicit SDL environment hint takes precedence. Configure the emulator
+  as floating in the user's Hyprland configuration, for example on Lua-based
+  Omarchy:
++
+[source,lua]
+----
+o.window("^xtgv_desktop$", { float = true, center = true })
+----
++
+  SDL remains focusable for normal window switching and movement. Select the
+  mirror to type guest input; SDL itself does not translate keyboard input.
+* SDL does not request always-on-top; other application windows may cover it.
 * SDL resizing scales/letterboxes the selected panel, not its terminal geometry.
-  Always-on-top/no-activation are requests to the window manager, not a promise
+  No-activation on initial show is a request to the window manager, not a promise
   that clicking the window cannot give it focus. SDL keys are deliberately ignored.
 * Backlight uses one SDL-only compensation: normalize duty to the selected
   board's level-31 maximum, then apply `255 * (duty / maximum)^(1/2.2)`.

@@ -611,3 +611,40 @@ For the exact *current* syntax and limitations, use the
 link:reference-guide.adoc#7xtgv-cpm-commands-and-user-areas[command reference].
 The physical SD card, local `++cpmcard++` and its committed snapshot can differ; this timeline
 does not certify that every listed binary is currently installed on the card.
+
+== Desktop prerequisites in normal setup (261007)
+
+Normal `tools/setup.sh` now includes CMake, make, C++ and SDL2 development
+packages for Arch, Debian and Fedora alongside the existing Arduino dependencies.
+`--with-desktop` remains accepted for compatibility; `--serial-only` still
+skips installation. The offline package-selection check now uses plain setup.
+
+== Native desktop window size and Hyprland placement (261007)
+
+SDL now requests the board's native panel dimensions without initial
+fit-to-screen reduction. On Hyprland it prefers libdecor for a draggable
+title bar, while explicit SDL environment hints retain precedence.
+The ThinkPad user configuration has an emulator-only floating rule.
+C++ syntax and Hyprland configuration checks pass; rebuilding and visible
+size/title-bar acceptance remain pending.
+
+The ThinkPad rule additionally disables SDL focus, initial focus,
+mouse-follow focus and activation focus. Hyprland reload reports no errors
+and the live SDL window reports `no_focus=true`. Petr still needs to check
+clicking and Super+left-drag while the mirror has keyboard focus.
+
+== Closing the mirror stops the desktop session (261007)
+
+The Python launcher watches mirror exit even while guest output is quiet.
+Closing the owning mirror requests cooperative emulator shutdown, then cleans
+up its desktop tmux session. Closing SDL or guest EXIT cleans up the mirror.
+Three disposable-process lifecycle tests and seven existing desktop-tool
+tests pass; live window-manager close acceptance remains pending.
+
+== Normal desktop panel stacking and focus (261007)
+
+Petr found always-on-top intrusive. Removed that SDL flag for all desktop
+targets and replaced the ThinkPad no-focus rules with floating/centering only.
+Normal window switching and focus are restored; guest input remains in the
+mirror. This supersedes the no-focus experiment above. Native stacking change
+awaits rebuild/relaunch and visual acceptance on Omarchy/CachyOS.

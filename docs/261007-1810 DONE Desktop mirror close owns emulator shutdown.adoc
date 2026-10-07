@@ -1,0 +1,32 @@
+= DONE: Desktop mirror close owns emulator shutdown
+:source-highlighter: highlight.js
+
+== Change
+
+The desktop launcher now drains output with a selector while checking its
+mirror process. Closing Kitty/Konsole or ending the current-terminal
+attachment sends SIGTERM to the desktop child. The existing native signal
+handler requests cooperative worker/storage shutdown. The launcher waits
+for that shutdown before cleaning up only its own desktop tmux session.
+It does not force-kill the emulator during normal close.
+
+Closing SDL or guest EXIT still cleans up the mirror. A terminal process
+that remains after tmux cleanup gets a bounded terminate/kill fallback.
+Closing the mirror wins over a simultaneous guest REBOOT. The launcher also
+keeps the native executable path separate from the mirror executable,
+preserving executable lookup across guest reboot.
+
+== Evidence and remaining check
+
+Three disposable-process tests pass: mirror-first close with quiet/partial
+guest output, guest-first close and mirror close during reboot. They confirm
+the cooperative signal path and that both child processes are reaped.
+Seven existing desktop-tool tests also pass.
+
+No MCU build, flash, physical serial operation or running-session restart.
+This Python change applies on the next desktop launch without a rebuild.
+The earlier native window-sizing change still needs a desktop rebuild.
+
+Petr: launch the desktop, close the focused mirror with Super+W, and confirm
+SDL closes and the launcher reports Desktop stopped. Relaunch and use guest
+EXIT to check the reverse cleanup path. Live GUI acceptance remains pending.

@@ -11,17 +11,16 @@ int shownDuty = -1;
 void require(bool ok) { if (!ok) throw std::runtime_error(SDL_GetError()); }
 }
 void xtgvPresenterOpen(int width, int height, const char *title) {
+    // Hyprland supplies borders but no title bar. Prefer client decorations;
+    // an explicit SDL environment hint still takes precedence.
+    if (SDL_getenv("HYPRLAND_INSTANCE_SIGNATURE"))
+        SDL_SetHint("SDL_VIDEO_WAYLAND_PREFER_LIBDECOR", "1");
     require(SDL_Init(SDL_INIT_VIDEO) == 0);
     SDL_SetHint(SDL_HINT_WINDOW_NO_ACTIVATION_WHEN_SHOWN, "1");
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
-    SDL_Rect area{};
-    float scale = 1.0f;
-    if (!SDL_GetDisplayUsableBounds(0, &area))
-        scale = std::min(1.0f, std::min(float(area.w - 80) / width, float(area.h - 100) / height));
-    scale = std::max(0.1f, scale);
     window = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-                              int(width * scale), int(height * scale),
-                              SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALWAYS_ON_TOP);
+                              width, height,
+                              SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE);
     require(window);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (!renderer) renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);

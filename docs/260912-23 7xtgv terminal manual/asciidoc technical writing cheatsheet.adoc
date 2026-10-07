@@ -492,7 +492,7 @@ table and source-block size at 100%. The examples below opt into smaller sizes.
 // code-block text is smaller. Select A4/margins and any Scale in Chrome's
 // Print to PDF dialog. Below about 70%, v2's 62.5em width cap would otherwise
 // make the entire content column physically narrower than the printable area.
-link:../mixworx-golo-260929-liberation-v3-print-density.css[Print-density CSS v3]
+link:../asciidoctorjs-crx-mixworx.css[Asciidoctor.js CRX Mixworx CSS]
 removes that print-only width cap, so text reflows across the printable width
 even at small Chrome Scale values. Chrome still scales the text and bar heights;
 v3 only prevents the bars and stretch tables from becoming *narrower*.

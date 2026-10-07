@@ -4,27 +4,23 @@ set -euo pipefail
 xtgv_dry=0
 xtgv_yes=0
 xtgv_serial_only=0
-xtgv_desktop=0
 for xtgv_arg in "$@"; do
     case "$xtgv_arg" in
         --dry-run) xtgv_dry=1 ;;
         --yes) xtgv_yes=1 ;;
         --serial-only) xtgv_serial_only=1 ;;
-        --with-desktop) xtgv_desktop=1 ;;
+        --with-desktop) : ;; # Compatibility: desktop prerequisites are now standard.
         --help|-h)
-            printf '%s\n' 'Usage: setup.sh [--dry-run] [--yes] [--serial-only | --with-desktop]' \
+            printf '%s\n' 'Usage: setup.sh [--dry-run] [--yes] [--serial-only]' \
                 'Detects Arch/Debian families or Fedora; installs packages with sudo,' \
                 'then Arduino CLI (if absent), pinned cores and libraries as your user.' \
                 'Offers USB serial-group access separately; --yes does not approve it.
 --serial-only skips package and Arduino installation. No build or flash.' \
-                '--with-desktop also installs CMake, make, C++ and SDL2 development support.'
+                'Normal setup includes CMake, make, C++ and SDL2 development support.'
             exit 0 ;;
         *) printf 'Unknown argument: %s\n' "$xtgv_arg" >&2; exit 2 ;;
     esac
 done
-if ((xtgv_serial_only && xtgv_desktop)); then
-    printf '%s\n' '--serial-only and --with-desktop cannot be combined.' >&2; exit 2
-fi
 if ((EUID == 0)); then
     printf '%s\n' 'Run setup as your normal user, not through sudo.' >&2; exit 1
 fi
@@ -51,13 +47,11 @@ case "$xtgv_family" in
         ;;
     *) printf 'Unsupported Linux distribution: %s (ID_LIKE=%s).\n' "$ID" "${ID_LIKE:-}" >&2; exit 1 ;;
 esac
-if ((xtgv_desktop)); then
-    case "$xtgv_family" in
-        arch) xtgv_packages+=(cmake make gcc sdl2) ;;
-        debian) xtgv_packages+=(cmake make g++ libsdl2-dev) ;;
-        fedora) xtgv_packages+=(cmake make gcc-c++ SDL2-devel) ;;
-    esac
-fi
+case "$xtgv_family" in
+    arch) xtgv_packages+=(cmake make gcc sdl2) ;;
+    debian) xtgv_packages+=(cmake make g++ libsdl2-dev) ;;
+    fedora) xtgv_packages+=(cmake make gcc-c++ SDL2-devel) ;;
+esac
 xtgv_install_packages() {
     case "$xtgv_family" in
         arch) sudo pacman -S --needed "${xtgv_packages[@]}" ;;
