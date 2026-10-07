@@ -1,0 +1,469 @@
+
+
+                ; VTDRV.COM - sequential CP/M drive-path benchmark for RunCPM.
+                ; Requires the 7xtgv RunCPM host timer on private I/O port 7Ah.
+                ;
+                ; Plain VTDRV is read-only: it cyclically reads 32 KiB from A0:MBASIC.COM,
+                ; reports the rate, then verifies four more passes.  VTDRV RW (or /RW)
+                ; explicitly enables the old temporary create/write/read/delete test.
+                
+ 0100                   org     0100h
+                
+ 007A =         port:   equ     07ah
+ 0005 =         bdos:   equ     0005h
+                
+ 0009 =         print:  equ     9
+P010C =         open:   equ     15
+P010C =         close:  equ     16
+ 0013 =         delete: equ     19
+P010C =         read:   equ     20
+P010C =         write:  equ     21
+ 0016 =         make:   equ     22
+ 001A =         setdma: equ     26
+                
+ 0001 =         wbegin: equ     1
+ 0002 =         wend:   equ     2
+ 0003 =         rbegin: equ     3
+ 0004 =         rend:   equ     4
+ 00FF =         cancel: equ     255
+                
+ 0100 =         records: equ    256
+ 0024 =         fcblen: equ     36
+                
+S0100 DB07              in      a,(port)
+ 0102 F44400            cp      'D'
+S0105 F20E02            jp      nz,unsupported
+                
+L                       ld      de,banner
+S                       ld      c,print
+P0108 CD0500            call    bdos
+E010B CD0000            call    parse_mode
+S                       or      a
+S010E F20302            jp      z,readonly
+S                       inc     a
+S0111 F20302            jp      z,bad_option
+                
+                ; Explicit RW mode starts here.
+E0114 CD0000            call    fill_buffer
+                
+                ; Remove a stale file from an interrupted earlier run.
+E0117 CD0000            call    prepare_fcb
+L                       ld      de,fcb
+S                       ld      c,delete
+P011A CD0500            call    bdos
+                
+                ; Timed create/write/close pass.
+S                       ld      a,wbegin
+P011D D37A              out     (port),a
+E011F CD0000            call    prepare_fcb
+L                       ld      de,fcb
+S                       ld      c,make
+P0122 CD0500            call    bdos
+ 0125 F4FF00            cp      0ffh
+S0128 F20302            jp      z,write_error
+E012B CD0000            call    set_dma
+L                       ld      hl,records
+P                       ld      (count),hl
+P               write_loop:
+L                       ld      de,fcb
+S                       ld      c,write
+P012E CD0500            call    bdos
+S                       or      a
+S0131 F20E02            jp      nz,write_error
+E0134 CD0000            call    count_down
+L                       jr      nz,write_loop
+L                       ld      de,fcb
+S                       ld      c,close
+P0137 CD0500            call    bdos
+ 013A F4FF00            cp      0ffh
+S013D F20302            jp      z,write_error
+S                       ld      a,wend
+P0140 D37A              out     (port),a
+                
+                ; Timed open/read/close pass.  Verification is deliberately separate so its
+                ; interpreted byte-comparison loop does not distort the drive rate.
+S                       ld      a,rbegin
+P0142 D37A              out     (port),a
+E0144 CD0000            call    open_for_read
+S0147 F20302            jp      z,read_error
+L                       ld      hl,records
+P                       ld      (count),hl
+P               read_loop:
+L                       ld      de,fcb
+S                       ld      c,read
+P014A CD0500            call    bdos
+S                       or      a
+S014D F20E02            jp      nz,read_error
+E0150 CD0000            call    count_down
+L                       jr      nz,read_loop
+L                       ld      de,fcb
+S                       ld      c,close
+P0153 CD0500            call    bdos
+ 0156 F4FF00            cp      0ffh
+S0159 F20302            jp      z,read_error
+S                       ld      a,rend
+P015C D37A              out     (port),a
+                
+                ; Untimed full verification pass.
+E015E CD0000            call    open_for_read
+L                       jr      z,verify_read_error
+L                       ld      hl,records
+P                       ld      (count),hl
+P               verify_record:
+L                       ld      de,fcb
+S                       ld      c,read
+P0161 CD0500            call    bdos
+S                       or      a
+L                       jr      nz,verify_read_error
+E0164 CD0000            call    check_buffer
+L                       jr      nz,verify_data_error
+E0167 CD0000            call    count_down
+L                       jr      nz,verify_record
+L                       ld      de,fcb
+S                       ld      c,read
+P016A CD0500            call    bdos
+ 016D F40100            cp      1
+L                       jr      nz,verify_eof_error
+L                       ld      de,fcb
+S                       ld      c,close
+P0170 CD0500            call    bdos
+                
+E0173 CD0000            call    remove_file
+L                       ld      de,passed
+S                       ld      c,print
+P0176 CD0500            call    bdos
+ 0179 F20000            jp      0
+                
+                readonly:
+L                       ld      de,ro_banner
+S                       ld      c,print
+P017C CD0500            call    bdos
+S                       ld      a,rbegin
+P017F D37A              out     (port),a
+E0181 CD0000            call    ro_pass
+S0184 F20E02            jp      nz,ro_read_error
+S                       ld      a,rend
+P0187 D37A              out     (port),a
+                
+                ; Four untimed checksummed passes catch unstable reads without distorting the
+                ; reported BDOS/SD rate.  The first establishes the reference checksum.
+E0189 CD0000            call    ro_verify
+S018C F20E02            jp      nz,ro_read_error
+S                       ld      a,(sum1)
+L                       ld      (base1),a
+S                       ld      a,(sum2)
+L                       ld      (base2),a
+S                       ld      a,3
+L                       ld      (passes),a
+P               ro_verify_loop:
+E018F CD0000            call    ro_verify
+S0192 F20E02            jp      nz,ro_read_error
+S                       ld      a,(base1)
+L                       ld      hl,sum1
+ 0195 F42902            cp      (hl)
+S0198 F20E02            jp      nz,ro_data_error
+S                       ld      a,(base2)
+L                       ld      hl,sum2
+ 019B F42902            cp      (hl)
+S019E F20E02            jp      nz,ro_data_error
+L                       ld      hl,passes
+S                       dec     (hl)
+S01A1 F20E02            jp      nz,ro_verify_loop
+L                       ld      de,ro_passed
+S                       ld      c,print
+P01A4 CD0500            call    bdos
+ 01A7 F20000            jp      0
+                
+S               bad_option:
+L                       ld      de,usage_message
+L                       jr      show_and_exit
+                
+P               ro_read_error:
+S                       ld      a,cancel
+P01AA D37A              out     (port),a
+L                       ld      de,ro_read_message
+L                       jr      show_and_exit
+                
+P               ro_data_error:
+L                       ld      de,ro_data_message
+L                       jr      show_and_exit
+                
+P               unsupported:
+L                       ld      de,unsupported_message
+L                       jr      show_and_exit
+                
+P               write_error:
+S                       ld      a,cancel
+P01AC D37A              out     (port),a
+L                       ld      de,write_message
+L                       jr      failed
+                
+P               read_error:
+S                       ld      a,cancel
+P01AE D37A              out     (port),a
+L                       ld      de,read_message
+L                       jr      failed
+                
+P               verify_read_error:
+L                       ld      de,verify_read_message
+L                       jr      failed
+P               verify_data_error:
+L                       ld      de,verify_data_message
+L                       jr      failed
+P               verify_eof_error:
+L                       ld      de,verify_eof_message
+                failed:
+V01B0 76                push    de
+E01B1 CD0000            call    remove_file
+V01B4 76                pop     de
+S               show_and_exit:
+S                       ld      c,print
+P01B5 CD0500            call    bdos
+ 01B8 F20000            jp      0
+                
+P               prepare_fcb:
+L                       ld      hl,fcb_template
+L                       ld      de,fcb
+S                       ld      b,fcblen
+L               copy_fcb:
+S                       ld      a,(hl)
+L                       ld      (de),a
+L                       inc     hl
+L                       inc     de
+L                       djnz    copy_fcb
+ 01BB C9                ret
+                
+                ; Return A=0 for no option, A=1 for explicit RW, A=FF for anything else.
+P               parse_mode:
+S                       ld      a,(0080h)
+S                       or      a
+P01BC C9                ret     z
+L                       ld      hl,0081h
+P               parse_skip:
+S                       ld      a,(hl)
+P01BD F42000            cp      ' '
+L                       jr      nz,parse_first
+L                       inc     hl
+L                       jr      parse_skip
+P               parse_first:
+ 01C0 F42F00            cp      '/'
+L                       jr      nz,parse_r
+L                       inc     hl
+S                       ld      a,(hl)
+L               parse_r:
+S                       and     05fh
+ 01C3 F45200            cp      'R'
+L                       jr      nz,parse_bad
+L                       inc     hl
+S                       ld      a,(hl)
+S                       and     05fh
+P01C6 F45700            cp      'W'
+L                       jr      nz,parse_bad
+S                       ld      a,1
+P01C9 C9                ret
+S               parse_bad:
+S                       ld      a,0ffh
+P01CA C9                ret
+                
+S               prepare_ro_fcb:
+L                       ld      hl,ro_fcb_template
+L                       ld      de,ro_fcb
+S                       ld      b,fcblen
+L               ro_copy_fcb:
+S                       ld      a,(hl)
+L                       ld      (de),a
+L                       inc     hl
+L                       inc     de
+L                       djnz    ro_copy_fcb
+ 01CB C9                ret
+                
+P               open_ro:
+E01CC CD0000            call    prepare_ro_fcb
+L                       ld      de,ro_fcb
+S                       ld      c,open
+P01CF CD0500            call    bdos
+ 01D2 F4FF00            cp      0ffh
+ 01D5 C9                ret
+                
+S               close_ro:
+L                       ld      de,ro_fcb
+S                       ld      c,close
+P01D6 F20500            jp      bdos
+                
+                ; Read one record, cycling to the start of MBASIC.COM at EOF.
+P               ro_read_next:
+L                       ld      de,ro_fcb
+S                       ld      c,read
+P01D9 CD0500            call    bdos
+S                       or      a
+S01DC C9                ret     z
+ 01DD F40100            cp      1
+S01E0 C9                ret     nz
+E01E1 CD0000            call    close_ro
+E01E4 CD0000            call    open_ro
+L                       jr      z,ro_next_fail
+L                       ld      de,ro_fcb
+S                       ld      c,read
+P01E7 CD0500            call    bdos
+S                       or      a
+ 01EA C9                ret
+P               ro_next_fail:
+S                       ld      a,0ffh
+S                       or      a
+P01EB C9                ret
+                
+                ; Read exactly 256 records (32 KiB), reopening at EOF as necessary.
+P               ro_pass:
+E01EC CD0000            call    open_ro
+L                       jr      z,ro_pass_fail
+E01EF CD0000            call    set_dma
+L                       ld      hl,records
+P                       ld      (count),hl
+P               ro_pass_loop:
+E01F2 CD0000            call    ro_read_next
+S                       or      a
+L                       jr      nz,ro_pass_fail_close
+E01F5 CD0000            call    count_down
+L                       jr      nz,ro_pass_loop
+E01F8 CD0000            call    close_ro
+S                       xor     a
+ 01FB C9                ret
+P               ro_pass_fail_close:
+E01FC CD0000            call    close_ro
+P               ro_pass_fail:
+S                       ld      a,1
+S                       or      a
+P01FF C9                ret
+                
+                ; Fletcher-like two-byte checksum for a complete 32 KiB read pass.
+P               ro_verify:
+E0200 CD0000            call    open_ro
+L                       jr      z,ro_verify_fail
+E0203 CD0000            call    set_dma
+S                       xor     a
+P                       ld      (sum1),a
+P                       ld      (sum2),a
+L                       ld      hl,records
+P                       ld      (count),hl
+P               ro_verify_record:
+E0206 CD0000            call    ro_read_next
+S                       or      a
+L                       jr      nz,ro_verify_fail_close
+L                       ld      hl,buffer
+S                       ld      b,128
+L               ro_sum_byte:
+S                       ld      a,(sum1)
+P0209 87                add     a,(hl)
+P                       ld      (sum1),a
+S                       ld      c,a
+L                       ld      a,(sum2)
+P020A 87                add     a,c
+P                       ld      (sum2),a
+L                       inc     hl
+L                       djnz    ro_sum_byte
+E020B CD0000            call    count_down
+L                       jr      nz,ro_verify_record
+E020E CD0000            call    close_ro
+S                       xor     a
+ 0211 C9                ret
+P               ro_verify_fail_close:
+E0212 CD0000            call    close_ro
+P               ro_verify_fail:
+S                       ld      a,1
+S                       or      a
+P0215 C9                ret
+                
+S               open_for_read:
+E0216 CD0000            call    prepare_fcb
+L                       ld      de,fcb
+S                       ld      c,open
+P0219 CD0500            call    bdos
+ 021C F4FF00            cp      0ffh
+ 021F C9                ret
+                
+S               set_dma:
+L                       ld      de,buffer
+S                       ld      c,setdma
+P0220 F20500            jp      bdos
+                
+P               count_down:
+L                       ld      hl,(count)
+L                       dec     hl
+P                       ld      (count),hl
+S                       ld      a,h
+S                       or      l
+P0223 C9                ret
+                
+S               fill_buffer:
+L                       ld      hl,buffer
+S                       ld      b,128
+S                       xor     a
+L               fill_byte:
+P                       ld      (hl),a
+L                       inc     hl
+S                       inc     a
+L                       djnz    fill_byte
+ 0224 C9                ret
+                
+P               check_buffer:
+L                       ld      hl,buffer
+S                       ld      b,128
+S                       xor     a
+L               check_byte:
+ 0225 F42902            cp      (hl)
+S0228 C9                ret     nz
+L                       inc     hl
+S                       inc     a
+L                       djnz    check_byte
+S                       xor     a                   ; successful full record: return Z
+ 0229 C9                ret
+                
+S               remove_file:
+E022A CD0000            call    prepare_fcb
+L                       ld      de,fcb
+S                       ld      c,delete
+ 022D F20500            jp      bdos
+                
+                banner:
+ 0230 5654445256        db      'VTDRV: default RO; use VTDRV RW to write-test',13,10,'$'
+P               ro_banner:
+ 0260 5654445256        db      'VTDRV RO: 32 KiB cyclic read of A0:MBASIC.COM',13,10,'$'
+P               ro_passed:
+ 0290 5654445256        db      'VTDRV RO verify: PASS (4 checksum passes)',13,10,'$'
+S               usage_message:
+ 02BC 5573616765        db      'Usage: VTDRV [RW]',13,10,'$'
+P               ro_read_message:
+ 02D0 5654445256        db      'VTDRV RO read/open failed.',13,10,'$'
+P               ro_data_message:
+ 02ED 5654445256        db      'VTDRV RO verify mismatch.',13,10,'$'
+                passed:
+ 0309 5654445256        db      'VTDRV verify: PASS',13,10,'$'
+S               unsupported_message:
+ 031E 5654445256        db      'VTDRV needs newer 7xtgv RunCPM firmware.',13,10,'$'
+S               write_message:
+ 0349 5654445256        db      'VTDRV write failed.',13,10,'$'
+S               read_message:
+ 035F 5654445256        db      'VTDRV read failed.',13,10,'$'
+P               verify_read_message:
+ 0374 5654445256        db      'VTDRV verify read failed.',13,10,'$'
+P               verify_data_message:
+ 0390 5654445256        db      'VTDRV verify data failed.',13,10,'$'
+S               verify_eof_message:
+ 03AC 5654445256        db      'VTDRV verify EOF failed.',13,10,'$'
+                
+P               fcb_template:
+ 03C7 0056544452        db      0,'VTDRV   ','$$$'
+S03D3                   ds      24,0
+P               ro_fcb_template:
+ 03EB 014D424153        db      1,'MBASIC  ','COM'
+S03F7                   ds      24,0
+S040F           fcb:    ds      fcblen,0
+P               ro_fcb: ds      fcblen,0
+P0433 0000      count:  dw      0
+P0435 00        passes: db      0
+P0436 00        sum1:   db      0
+P0437 00        sum2:   db      0
+P0438 00        base1:  db      0
+P0439 00        base2:  db      0
+P043A           buffer: ds      128,0
+

@@ -144,14 +144,14 @@ int main() {
                     self.assertEqual(result.returncode, 0, result.stderr)
                     subprocess.run([str(binary)], check=True, timeout=5)
 
-    def test_legacy_non_sdfat_transport_excluded(self):
+    def test_host_storage_has_no_raw_card(self):
         source = '''
 #define RUNCPM_TARGET_JC8048W535 1
-#define XTGV_W535_SD_MMC 1
+#define XTGV_STORAGE_HAS_RAW_CARD 0
 #define SPI_DRIVER_SELECT 3
 #include <cstdint>
 #include "hardware/arduino_7xtgv/cardmark.h"
-static_assert(XTGV_CARDMARK_AVAILABLE == 0, "SD_MMC has no raw SdFat backend");
+static_assert(XTGV_CARDMARK_AVAILABLE == 0, "Host storage has no raw card");
 '''
         result = subprocess.run(['g++', '-std=c++17', '-I', str(ROOT),
                                  '-x', 'c++', '-fsyntax-only', '-'],

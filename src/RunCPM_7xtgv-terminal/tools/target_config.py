@@ -12,6 +12,25 @@ import shlex
 import sys
 
 TARGETS = Path(__file__).resolve().parent / 'targets'
+OPTIMIZATION_LEVELS = ('default', 'O0', 'Og', 'O1', 'O2', 'O3', 'Os')
+
+
+def optimization_level(value):
+    normalized = 'O' + value if value in ('0', 'g', '1', '2', '3', 's') else value
+    if normalized not in OPTIMIZATION_LEVELS:
+        raise argparse.ArgumentTypeError('Use -O0, -Og, -O1, -O2, -O3, -Os or --optimization default')
+    return normalized
+
+
+def optimization_overrides(definition, level):
+    if not level or level == 'default':
+        return {}
+    if level not in OPTIMIZATION_LEVELS:
+        raise RuntimeError('Unsupported optimization: ' + level)
+    key = definition.get('optimization_property')
+    if key not in ('compiler.optimization_flags', 'build.flags.optimize'):
+        raise RuntimeError('Target has no supported optimization property')
+    return {key: '-' + level}
 
 
 class NoSerialPort(RuntimeError):

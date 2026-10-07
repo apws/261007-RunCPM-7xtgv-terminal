@@ -48,8 +48,8 @@ python3 tools/cpm-transfer/transfer.py --user 1 get BBCBASIC.COM --directory /tm
 python3 tools/cpm-transfer/transfer.py --user A put /path/to/FILE.COM
 ```
 
-`--user` uses the same hexadecimal suffix as `cpmdrive`: `0` through `F`.
-Thus `--user A` means folder `AA - ...`; the tool translates it to RunCPM's
+`--user` uses the RunCPM hexadecimal user-directory convention: `0` through `F`.
+Thus `--user A` means user 10 (card directory `A/A`); the tool translates it to RunCPM's
 decimal `A10:` command on the wire.
 
 The transfer helper reads the selected profile using Alt+Space's `CSI >14v`
@@ -93,6 +93,6 @@ accepts both old `A7:` and new `A7: /a/mbasic` output while devices are
 upgraded.
 
 
-Uploads are one-way by default: `cpmdrive/` is the source mirror and VTPUT
+Uploads are one-way by default: `cpmcard/` is the primary working source and VTPUT
 reports its save result. Add `--verify` only when a byte-for-byte device
 read-back is worth the extra terminal traffic.

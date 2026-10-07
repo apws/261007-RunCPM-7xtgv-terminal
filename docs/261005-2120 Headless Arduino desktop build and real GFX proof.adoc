@@ -1,0 +1,80 @@
+= Headless Arduino desktop build and real GFX proof
+:source-highlighter: highlight.js
+
+== Decision and delivered checkpoint
+
+Petr approved the Linux-first platform-shim implementation and the narrow HAL
+storage reporting seam. This implements the first four acceptance stages of
+link:261005-2012%20Arduino-compatible%20SDL%20desktop%20emulator%20analysis%20and%20plan.adoc[the source-audited plan]
+as a headless checkpoint. It is not yet an interactive SDL emulator.
+
+* `desktop/main.cpp` compiles the original Arduino sketch directly as C++.
+* It selects the local RunCPM 6.9 core, modified 7XF shell and existing
+  `abstraction_arduino_7xtgv.h`; no POSIX abstraction is substituted.
+* The real, unmodified Arduino_GFX 1.6.4 sources draw to a 1280x800 RGB565 Canvas.
+  No SDL drawing replacement or fake MCU/SPI implementation is used.
+* One readable `boards/sdl_emulator.h` supplies identity, display, host storage
+  and backlight functions; `runtime_emulator.h` owns the joined worker.
+* Small Arduino/Print/time/Serial shims supply only the APIs needed by this build.
+  Time uses a monotonic clock and retains Arduino's 32-bit wrap semantics.
+
+== Approved integration seam
+
+The sketch now calls `xtgvBoardPrintStorageSummary` instead of formatting its
+SPI-specific summary itself. MCU board headers retain the previous text and
+requested MHz value. The desktop board reports host filesystem storage honestly.
+`XTGV_STORAGE_HAS_SPI_CLOCK` skips physical clock application on desktop;
+`XTGV_STORAGE_HAS_RAW_CARD` excludes CARDMARK hardware diagnostics.
+
+No CPU, BDOS, CCP, disk, console or Arduino abstraction source was changed.
+No MCU firmware build, staging, upload, device transfer or serial interaction
+was performed for this checkpoint. MCU behavior still needs normal rebuild and
+hardware regression before deployment; host checks are not hardware proof.
+
+== Host storage and runtime
+
+The SD/File facade maps an explicit existing card root to binary host files.
+It supports seek, truncate, append, rename, directory iteration and shared
+handle lifetime. Native open flags distinguish creation from truncation.
+Canonical path checks reject ordinary traversal and symlink escape, but this
+is not a security sandbox or protection against hostile filesystem races.
+Linux case sensitivity still differs from FAT; collision/case policy is pending.
+
+The headless driver reads a bounded input fixture, enters the canonical card
+root, initializes the original sketch and feeds its existing input path.
+Rendering remains on the main thread; RunCPM runs on a worker. Natural guest
+`EXIT` is checked before joining. Window quit during active execution and
+reboot request handling are not implemented. Backlight changes a presentation
+value, not framebuffer pixels; actual SDL brightness modulation is pending.
+
+== Verification on 261005
+
+[cols="1,3",options="header"]
+|===
+|Check |Observed result
+|Real GFX Canvas |PASS: clipping, RGB565 bitmap, rotation and deterministic framebuffer hash `b0d514776ca9ac2f`.
+|Production terminal framebuffer |PASS: actual terminal runtime draws through real Canvas and passes input into its existing guest queue.
+|Host storage contract |PASS: binary data, EOF, access modes, seek, truncate, append, shared close, rename, enumeration and path rejection.
+|Integrated sketch |PASS: disposable `A/0`, scripted commands, real Z80 COM execution, verified BDOS punch output `X`, normal guest EXIT.
+|Undefined-behavior sanitizer |All four tests PASS with `UBSAN_OPTIONS=halt_on_error=1`.
+|Core hook regression |Five tests PASS.
+|Other native regressions |CARDMARK: two tests; target metadata: six; board HAL: one test covering its configured variants. All PASS.
+|===
+
+Compiler: GNU C++ 16.2.1. Temporary proof builds:
+`/tmp/xtgv-desktop-gfx-261005` and `/tmp/xtgv-desktop-ubsan-261005`.
+These are validation output, not deployed artifacts. The source and repeatable
+build instructions live under `src/RunCPM_7xtgv-terminal/desktop/`.
+The library input was `/home/falken/Arduino/libraries/GFX_Library_for_Arduino`.
+
+== Next acceptance gate
+
+* SDL event loop, texture presentation and exact terminal key/chord mapping.
+* Safe quit/restart while RunCPM is active, without detached workers or unsafe
+  cross-thread terminal mutation; request direction if a new core seam is needed.
+* Host filename parity and persistence tests with representative copied card trees.
+* Windows build validation, then macOS; neither is currently claimed supported.
+* No firmware REFLASH behavior on desktop and no invented card information.
+
+Changes remain uncommitted. The pre-existing deletion of the separate literal
+transcript document was left untouched.

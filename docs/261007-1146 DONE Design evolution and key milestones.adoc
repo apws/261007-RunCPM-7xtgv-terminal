@@ -1,0 +1,335 @@
+= Design evolution and key milestones of 7xtgv-terminal
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+
+*Scope:* repo-grounded documentation synthesis through 261007, not a new
+firmware release or an exhaustive feature audit. Dates identify recorded
+checkpoints; they are not inferred invention dates. Dated sources retain
+their historical state. Current commands belong in the manuals.
+
+Read this for *why the design changed*. Use the
+link:260912-23%207xtgv%20terminal%20manual/features_timeline.adoc[Features Timeline]
+for finer chronology and link:FEATURES.adoc[feature ledger] for individual
+delivery/test boundaries. Petr's
+link:261004-11%20manual%20reorg.adoc[practical manual outline] supplies the
+user-facing view of the same system.
+
+== At a glance
+
+[cols="1,2,3",options="header"]
+|===
+|Period |Design shift |Enduring consequence
+|Original concept / 260906 recovery |Hardware-friendly tiled GUI idea becomes a recovered MCU graphics/RunCPM testbed. |The native chip specification and the working terminal are related but distinct.
+|260907–260922 |Display demo becomes an interactive terminal with separate execution owners, profiles and logical keys. |Guest output, keyboard policy and pixel presentation need separate interfaces.
+|260915–260926 |Zoom, themes, persistence and catalogs become everyday tools. |Logical geometry is not physical size; application profiles are not CP/M directories; saved state requires ownership.
+|260927–261001 |Emergency return and accumulated core edits force an explicit integration audit. |Searchable XTGV hooks and readable HALs make the recovered fork maintainable, not automatically upstream-compatible.
+|261001–261004 |Storage, memory and single-core measurements correct architectural assumptions. |A faster CPU or nominal bus clock is not enough; API granularity, SRAM and scheduling matter.
+|261004–261007 |Practical tooling/docs and desktop reuse make the product easier to reproduce and test. |One board description can serve hardware and Linux, without duplicating the renderer or changing the RunCPM baseline.
+|===
+
+== 1. Native 7xtgv is the goal; the terminal is its testbed
+
+=== Petr's origin and purpose note -- added 261007
+
+The following is Petr's account of the project's origins and intended
+direction, edited for spelling and readability. It distinguishes the
+long-term objective from the implementation milestones below.
+
+* *From a simple experiment to a useful testbed.* My original January 2026
+  experiments drew 7xtgv 6x10-pixel cells using an Arduino_GFX canvas. They
+  evolved into a very simple dual-core test with raw RunCPM on the RP2350
+  Arduino runtime. To create a useful testbed for the *full 7xtgv-native
+  engine* -- a chip-like, optimized, HDL-friendly design -- I then developed
+  *7xtgv-terminal*.
+
+* *Why VT/ANSI and CP/M?* The terminal provides VT/ANSI capabilities for
+  RunCPM and, potentially, other real CP/M systems and non-CP/M hosts.
+  Terminal history, configurable application profiles and modern keyboard
+  mappings make these environments more comfortable to use. Planned
+  keyword/token insertion could also help in text and code editors. Some
+  CP/M applications cannot be fully configured for a particular terminal's
+  screen and controls, so the terminal must accommodate different scenarios
+  and user preferences rather than assume one universal application setup.
+
+* *Why 7XF appeared.* History and banks/profiles already made working with
+  CP/M much easier. For years I had also wanted named, directory-like views
+  -- possibly even trees -- to organize the many CP/M applications and tools
+  visually. *7XF* became a quick extension of the internal CCP to explore
+  that idea. It remains a proof of concept over CP/M's drive/user areas,
+  not a new hierarchical filesystem or a claim to have invented enhanced
+  command processors. Alternative CCPs have existed before; projects such
+  as RomWBW also provide a much broader enhanced CP/M environment.
+
+* *The primary objective has not changed.* This entire *7xtgv-terminal*
+  remains primarily a developer tool and testbed for implementing the final
+  *7xtgv-native* specification. Mapping VT/ANSI behaviour onto native
+  primitives, to a meaningful and practical extent, is part of that test
+  drive. Compatibility is a client of the native design, not what defines it.
+  The specification is not yet battle-tested and will need adjustments.
+
+* *The intended experience.* The goal is a *fast, cell-based engine* for
+  low-power devices, potentially with an HDL implementation too: a TUI with
+  a GUI-like look and feel. GEOS and the later Sinclair QL/SMSQ/E visual
+  environment are useful points of inspiration, not compatibility targets.
+  The emphasis is on keyboard control and high-resolution TFT/IPS or AMOLED
+  displays in portable devices with a real keyboard -- either QWERTY or
+  an “extended ITU-T” arrangement, which is a separate, substantial topic.
+  *Touch interaction is explicitly outside this vision.*
+
+* *Where we are now.* The testbed supports several real MCU/display modules,
+  and contributors can add their own combinations. A supported board's
+  display geometry and shared rendering behaviour can also be exercised
+  almost transparently on the desktop. This is especially useful for
+  Ari/Codex's automated testing, although it does not emulate the MCU's
+  electrical behaviour, buses or resource limits. A huge thank-you to
+  Ari/Codex as a very good colleague in implementing everything so far.
+
+* *The major transition still ahead.* The intended next major phase is to
+  integrate native 7xtgv rendering into the Arduino_GFX-based testbed and
+  replace the current hybrid rendering path with the native engine. Today
+  the testbed borrows the 6x10 cell raster and palette constraints/ideas;
+  its extra terminal attributes and pixel-graphics paths do not constitute
+  the full native implementation. The four-byte native cells and the
+  VT/ANSI-to-native mapping still need to be implemented and validated.
+
+*Let's play with low power :-)*
+
+Related exploration:
+link:261007-1426%20DONE%20Sinclair%20QL%20channels%20research%20and%20native%207xtgv%20sidenote.adoc[QL channels, windows and inspiration for native 7xtgv].
+
+=== Recorded design and implementation boundaries
+
+* The original concept prioritizes a compact, fast editor/windowing display,
+  semantic colors and emphasis over sprites/games. Early notes explore 6x8
+  glyphs, tile sets, palette indirection, dual-port SRAM and hardware video
+  encoding. These are design explorations, not today's terminal ABI.
+* The 260906 recovery reconstructed an Arduino graphics demo and a dual-core
+  RunCPM/7xtgv sketch from surviving material. The recovered core belongs to
+  the January 2026 generation; September did not start from upstream HEAD.
+* The working terminal uses the 6x10 QL-derived raster and its own ANSI/VT52
+  cell model. Its character/paper/attribute/flag arrays are not proof that
+  the proposed native CHAR_A/CHAR_B/ATTR/EXTA virtual chip is implemented.
+
+*Lesson:* preserve *7xtgv-native as the primary objective*, with the working
+terminal serving as its development and compatibility testbed. Do not silently
+define the native architecture by whichever ANSI conveniences the testbed
+currently implements.
+
+Evidence: link:260906-21%20250524%20!!!!%20mixworx%207xtgv%20-%20TILED-GUI-VIDEO-256.adoc[original concept],
+link:260906-12%20RECOVERY.adoc[recovery],
+link:260919-14%20terminal%20RunCPM%20source%20boundaries%20and%20rendering%20flow.adoc[cell model and native boundary].
+
+== 2. Two owners, not merely two cores
+
+* RP2350 separated guest/storage work from terminal/display work across two
+  cores; ESP32-S3 used FreeRTOS tasks. Bounded queues carry guest console
+  bytes and replies instead of letting both sides draw or access storage.
+* The PC mirror became both a practical input path and a view of terminal
+  state. It is not simply a second independent terminal consuming raw CP/M
+  bytes; repaint/reconnect behavior must reflect the terminal's state.
+* EC6_147 later demonstrated the same ownership model on a *single* core
+  using scheduled FreeRTOS tasks. Shared display/card SPI additionally needs
+  Arduino transaction locking; scheduling alone is not a bus lock.
+* Linux later retained these owners as a RunCPM/filesystem worker and a
+  terminal/GFX/SDL main thread.
+
+*Lesson:* the portable boundary is ownership and communication, not a hard
+requirement for two physical cores. C6 success is not automatic qualification
+of every future single-core MCU.
+
+Evidence: link:260909-13%20runcpm-s3-dual-task.adoc[S3 task arrangement],
+link:261004-1057%20EC6_147%20experimental%20HAL%20implementation.adoc[C6 implementation and initial user tests].
+
+== 3. Application profiles separate keyboard policy from terminal output
+
+* Ten explicitly selected banks combine application names, key mappings and
+  independent histories. This avoids making arbitrary application detection
+  the authority for selecting the user's input mode.
+* Real editors/interpreters exposed different line-editing conventions.
+  Profile mappings, selected local-compose helpers, physical-key overrides
+  and private 8-bit key identities made modern keyboard use practical.
+* ANSI/VT52 output modes, Console7/8 and input profiles are separate choices.
+  A TP3 input setup does not redefine the terminal's native display format.
+* History recall and proposed keyword completion are different services.
+  Exported tokens and exploratory completion ideas do not establish a
+  shipped, configurable keyword-list subsystem.
+
+*Lesson:* preserve explicit user choice and distinguish physical keys,
+private logical events, application bytes and displayed text.
+
+Evidence: link:260910-01%20terminal-application-profiles.adoc[early profiles],
+link:260915-21%20history%20tokens%20and%20editing%20surfaces.adoc[history versus tokens],
+link:260922-00%207xtgv%20private%208-bit%20core%20key%20codes%20and%20TP3%20proof.adoc[private key tokens].
+
+== 4. Logical terminal, physical viewport and retained graphics
+
+* Tiny screens made logical geometry distinct from visible geometry. Integer
+  zoom enlarges the fixed glyph raster; panning exposes hidden cells.
+  Later temporary zoom/view commands decoupled exploration from saved boot
+  presets and unintended changes to an application's logical terminal size.
+* Light paper and dark CRT-style palettes made emphasis depend on the theme,
+  not simply on increasing every RGB component. Cursor/active-row overlays
+  and physical backlight are distinct from the stored text colors.
+* GCLS/xterm indexed-color samples paint through GFX rather than becoming
+  ordinary text cells. Retaining plots therefore requires a clear handoff:
+  ordinary text repaint must not erase the image, and old cursor overlays
+  must not become permanent image pixels.
+* The latest ghost-line regression exposed exactly that handoff. Pending
+  text/overlay erasures now finish before the first plot sample. Petr
+  confirmed the fix visually on EP4_10 desktop after rebuilding.
+
+*Lesson:* logical text, temporary overlays, retained pixels and presentation
+timing are different state, even when they share one display surface.
+
+Evidence: link:260926-08%20transient%20view%20zoom%20viewport%20navigation%20and%20guest%20display%20controls%20plan.adoc[temporary view design],
+link:261006-2224%20DONE%20GCLS%20pending%20cursor-line%20cleanup.adoc[plot handoff regression].
+
+== 5. Editable configuration became a storage-coherence problem
+
+* INI settings and per-bank BUF histories made the terminal persistent.
+  Allowing CP/M editors to modify the same INI created a second *logical*
+  writer, even though one runtime owner still performs physical SD I/O.
+* Measured slow saves traced to alternating source reads and replacement
+  writes through SdFat's shared sector cache. Keeping INI text in RAM and
+  writing sequentially addressed that pattern while preserving comments.
+* Lazy saves, verification/replace/backup and guest-file access/close hooks
+  protect against stale cached text overwriting a guest edit. A physical
+  per-record host close is not the same as a logical CP/M file close.
+* RP2350 memory pressure later reduced history from 255 to 100 entries per
+  bank across modules, recovering room for the INI cache. Shared settings
+  still have to fit the smaller boards, not just the PSRAM-equipped ones.
+
+*Lesson:* persistence performance, correctness and memory budget must be
+designed together; adding an autosave timer alone is not enough.
+
+Evidence: link:260925-16%20RAM-backed%20INI%20and%20sequential%20autosave.adoc[INI cache and ownership],
+link:261003-22%20RP2_2%20INI%20cache%20pressure%20and%20Os%20trial.adoc[RAM pressure and history reduction].
+
+== 6. A friendly CP/M shell exposed the size of the product fork
+
+* Prompt variants grew into 7XF named catalogs, LS/LL/CD and path-like labels
+  over flat CP/M drive/user areas. This is not a replacement filesystem.
+* Forced COM return needed CPU polling as well as blocking-console checks:
+  a compute-only Z80 loop never reaches a BIOS input hook. SUBMIT cleanup,
+  guest state and terminal input handoff belong to that lifecycle too.
+* These features do not fit wholly inside a display-board header. The audit
+  separated portable fixes, optional core seams, the product CCP and HAL
+  policy. `VOL` was restored to INFO.TXT; catalog files remain 7XF-owned.
+
+*Lesson:* the core diff may be small while the product feature is substantial.
+Do not confuse a copied CCP with a tiny upstream plug-in.
+
+Evidence: link:260928-23%20RunCPM%20core%20delta%20and%20upstream%20seams.adoc[core audit],
+link:261001-0539%20recovered%20CCP%20and%207XF%20variant%20split.adoc[CCP split],
+link:261001-2237%20VOL%20compatibility%20and%20XTGV%20injection%20naming%20review.adoc[VOL and naming review].
+
+== 7. Readable HALs and searchable seams, before upstream migration
+
+* Over-fragmented HAL/macros were replaced by complete, uniformly structured
+  board headers with ordinary functions and explicit runtime selection.
+* Product helpers/state and hooks became searchable as xtgv/_xtgv/XTGV_.
+  Positive composition flags replaced negative headless tests. Required
+  inherited RunCPM interfaces kept their names.
+* This cleaned the *existing recovered-era fork*. It did not import newer
+  upstream code or qualify CP/M 3. The next migration should first prove
+  CP/M 2.2 parity on a newly pinned upstream version, then test CP/M 3.
+
+*Lesson:* clear local ownership makes migration possible to review; naming
+and extraction do not remove semantic differences or authenticate provenance.
+
+Evidence: link:261001-1322%20HAL%20challenge%20and%20readable%20board%20consolidation.adoc[HAL correction],
+link:261001-2317%20XTGV%20integration%20naming%20and%20positive%20build%20guards.adoc[implemented naming],
+link:260930-13%20RunCPM%20cleanup,%20CCP%207XF%20and%20terminal-only%20build%20plan.adoc[two-stage cleanup/port plan].
+
+== 8. Storage measurements changed the optimization priorities
+
+* The ESP32 SD_MMC adapter path gave way to direct Arduino SdFat/SPI,
+  matching the API the RunCPM abstraction actually consumes. The abandoned
+  W535 alternate was ultimately removed, not maintained as a hidden fallback.
+* P4 measurements showed a second bottleneck: hardware SPI used per-byte
+  calls where RP2350's SdFat path already used array transfers. Buffering
+  improved throughput without changing CP/M's 128-byte record format or
+  turning the operation into DMA.
+* Requested MHz is an Arduino argument, not necessarily measured SCK.
+  Divider behavior, the global INI clock setting and read-only CARDMARK
+  comparisons need separate interpretation. Read agreement does not certify
+  writes or electrical margin.
+* Whole-build optimization and dispatcher IRAM placement are independent.
+  MCU measurements did not justify assuming O3 always wins. The corrected
+  boot estimate fixes T-state accounting, not execution speed.
+
+*Lesson:* measure the actual data path before attributing a bottleneck to
+CPU speed, bus naming or a compiler flag. Do not generalize one board's
+backend configuration without checking its build settings.
+
+Evidence: link:261002-12%20SdFat%20buffer%20transfers%20and%20SPI%20clock%20audit.adoc[buffer/SPI audit],
+link:261003-1445%20Corrected%20boot%20Z80%20clock%20estimate.adoc[boot estimate],
+link:261004-1302%20Build%20performance%20options%20and%20uniform%20optimization.adoc[optimization policy].
+
+== 9. Tooling and documentation became part of reproducibility
+
+* Build and flash were separated: rebuilding produces a fresh stamped
+  candidate; reflashing selects an existing artifact. Per-display-ID folders,
+  concise launchers, adjacent detailed logs and separate mirrors make the
+  workflow usable outside an agent session.
+* Missing tools should be reported, not silently installed during flashing.
+  Explicit setup and isolated dependency-build tooling address fresh systems;
+  their existence is not proof of a clean-machine all-target acceptance run.
+* Manuals split by responsibility: practical first contact, exact reference,
+  developer architecture, build instructions and chronological evidence.
+  Petr's outline prioritizes real keyboard/command recipes over long prose.
+
+*Lesson:* a successful build on the development machine is not reproducibility,
+and a historical experiment is not automatically a current instruction.
+
+Evidence: link:261004-1647%20Manual%20task-first%20reorganization%20and%20reproducibility%20gates.adoc[manual ownership and gates],
+link:261006-1635%20DONE%20ThinkPad%20integration%20and%20quiet%20desktop%20shortcuts.adoc[setup/mirror/launcher integration].
+
+== 10. Desktop became another runtime, not another terminal implementation
+
+* The selected design reuses an existing board plus `XTGV_DESKTOP=1`, not
+  separate SDL geometry headers. The same sketch, Arduino abstraction, 7XF,
+  terminal and real Arduino_GFX Canvas run on Linux.
+* SDL presents pixels; it does not reimplement glyph drawing. The existing
+  mirror supplies input over a PTY. Board identity, dimensions, zoom limits,
+  direct/flush policy and INI behavior remain relevant to desktop tests.
+* A rooted host-filesystem adapter supplies the required SD/File interface,
+  not raw card emulation. CARDMARK is unsupported there; REFLASH is disabled,
+  and REBOOT restarts the process. Real card roots remain real writable data.
+* Removing accidental O0 performance through the O2 desktop default made
+  the difference between roughly 70 MHz and roughly 2.9 GHz VTCPU estimates
+  on Petr's host. His Mandelbrot run changed from 17,290 ms to 1,006 ms.
+  Those are individual observations, not a portable performance promise.
+* SDL brightness needed display-side compensation: a board's electrical
+  PWM duty is not a suitable literal multiplier for desktop pixel values.
+  The correction leaves hardware curves and framebuffer pixels unchanged.
+
+*Lesson:* reuse executable behavior, not merely a similar-looking UI. Desktop
+tests now expose shared renderer defects without needing a connected board;
+they cannot qualify physical SPI, power, DMA, thermal or reset behavior.
+
+Evidence: link:261006-0935%20PLAN%20Desktop%20runtime%20using%20existing%20board%20HALs.adoc[accepted design],
+link:261006-1117%20DONE%20Linux%20desktop%20real-board%20SDL%20and%20mirror%20checkpoint.adoc[implementation],
+link:261006-1900%20DONE%20Optimization%20selectors%20and%20SDL%20backlight%20compensation.adoc[optimization and brightness].
+The performance figures and latest ghost-line acceptance above are Petr's
+subsequent chat reports, not additional automated benchmark runs.
+
+== Open directions are not completed milestones
+
+* Full native 7xtgv virtual-chip semantics and HDL-oriented implementation.
+* New upstream RunCPM integration and independently qualified CP/M 3 support.
+* Standalone external-UART terminal mode, including its own persistence and
+  explicit guest configuration-transfer boundary.
+* Separate editable keyword lists, richer image protocols and bird's-eye views.
+* Windows/macOS runtimes and completed fresh-clone acceptance on clean systems.
+* Card/catalog/profile reorganization: proposals do not authorize moving the
+  working card's files or rewriting its INI/history.
+* Host-to-MCU wall-clock synchronization for meaningful SdFat timestamps;
+  discussed on 261006–261007, not implemented. Desktop file dates already
+  come from the host filesystem; historic hardware timestamps are not a
+  reliable content-version ordering.
+
+Keep these separate from the tested product. This overview changes only
+documentation; it neither authorizes their implementation nor promotes any
+firmware candidate.

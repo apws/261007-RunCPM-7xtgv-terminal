@@ -1,0 +1,72 @@
+= DONE: ThinkPad integration and quiet desktop shortcuts
+:source-highlighter: highlight.js
+
+== Integration
+
+Fast-forwarded local main to fetched commit `9af215f` (Linux setup detection and
+standalone mirrors). Restored all preceding uncommitted desktop work. The only
+text conflict was the feature timeline; both histories were preserved. Generated
+feature tables are regenerated from the combined TSV, not manually resolved.
+
+Recovery backup retained as stash `261006 desktop work before ThinkPad integration`.
+It is already applied: do not apply it again to the current worktree. No new
+commit or push. Existing unrelated document/CSS deletions remain unchanged.
+
+== Simple launchers
+
+All six `tools/targets/DISPLAY_ID -- target/` folders now contain:
+
+[cols="1,2",options="header"]
+|===
+|Script |Purpose
+|`desktop-rebuild.sh` |Fresh native build for that board; no MCU build/flash.
+|`desktop-local.sh` |Last native build using repository `cpmcard`.
+|`desktop-card.sh` |Last native build using an explicitly selected mounted SD/USB root.
+|===
+
+Mounted-card selection: `--card-root PATH`, `XTGV_DESKTOP_CARD_ROOT`, or a prompt.
+The root must have `A/0` and be an actual mount point; no guessed reader and no
+silently using a stale unmounted directory. Local mode also accepts `--card-root`
+for a disposable copy. Both modes permit normal INI/history and guest writes.
+
+Normal output contains short steps only; compiler details, commands, card-root
+and PTY paths go to each shortcut's same-named `.log`. Logs are replaced per run
+and separate CONFIGURE/BUILD or DESKTOP/MIRROR with blank lines and delimiters.
+`--dry-run` is the explicit verbose exception: print the resolved command, do nothing.
+
+== Shared services
+
+* `target_mirror.py` supplies terminal selection to hardware and desktop:
+  Konsole, then Kitty, then current terminal; `--mirror` overrides this.
+* Desktop requires explicit PTY and isolated `7xtgv-desktop-*` session. It never
+  discovers USB serial, enters hardware ACL handling or inherits an uploader.
+* Preserved both `cpm-session.sh` changes: remote `stat -L` for symlink device
+  permissions and local session-name isolation.
+* `setup.sh --with-desktop` adds CMake, make, C++ and SDL2 development packages
+  to the explicit detected Linux setup. Normal firmware setup stays unchanged;
+  no packages were installed during this work. This option is additive, not a
+  desktop-only installer, and cannot combine with `--serial-only`.
+* The reported Omarchy keyboard trouble is in the ChatGPT app, not the 7xtgv
+  mirror. No terminal key mapping was changed in response.
+
+== Verification and limits
+
+Seven new launcher tests pass: terminal fallback, explicit PTY/isolation guards,
+no hardware discovery, card/mount selection, quiet output, package dry-runs on
+three simulated distro families, and a bounded native headless launch on a
+disposable card tree. The 23 workflow tests pass, including syntax checks for
+all 36 hardware/desktop wrapper scripts plus the fresh-build helper.
+The complete Python regression suite then passed: 141 tests. Feature registry
+validation and regeneration pass with 192 records; new documentation renders
+through Asciidoctor without warnings and `git diff --check` is clean.
+
+Per-board wrapper dry-run confirmed cwd-independent local card and adjacent log
+resolution. No original card writes, new native compile, firmware build/upload,
+GUI launch or dependency installation was performed in this integration step.
+Real Kitty/current-terminal UI behavior and actual package installation remain
+user/platform acceptance; earlier SDL/PTY evidence is in
+link:261006-1117%20DONE%20Linux%20desktop%20real-board%20SDL%20and%20mirror%20checkpoint.adoc[the preceding checkpoint].
+
+Next check: from a board's folder, launch `desktop-local.sh`; existing native
+builds are ready on this machine. Rebuild separately when desired. For the
+reader use `desktop-card.sh --card-root /run/media/falken/RunCPM` while mounted.

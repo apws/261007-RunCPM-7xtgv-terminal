@@ -17,7 +17,7 @@ class BoardHalTests(unittest.TestCase):
 #if defined(RUNCPM_TARGET_JC8012P4A1C)
 static_assert(XTGV_DISPLAY_FULL_FRAME_BUDGET);
 #endif
-#if defined(RUNCPM_TARGET_JC8048W535) && !defined(XTGV_W535_SD_MMC)
+#if defined(RUNCPM_TARGET_JC8048W535)
 static_assert(XTGV_STORAGE_HZ == 20000000UL);
 #endif
 int client();
@@ -50,8 +50,6 @@ int client() {
             variants = (
                 ('JC8012P4A1C', ()),
                 ('JC8048W535', ()),
-                ('JC8048W535_SD_MMC', ('-DRUNCPM_TARGET_JC8048W535',
-                                       '-DXTGV_W535_SD_MMC')),
                 ('JC8048W550', ()),
                 ('RP2350_LCD_1_47_A', ()),
                 ('RP2350_TOUCH_LCD_2', ()),

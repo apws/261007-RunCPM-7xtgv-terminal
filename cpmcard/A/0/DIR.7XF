@@ -1,0 +1,14 @@
+cpm-os       CP/M 2.2 OS + 7xtgv-terminal INI+BUF, shared commands
+7XTGVTRM.INI configuration settings
+7XTGVTRM.BUF profiles history buffers
+REBOOT.COM   reboot os/firmware
+REFLASH.COM  reflash os/firmware
+VTCPU.COM    CPU benchmark
+VTDRV.COM    DISK-access benchmark
+VTPUT.COM    tooling send utility
+VTGET.COM    tooling receive utility
+VTINFO.COM   module/display info
+VTINFO.ASM   8080 source code
+
+ 
+

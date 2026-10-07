@@ -1,206 +1,204 @@
 = RunCPM core delta raw notes: our injections
 :source-highlighter: highlight.js
+:toc:
+:toclevels: 2
 
-// Petr's raw inventory is preserved verbatim inside this literal block.
-[literal]
-....
+NOTE: Petr's historical inventory from 260930, reformatted on 261007.
+Original observations, questions, spellings and historical names are retained;
+the code excerpts are not current-source prescriptions. For audited
+interpretations and later resolutions, see the
+link:260928-23%20RunCPM%20core%20delta%20and%20upstream%20seams.adoc[core audit],
+link:260930-13%20RunCPM%20cleanup,%20CCP%207XF%20and%20terminal-only%20build%20plan.adoc[cleanup plan]
+and link:261001-2317%20XTGV%20integration%20naming%20and%20positive%20build%20guards.adoc[implemented naming cleanup].
 
-===============================================================================================
+== Comparison and agent rules
+
 RunCPM v260126 (comparison of original state vs current 7xtgv-terminal implementation)
 
-necessary for agent.md:
- - scan original codebase for coding style patterns, formatting, wording, concept/style ...
-   everything to mimic "Mockba" for possible "PR" of some "SYSSTEMATIC/PORTABLE" mods
- - MUST have rule to ASK / WARN for any changes which require to touch RunCPM core !!! - re Mockba CPM3 additions !!!
+.necessary for agent.md:
+* scan original codebase for coding style patterns, formatting, wording, concept/style ...
+everything to mimic "Mockba" for possible "PR" of some "SYSSTEMATIC/PORTABLE" mods
+* MUST have rule to ASK / WARN for any changes which require to touch RunCPM core !!! - re Mockba CPM3 additions !!!
 
+== Noted OUR systematic changes
 
-noted OUR systematic changes:
+=== abstraction_arduino.h => abstraction_arduino_7xtgv.h
 
---------------------------
-abstraction_arduino.h => abstraction_arduino_7xtgv.h
- => properly created NEW abstraction layer derived from raw arduino, most new things !!!
- => added new abstraction layer subfolder "arduino_7xtgv" for our specific, fully configured builds ...
+* properly created NEW abstraction layer derived from raw arduino, most new things !!!
+* added new abstraction layer subfolder "arduino_7xtgv" for our specific, fully configured builds ...
 
- - adds/reflects "RUNCPM_HEADLESS"
-     - is question if this is not DEFAULT state, when RunCPM runs over UART port and not with "dual-core terminal adapter"
+* adds/reflects "RUNCPM_HEADLESS"
+** is question if this is not DEFAULT state, when RunCPM runs over UART port and not with "dual-core terminal adapter"
 
- - added _diskActivity() calls to disk access functions, this is later handled by 7xtgv-terminal code by "visible virtual LED on display"
-     - this is added quite nicelly, wrapping also physical LED, respecting HEADLESS runtime
-     - maybe rather using some MACRO ???
+* added `_diskActivity()` calls to disk access functions, this is later handled by 7xtgv-terminal code by "visible virtual LED on display"
+** this is added quite nicelly, wrapping also physical LED, respecting HEADLESS runtime
+** maybe rather using some MACRO ???
 
- - added special handling of _sys_configAccess() which needs some support to be safely/quickly/lazily written back to disk
-     - !!! originally I NOT WANTED terminal configs this way, INI in host FS CAN be enough, but THIS allows EDITS by CP/M tools !!!!!!!!
-     - later in fact our commands store PERSISTENT changes this way !!!
+* added special handling of `_sys_configAccess()` which needs some support to be safely/quickly/lazily written back to disk
+** !!! originally I NOT WANTED terminal configs this way, INI in host FS CAN be enough, but THIS allows EDITS by CP/M tools !!!!!!!!
+** later in fact our commands store PERSISTENT changes this way !!!
 
-     - modified "_sys_extendfile"
-     - detection of (delayed) IDLE state and lazy write ...
-     - RUNCPM_CONFIG_FILE_CLOSED
-     - RUNCPM_CONFIG_GUEST_IDLE
+** modified "_sys_extendfile"
+** detection of (delayed) IDLE state and lazy write ...
+** RUNCPM_CONFIG_FILE_CLOSED
+** RUNCPM_CONFIG_GUEST_IDLE
 
- - custom HardwareInit(), HardwareOut(), HardwareIn()
-     - complete support of extended benchmarking commands, reboot, reflash, sync,
+* custom `HardwareInit()`, `HardwareOut()`, `HardwareIn()`
+** complete support of extended benchmarking commands, reboot, reflash, sync,
 
+=== ccp.h
 
----------------------------
-ccp.h - we EXTENDED THIS, but will be probably possible to inject CCP extensions some BETTER/PORTABLE way ...
+we EXTENDED THIS, but will be probably possible to inject CCP extensions some BETTER/PORTABLE way ...
+
+* 23: modified `PROMPT_SIZE` 16
+* 28: added `CCPPromptMode` (originally internall command CCPP for modifying prompt, later renamed to 7XF)
+** 7XF = our TINY linux-like prompt/shell and TINY VFS by using 256 flat directories
+* 259: ??? `dirHead[0] = _RamRead(ParFCB) ? _RamRead(ParFCB) + '@' : 'A' + currentDrive;`
+* 510: added `ccpSuppressNextPromptNewline = !submitFlag;`
+* 665: !!! revvert VOL command to use INFO.TXT and NOT our 7XF !!! // VOL command - shows the area DIR.7XF information
 
- -   23: modified PROMPT_SIZE       16
- -   28: added CCPPromptMode (originally internall command CCPP for modifying prompt, later renamed to 7XF)
-                             7XF = our TINY linux-like prompt/shell and TINY VFS by using 256 flat directories
- -  259: ??? dirHead[0] = _RamRead(ParFCB) ? _RamRead(ParFCB) + '@' : 'A' + currentDrive;
- -  510: added ccpSuppressNextPromptNewline = !submitFlag;
- -  665: !!! revvert VOL command to use INFO.TXT and NOT our 7XF !!! // VOL command - shows the area DIR.7XF information
+* 701: !!! EXTENSION: "7XF catalog" and "linux-liek prompt/mini-shell"
 
- -  701: !!! EXTENSION: "7XF catalog" and "linux-liek prompt/mini-shell"
+* 840: !!! EXTENSION of "? help" `uint8 _ccp_hlp(void)` for 7XF related commands
+** ??????? why we modified that original `_puts()` ??????????
 
- -  840: !!! EXTENSION of "? help" uint8 _ccp_hlp(void) for 7XF related commands
-         ??????? why we modified that original _puts() ??????????
+* 933: added _ccp_cancelForcedSubmit() for `#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)`
 
- -  933: added _ccp_cancelForcedSubmit() for #if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
+* 1138: added forcedWarmReturn().beginExternal(); for `#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)`
+* 1140: `Z80run(cpuDelayInstructions); // Starts Z80 simulation`
+* 1142: added `const bool forced = forcedWarmReturn().finishExternal();`
+** and handling of "forced ABORT", now even able to ABORT cycled Z80 !!!
 
- - 1138: added forcedWarmReturn().beginExternal(); for #if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
- - 1140: ----- Z80run(cpuDelayInstructions); // Starts Z80 simulation ----
- - 1142: added const bool forced = forcedWarmReturn().finishExternal();
-                - and handling of "forced ABORT", now even able to ABORT cycled Z80 !!!
+* 1187: added RUNCPM_CONFIG_GUEST_IDLE();
+** test for lazy writes of INI nad BUF (history) files !!!
+** planned is also adding KEYWORDS lists as in-app alternative to history !!!
 
- - 1187: added RUNCPM_CONFIG_GUEST_IDLE();
-         - test for lazy writes of INI nad BUF (history) files !!!
-         - planned is also adding KEYWORDS lists as in-app alternative to history !!!
+* 1206: comment for SUBMIT records CRLF
 
- - 1206: comment for SUBMIT records CRLF
+* 1272: added ccpIgnoreStrandedSubmit test for failed SD deletion
 
- - 1272: added ccpIgnoreStrandedSubmit test for failed SD deletion
+* 1282: added XTGV_ABORT_PENDING_SUBMIT_ON_BOOT - to support FORCED ABORT and not continue SUBMIT !!!!
 
- - 1282: added XTGV_ABORT_PENDING_SUBMIT_ON_BOOT - to support FORCED ABORT and not continue SUBMIT !!!!
+* 1333: added 7XF custom linux-like prompt handling !!!!
 
- - 1333: added 7XF custom linux-like prompt handling !!!!
+* 1445: added STATUS_RESTART check for SUBMIT FORCED ABORT !!!!
 
- - 1445: added STATUS_RESTART check for SUBMIT FORCED ABORT !!!!
+.Questions
+* ???? will be BETTER to separate/copy our ccp7xtgv.h rather ???, including our added "catalog" aka linux-like mock shell ???
+* ???? + our forced_warm_return.h is in fact C++ CLASS, and rest of RunCPM is pur ANSI C or not ???????????
+* ???? + ours runcpm-config.h
 
+=== cpm.h
 
+* ??? line 425 ??? ... `_logCha#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)r("E", LOW_REGISTER(DE));`
+* `CONIN_B` ... added `if (forcedWarmReturn().cpuTakeRequest())`
+* `C_READ` ... added `if (forcedWarmReturn().cpuTakeRequest())`
+* `C_READSTR` ... added `if (forcedWarmReturn().cpuTakeRequest())` + `forcedInputAbort`
 
-???? will be BETTER to separate/copy our ccp7xtgv.h rather ???, including our added "catalog" aka linux-like mock shell ???
-???? + our forced_warm_return.h is in fact C++ CLASS, and rest of RunCPM is pur ANSI C or not ???????????
-???? + ours runcpm-config.h
+.??? injected mostly:
+[source,cpp]
+----
+#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
+          if (forcedWarmReturn().cpuTakeRequest()) {
+               Status = STATUS_RESTART;
+               forcedInputAbort = true;
+               break;
+          }
+#endif
+----
 
+* ??? would be better to put/isolate this rather into _getcon ?? where is _getcon ?? is this BIOS ???
 
----------------------------
-cpm.h
+=== cpu1.h
 
- - ??? line 425 ???     ... _logCha#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)r("E", LOW_REGISTER(DE));
- - CONIN_B              ... added  if (forcedWarmReturn().cpuTakeRequest())
- - C_READ               ... added  if (forcedWarmReturn().cpuTakeRequest())
- - C_READSTR            ... added  if (forcedWarmReturn().cpuTakeRequest()) + forcedInputAbort
+* originally result of code effectivity analysis by chatgpt, only SOME possible platform dependent optimisations found ...
+* Z80run `IRAM_ATTR` and `__attribute__((optimize("O2")))` for `#if defined(RUNCPM_TARGET_JC8048W535)` !!!!! but this is for ALL esp32 !!!
 
-
-??? injected mostly:
-
-          #if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
-                    if (forcedWarmReturn().cpuTakeRequest()) {
-                         Status = STATUS_RESTART;
-                         forcedInputAbort = true;
-                         break;
-                    }
-          #endif
-
-??? would be better to put/isolate this rather into _getcon ?? where is _getcon ?? is this BIOS ???
-
----------------------------
-cpu1.h
-
- - originally result of code effectivity analysis by chatgpt, only SOME possible platform dependent optimisations found ...
- - Z80run IRAM_ATTR and __attribute__((optimize("O2"))) for #if defined(RUNCPM_TARGET_JC8048W535) !!!!! but this is for ALL esp32 !!!
-
- - not much good, not expected to be at this level
- - Z80run loop added forcedWarmPool() for #if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
-
-
-??? injected mostly:
-
-          // On the dual-core S3, execute the hot dispatcher from internal instruction
-          // RAM so terminal code on core 1 cannot evict it from the shared flash cache.
-          // Optimize this one continuous hot path for speed while the surrounding
-          // native BDOS, storage and terminal code retains Arduino-ESP32's compact -Os.
-          static inline
-          #if defined(RUNCPM_TARGET_JC8048W535)
-          IRAM_ATTR
-          __attribute__((optimize("O2")))
-          #endif
-          void Z80run(uint32 cpu_delay)
-
-??? would be better to put there somegeneric "placement attribute" MACRO referenced from say HAL ????
-
-
-??? injected mostly (for forcedInputAbort):
-
-          #if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
-               uint16_t forcedWarmPoll = 0;
-          #endif
-
-          #if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
-               // One cheap countdown branch per opcode; the cross-core atomic is
-               // read only every 65,536 instructions, never inside a host SD call.
-               if (++forcedWarmPoll == 0 && forcedWarmReturn().cpuTakeRequest()) {
-                    Status = STATUS_RESTART;
-                    break;
-               }
-          #endif
-
-??? maybe rather DONT inject cpu emulators and check ABORT only at BIOS level ??
-??? - then impossible to break CPU LOOP, which isnt calling anything but - thats error state, just hw reset/pwr-cycle possible
-
-
-----------------------------
-cpu2.h
-
- - not much good, not expected to be at this level
- - Z80run loop added forcedWarmPool() for #if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
-
-??? dtto
-
-----------------------------
-cpu3.h
-
- - not much good, not expected to be at this level
- - Z80run loop added forcedWarmPool() for #if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
-
-??? dtto
-
-----------------------------
-cpu4.h
-
- - not much good, not expected to be at this level
- - Z80run loop added forcedWarmPool() for #if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
-
-??? dtto
-
-----------------------------
-disk.h
-
- - Ctrl+Alt+C ABORT
- - added RUNCPM_CONFIG_FILE_CLOSED if configured (truncate $$$.SUB, for forced Abort)
-
-
-??? injected mostly:
-
-          #ifdef RUNCPM_CONFIG_FILE_CLOSED
-                         RUNCPM_CONFIG_FILE_CLOSED((const char *)filename);
-          #endif
-
-
-
-----------------------------
-globals.h
-
- - Ctrl+Alt+C ABORT
- - added #include "forced_warm_return.h" for #if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
-
-
-??? injected mostly:
-
-          #if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
-               #include "forced_warm_return.h"
-          #endif
-
-??? generally, may our injections be defined/detected for compilation rather by our OWN HAL-local ARDUINO_7XTGV define ???
-....
+* not much good, not expected to be at this level
+* Z80run loop added forcedWarmPool() for `#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)`
+
+.??? injected mostly:
+[source,cpp]
+----
+// On the dual-core S3, execute the hot dispatcher from internal instruction
+// RAM so terminal code on core 1 cannot evict it from the shared flash cache.
+// Optimize this one continuous hot path for speed while the surrounding
+// native BDOS, storage and terminal code retains Arduino-ESP32's compact -Os.
+static inline
+#if defined(RUNCPM_TARGET_JC8048W535)
+IRAM_ATTR
+__attribute__((optimize("O2")))
+#endif
+void Z80run(uint32 cpu_delay)
+----
+
+* ??? would be better to put there somegeneric "placement attribute" MACRO referenced from say HAL ????
+
+.??? injected mostly (for forcedInputAbort):
+[source,cpp]
+----
+#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
+     uint16_t forcedWarmPoll = 0;
+#endif
+
+#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
+     // One cheap countdown branch per opcode; the cross-core atomic is
+     // read only every 65,536 instructions, never inside a host SD call.
+     if (++forcedWarmPoll == 0 && forcedWarmReturn().cpuTakeRequest()) {
+          Status = STATUS_RESTART;
+          break;
+     }
+#endif
+----
+
+* ??? maybe rather DONT inject cpu emulators and check ABORT only at BIOS level ??
+** ??? - then impossible to break CPU LOOP, which isnt calling anything but - thats error state, just hw reset/pwr-cycle possible
+
+=== cpu2.h
+
+* not much good, not expected to be at this level
+* Z80run loop added forcedWarmPool() for `#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)`
+
+* ??? dtto
+
+=== cpu3.h
+
+* not much good, not expected to be at this level
+* Z80run loop added forcedWarmPool() for `#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)`
+
+* ??? dtto
+
+=== cpu4.h
+
+* not much good, not expected to be at this level
+* Z80run loop added forcedWarmPool() for `#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)`
+
+* ??? dtto
+
+=== disk.h
+
+* Ctrl+Alt+C ABORT
+* added `RUNCPM_CONFIG_FILE_CLOSED` if configured (truncate `$$$.SUB`, for forced Abort)
+
+.??? injected mostly:
+[source,cpp]
+----
+#ifdef RUNCPM_CONFIG_FILE_CLOSED
+               RUNCPM_CONFIG_FILE_CLOSED((const char *)filename);
+#endif
+----
+
+=== globals.h
+
+* Ctrl+Alt+C ABORT
+* added `#include "forced_warm_return.h"` for `#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)`
+
+.??? injected mostly:
+[source,cpp]
+----
+#if defined(ARDUINO) && !defined(RUNCPM_HEADLESS)
+     #include "forced_warm_return.h"
+#endif
+----
+
+* ??? generally, may our injections be defined/detected for compilation rather by our OWN HAL-local ARDUINO_7XTGV define ???

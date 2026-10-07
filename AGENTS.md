@@ -13,7 +13,7 @@
   storage adapters. Do not recreate per-feature fragments or code-body macros.
   See `docs/261001-1322 HAL challenge and readable board consolidation.adoc`.
 - Preserve the project layout: source under `src/`, generated output under
-  `build/`, documentation under `docs/`, and the CP/M mirror under `cpmdrive/`.
+  `build/`, documentation under `docs/`, and the CP/M mirror under `cpmcard/`.
 - Prefix CP/M test programs and fixtures with `VT`; keep the unified `VTESTS`
   menu and its independently callable tests.
 - Preserve Z80 behavior when changing RunCPM. Measure before keeping emulator
@@ -168,7 +168,7 @@
 - Preserve imported/original ChatGPT/Lyra plans as historical source documents.
   A format-only migration to AsciiDoc must preserve their substance. Put later
   repo-grounded discussion and signed implementation decisions in a new
-  chronological `YYMMDD-HH ` AsciiDoc design document that links or names its
+  chronological CHAT/PLAN AsciiDoc document that links or names its
   source; do not rewrite the earlier plan unless Petr explicitly requests
   consolidation.
 - Track non-trivial ideas and delivery state in canonical ASCII
@@ -184,8 +184,11 @@
   and XKB `shift:breaks_caps,caps:none`: Shift clears CapsLock. Do not rely on
   CapsLock state or alter ordinary Czech punctuation/Shift input in terminal
   profiles; diagnose such host-input issues outside the CP/M byte bridge first.
-- Name project working notes under `docs/` with their filesystem-time prefix
-  `YYMMDD-HH ` so extension sorting also preserves their timeline. Canonical
+- New chronological records use `YYMMDD-HHMM CHAT ...`, `PLAN ...`, or `DONE ...`
+  under `docs/`; see `docs/README.adoc`. Preserve old filenames. On resuming work,
+  read its current PLAN and latest DONE before using CHAT for rationale.
+  Current desktop plan: `docs/261006-0935 PLAN Desktop runtime using existing board HALs.adoc`.
+  Canonical
   authored chronological documents use `.adoc`, a level-0 `= Title`, and the
   `:source-highlighter: highlight.js` document attribute. Do not create new
   date-prefixed Markdown or plain-text notes. Put referenced images under
@@ -195,7 +198,7 @@
   Keep stable readmes,
   recovered material, vendor resources, and other non-chronological formats in
   their existing names until a separately approved migration covers them.
-- Treat files with uppercase `MIXWORX` in their filename as local/private:
+- Outside `cpmcard/`, treat files with uppercase `MIXWORX` in their filename as local/private:
   keep them under the root `.gitignore` rule, and never force-add, commit, or
   push them. Keep all CP/M FAND 1.0 test observations in the `MIXWORX`-tagged
   log under `docs/260912-23 7xtgv terminal manual/`, not in separate test
@@ -204,10 +207,18 @@
   dated AsciiDoc handoff in `docs/`: current implementation state, relevant
   tests/hardware observations, pending work, and exact recovery/build details.
   Treat it as durable project history, not merely a private chat summary.
-- Format every human-facing project date as `YYMMDD` (intentionally no
-  century); use `YYMMDD-HH` only where the existing chronological document
-  naming convention needs the hour.
-- Treat `cpmdrive/` as the source mirror for authored CP/M files. Deploy
+- Format human-facing project dates as `YYMMDD` (intentionally no century);
+  new chronological records add `-HHMM` and their CHAT/PLAN/DONE kind.
+- Treat `cpmcard/` as the primary working card, using actual RunCPM DU paths
+  (`A/0` through `A/F`), never descriptive-folder fallback. Petr explicitly
+  requests versioning the complete tree: no exclusions for A-P drives,
+  INI/BUF, databases, backups or host INI snapshots; keep the image for now.
+  No per-file seed manifest. Inspect runtime changes before commit/pull;
+  this does not authorize overwriting live/device settings or pushing.
+  Tests copy fixtures to disposable cards;
+  installing rebuilt guest binaries requires explicit `--install`. See
+  `docs/261007-1618 DONE Canonical cpmcard and DU-only tooling cutover.adoc`.
+  Deploy
   one-way with `tools/cpm-transfer/transfer.py put`. Routine transfers need no
   full read-back (`--verify`) or separate post-transfer serial/tmux/screen probes:
   trust the transfer result and launch the visible mirror, still restoring the
@@ -216,7 +227,7 @@
   transfer/destination, not rebuild/reflash/reboot; ask if its target is unclear.
   Verify further only on request or a concrete transfer failure. Never silently import device files;
   use explicit `get` only when Petr requests it.
-- Store guest text in `cpmdrive/` in CP/M format: CRLF line endings and a
+- Store guest text in `cpmcard/` in CP/M format: CRLF line endings and a
   trailing Ctrl-Z. Maintain this format when editing or generating text there;
   ordinary send/receive transfers preserve bytes, without text conversion.
   Never infer text from extension alone: tokenized BASIC, binaries, disk images,
@@ -233,9 +244,9 @@
   Clean captured prompt/command lines before maintaining that listing as source;
   preserve keyword case. See `docs/260924-17 BASIC ASCII sources and ink test labels.adoc`.
 - `tools/fetch-7xtgvtrm-ini.sh` is the explicit live-config import path. It
-  archives the preceding local mirror under the ignored
-  `cpmdrive/.7xtgvtrm-ini-history/MMDDHHMM.INI`, then replaces the local
-  mirror after a successful `get`; those snapshots are strictly host-local and
+  archives the preceding local mirror under the versioned
+  `cpmcard/.7xtgvtrm-ini-history/MMDDHHMM.INI`, then replaces the local
+  mirror after a successful `get`; those snapshots are host-side tooling data and
   must never be deployed to CP/M.
 - Before editing INI for a requested device configuration update, always fetch
   the current device A0:7XTGVTRM.INI first, then edit that fresh local mirror and
@@ -248,7 +259,7 @@
   even during a rebuild or bulk CP/M mirror deployment. Approval for one
   file does not authorize overwriting the other.
 - Keep CP/M text source lines at 80 columns or fewer; the installed TE editor
-  rejects longer lines. Files already in `cpmdrive/` need no upload conversion.
+  rejects longer lines. Files already in `cpmcard/` need no upload conversion.
   The CLI `--cpm-text` option is only for deliberate imports of external host
   text; it is not the normal transfer path for the CP/M mirror.
 - Keep CP/M assembler dialects explicit. Project-owned Intel 8080 sources for

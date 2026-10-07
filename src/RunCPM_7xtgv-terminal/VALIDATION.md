@@ -106,6 +106,10 @@ length checks. Physical color balance is still a user visual check.
 
 ## Speed build and CP/M organization — 2026-09-07
 
+Historical record: the descriptive mirror below was retired on 261007.
+Current tooling uses `../../cpmcard/A/<hex-user>/`; see
+[`cpmcard/README.adoc`](../../cpmcard/README.adoc).
+
 Changed the RP2350 profile from `-Os` to `-O3` at the existing 150 MHz system
 clock. The identical 20,000-iteration MBASIC arithmetic loop improved from
 12.79 s to 9.79 s (about 31%). Direct single-bank RAM access was already

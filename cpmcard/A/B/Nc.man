@@ -1,0 +1,359 @@
+
+                    N I P S O F T   C O M M A N D E R
+                    =================================
+                          (C) 1992 mZx software
+                    ---------------------------------
+                      Autor: Marek ómihla , NIPSOFT
+
+                     
+
+                               1. õVOD
+                               -------
+
+NIPSOFT commander pracuje pod operaÃnÉm syst×mem mZx-CP/M, kterÙ se  dodÁvÁ
+spolu s programem a je v nÅm zakÏdovÁno ÃÉslo objednÁvky a jm×no oprÁvnÅn×-
+ho uÚivatele. Tento OS je plnÅ kompatibilnÉ a CP/M LEC J.LamaÃe a je jednou
+z ochran proti pirÁtsk×mu kopÉrovÁnÉ programu (pod neupravenÙm OS  CP/M LEC
+program nelze spustit). NIPSOFT commander  je  obdobou  NORTON  command×ru,
+znÁm×ho z "PC", kterÙ pracuje pod oper. syst×mem MS-DOS. PÒes svoje omezenÉ
+plnÅ vyuÚÉvÁ technickÙch moÚnosti poÃÉtaÃe SHARP MZ-800.
+
+
+                      2. Popis programov×ho balÉku
+                      ----------------------------
+
+NC.COM     VlastnÉ program, kterÙ  mÊÚe  pracovat  samostatnÅ,  bez dalÓÉch
+           pÒÉdavnÙch modulÊ.
+
+NC.INI     Soubor, ve kter×m jsou uloÚeny informace o  konfiguraci. Program
+           NC.COM po spuÓtÅnÉ pÒeÃte konfiguraci z tohoto souboru, pokud ho
+           najde. Do souboru  NC.INI  lze  uloÚit  libovolnou  konfiguraci,
+           kterou si zvolÉte.  Popis  jednotlivÙch  pÒÉkazÊ  je  uloÚen pod
+           uÚivatelem 15.
+
+NC.EXT     TextovÙ soubor [ukÁzka], kterÙ pouÚÉvÁ NC pÒi spouÓtÅnÉ  rÊznÙch
+           typÊ souborÊ. NC mÊÚe spouÓtÅt nejen soubory zakonÃen×  pÒÉponou
+           COM nebo SUB, ale i soubory s  libovolnou  pÒÉponou,  napÒ.  MAC
+           nebo TXT,  a  to  tak,  Úe  na  soubor  typu  MAC  spustÉ  napÒ.
+           makroassembler a na soubor TXT  spustÉ  FET  nebo  jinÙ  textovÙ
+           editor, podle informace  v  souboru  NC.EXT.  Soubor  NC.EXT  si
+           mÊÚete vytvoÒit sami libovolnÙm textovÙm editorem, [viz kapitola
+           "VYTVáòENé SOUBORê NC.EXT a NC.MNU"] a na  kaÚd×m  disku  mÊÚete
+           mÉt jinÙ NC.EXT podle toho, k Ãemu danÙ disk pouÚÉvÁte.  Dokonce
+           na tom sam×m disku  pod  rÊznÙmi  uÚivateli,  mÊÚete  mÉt  rÊzn×
+           NC.EXT.  NC vyhledÁvÁ NC.EXT vÚdy na  tom  disku,  kterÙ  je  na
+           aktuÁlnÉm panelu.  Pokud  se  pod  aktuÁlnÉm  uÚivatelem  NC.EXT
+           nenachÁzÉ, pouÚije  se  ten  NC.EXT,  kterÙ  se  najde  prvnÉ  v
+           adresÁÒi [je to dÁno vlastnostmi LamaÃovy CP/M]. Pokud se NC.EXT
+           na aktuÁlnÉm disku vÊbec nenachÁzÉ, nic  se  nedÅje.  StandardnÉ
+           uloÚenÉ souboru je pod uÚivatelem 15.
+
+NC.MNU     TextovÙ soubor [ukÁzka] uÚivatelsk×ho MENU, kter× se aktivuje  z
+           NC.COM pomocÉ klÁvesy F2. Zde mohou  bÙt  definovÁny  dokonce  i
+           dÁvky souborÊ. O vytvÁÒenÉ souboru NC.MNU a o jeho  umÉstÅnÉ  na
+           disku platÉ to sam×, co bylo napsÁno o NC.EXT.
+
+FET.COM    Na disketÅ je umÉstÅn pro demonstraci NC.EXT a NC.MNU.
+
+SETUP+     Program, kterÙ umoÚnÉ spoluprÁci s megovÙm RAMdiskem. [NastavenÉ
+           parametrÊ].
+
+PoznÁmka:  Soubory NC.INI, NC.EXT, NC.MNU nejsou na disku  povinn×.  NC.COM
+--------   bude pracovat i bez nich - samostatnÅ.
+
+
+                     3. NáROKY NA HARDWARE A SOFTWARE
+                     --------------------------------
+
+Pro sprÁvnou funkci NC na poÃÉtaÃi je tÒeba:
+
+-   rozÓÉÒenÁ videopamÅÔ na 32 kB
+-   aspoÎ jedna FD mechanika 3,5 nebo 5,25" [DD, 2DD, QD]
+-   ÒadiÃ FD kompatibilnÉ s firemnÉm
+-   kvalitnÉ televizor nebo monitor
+-   upravenÙ operaÃ. syst×m CP/M [dodÁvÁ mZx spolu s NC]
+
+JestliÚe mÁte pouze jednu FD mechaniku a sprÁvnÅ nastavenÙ oper. sys.  CP/M
+[poÃet mech. = 1,  shodnÅ nastaven poÃet stran a stop pro mechaniku A i B],
+oper. syst×m VÁm dovolÉ emulovat disk B na mechanice A. NC se bude v  tomto
+pÒÉpadÅ chovat tak,  jako  by  jste  mÅli  mechaniku  A  i  B,  pÒiÃemÚ  ve
+skuteÃnosti budete disketu A i B vklÁdat do jedn× mechaniky. NC vÚdy oznÁmÉ
+kdy kterou disketu mÁte vloÚit. IdeÁlnÉ je mÉt RAMdisk,  protoÚe NC pracuje
+nejefektivnÅji tehdy, kdyÚ je umÉstÅn na RAMdisku.
+
+
+                       4. PRVNé SEZNáMENé S NC
+                       -----------------------
+
+Start NC mÊÚeme zapsat vÓeobecnÅ:
+
+[d1:]NC [[d2:]konf]
+
+d1   -  disk, na kter×m se NC nachÁzÉ [syst×movÙ disk]
+d2   -  disk, na kter×m se nachÁzÉ konfiguraÃnÉ soubor
+konf -  nÁzev konfiguraÃnÉho souboru [implicitnÅ NC.INI]
+
+PÒi prvnÉm startu doporuÃen tento postup:
+
+-  ZaloÚit distribuÃnÉ disketu do mechaniky A. Resetnout [zapnout  poÃÉtaÃ]
+-  Po naskoÃenÉ CP/M napsat NC a odeslat [CR]
+-  Nastavit aktuÁlnÉ Ãas - stisk GRAPH+F4,  zapsat do dialogov×ho okna [CR]
+
+TÉm je NC nainstalovÁn a mÊÚete s nÉm pracovat. Na obrazovce jsou tÒi okna.
+Ve spodnÉm oknÅ je struÃnÙ nÁvod s vÙznamem jednotlivÙch funkÃnÉch  klÁves.
+DalÓÉ dvÅ okna jsou panely, kter×  reprezentujÉ  dva  vybran×  disky.  Mimo
+funkÃnÉ klÁvesy fungujÉ i dalÓÉ klÁvesy:
+
+TAB                  -  zmÅna aktuÁlnÉho panelu
+Óipka nahoru, dolu   -  zmÅna aktuÁlnÉho souboru 
+Óipka vpravo         -  dalÓÉ strÁnka
+Óipka vlevo          -  pÒedchÁzejÉcÉ strÁnka
+SHIFT+Óipka nahoru   -  prvnÉ soubor
+SHIFT+Óipka dolu     -  poslednÉ soubor
+INST                 -  oznaÃenÉ/zruÓenÉ oznaÃenÉ souboru
+DEL                  -  aktualizace adresÁÒe [napÒ. po vÙmÅnÅ diskety]
+
+V zÁhlavÉ panelu [nahoÒe uprostÒed], je oznaÃenÉ disku  a ÃÉslo  uÚivatele,
+pokud je  nÅjakÙ  zvolen.   Ve  stÒedu  panelu  jsou  vypsÁny  informace  o
+jednotlivÙch souborech a ve spodnÉ ÃÁsti  panelu  jsou  Õpln×  informace  o
+aktuÁlnÉm souboru. V pÒÉpadÅ, Úe mÁte oznaÃeny nÅkter× soubory,  ve  spodnÉ
+ÃÁsti panelu se objevÉ informace o poÃtu a kapacitÅ  oznaÃenÙch souborÊ.  V
+prav×m hornÉm rohu monitoru je reÁlnÙ [nastavenÙ] Ãas. Na lev×m panelu jsou
+soubory seÒazeny ve tÒech sloupcÉch,  je na nÅm nastavena struÃnÁ informace
+o souborech.  Na  prav×m panelu  je nastavena  ÕplnÁ informace o souborech.
+
+
+
+Jednotliv× sloupce majÉ tento vÙznam:
+
+NÁzev   -   nÁzev a pÒÉpona souboru
+-----       -----------------------
+UÚ.     -   ÃÉslo uÚivatele, pod kterÙm je soubor na disku uloÚen
+ZÁzn.   -   poÃet zÁznamÊ, kterÙ soubor zabÉrÁ [1 zÁznam = 128 bajtÊ]
+Pol     -   poÃet poloÚek, kter× soubor zabÉrÁ v adresÁÒi
+kB      -   poÃet kilobajtÊ, kter× soubor zabÉrÁ na disku
+PrÉ     -   druh pÒÉstupu do souboru [R/O = ÃtenÉ, R/W = ÃtenÉ i zÁpis]
+Typ     -   typ souboru [DIR = bÅÚnÙ soubor, SYS = syst×movÙ soubor]
+
+
+                       5. OVLáDáNé HLAVNéHO MENU
+                       -------------------------
+
+HlavnÉ MENU se ovlÁdÁ 20-ti funkÃnÉmi klÁvesami. Z kter×hokoliv MENU mÊÚeme
+vyskoÃit klÁvesou ESC, pohybovat se mÊÚeme po MENU buÄ kurzorovÙmi Óipkami,
+nebo stlaÃenÉm "hork×" klÁvesy,  kterou je obyÃejnÅ zaÃÁteÃnÉ pÉsmeno poÚa-
+dovan× volby [vÙjimka hlavnÉ MENU,kde "hork×" klÁvesy jsou funkÃnÉ klÁvesy]
+
+Disk       -   volba  disku  a  uÚivatele  pro  aktuÁlnÉ  panel.  VÓeobecnÙ
+----           uÚivatel znamenÁ, Úe na panelu se budou  zobrazovat  vÓechny
+F1             soubory bez ohledu na ÃÉslo uÚivatele. "Hork×"  klÁvesy  pro
+               uÚivatele 10 aÚ 15 jsou klÁvesy A aÚ F.
+
+Menu       -   volba zobrazÉ MENU,  kter× si mÊÚete nadefinovat  a kter× je
+----           uloÚeno v souboru NC.MNU, pÒevÁÚnÅ pod uÚivatelem 15. SlouÚÉ
+F2             ke spouÓtÅnÉ rÊznÙch exter. programÊ, napÒ. Turbo Pascal atd 
+
+UkaÚ       -   umoÚÎuje  prohlÉÚet  jednotliv×  soubory.  Z  prohlÉÚenÉ  se
+----           vracÉme klÁvesou ESC nebo F1,  klÁvesou F2 volÉme hexadecim.
+F3             nebo textovÙ mÏd,  klÁvesou F3  mÅnÉme  kÏd  mezi  KOI-8 CS,
+               7 bit. ASCII, LATIN 2 a KamenickÙch, a nakonec klÁvesy F4  a
+               F5 pouÚijeme, kdyÚ chceme vyhledat nÅjakÙ ÒetÅzec vpÒed nebo
+               vzad. KurzorovÙmi Óipkami  nahoru  a  dolu  mÊÚeme  rolovat,
+               klÁvesami CTRL + Óipka nahoru nebo dolu skÁÃeme po strÁnkÁch
+               a SHIFT + Óipka nahoru nebo dolu skok na zaÃÁtek nebo konec.
+
+Edituj     -   slouÚÉ na jednoduchou editaci textÊ  do  16  kB.  V  pÒÉpadÅ
+------         vÅtÓÉch ukecÁvaÃek, se zeptÁ, zda mu dovolÉme text useknout.
+F4             [POZOR - zÁloÚnÉ  kopie se  nevytvÁÒÉ!].  Editor  se  ovlÁdÁ
+               funkÃnÉmi klÁvesami podobnÅ jako pÒi prohlÉÚenÉ, s  vÙjimkou
+               klÁvesy F2, kterou si prÊbÅÚnÅ uklÁdÁme text na  disk.  Mimo
+               toho  fungujÉ i dalÓÉ klÁvesy podobnÅ jako u editoru FET. Po
+               stisku ESC se editace ukonÃÉ.  Pokud  jsme  v textu provedli 
+               zmÅny, zeptÁ se, zda je tÒeba soubor uloÚit.  Jestli editaci
+               jeÓtÅ nechceme ukonÃit, znovu stlaÃÉme ESC.
+
+KopÉruj   -    zkopÉruje aktuÁlnÉ nebo oznaÃen× soubory na  vedlejÓÉ panel.
+-------        JestliÚe  kopÉrujeme aktuÁlnÉ neoznaÃenÙ soubor, naskoÃÉ nÁm
+F5             dialogovÙ ÒÁdek, ve kter×m mÊÚeme  souboru  zmÅnit  jm×no. V
+               dialogov×m ÒÁdku se mÊÚeme pohybovat Óipkami  vpravo, vlevo,
+               CTRL+Óipka vpravo nebo vlevo. MazacÉ klÁvesy fungujÉ podobnÅ
+               jako v editoru. KlÁvesa ESC rovnÅÚ pracuje. Jsou-li probl×my
+               napÒ. s mÉstem na disku, s R/O soubory a pod.,vÚdy dÁ vÅdÅt.
+               JestliÚe kopÉrujeme vÉc souborÊ,  mÊÚeme kopÉrovÁnÉ pÒeruÓit
+               klÁvesou ESC. Soubor, kterÙ se zaÃal kopÉrovat  se dokopÉru-
+               je celÙ, ale dalÓÉ se uÚ kopÉrovat nezaÃnou.
+
+
+Panel     -   slouÚÉ k nastavenÉ vzhledu aktuÁlnÉho  panelu.  Informaci  je
+-----         moÚn× nastavit "plnou" nebo "struÃnou", seÒazenÉ  souborÊ  na
+SHIFT+F1      aktuÁlnÉm panelu mÊÚe bÙt podle adresÁÒe [jak jsou uloÚeny na
+              disku], nebo podle jm×na, pÒÉpony Ãi uÚivatele.
+
+Atributy  -   pomocÉ t×to funkce, mÊÚeme nastavit  buÄ  aktuÁlnÉ  nebo  vÉc
+--------      oznaÃenÙch souborÊ na R/O, R/W, SYS nebo DIR.
+SHIFT+F2
+
+VymaÚ     -   slouÚÉ na vymazÁnÉ aktuÁlnÉho nebo  oznaÃenÙch  souborÊ.  PÒi
+-----         vymazÁvÁnÉ vÉce souborÊ je moÚn× uÚ  zapoÃatÙ  proces  zruÓit
+SHIFT+F3      klÁvesou ESC. JestliÚe narazÉ na R/O soubor, zeptÁ se nÁs  co
+              dÁle. Jestli zvolÉme "VÓechny", nebude se uÚ dÁl ptÁt.
+
+NovÙ edit -   tato funkce se vyuÚije  pÒi vytvÁÒenÉ nov×ho textov. souboru.
+---------     Pracuje stejnÅ jako volba "Edituj"  s  tÉm  rozdÉlem,  Úe  na
+SHIFT+F4      zaÃÁtku se v dialogov×m ÒÁdku zeptÁ na nÁzev souboru.
+
+PÒesuÎ    -   pracuje obdobnÅ jako "KopÉruj"  s tou zmÅnou, Úe po pÒesunutÉ
+------        pÊvodnÉ soubor smaÚe. JestliÚe pÒesouvÁme soubor na tom sam×m
+SHIFT+F5      disku pod tÉm jistÙm uÚivatelem, jednÁ se vlastnÅ o pÒejmeno-
+              vÁnÉ souboru a nutno tedy zvolit pro soubor nov× jm×no, jinak
+              by pÒesouvÁnÉ nemÅlo smysl.
+
+UloÚ SETUP-   uloÚÉ aktuÁlnÉ konfiguraci NC do souboru NC.INI pod uÚivatele
+---------     15 na disk, kde se nachÁzÉ NC.
+CTRL+F1
+
+Selektuj  -   pouÚÉvÁme pro oznaÃenÉ vÉce souborÊ najednou, pÒiÃemÚ  musÉme
+--------      zadat masku, podle kter× bude soubory  oznaÃovat.  OtaznÉk  v
+CTRL+F2       masce   nahrazuje  prÁvÅ  jeden  znak,  hvÅzdiÃka   nahrazuje
+              libovolnÙ poÃet znakÊ od 0 do  8.  V  masce  se  pÒitom  mÊÚe
+              vyskytnout i vÉce hvÅzdiÃek. NapÒ.:
+
+              *.*            -  oznaÃÉ vÓechny soubory
+              ????????.*     -  oznaÃÉ vÓechny soubory
+              *.COM          -  oznaÃÉ vÓechny soubory s pÒÉponou COM
+              A*.*           -  oznaÃÉ vÓechny soubory, jejichÚ nÁzev 
+                                zaÃÉnÁ na A
+              *SOMAR.FE?     -  oznaÃÉ vÓechny soubory, jejichÚ nÁzev
+                                konÃÉ na SOMAR a zÁroveÎ pÒÉpona
+                                zaÃÉnÁ na FE
+              B*OP*D.MAC     -  oznaÃÉ ty soubory, kter× zaÃÉnajÉ na B
+                                a zÁroveÎ konÃÉ na D a zÁroveÎ nÅkde 
+                                mezi B a D je OP a zÁroveÎ jejich pÒÉpona
+                                je MAC,napÒ.BOPD.MAC, BAOPD.MAC, BOPED.MAC,
+                                BAOPRED.MAC a podobnÅ
+
+Odselektuj-   zruÓÉ vÉc souborÊ najednou. Maska se  vytvÁÒÉ  podobnÅ,  jako
+CTRL+F3       pÒi funkci "Selektuj".
+
+Utility   -   tato funkce spustÉ NC utility, kter× jsou zatÉm  ve  vÙvoji a
+-------       budou pozdÅji ke koupi. Budou  umoÚÎovat  zÁkladnÉ  syst×mov×
+CTRL+F4       operace jako napÒ. formÁtovÁnÉ, kopÉrovÁnÉ  syst×mu  CP/M  na
+              jinou disketu, SETUP syst×mu CP/M, kopii NC  i  s  podpÊrnÙmi
+              soubory na jinou disketu, prÁce s  CMT  a soubory  typu  MZF,
+              prÁci s disketami syst×mu MS DOS atd.
+
+
+
+Info      -   podÁ informace o  autorovi,  o  verzi,  o  distributorovi,  o
+----          volnÙch Ãi obsazenÙch kilobajtech, poloÚkÁch  adresÁÒe,  a  o
+CTRL+F5       alokaÃnÉch blocÉch.
+
+ZruÓ nÁvod-   zruÓÉ nÁvod  ve  spodnÉ  ÃÁsti  obrazovky,  ÃÉmÚ  zÉskÁte  na
+----------    obrazovce vÉc  pracovnÉho  prostoru.  Po  opÅtovn×m  stlaÃenÉ
+GRAPH+F1      GRAPH+F1 se nÁvod opÅt zobrazÉ.
+
+Menu edit -   slouÚÉ na editaci uÚivatelsk×ho menu NC.MNU
+---------
+GRAPH+F2
+
+EXT edit  -   slouÚÉ na editaci startovacÉho souboru NC.EXT
+--------
+GRAPH+F3
+
+Nastav Ãas-   slouÚÉ na nastavenÉ aktuÁlnÉho Ãasu, pÒiÃemÚ hodiny, minuty a
+----------    sekundy se oddÅlujÉ libovolnÙm neÃÉselnÙm  znakem.  Pokud  se
+GRAPH+F4      sekundy nebo  minuty  neuvedou,  mÉsto  nich  se  automaticky
+              dosadÉ nula.
+
+SkonÃi    -   ukonÃÉ Ãinnost NC a vrÁtÉ se zpÅt do CP/M
+------
+GRAPH+F5
+
+
+
+                          6. SPOUóTåNé SOUBORê
+                          --------------------
+
+
+NC umoÚÎuje spouÓtÅt soubory tÒemi zpÊsoby:
+
+
+1.   Soubory typu COM  nebo  SUB  mÊÚeme  spustit  pÒÉmo  tak,  Úe najedeme
+     kurzorem na soubor  kterÙ chceme spustit a stiskneme CR. V pÒÉpadÅ, Úe
+     spouÓtÉme soubor typu COM, naskoÃÉ dialogovÙ ÒÁdek, ve  kter×m  mÊÚeme
+     pÒÉkaz doplnit o dalÓÉ parametry.
+
+2.   Soubory,  kter×  nejsou  typu  COM  ani  SUB,  mÊÚeme  spustit  pomocÉ
+     "startovacÉho souboru" NC.EXT tak, Úe kurzorem najedeme na danÙ soubor
+     a odeÓleme CR. NC vyhledÁ na aktuÁlnÉm  disku  soubor  NC.EXT,  v  nÅm
+     vyhledÁ ÒÁdek s pÒÉponou spouÓtÅn×ho souboru a podle nÅj spustÉ zbytek
+     tohoto ÒÁdku [napÒ. FET, assembler, WordStar a pod.]. Takto  je  moÚn×
+     spouÓtÅt napÒ. soubory typu MZF.
+
+3.   NejÃastÅji pouÚÉvan× soubory mÊÚeme nadefinovat  do uÚivatelsk×ho menu
+     v souboru NC.MNU, ty potom spouÓtÉme pÒes klÁvesu F2.
+
+
+JestliÚe spuÓtÅnÙ soubor regulernÅ ukonÃÉ Ãinnost, ÒÉzenÉ se vrÁtÉ do NC.
+
+
+                    7. VYTVáòENé SOUBORê NC.EXT A NC.MNU
+                    ------------------------------------
+
+KaÚdÙ ÒÁdek souboru NC.EXT musÉ mÉt napÒ. nÁsledujÉcÉ formÁt:
+
+TXT:FET !.!
+
+ |   |  | |---- vÙkÒiÃnÉk mÉsto pÒÉpony dosadÉ pÒÉponu spouÓtÅn×ho souboru
+ |   |  |
+ |   |  |------ vÙkÒiÃnÉk mÉsto jm×na dosadÉ jm×no spouÓtÅn×ho souboru
+ |   |
+ |   |--------- soubor, kterÙ se ve skuteÃnosti spustÉ
+ |
+ |------------- pÒÉpona, na jejÉÚ zÁkladÅ se vyhledÁvÁ
+
+
+DalÓÉ ÒÁdky mohou bÙt napÒ.:
+
+BAK:ERA *.BAK
+PAS:TURBO
+MAC:M80 =!
+MZF:MZX R !.MZF
+
+Jedna poloÚka menu v souboru NC.MNU musÉ mÉt formÁt napÒ.:
+
+A: Archivace             -  ÒÁdek, kterÙ se v menu zobrazÉ
+|     ARC                -  soubor, kterÙ se spustÉ [musÉ bÙt pÒed nÉm
+|                           aspoÎ jedna mezera nebo tabulÁtor]
+|
+|-------------------------  "horkÁ klÁvesa"
+
+DalÓÉ poloÚky mohou bÙt napÒ.:
+
+E: ExternÉ editor
+     FET !.!
+P: PÒeklad [makroassembler + link]
+     M80 =!
+     L80 !,!/N,/E:START
+I: Intercatalog
+     MZX R INTERCA
+
+Jedna poloÚka menu mÊÚe spustit i vÉce  souborÊ  po  sobÅ.  O  vÙkÒiÃnÉcÉch
+platÉ to sam×, co u souboru NC.EXT
+
+
+                                8. ZáVåR
+                                --------
+
+PÒi tvorbÅ programu NC  se  vychÁzelo  ze  zkuÓenostÉ  s  programem  NORTON
+commander na IBM PC. OmezenÉ vyplÙvajÉ z reÁlnÙch tech.  moÚnostÉ  poÃÉtaÃe
+SHARP MZ-800. OperaÃnÉ pamÅÔ tohoto poÃÉtaÃe  je  maximÁlnÅ  vyuÚita.  CelÙ
+program NC byl vytvoÒen v assembleru, takÚe na disku zabÉrÁ jen asi  24 kB,
+coÚ je mezi syst×movÙmi prg. rekord, vzhledem na moÚnosti, kter× poskytuje.
+V souÃasn× dobÅ se vyvÉjÉ  utility  jako  pÒÉdavn×  rozÓÉÒenÉ  NC  o  dalÓÉ
+syst×mov× funkce. PÒÉjemnou prÁci s programem NIPSOFT commander,pÒejÉ firmy
+mZx SOFTWARE, LUCKY SOFT, MEO SOFT a NIPSOFT.
+
+--------------------------------------------------------------------------
+
+

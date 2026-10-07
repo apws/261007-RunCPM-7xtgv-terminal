@@ -32,7 +32,7 @@ static constexpr uint8_t XTGV_BACKLIGHT_DUTIES[] = {
 
 // Only the sketch defines this guard. Functions below have ordinary external
 // linkage; calling them from the terminal does NOT change task/core ownership.
-#ifdef XTGV_HAL_IMPLEMENTATION
+#if defined(XTGV_HAL_IMPLEMENTATION) && !XTGV_DESKTOP
     #include <Arduino.h>
     #if XTGV_TERMINAL
         // Parse graphics headers before the legacy SD/File compatibility aliases.
@@ -87,6 +87,16 @@ void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus &status,
 #endif
 
 // No additional startup credit on this board.
+#if defined(ARDUINO)
+void xtgvBoardPrintStorageSummary(void (*write)(const char *)) {
+    char message[80];
+    snprintf(message, sizeof(message),
+             "Storage: Arduino SdFat/SPI (%lu MHz)\r\n",
+             (unsigned long)(xtgvStorageSpi.requestedHz() / 1000000UL));
+    write(message);
+}
+#endif
+
 void xtgvBoardPrintBootExtra(void (*)(const char *)) {
 }
 

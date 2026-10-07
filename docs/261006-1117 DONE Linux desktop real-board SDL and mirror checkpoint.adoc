@@ -1,0 +1,144 @@
+= DONE: Linux desktop real-board SDL and mirror checkpoint
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+
+== Scope and resume point
+
+Usable Linux implementation of
+link:261006-0935%20PLAN%20Desktop%20runtime%20using%20existing%20board%20HALs.adoc[the signed PLAN].
+This is an interactive checkpoint, not closure of every acceptance gate.
+Read this after the PLAN; the earlier fixed SDL-board proof is superseded.
+
+No firmware rebuild, upload, commit or push. Neither original `cpmcard` nor
+`/run/media/falken/RunCPM/` was changed. Card tests used disposable copies.
+Unrelated user documentation/CSS deletions in the worktree were left untouched.
+
+== Implemented
+
+* Existing real board selector plus `XTGV_DESKTOP=1`: all six headers retain
+  identity, geometry, limits, defaults, offsets, drawing policy and backlight
+  curve. Only physical implementations are suppressed. No duplicate SDL board.
+* Original Arduino sketch, abstraction and 7XF run natively. No CPU, BDOS,
+  CCP, disk or console edits. The previously approved sketch reporting seam
+  emits a truthful host-storage banner instead of SPI MHz.
+* Real Arduino_GFX 1.6.4 Canvas draws RGB565; SDL only presents it. Buffered
+  boards publish on `flush()`, copying pixels immediately; direct boards
+  publish changed drawing batches. INI `render_flush_hz=10` remains effective.
+* Main thread owns terminal/Canvas/SDL; worker owns RunCPM/filesystem.
+  `runtime_desktop.h` coordinates; coherent host services remain in `desktop/`.
+* Raw Linux PTY carries the existing full mirror protocol, bounded queues and
+  partial writes. Explicit `--desktop-pty` skips USB DTR and disables upload.
+  Launcher uses a separate desktop Konsole/tmux session; no `terminal.conf`
+  edits and no stopping the physical mirror.
+* EXIT, window close, Ctrl+C and REBOOT cooperatively stop the guest. The
+  existing product-owned abort hook and delay/yield shims check the stop flag.
+  The worker unwinds, disables cancellation for persistence, closes tracked
+  handles and joins. REBOOT returns 75; the launcher starts a fresh process.
+* Host SD/File compatibility uses ordinary binary host files and an explicit
+  root. Case follows the host filesystem. Uppercase inventory/apply is separate.
+* CARDMARK reports unsupported on desktop. Removed the abandoned W535 SD_MMC
+  header, selector, flag and fallback tests; historical documents/git retain it.
+
+== Build and run
+
+See link:../src/RunCPM_7xtgv-terminal/desktop/README.adoc[desktop requirements and commands].
+Linux, C++17, CMake 3.19+, Python 3.10+, SDL2 development files and Arduino_GFX
+1.6.4 are required. Konsole/tmux provide the mirror. No Arduino MCU core or
+SdFat hardware driver is needed by the native build.
+
+From the repository root:
+
+[source,bash]
+----
+python3 src/RunCPM_7xtgv-terminal/desktop/desktop.py build --target EP4_10
+python3 src/RunCPM_7xtgv-terminal/desktop/desktop.py run \
+  --target EP4_10 --card-root ./cpmcard
+----
+
+WARNING: Normal runs can write guest files and INI/history. Use a copy first.
+For the mounted reader, explicitly use `--card-root /run/media/falken/RunCPM`.
+Close before unmounting; never run two instances against one tree.
+
+Build refreshes the stamp; run never silently rebuilds. All six display IDs
+and their long target IDs are accepted. Artifacts and `build.log` live in
+`build/RunCPM_7xtgv-terminal/desktop/<target>/`, separate from MCU candidates.
+
+[source,bash]
+----
+python3 src/RunCPM_7xtgv-terminal/desktop/desktop.py test --target EP4_10
+python3 src/RunCPM_7xtgv-terminal/desktop/desktop.py matrix
+python3 src/RunCPM_7xtgv-terminal/desktop/card_names.py ./cpmcard
+----
+
+The final command only inventories; `--apply` explicitly renames. Neither
+original tree was normalized here. Petr's proposed future move from `cpmdrive`
+to `cpmcard` tooling remains separate; no automatic synchronization was added.
+
+== Evidence
+
+[cols="2,3",options="header"]
+|===
+|Check |Observed result
+|Six-board matrix
+|All six build; eight CTests per board pass (48 executions).
+|Graphics/scheduler
+|Real Canvas, publication isolation, direct changes, input queue, selected-board INI and its 10 Hz/100 ms scheduler pass. Backlight does not change pixels.
+|Integrated guest
+|Original sketch executes real Z80 COM; its BDOS punch output is verified byte-for-byte. Guest EXIT closes normally.
+|PTY lifecycle
+|Boot snapshot, CARDMARK unsupported, detach/reattach snapshot and termination during idle, compute-only and continuous-output guests pass. History persists; REBOOT returns 75.
+|SDL
+|Dummy-driver integrated test passes on all boards. Brief EP4 native window and full SDL/Konsole launcher run on a copied card and exit successfully.
+|User card copies
+|Copies of local cpmcard and mounted reader both boot/close. Inspected EP4 Canvas shows QL glyphs, INI 102x40 geometry, directory listing and prompt.
+|UBSan
+|Fresh EP4 sanitizer build passes all eight CTests; not proof of race freedom.
+|Existing Python checks
+|131 tests ran: 130 passed, one stale helper fixture failed. It used A7> (already confirms area) while expecting the drive-only CD fallback. Changed its fixture to A>; all 35 helper tests then pass. Production transfer selection unchanged.
+|===
+
+CTest logs: each build's `Testing/Temporary/LastTest.log`.
+UBSan build: `build/RunCPM_7xtgv-terminal/desktop/ubsan-ep4`, configured with
+`-fsanitize=undefined -fno-sanitize-recover=undefined` in C++ flags and
+`-fsanitize=undefined` in linker flags, same EP4 selector and pinned GFX.
+
+Retained evidence under `build/RunCPM_7xtgv-terminal/desktop/validation/`:
+
+* `card-copy-ytvny75w/`: local card copy, native run log, `panel.ppm`/`panel.png`.
+* `card-copy-z8xyqrlq/`: mounted-card copy, dummy-driver log and `panel.ppm`.
+
+Initial copy fixture queued VTINFO followed immediately by DIR. VTINFO correctly
+reported INPUT PENDING because more input was queued; this was not a successful
+VTINFO query. The fixture now sends DIR alone. Enter interactive helpers one at
+a time; input fixtures are bytes, not a command/wait scripting language.
+
+== Visual observations and limits
+
+Petr saw the dark SDL display and liked that low-brightness end. Copied INI
+`backlight_level=10` maps to P4 PWM duty 21/255; direct texture modulation is
+darker than the physical LCD. Keep this approximation for now. Neither INI nor
+hardware curve changed. PPM captures the drawing Canvas without brightness or
+scaling, not necessarily the last published texture.
+
+Always-on-top/no activation are window-manager requests; click focus is not
+guaranteed. SDL ignores keys; input belongs in the mirror. MCU speed, buses,
+DMA, panel scanout and electrical reliability are not simulated.
+
+== Remaining acceptance and next checkpoint
+
+* Petr: try one large and one small geometry; type VTINFO, zoom/pan, change a
+  profile/palette/backlight, and REBOOT. Compare physical viewport and mirror.
+* Expand retained-plot, gutter/indicator, zoom/pan, resize/exposure and palette
+  real-pixel fixtures. Current checks are not complete visual qualification.
+* Ordinary storage and history-on-stop pass; production INI/BUF failed-save
+  fault injection and transfer-dialog acceptance remain to be extended.
+* Fresh isolated OS/dependency installation remains untested. Current native
+  builds used installed dependencies; PTY tests need Linux devpts permission.
+* No ThreadSanitizer/long stress qualification. Windows/macOS runtime,
+  transport and packaging are intentionally unsupported at this checkpoint.
+* Shared HAL/sketch edits still need an authorized MCU rebuild/hardware check.
+  No MCU artifact was staged here.
+
+Next useful step: Petr's short interactive review, then a small commit when
+requested. This DONE is a durable checkpoint, not closure of every PLAN gate.

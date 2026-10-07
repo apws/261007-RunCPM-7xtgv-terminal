@@ -1,0 +1,747 @@
+
+	ZIP je sucastou programoveho systemu DBASE. Je to gene-
+rator obrazovkovych masiek a vystupnych tlacovych zostav, ktore
+mozu byt vyuzite pre vstup dat cez obrazovku, vypis dat na ob-
+razovku alebo tlaciaren (podobne ako subory .FMT).
+
+
+
+
+Obsah
+-------------------------------------------------------------
+
+ZIP - zakladne udaje ...................................... 3
+Prikazy ZIPu .............................................. 4
+Moznosti ZIPu ............................................. 5
+Priklad cinnosti ZIPu ..................................... 5
+Prehlad moznosti ZIPu ..................................... 6
+Praca so ZIPom .............................................7
+Kreslenie horizontalnych a vertikalnych ciar ...............9
+Pomocna obrazovka - zmena standardnych hodnot .............10
+Ulozenie navrhovanej masky ................................11
+Novy navrh masky a ukoncenie prace so ZIPom ...............12
+Nahrada prikazov DBASE @ SAY - GET ........................13
+Spracovanie inych typov suborov ...........................15
+Dynamicke nastavovanie ....................................15
+Prikazy a riadiace symboly ZIPu ...........................16
+Priklad pouzitia ZIPu .....................................16
+
+
+
+
+
+	ZIP - ZAKLADNE UDAJE.
+	-------------------------------------------------------
+
+
+	Pre pracu programu ZIP su potrebne tieto subory :
+ZIP.COM, ZSCRN.OVL, DGEN.OVL.
+	Pri praci so ZIPom predstavuje obrazovka "okno", v kto-
+rom sa vytvaraju obrazovkove masky obsahujuce maximalne 
+15 riadkov, resp. tlacove zostavy obsahujuce maximalne 88 riad-
+kov.
+
+
+0 ....................................................... 79
+ .                   /P   
+ .                   /M
+ +---------------------------------------------------------+ /T
+ |                                                         |
+ |                                                         |
+ |                                                         |
+ |                                                         |
+ |                                        		   |
+ |                                                         |
+ |                                                         |
+ |                                                         |
+ |                                                         |
+ |		                                           |
+ |							   |
+ |							   |
+ +---------------------------------------------------------+ /B
+ dialogovy riadok
+ .
+ .		/M
+ .
+ . < dlzka strany = 16, alebo 24 - 88 riadkov >
+ .
+ .
+ .
+ 88
+
+
+ Poznamka : Pri vytvarani obrazovkovych masiek, ktore obsahuju
+            iba udaje (nie prikazy DBASE) sa neodporuca zvacsit
+	    rozmer strany nad hodnotu 16 riadkov x 63 stlpcov.
+
+Na ovladanie pohybu kurzora sa pouzivaju nasledovne klavesy :
+
+sipka hore - posun o 1 riadok nahor
+sipka dole - posun o 1 riadok nadol
+sipka doprava - posun o 1 znak doprava
+sipka dolava  - posun o 1 znak dolava
+<VEZMI> - novy riadok
+
+<SPEC>+sipka doprava - tabelator = sucasne stlacenie klaves
+<SPEC> a ->. V dalsom texte sa bude pouzivat oznacenie <tab>)
+
+Pomocou tychto klaves sa mozme pohybovat aj mimo "okna" zosta-
+vy (ukazuje to informacia o polohe kurzora v dialogovom riad-
+ku), ale zobrazenie dalsich casti zostavy dosiahneme pouzitim
+prislusnych klaves.
+Ucinok stlacania uvedenych klaves sa da lahko zistit ich pouzi-
+tim na jednoduchom skusobnom texte po nastartovani ZIPu.
+
+
+	PRIKAZY ZIPu.
+	-------------------------------------------------------
+
+
+/Q - ukoncenie prace so ZIPom (navrat do systemu)
+/C - centrovanie textu na riadku
+// - vypis pomocnej obrazovky
+/T - nastavenie kurzora na horny riadok obrazovky
+/<tab> - nastavenie kurzora na zaciatok/koniec riadku
+/| - zapnutie/vypnutie rezimu vkladanie textu
+/B - nastavenie kurzora na spodny riadok obrazovky
+/M - nastavenie kurzora do stredu riadku/obrazovky
+/D - zrusenie jedneho znaku
+/A - vlozenie prazdneho riadku/stlpca
+/K - zrusenie riadku/stlpca
+/H - nakreslenie/zrusenie horizontalnej ciary
+/V - nakreslenie/zrusenie vertikalnej ciry
+/N - zobrazenie nasledujucej obrazovky
+/P - zobrazenie predchazajucej obrazovky
+/F - zobrazenie prvej obrazovky
+/L - zobrazenie poslednej obrazovky
+/E - zrusenie zadanych udajov
+/S - uchovanie zadanych udajov a generovanie prislusneho prika-
+zoveho (typ.CMD), resp. formatoveho (typ.FMT) suboru
+
+Prikazy pre DBASE :
+@   - obdoba prikazu SAY pre vypis premennej
+#   - obdoba prikazu GET, READ pre vstup premennej
+[ ] - rezervovane pre zadavanie prikazov DBASE
+
+Objekty, ktorych hodnoty mozno pocas prace so ZIPom menit :
+.  - <V>ertikalna znacka (znak pouzity na kreslenie vertikal-
+      nej ciary)
+5  - <T>abelatorova velkost
+-  - <H>orizontalna znacka (znak pouzity na kreslenie horizon-
+     talnej ciary)
+16 - <S>trana (dlzka strany ; 16 alebo 24 - 88 riadkov)
+0  - <O>kraj (okraj strany pri tlacovych zostavach v rozmedzi
+     0 - 132 stlpcov)
+
+
+
+	MOZNOSTI ZIPu.
+	-------------------------------------------------------
+
+
+	DBASE je najvykonnejsi a najeddnoduchsie obsluhovatelny
+relacny databazovy system na mikropocitacoch. Do tohoto systemu
+mozno zahrnut aj program ZIP.
+	ZIP zjednodusuje vytvaranie obrazovkovych masiek a tla-
+covych zostav. Poskytuje nasledujuce moznosti :
+- vytvaranie obrazovkovych masiek a tlacovych zostav pre vys-
+  tup, resp. vstup udajov
+- vytvaranie programovych modulov pre DBASE. Tieto moduly su 
+  reprezentovane prikazovymi (.CMD), resp. formatovymi (.FMT)
+  subormi. Subory typu .CMD a .FMT sa navzajom lisia pouzitim
+  prikazov READ, ERASE, SET FOMAT TO PRINT SCREEN, SET MARGIN
+  TO n a RETURN. Subory typu .FMT tieto prikazy neobsahuju
+- pouzitie lubovolnych prikazov DBASE. Takto pomocou ZIPu mozno
+  vytvarat aj prikazove subory aj formatovat vstupne a vystup-
+  ne udaje
+- pouzitie lubovolnych ASCII retazcov ako pevnych textov na ob-
+  razovke
+- vypis pozicie kurzora a sprav pocas prace so ZIPom na dialo-
+  govou riadku (riadok na spodnom okraji obrazovky)
+- graficka uprava formularov pomocou kreslenia horizontalnych
+  a vertikalnych ciar a dynamickeho nastavovania hodnot tabela-
+  tora, rozmerov a okraja strany
+
+
+
+	PRIKLAD CINNOSTI ZIPu.
+	-------------------------------------------------------
+
+
+* Obrazovkova maska
+               +---------------+
+	       .    Priklad    .
+	       +---------------+
+
+Cislo zakazky @CISZAK          Datum # DATUM
+			       Suma  # SUMA
+
+[ STORE SUCET + SUMA TO SUCET ] # [ ? SUCET ]
+
+ZIPom vygenerovany prikazovy subor vyzera nasledovne :
+
+* PRIKLAD.CMD
+ERASE
+@ 1,15 SAY " +---------------+"
+@ 2,15 SAY " .    Priklad    ."
+@ 3,15 SAY " +---------------+ "
+@ 5,0  SAY "Cislo zakazky"      
+@ 5,13 SAY  CISZAK
+@ 5,30 SAY "Datum"
+@ 5,63 GET DATUM
+@ 6,30 SAY "Suma"
+@ 6,35 GET SUMA
+STORE SUCET + SUMA TO SUCET
+? SUCET
+READ 
+RETURN
+
+	V tomto priklade bol pomocou ZIPu vytvoreny prikazovy
+subor PRIKLAD.CMD, ktory je mozno pouzit v DBASE (moze byt 
+aktivovany DBASE prikazom DO PRIKLAD). Uvedeny priklad sluzi
+iba na ilustraciu cinnosti ZIPu, nie je velmi ucelny. V hornej 
+polovici prikladu je uvedeny obsah obrazovky tak, ako bol zada-
+ny uzivatelom, v dolnej casti je uvedeny odpovedajuci prikazovy
+subor.
+
+
+	PREHLAD MOZNOSTI ZIPu.
+	-------------------------------------------------------
+
+
+	ZIP v predchadzajucom priklade vytvoril prikazovy subor
+PRIKLAD.CMD zo zadaneho obsahu obrazovky.
+	Oramovanie bolo vytvorene prikazami na vykreslenie/zru-
+senie horizontalnych a vertikalnych ciar. V miestach, kde sa
+ciary krizuju, sa automaticky zobrazi znak "+". Znaky, z kto-
+rych su ciary vytvorene, sa mozu pocas prace so ZIPom menit.
+	Mena premennych sa zapisuju za riadiaci znak "@" (vypis
+obsahu premennej), resp. za znak "#" (vstup hodnoty premennej).
+Prikazy DBASE musia byt uzavrete v hranatych zatvorkach [ ].
+Prikazy sa zapisuju jednoducho, nemusia sa stlacat ziadne 
+zvlastne <SPEC> znaky. Akonahle obsah obrazovky vyhovuje po-
+ziadavke uzivatela, uchova sa prikazom /S.
+	Vystupna tlacova zostava sa ziska zaradenim prikazov
+SET FORMAT TO PRINT a SET MARGIN TO n. Ich zaradenie do prika-
+zoveho suboru je podmienene zadanim kladnej odpovede v dialogu
+po prikaze /S.
+	Po ukonceni dialogu ZIP automaticky generuje prikazy 
+DBASE @ <x,y> SAY "text", ktore zodpovedaju zadanym pevnym tex-
+tom na obrazovke. Pri dekodovani znaku "@" na obrazovke sa ge-
+neruje prikaz @ <x,y> SAY premenna. Pri dekodovani znaku "#"
+na obrazovke sa generuje prikaz @ <x,y> GET premenna (prikaz sa
+generuje aj pre tlacove zostavy). V pripade tlacovych zostav,
+kedze z tlaciarne nie je mozny vstup, sa ZIP spyta, ci GET sym-
+
+bol "#" bol zadany umyselne. V pripade kladnej odpovede pokra-
+cuje generovanie dalej, inak sa gerovanie prerusi. Vsetky te-
+xtove retazce uvedene v hranatych zatvorkach [ ] sa transformu-
+ju ako DBASE prikazy. Na koniec prikazoveho suboru umiestni ZIP
+prikazy READ a RETURN. ZIPom vytvoreny prikazovy subor sa akti-
+vuje pomocou prikazu DO <meno prikazoveho suboru> (napr.DO PRI-
+KLAD) v priamom rezime prace DBASE. ZIP moze obsah obrazovky
+transformovat aj do formatoveho suboru (typ .FMT). Obsah forma-
+toveho suboru je podobny obsahom prikazovemu suboru, vo forma-
+tovom subore sa nenachazaju prikazy SET, READ a RETURN.
+
+
+	PRACA SO ZIPom.
+	-------------------------------------------------------
+
+
+	Po spusteni ZIPu sa zobrazi pomocna obrazovka, obsahu-
+juca prikazy ZIPu a nastavene standardne hodnoty tych objektov,
+ktore sa pocas prace so ZIPom mozu menit. Tuto pomocnu obrazov-
+ku mozno kedykolvek vyvolat dvojnasobnym stlacenim povelovej 
+klavesy (klavesa </>). Ked je zobrazena tato pomocna obrazovka,
+mozme stlacit klavesu <VEZMI> - vtedy mozme zacat tvorit masku
+alebo zostavu, alebo mozme zmenit niektory objekt, ktory sa da
+v priebehu prace menit, stlacenim prislusneho znaku - T, S, V, 
+O, H.
+	Po stlaceni klavesy <VEZMI> sa v dialogovom riadku zob-
+razi poziadavka na urcenie suboru :
+
+Novy/Existujici soubor (S-Stop)?
+
+Na tuto otazku je treba zadat N,E alebo S v zavislosti od 
+toho, ci sa ma zalozit novy ZIP subor, bude pracovat s uz exis-
+tujicim ZIP suborom, alebo sa ma ukoncit praca so ZIPom. V pri-
+pade zadania N alebo E sa v dialogovom riadku zobrazi poziadav-
+ka na zadanie mena suboru v tvare :
+
+[mech :] jmeno souboru ?
+
+Ak sa v odpovedi na tuto poziadavku nespecifikuje mechanika 
+(napr. A:, B: a pod. ), bude subor zalozeny na diskete vo vy-
+branej mechanike (hranate zatvorky sa pri specifikacii mecha-
+niky nepisu). Meno suboru moze mat maximalne 8 znakov z na-
+sledovnej mnoziny :
+
+ (A - Z), (a - z), 0 1 2 3 4 5 6 7 8 9 , $, @, #, /, :.
+
+ZIP ine znaky neakceptuje. Ak sa ma vytvarat maska, nesmie sa
+zadat typ suboru. ZIP priradi typ suboru sam. Pre subory obsa-
+hujuce popis vytvorenej masky dosadi vzdy typ .ZIP. To iste 
+plati pre vystupne prikazove, resp. formatove subory, u ktorych
+dosadi hodnoty .CMD a .FMT. Je mozne zadavat male aj velke 
+alfabeticke znaky, ZIP ich vzdy konvertuje na velke. Znak ":" 
+sa moze pouzit iba ako oddelovac oznacenia mechaniky v pripade,
+ze mechanika je specifikovana. ZIP kontroluje spravnost nazvu 
+suboru, v pripade chyboveho zadania zobrazi este raz poziadavku
+na vstup mena suboru.
+
+Po zadani mena suboru sa kurzor nastavi do polohy <0,0> (vlavo 
+hore) a dialogovy riadok urcuje presnu poziciu kurzora. Od to-
+hoto okamihu sa zacina vlastny navrh masky.
+Ak pracujete so ZIPom prvykrat, vyskusajte si tabelatorovu kla-
+vesu <tab> a klavesy <VEZMI>, sipku doprava, dolava ...
+Kurzor sa bude pohybovat v sulade s poradim stlacania klaves,
+pricom dialogovy riadok neustale udava presnu poziciu kurzora.
+Ak sa potrebujete posuvat rychle, je mozne pouzit niektory 
+z nasledujucich prikazov :
+
+/T (TOP ...... hore)
+/B (BOTTOM ... dole)
+/M (MIDDLE .. stred)
+ 
+Prikazy /T a /B sposobuju nastavenie kurzora na horny a dolny
+okraj obrazovky, pricom sa zachovava pozicia stlpca. Prikaz /M
+sluzi na nastavovanie kurzora do stredu riadku, resp. stredu 
+obrazovky.
+Pre nastavenie kurzora na zaciatok/koniec riadku sa pouziva 
+prikaz /<tab>.
+Vsimnite si obsah dialogoveho riadku. Ak sa zada prikazovy sym-
+bol "/", v dialogovou riadku sa namiesto pozicie kurzora zobra-
+zi tento prikazovy symbol a caka sa na vstup prikazu.
+	Vzdy, ked je ZIP aktivovany, je tabelator nastaveny na
+standardnu hodnotu (na hodnotu 5). Tuto hodnotu je mozne zmenit
+zadanim nasledovnych vstupov :
+
+// - zobrazenie pomocnej obrazovky
+T  - znak urcujuci kod objektu (v tomto pripade tabelatora), 
+     ktoreho hodnota sa ma zmenit 
+?? - nova hodnota tabelatora
+
+Po stlaceni klavesy <VEZMI> je mozne vyskusat ucinok zmeny hod-
+noty tabelatora stlacenim klavesy <tab>. Podobnym sposobom sa
+daju zmenit hodnoty ostatnych menitelnych objektov, t.j. zobra-
+zovaci znak pre vertikalnu ciaru, zobrazovaci znak pre horizon-
+talnu ciaru, velkost strany a okraj strany.
+
+
+
+	KRESLENIE HORIZONTALNYCH A VERTIKALNYCH CIAR.
+	-------------------------------------------------------
+
+
+	Presunte kurzor na horny riadok obrazovky (stlacte 
+<VEZMI> a /T) a zadajte :
+/M
+/V
+dvakrat <tab>
+/V
+dvakrat <tab>
+/V
+/H
+
+
+Kreslenie/vymazavanie horizontalnych a vertikalnych ciar sa re-
+alizuje rovnakymi prikazmi, pricom sa automaticky zobrazi znak
+"+" v mieste, kde sa horizontalne a vertikalne ciary pretinaju.
+Ked sa kurzor nachaza na znaku, ktory sa pouziva pre kresle-
+nie horizontalnych ciar a zada sa prikaz /H, tak sa zvysok
+ciary napravo vymaze.
+Ked sa kurzor nachaza na znaku "+", potom prikaz /H ma rozny  
+ucinok. V pripade, ze sa vlavo od znaku "+" nachadzaju dalsie
+znaky, zostane "+" zachovane, ale zvysok ciary napravo sa vyma-
+ze. V pripade, ze sa vlavo od "+" nenachadzaju ziadne dalsie
+znaky, horizontalna ciara sa vymaze cela a znak "+" sa zmeni
+na znak, ktory sa pouziva na kreslenie vertikalnych ciar.
+Ak sa na tom istom riadku nachadza viac znakov "+", potom sa
+kreslenie/vymazavanie vykonava medzi dvoma znakmi "+".
+Kreslenie/vymazavanie vertikalnych ciar podlieha tym istym 
+pravidlam ako v pripade horizontalnych ciar. Horizontalne 
+a vertikalne ciary sa kreslia zlava doprava a zhora nadol, pri-
+com v mieste, kde sa kreslia, nema byt ziadny text.
+
+
+
+	POMOCNA OBRAZOVKA - ZMENA STANDARDNYCH HODNOT.
+	-------------------------------------------------------
+
+
+	Sekvenciou prikazov a hodnot :
+
+//
+S
+25 (nova hodnota dlzky strany)
+V
+*  (novy znak pre vykreslovanie vertikalnej ciary)
+
+sa zmeni dlzka strany na 25 riadkov a kazda odteraz vykreslena 
+vertikalna ciara sa bude skladat zo znakov "*". Ucinok uvedenej
+zmeny hodnot mozno vyskusat po navrate na navrh masky zadanim
+prikazu /V a prikazov pre vertikalny posun obrazovky v ramci
+strany. Zadajte :
+
+/N (nasledujuca obrazovka)
+/B
+
+Takto sa kurzor nastavi na spodny okraj nasledujucej obrazovky 
+("okna") strany. V dialogovom riadku budu tieto udaje :
+Riad 24 Stl 0, ak sa kurzor pred zmenou hodnot nachadzal na 
+stlpci 0. Vsimnite si, ze riadky a stlpce sa cisluju od hod-
+noty 0. Vertikalna ciara, ktoru nakreslite na predchadzajucej
+obrazovke a ktorej pokracovanie smerom dolu neuvidite, bude 
+zobrazena az po koniec obrazovky, t.j. po riadok 24. V pripade,
+
+ze strana je dlhsia ako obrazovka, mozno pouzit nasledovne pri-
+kazy :
+
+/F - posun na prvu obrazovku strany
+/L - posun na poslednu obrazovku strany
+/P - posun na predchazajucu obrazovku strany
+/N - posun na nasledujucu obrazovku strany
+
+
+	ULOZENIE NAVRHOVANEJ MASKY.
+	-------------------------------------------------------
+
+
+	Ulozenie hotovej masky do vystupnych suborov sa reali-
+zuje prikazom /S.
+V dialogovom riadku sa vypise :
+
+Uloz <jmeno souboru>  (Cmd, Fmt, Stop)?
+
+Na tuto poziadavku sa zadanim znakov "C", resp. "F" vytvori 
+prikazovy (<meno suboru>. CMD), resp. 
+formatovy (<meno suboru>. FMT) subor.
+Pri volbe "S" sa ulozenie este neuskutocni, vratime sa spat na 
+prave spracovavany formular, alebo tlacovu zostavu.
+Okrem suborov typu .CMD, resp. typu .FMT sa vzdy vytvaraju 
+(pozri dalej) aj subory <meno suboru>.ZIP a <meno suboru>.ZPR.
+Ak sa zada znak "C", resp. "F", v dialogovom riadku sa vypise :
+
+<meno suboru>:Zmena jmena (A/N) ?
+
+V pripade kladnej odpovede je mozno zmenit meno vytvaranych su-
+rov. Pri zadani noveho mena sa samozrejme moze urcit aj mecha-
+nika. To umoznuje pouzitie inej diskety ako bola povodna.
+Potom sa v dialogovom riadku vypise :
+
+Tiskova sestava (A/N) ?
+
+V pripade kladnej odpovede sa do vystupneho suboru vlozi prika-
+zy SET MARGIN a SET FORMAT TO PRINT.
+Poznamka : Kladna odpoved neznamena, ze sa opis navrhnutej 
+           masky bude tlacit na tlaciarni.
+
+Potom ZIP v dialogovom riadku oznamuje, co sa prave vykonava.
+Najprv sa ulozi "snimok" masky do suboru <meno>.ZIP, co indi-
+kuje oznam :
+
+Zapis obrazovky <meno>.ZIP
+
+Potom sa vytvori textovy subor, t.j. subor, ktory obsahuje opis
+navrhnutej masky v znakovej forme (mozno ho prezerat pomocou
+editoru, resp. vytlacit na tlaciarni).
+Vytvorenie textoveho suboru indikuje oznam :
+
+Zapis edit suboru <meno>.ZPR
+
+Potom ZIP oznamom :
+
+Zapis DBASE suboru <meno>.CMD
+
+resp.: Zapis DBASE suboru <meno>.FMT
+
+indikuje vytvorenie prikazoveho, resp. formatoveho suboru. Prvy
+riadok suboru obsahuje komentarovy riadok "* <meno>.CMD", resp.
+"* <meno>.FMT", cim sa identifikuje tento subor ako subor vy-
+tvoreny pomocou ZIPu. V prikazovom subore sa nachaza prikaz
+ERASE a pripadne prikaz SET FORMAT TO PRINT. Na konci su prika-
+zy ERASE, READ a RETURN. Vo formatovom subore sa prikazy ERASE,
+READ a RETURN nenachadzaju.
+Po vytvoreni vystupnych suborov sa ZIP vrati spat na navrh 
+masky. V navrhu masky mozno pokracovat a modifikovanu masku
+ulozit pod novym menom. Ked ZIP v tlacovej zostave narazi na 
+znak "#" (GET symbol), v dialogovom riadku sa vypise :
+
+GET v tisku. V poradku (A/N)?
+
+V pripade kladnej odpovede ZIP pokracuje vo vytvarani DBASE
+suboru. Ak bol znak "#" zapisany omylom, vytvaranie suboru sa
+prerusi a na jeho koniec sa umiestni oznam ** NEKOMPLETNY **.
+Potom sa kurzor nastavi na chybne zadany znak "#" a mozno ho 
+opravit. Pri vytvarani prikazoveho, resp formatoveho suboru sa
+kontroluju vsetky premenne na syntakticku spravnost. Okrem toho
+sa kontroluje ich pritomnost za znakom "#", resp. "@". Ak sa za
+znakom "@", resp. "#" nenachadza meno premennej, ZIP vypise :
+
+Chybi promenna-pokracovat (A/N)?
+
+V pripade zapornej odpovede sa kurzor nastavi na miesto chyby 
+a moze sa vykonavat oprava.
+Ak sa meno premennej zacina/konci znakom ":", ZIP vypise :
+
+Chybny znak ":" - pokracovat - (A/N) ?
+
+Opet, v pripade zapornej odpovede mozno vykonat opravu chyby.
+Vo vacsine pripadov nie je potrebne vykonavat zasahy do ZIPom
+vygenerovanych prikazovych, resp. formatovych suborov. Je mozne
+ich bezprostredne pouzit pod DBASE. Prikazovy subor sa pouziva
+pomocou DBASE prikazu DO <meno>.
+Formatovy subor sa pouziva prostrednictvom prikazov 
+SET FORMAT TO <meno> a READ.
+
+
+	NOVY NAVRH MASKY A UKONCENIE PRACE SO ZIPom.
+	-------------------------------------------------------
+
+
+Zaciatok uplne noveho navrhu masky sa realizuje prikazom /E
+a kladnou odpovedou na otazku :
+
+Vsechno zrusit (A/N) ?
+
+Potom ZIP vypise znovu poziadavku na vstup mena suboru :
+
+Novy/Existujici soubor (S-Stop)?
+
+A sa zada "N" alebo "E", zacne sa novy navrh masky. Ak sa zada 
+"S", ZIP vypise :
+
+Konec prace se ZIPem (A/N) ?
+
+Kladna odpoved sposobi ukonceni prace programu ZIP, riadenie sa
+vrati operacnemu systemu. Cinnost programu ZIP mozno ukoncit aj
+prikazom /Q.
+
+
+	NAHRADA PRIKAZOV DBASE  @ - SAY - GET.
+	-------------------------------------------------------
+
+	Pouzitim ZIPu na navrh obrazovkovych masiek, resp. tla-
+covych zostav uplne odpada potreba pracneho programovania pomo-
+cou prikazov @ - SAY - GET.
+	Dalsou vyhodou pouzitia ZIPu je moznost lahkej modifi-
+kacie uz navrhnutej masky, resp. tlacovej zostavy. Pri vytvara-
+ni tlacovych zostav je mozne navrh lahko prisposobit roznym ty-
+pom tlaciarni a roznym poziadavkam uzivatela. Na tento ucel sa 
+pouzivaju prikazy na nastavenie okraja a dlzky strany prostred-
+nictvom pomocnej obrazovky.
+	Pri vytvarani masiek typu formularov ulahcuje rozmiest-
+nenie jednotlivych poloziek informacia o presnej polohe kurzo-
+ra, ktora je uvedena v dialogovom riadku. ZIP tiez umoznuje 
+striktne rozdelenie premennych na vstupne a vystupne.Na tento
+ucel sa pouzivaju riadiace znaky "#" (vstup hodnoty premennej) 
+a "@" (vystup hodnoty premennej). Pouzitie znaku "@" teda zna-
+mena, ze hodnotu premennej, ktorej meno je uvedene za "@" ne-
+mozno menit.
+	Dalsou vyhodou pouzitia ZIPu je skutocnost, ze ZIP res-
+pektuje pravidla pre tvorbu nazvov premennych a zaroven kontro-
+luje ich syntakticku spravnost.
+	Ak sa zisti syntakticka chyba, ZIP ju indikuje a meno
+premenej mozno korigovat.
+	ZIP ma k dispozici aj prostredky na editovanie. Su to
+prikazy :
+
+/D - vymazanie znaku, na pozicii ktoreho sa nachadza kurzor
+/I - zapnutie/vypnutie rezimu vkladanie znakov
+/K - zrusenie riadku, resp. stlpca
+/A - pridanie riadku, resp. stlpca
+/C - centrovanie textu v riadku
+
+ZIP poskytuje aj moznost priameho vkladania prikazov DBASE. 
+
+Vkladanie prikazov podlieha nasledovnym pravidlam :
+
+1) prikazy musia byt uzavrete v hranatych zatvorkach [, ]
+2) obe zatvorky musia byt v tom istom riadku. Ak sa prikaz ne-
+   zmesti do jedneho riadku, pouziva sa pokracovaci znak ";"
+3) na jednom riadku je mozne uviest aj viac prikazov. Vsetky
+   prikazy musia byt uzavrete v zatvorkach a vzajomne pospajane
+   jednym alebo dvojicou znakov pre vstup/vystup premennej :
+   (#, @, ##, @@, #@ alebo @#).
+   Napriklad :
+
+   [use A:MENA]#[DO VSTUP]
+
+4) prikazy je treba lokalizovat tak, aby odpovedali prislusnej
+   obrazovke, t.j. aby ich vykonavanie bolo pre prislusnu obra-
+   zovku aktualne. Napriklad umiestnenie prikazov DBASE je do-
+   lezite pri inicializacii premennych v maske.
+
+Problem : Ako je mozne zobrazit viac hodnot premennych, ak im
+          zodpovedajuce miesta na maske lezia tesne vedla seba
+          a nazvy premennych su tak dlhe, ze sa vzajomne na 
+          obrazovke prekryvaju 
+Resenie :1) Pouzitie textoveho editoru, resp. DBASE prikazu
+            MODIFY na upravu ZIPom vygenerovaneho prikazoveho,
+	    resp. formatoveho suboru
+	 2) Skratit mena (pouzit skratky) koliznych premennych
+            tak, aby nedoslo k ich prekryvaniu na obrazovke. 
+	    Limitny pripad nastane, ak mena premennych nemozno
+	    skratit vyhovujucim sposobom. V tomto pripade je
+    	    mozne pouzit iba znaky "#" a "@" bez udania nazvu
+	    premennej. Potom je ale nutne viacnasobne kladne
+	    odpovedat na otazku :
+
+	    Chybi promenna-pokracovat (A/N) ?
+
+	    pri vytvarani prikazoveho, resp.formatoveho suboru.
+
+Vyhodou riesenia 2) je, ze v prikazovom, resp. formatovom subo-
+re su zachytene pozicie kurzora, t.j. subor obsahuje prikazy 
+typu 
+
+@ <riadok, stlpec> SAY  (zvysok riadku je prazdny )
+@ <riadok, stlpec> GET  (zvysok riadku je prazdny )
+
+Je teda potrebne iba doplnit mena premennych za frazu SAY,
+resp. GET. Nevyhodou je, ze je nutne viacnasobne kladne odpove-
+dat na vyssie uvedenu otazku. Preto je niekedy vhodnejsie zme-
+nit nazvy premennych na kratsie (az na jedno pismeno).
+Poznamka : Ak problem riesite sposobom 1) , nepouzivajte texto-
+	   vy editor na subor <meno>.ZIP, pretoze tento subor 
+	   nie je textovym suborom. Editovat mozno len subory
+	   typu .CMD, resp. .FMT.
+
+
+
+	SPRACOVANIE INYCH TYPOV SUBOROV.
+	-------------------------------------------------------
+
+
+	Obycajne pracuje ZIP so subormi typu .ZIP, ktore obsa-
+huju informaciu o vytvorenych maskach. ZIP vsak moze pracovat
+aj s textovymi subormi. V tomto pripade ZIP pracuje ako editor.
+Ak subor ma byt spracovany ako textovy, nesmie byt typu .ZIP.
+Textove subory mozu byt vytvorene napriklad pomocou textoveho
+editoru. Jedinym obmedzenim je, ze nesmie mat viac ako 88 riad-
+kov a kazdy riadok musi byt ukonceny znakom <VEZMI>.
+V mnohych pripadoch pri navrhu masky sa stava, ze poziadavka
+na rozmiestnenie poloziek masky na obrazovke je v rozpore s po-
+ziadavkom na umiestnenie DBASE prikazov. V takomto pripade sa
+doporuca nasledovny postup :
+1) Najprv navrhnut a vytvorit masku. Vystupom tohoto kroku bu-
+   de prikazovy, resp. formatovy subor
+2) Potom tento subor pomocou ZIPu nacitat ako textovy subor a
+   doplnit ho prislusnymi DBASE prikazami. Napriklad ak vytvo-
+   renu masku treba aplikovat viacnasobne, az kym nie je splne-
+   na urcita podmienka, je potrebne doplnit prikazy cyklu
+   DO WHILE podmienka ... ENDDO.
+
+
+	DYNAMICKE NASTAVOVANIE.
+	-------------------------------------------------------
+
+
+1) "." je standardny znak pre kreslenie vertikalnych ciar. Po-
+   cas prace so ZIPom moze byt zmeneny na akykolvek iny znak 
+   (zmena sa moze uskutocnit aj viackrat).
+2) "-" je standardny znak pre kreslenie horizontalnych ciar.
+3) tabulator ma standardne hodnotu 5. Moze sa vsak nastavovat
+   na akukolvek hodnotu od 1 az po sirku obrazovky.
+4) dlzka strany ma standardne hodnotu 16, t.j. zodpoveda poctu
+   riadkov obrazovky. Moze sa tiez menit, jej maximalna hodnota
+   je 88.
+5) okraj strany ma standardne hodnotu 0 a tyka sa tlacovych 
+   zostav. Moze sa menit od 0 az po 132.
+
+
+
+
+
+	PRIKAZY A RIADIACE SYMBOLY ZIPu.
+	-------------------------------------------------------
+
+
+Riadace symboly
+---------------
+1) "/" je symbol, ktory sposobi prepnutie ZIPu zo vstupneho re-
+   zimu do prikazoveho rezimu.
+2) "//" sposobi vypis pomocnej obrazovky a umozni dynamicke 
+   nastavovanie hodnot
+
+Prikaz sa sklada z prikazoveho symbolu (standardne znak "/") a 
+kodu prikazu.
+
+Kody prikazov ZIPu
+------------------
+1)  H - prikaz pre kreslenie/vymazanie horizontalnej ciary
+2)  V - prikaz pre kreslenie/vymazanie vertikalnej ciary
+3)  T - prikaz pre posun kurzora na prvy riadok obrazovky
+4)  B - prikaz pre posun kurzora na posledny riadok obrazovky
+5)  M - prikaz pre posun kurzora do stredu riadku, resp. stredu
+       obrazovky 
+6) <tab> - prikaz pre posun kurzora na zaciatok/koniec riadku
+7)  C - prikaz pre centrovanie textu v ramci riadku
+8)  N - prikaz pre vypis nasledujucej obrazovky strany
+9)  P - prikaz pre vypis predchazajucej obrazovky strany
+10) L - prikaz pre vypis poslednej obrazovky strany
+11) F - prikaz pre vypis prvej obrazovky strany   
+12) I - prikaz pre zapnutie/vypnutie rezimu vkladanie znakov 
+        do textu
+13) D - prikaz pre vymazanie znaku, na pozicii ktoreho sa na-
+        chadza kurzor
+14) A - prikaz pre pridanie riadku/stlpca
+15) K - prikaz pre vymazanie riadku/stlpca
+16) E - prikaz pre zrusenie doterajsieho navrhu masky
+17) Q - prikaz pre ukoncenie prace so ZIPom (navrat do systemu)
+
+
+
+	PRIKLAD POUZITIA ZIPu.
+	-------------------------------------------------------
+
+
+V tomto priklade sa zapisuju vety do databazoveho suboru 
+ZAKAZ.DBF. 
+Veta obsahuje tieto udaje :
+KZ - ciselny kod zakaznika
+SEKCIS - cislo seku
+SUMA - suma ulozena na seku
+
+V priklade je uvedeny navrh masky, jemu odpovedajuci formatovy
+subor a pouzitie formatoveho suboru v prikazovom subore.
+
+Poznamka : Prikazovy subor ZAKAZ.CMD bol tiez vytvoreny pomocou
+ 	   ZIPu, pricom bol ZIP pouzity ako textovy editor.
+
+
+Navrh masky na obrazovke
+
+---------------------------------------------------------------
+
+Kod zakaznika #KZ   Sekove cislo #SEKCIS   Suma #SUMA
+
+---------------------------------------------------------------
+
+Formatovy subor odpovedajuci navrhu masky na obrazovke :
+
+* ZAKAZ.FMT
+@ 1,0  SAY "Kod zakaznika"
+@ 1,13 GET KZ
+@ 1,19 SAY "Sekove cislo"
+@ 1,31 GET SEKCIS
+@ 1,41 SAY "Suma"
+@ 1,45 GET SUMA
+
+
+Prikazovy subor ZAKAZ.CMD, ktory pouziva formatovy subor 
+ZAKAZ.FMT :
+
+use ZAKAZ		otvorenie datoveho suboru
+set format to ZAKAZ	nastavenie formatoveho suboru
+			na ZAKAZ.FMT
+do while KZ<>"0"	nacitavanie viet, pokial
+  append blank			zadany kod zakaznika
+  read				je rozny od "0"
+enddo
+goto bottom		nastavenie na poslednu (prazdnu) vetu
+delete			vymazanie poslednej (prazdnej) vety
+pack
+return
+

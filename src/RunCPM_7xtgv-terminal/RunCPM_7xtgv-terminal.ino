@@ -201,8 +201,8 @@ static void runCPM() {
     if (!storageReady)
         xtgvBoardPrintStorageStatus(storage, _puts);
     // All INI/history handles have closed; retain the mount and change only
-    // the SPI transaction setting. Serial-only builds keep the 20 MHz default.
-#if XTGV_TERMINAL
+    // the SPI transaction setting where the board has one.
+#if XTGV_TERMINAL && XTGV_STORAGE_HAS_SPI_CLOCK
     if (storageReady) {
         const uint8_t mhz = profileLoaded && terminalConfigText.valid()
                           ? terminalConfiguredSdSpiMHz() : 20;
@@ -221,16 +221,7 @@ static void runCPM() {
 #if XTGV_TERMINAL
         terminalPrintBootModule(_puts);
 #endif
-#if !defined(XTGV_W535_SD_MMC)
-        char storageMessage[80];
-        // This is the applied Arduino request, not independently measured SCK.
-        snprintf(storageMessage, sizeof(storageMessage),
-                 "Storage: Arduino SdFat/SPI (%lu MHz)\r\n",
-                 (unsigned long)(xtgvStorageSpi.requestedHz() / 1000000UL));
-        _puts(storageMessage);
-#else
-        _puts("Storage: legacy Arduino SD_MMC\r\n");
-#endif
+        xtgvBoardPrintStorageSummary(_puts);
 #if XTGV_TERMINAL
         if (!profileLoaded)
             _puts("INI unavailable; using compiled defaults.\r\n");

@@ -1,0 +1,44 @@
+
+
+                ; GPIX.COM -- small xterm-256 plot sample stream for GCLS testing.
+                ;
+                ; Run after GCLS has armed a transaction, for example:
+                ;   GCLS 2 20 20
+                ;   GPIX
+                ; It emits a solid 10x10 logical-pixel red square, then CSI 0m.  At 2x it is
+                ; a clearly visible 20x20 physical-pixel square.  Without a working GCLS the
+                ; bounded failure is 100 short "1" samples, never a long renderer stream.
+                ;
+                ; A plot SGR (38;5;n m) arms *one* following byte as a pixel. Therefore each
+                ; sample deliberately has its own SGR; sending one SGR then ten bytes would
+                ; turn the final nine bytes into ordinary terminal text.
+                
+ 0100                   org     0100h
+                
+ 0100 060A              mvi     b,10                    ; ten logical rows
+ 0102 C5        row:    push    b
+ 0103 060A              mvi     b,10                    ; ten logical samples per row
+ 0105 C5        pixel:  push    b
+ 0106 112B01            lxi     d,redsample
+ 0109 0E09              mvi     c,9                     ; BDOS print-string
+ 010B CD0500            call    5
+ 010E C1                pop     b
+ 010F 05                dcr     b
+ 0110 C20501            jnz     pixel
+ 0113 113801            lxi     d,rowend
+ 0116 0E09              mvi     c,9
+ 0118 CD0500            call    5
+ 011B C1                pop     b
+ 011C 05                dcr     b
+ 011D C20201            jnz     row
+ 0120 113B01            lxi     d,plotend
+ 0123 0E09              mvi     c,9
+ 0125 CD0500            call    5
+ 0128 C30000            jmp     0
+                
+                ; Every stream byte is decimal. This avoids assembler quotation edge cases.
+                ; ESC [ 38;5;196 m 1 ; CR LF ; ESC [ 0 m ; CP/M '$' terminator.
+ 012B 1B5B33383Bredsample: db    27,91,51,56,59,53,59,49,57,54,109,49,36
+ 0138 0D0A24    rowend:    db    13,10,36
+ 013B 1B5B306D24plotend:   db    27,91,48,109,36
+

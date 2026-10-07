@@ -1,0 +1,188 @@
+
+
+                ; GCLS.COM -- initialise one local 7xtgv xterm-256 graphics transaction.
+                ;
+                ; GCLS [zoom [x y]] -- zoom is 1..4; x/y are terminal-origin pixel offsets.
+                ; No arguments retain the original ESC[>4v command. Positioned/scaled variants
+                ; emit ESC[>4;zoom;x;yv. The escape sequence is consumed by current 7xtgv
+                ; firmware, then this transient CP/M command returns normally. It is useful
+                ; from BROT-*.SUB scripts.
+                
+ 0100                   org     0100h
+                
+ 0100 3A8000            lda     0080h                   ; CCP command-tail length
+ 0103 324F02            sta     remaining
+ 0106 218100            lxi     h,0081h
+ 0109 CDA901            call    skipsp
+ 010C CA9E01            jz      bare
+                
+ 010F CDD401            call    token
+ 0112 CD0D02            call    validzoom
+ 0115 2A5402            lhld    tokenptr
+ 0118 225802            shld    zoomptr
+ 011B 3A5002            lda     tokenlen
+ 011E 325102            sta     zoomlen
+ 0121 2A5602            lhld    endptr
+ 0124 CDA901            call    skipsp
+ 0127 CA6001            jz      emit
+                
+ 012A CDD401            call    token
+ 012D CD2402            call    validcoord
+ 0130 2A5402            lhld    tokenptr
+ 0133 225A02            shld    xptr
+ 0136 3A5002            lda     tokenlen
+ 0139 325202            sta     xlen
+ 013C 2A5602            lhld    endptr
+ 013F CDA901            call    skipsp
+ 0142 CA6001            jz      emit
+                
+ 0145 CDD401            call    token
+ 0148 CD2402            call    validcoord
+ 014B 2A5402            lhld    tokenptr
+ 014E 225C02            shld    yptr
+ 0151 3A5002            lda     tokenlen
+ 0154 325302            sta     ylen
+ 0157 2A5602            lhld    endptr
+ 015A CDA901            call    skipsp
+ 015D C23E02            jnz     usage
+                
+ 0160 114702    emit:   lxi     d,prefix
+ 0163 0E09              mvi     c,9                    ; BDOS print-string
+ 0165 CD0500            call    5
+ 0168 2A5802            lhld    zoomptr
+ 016B 3A5102            lda     zoomlen
+ 016E 47                mov     b,a
+ 016F CD2C02            call    printtoken
+ 0172 1E3B              mvi     e,';'
+ 0174 0E02              mvi     c,2
+ 0176 CD0500            call    5
+ 0179 2A5A02            lhld    xptr
+ 017C 3A5202            lda     xlen
+ 017F 47                mov     b,a
+ 0180 CD2C02            call    printtoken
+ 0183 1E3B              mvi     e,';'
+ 0185 0E02              mvi     c,2
+ 0187 CD0500            call    5
+ 018A 2A5C02            lhld    yptr
+ 018D 3A5302            lda     ylen
+ 0190 47                mov     b,a
+ 0191 CD2C02            call    printtoken
+ 0194 1E76              mvi     e,'v'
+ 0196 0E02              mvi     c,2
+ 0198 CD0500            call    5
+ 019B C30000            jmp     0
+                
+ 019E 114102    bare:   lxi     d,baremsg
+ 01A1 0E09              mvi     c,9
+ 01A3 CD0500            call    5
+ 01A6 C30000            jmp     0
+                
+                ; Skip ordinary CP/M command-tail spaces. HL remains at the first argument;
+                ; Z means no argument remains.
+ 01A9 3A4F02    skipsp: lda     remaining
+ 01AC B7                ora     a
+ 01AD C8                rz
+ 01AE 7E                mov     a,m
+ 01AF FE20              cpi     ' '
+ 01B1 CAC801            jz      skipspace
+ 01B4 FE00              cpi     00h                     ; some CCPs NUL-terminate the tail
+ 01B6 CAC301            jz      tailend
+ 01B9 FE0A              cpi     0ah                     ; tolerate LF from host bridges
+ 01BB CAC301            jz      tailend
+ 01BE FE0D              cpi     0dh                     ; CP/M command tails end in CR
+ 01C0 C2D301            jnz     skipdone
+                tailend:
+ 01C3 AF                xra     a
+ 01C4 324F02            sta     remaining
+ 01C7 C9                ret
+                skipspace:
+ 01C8 23                inx     h
+ 01C9 3A4F02            lda     remaining
+ 01CC 3D                dcr     a
+ 01CD 324F02            sta     remaining
+ 01D0 C3A901            jmp     skipsp
+                skipdone:
+ 01D3 C9                ret
+                
+                ; Capture one decimal token. Input HL must point to a non-space byte.
+ 01D4 225402    token:  shld    tokenptr
+ 01D7 AF                xra     a
+ 01D8 325002            sta     tokenlen
+ 01DB 3A4F02    tokloop: lda    remaining
+ 01DE B7                ora     a
+ 01DF CA0902            jz      tokend
+ 01E2 7E                mov     a,m
+ 01E3 FE20              cpi     ' '
+ 01E5 CA0902            jz      tokend
+ 01E8 FE30              cpi     '0'
+ 01EA DA3E02            jc      usage
+ 01ED FE3A              cpi     ':'
+ 01EF D23E02            jnc     usage
+ 01F2 3A5002            lda     tokenlen
+ 01F5 FE04              cpi     4
+ 01F7 D23E02            jnc     usage
+ 01FA 3C                inr     a
+ 01FB 325002            sta     tokenlen
+ 01FE 23                inx     h
+ 01FF 3A4F02            lda     remaining
+ 0202 3D                dcr     a
+ 0203 324F02            sta     remaining
+ 0206 C3DB01            jmp     tokloop
+ 0209 225602    tokend: shld    endptr
+ 020C C9                ret
+                
+                validzoom:
+ 020D 3A5002            lda     tokenlen
+ 0210 FE01              cpi     1
+ 0212 C23E02            jnz     usage
+ 0215 2A5402            lhld    tokenptr
+ 0218 7E                mov     a,m
+ 0219 FE31              cpi     '1'
+ 021B DA3E02            jc      usage
+ 021E FE35              cpi     '5'
+ 0220 D23E02            jnc     usage
+ 0223 C9                ret
+                
+                validcoord:
+ 0224 3A5002            lda     tokenlen
+ 0227 B7                ora     a
+ 0228 CA3E02            jz      usage
+ 022B C9                ret
+                
+                ; RunCPM BDOS resets HL on entry. Preserve both the source pointer and count
+                ; across every console-output call, especially for multi-digit coordinates.
+                printtoken:
+ 022C 78                mov     a,b
+ 022D B7                ora     a
+ 022E C8                rz
+ 022F 5E                mov     e,m
+ 0230 C5                push    b
+ 0231 E5                push    h
+ 0232 0E02              mvi     c,2
+ 0234 CD0500            call    5
+ 0237 E1                pop     h
+ 0238 C1                pop     b
+ 0239 23                inx     h
+ 023A 05                dcr     b
+ 023B C32C02            jmp     printtoken
+                
+                ; A malformed/incomplete tail must never leave a following xterm-pixel stream
+                ; in ordinary text mode. Fall back to the original 1x GCLS control silently.
+ 023E C39E01    usage:  jmp     bare
+                
+ 0241 1B5B3E3476baremsg: db     27,'[>4v','$'
+ 0247 1B5B3E343Bprefix: db      27,'[>4;','$'
+ 024D 31        one:    db      '1'
+ 024E 30        zero:   db      '0'
+                
+ 024F 00        remaining: db    0
+ 0250 00        tokenlen:  db    0
+ 0251 01        zoomlen:   db    1
+ 0252 01        xlen:      db    1
+ 0253 01        ylen:      db    1
+ 0254 0000      tokenptr:  dw    0
+ 0256 0000      endptr:    dw    0
+ 0258 4D02      zoomptr:   dw    one
+ 025A 4E02      xptr:      dw    zero
+ 025C 4E02      yptr:      dw    zero
+

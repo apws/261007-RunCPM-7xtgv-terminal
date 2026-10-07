@@ -1,0 +1,9 @@
+xterm256     xterm256 mandelbrot benchmarks (Shen, Stevens), GCLS 
+gcls.com     arming xterm256 for next output
+vtstart.com  benchmark test start, time noted
+vtstop.com   benchmark test stop, prints elapsed time
+brot_bs.sub  Bill Shen xterm256 mandelbrot rendering
+brot_ps.sub  Philip Stevens xterm256 mandelbrot rendering
+
+ 
+

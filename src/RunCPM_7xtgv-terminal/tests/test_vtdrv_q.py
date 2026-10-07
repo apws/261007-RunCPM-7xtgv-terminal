@@ -9,12 +9,15 @@ import shutil
 import subprocess
 import tempfile
 import time
+import sys
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[3]
 RUNTIME = ROOT / "build/RunCPM_linux/RunCPM"
-ASSEMBLER = ROOT / "cpmdrive/A4 - Assembler and development tools/Z80ASM.COM"
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
+from card_paths import card_root, require_files
+ASSEMBLER = card_root() / "A/4/Z80ASM.COM"
 SOURCE = ROOT / "src/RunCPM_7xtgv-terminal/tools/vtbench/VTDRV.Z80"
 
 
@@ -38,8 +41,9 @@ def command(fd, transcript, line, needle=b"A0>", timeout=15):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--install", action="store_true", help="copy tested COM to local cpmdrive")
+    parser.add_argument("--install", action="store_true", help="copy tested COM to local cpmcard/A/0")
     args = parser.parse_args()
+    require_files(ASSEMBLER, SOURCE)
     with tempfile.TemporaryDirectory(prefix="7xtgv-vtdrv-q-") as temp:
         drive = Path(temp) / "A" / "0"
         drive.mkdir(parents=True)
@@ -77,8 +81,7 @@ def main():
                 assert b"Usage: VTDRV [W] [Q]" in result, result[-1200:]
             assert fixture.read_bytes() == before
             if args.install:
-                shutil.copyfile(binary, ROOT / "cpmdrive/A0 - CP-M core/VTDRV.COM")
-                shutil.copyfile(binary, ROOT / "cpmdrive/A6 - Benchmarks and CPU tests/VTDRV.COM")
+                shutil.copyfile(binary, card_root() / "A/0/VTDRV.COM")
             command(master, transcript, "EXIT", needle=b"\r\n", timeout=10)
             assert process.wait(timeout=10) == 0
         finally:

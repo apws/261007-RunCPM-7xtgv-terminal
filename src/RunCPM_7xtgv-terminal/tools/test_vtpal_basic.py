@@ -10,11 +10,13 @@ import tempfile
 
 from build_vtpal import ROOT, receive
 
-SOURCE = ROOT / "cpmdrive/A7 - MBASIC and VT tests"
+from card_paths import card_root, require_files
+SOURCE = card_root() / "A/7"
 END_PAGE = b"Choose preferred preset last."
 
 
 def main():
+    require_files(SOURCE / 'VTPAL.BAS', SOURCE / 'MBASIC.COM')
     data = (SOURCE / "VTPAL.BAS").read_bytes()
     body, eof, tail = data.partition(b"\x1a")
     # Guest SAVE ,A includes a CP/M record tail, possibly stale bytes.

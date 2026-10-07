@@ -1,0 +1,737 @@
+# 7xtgv terminal history v2
+[0]
+>submit brot_bs
+>submit brot_ps
+>cls
+>submit brot_bs
+>submit brot_ps
+>submit brot_bs
+>vtcpu
+>submit brot_bs
+>submit brot_ps
+>cls
+>dir
+>vtcpu
+>submit brot_ps
+>submit brot_bs
+>cls
+>reboot
+>7xf
+>cls
+>dir
+>cd xterm256
+>cls
+>dir
+>submit brot_bs
+>kjhkjhjkhkj
+>lkjljlkjl
+>lkjlkjklj
+>lkjlkj
+>dir
+>vtpal 1
+>vtpal 2
+>vtpal 3
+>vtpal 4
+>vtpal 5
+>vtpal 0
+>cd mbasic
+>dir
+>mbasic vtests
+>mbasic vtpal
+>0123450121234561234512345454565543210121012345012345pi012345432100121234450ip123210123450123454321010123210q
+>dir
+>list
+>run
+>ll
+>mbasic prog
+>ll
+>ll /
+>ll /a
+>vtpal 1
+>vtpal 2
+>vtpal 3
+>vtpal 4
+>vtpal 5
+>dir
+>ldir
+>7xf
+>dir
+>vtcpu
+>reboot
+>7xf
+>vtcpu
+>vtdrv w
+>cd xterm256
+>dir
+>vtcpu
+>7xf
+>cd xterm256
+>dir
+>speed 100
+>vtcpu
+>speed 2
+>vtcpu
+>speed 60000
+>speed 50000
+>speed 20000
+>cd xterm256
+>dir
+>7xf
+>cd mbasic
+>ls
+>mbasic vtests
+>ls *.bas
+>reboot
+>7xf
+>cd mbasic
+>ls
+>mbasic
+>run "vtests
+>speed 20000
+>vtcpu
+>mbasic "vtests
+>mbasic vtests
+>vtzoom 2 80x24
+>mbasic vtests
+>speed 60000
+>vtcpu
+>mbasic vtests
+>reboot
+>7xf
+>vtpal 4
+>cd xterm256
+[1]
+>Enter returns to menu:
+>Select:2
+>Enter returns to menu:
+>Select:3
+>Enter returns to menu:
+>Select:4
+>Enter: all 32 glyphs
+>Enter returns to menu:5
+>Select:
+>Select:6
+>Enter returns to menu:
+>Select:7
+>Enter returns to menu:
+>Select:8
+>Enter returns to menu:
+>Select:
+>Select:1
+>Enter returns to menu:
+>Select:2
+>Enter returns to menu:
+>Select:3
+>Enter returns to menu:
+>Select:1
+>Enter returns to menu:
+>Select:2
+>Enter returns to menu:
+>Select:3
+>Enter returns to menu:
+>Select:4
+>Enter: all 32 glyphs
+>Enter returns to menu:5
+>Select:5
+>Enter returns to menu:
+>Select:6
+>Enter returns to menu:
+>Select:7
+>Enter returns to menu:
+>Select:8
+>Enter returns to menu:
+>Select:1
+>Enter returns to menu:
+>Select:q
+>list
+>load "vtests
+>list
+>run
+>Select:1
+>Enter returns to menu:q
+>Select:q
+>l.
+>list
+>2160 NEXT I:PRINT"ENTER ONE O 
+>load "vtests
+>list
+>run
+>Select:1
+>Enter returns to menu:
+>Select:2
+>Enter returns to menu:
+>Select:3
+>Enter returns to menu:
+>Select:4
+>Enter: all 32 glyphs
+>Enter returns to menu:2
+>Select:2
+>Enter returns to menu:
+>Select:4
+>Enter: all 32 glyphs
+>Enter returns to menu:
+>Select:5
+>Enter returns to menu:
+>Select:
+>VT TES
+>Select:6
+>Enter returns to menu:
+>Select:7
+>Enter returns to menu:
+>Select:8
+>Enter returns to menu:
+>Select:q
+>run "vtests
+>Select:1
+>Enter returns to menu:
+>Select:2
+>Enter returns to menu:
+>Select:3
+>Enter returns to menu:
+>Select:4
+>Enter: all 32 glyphs
+>Enter returns to menu:
+>Select:8
+>Enter returns to menu:
+>list
+>2020 FOR J=0 TO 3
+>run
+>Selection is saved by terminal. Choose preferred preset last.q
+>Select:a
+>Enter returns to menu:
+>Select:q
+[2]
+>ctrl_home=send:\x11R                                                            
+>ctrl_end=send:\x11C  
+>escape=send:K\D
+>na
+>20.9.26
+>koleje
+>te
+>ssssqq
+>112
+>1j
+>n13
+>1j
+>nj
+>a13
+>1j
+>n4
+>a1j
+>n5
+>1j
+>n6
+>1j
+>n7
+>1j
+>n8
+>1j
+>n9
+>1j
+>n10
+>1j
+>n11
+>1j
+>n12
+>1j
+>n12
+>1j
+>n13
+>j1j
+>9b4b
+>a13
+>20.9.26
+>koleje
+>pmenu
+>koleje
+>ezaci
+>  ezaci
+>koleje
+>,o,,
+>ye7xtgvtrm.ini
+>koleje
+>ezaci
+>sprjmeni,jmeno
+>ye7xtgvtrm.ini
+>koleje
+>ezaci
+>sprijmeni
+>ezaci
+>sjmeno,prijmeni,rocnik,obor
+>113
+>^x
+>4 
+>nj
+>^U
+>20
+>a14
+>14
+>koleje
+>ezaci
+>sprijmeni,jmeno,rocnik
+>114
+>1j
+>50
+>20
+>a14
+>koleje
+>ezaci
+>sprijmeni,jmrno,cp,rocnik
+>koleje
+>te
+>ate
+>bq;
+>ye7xtgvtrm.ini
+>       CP/M 2.2 operating system
+>0 7XTGVTRM.IN I 7xtgv-terminal configuration settings
+>7XTGVTRM.BUF 7xtgv-terminal profiles history buffers
+>REBOOT.COM   reboot os command
+>REFLASH.COM  7xtgv-t7xtgv-terminal erminal reflash os command
+>VTCPU.COM    7xtgv-terminal CPU bench
+>/firmware/firmware
+>VTDRV.COM    7xtgv-terminal DISK-access benchmark
+>VTPUT.COM    7xtooling send utility
+>VTGET.COM    tooling receive utility
+>VTINFO.COM   module/display info
+>VTINFO.ASM   8080 source code
+>b --
+>sdir.7xf
+>gcls.com     arming xterm256 for next output
+>brot_ps.sub  
+>brot_bs.sub  
+>vtstart.com  benchmark test time note
+>vtstop.com   benchmark test stt stop, prints elapsed timeBill Shen xterm256 mandelbrot assmblyPhilip Stevens x rendering rende
+[3]
+>dddddsflksdfSESESErksdjflkklsdjlfjsdfsdfs
+>/home/falken/_/drv/x/260915/!!! mz-800 - cpm - text tools, fand, nc !!!!/!!! Jiri Lama CPM 1988 !!!/!!! jiri lamac -- cpm14.zi
+>mdd
+>SEftp301tr
+>ftp301
+>fTP301
+>^Y
+>shialtsALT
+>; - Ctrl+S slides with our ctrl+right setting (our modified wordstar)
+>; - Ctrl+Shift+S launches Konsole log save
+>efTP301; - Ctrl+Alt+S launches Konsole Tab PropertdialogSEies dialog
+>sdfssd sfsd sd
+>klsdjfklsdjkgfglkfdjgkldfjklgjdlkfjglkdfjdglkjklsdlkffsdklahsjkasjkd
+>ksdjl ksjdlkdddddddfjsd lkjfsd lkjf skldjflsk  djflks dfkls j  d ksd ksd kljsd flksd ksd fk
+>dd
+>xy
+>--bb
+>bbbbbbbbbbbbbbbbbbbbbbbb-bb
+>; - PHOTO OFCORE-1KEYS 04 KBD WITH CORE KEYS 0-F RED MARKED
+>SE/&  !! |\&* !!
+>;   SEas F i s  p r obably b*" key next to CTRL+SHIFT !!!
+>bbb
+>bbbbbbbbbbbb
+>---b||||b\\\\b||||b
+>bb
+>[3;6~
+>bbc
+>bbbbd
+>bbbbb
+>ys
+>e7xtgvtrm.ini
+>fTP301
+>[1;2C[1;2C[1;2D[1;2D[1
+>shi9
+>shi9t
+>aat
+>;aa
+>aat
+>cshif
+>aat
+>aa
+>cshif9_
+>ctrc
+>shi9t
+>aat
+>shi9t
+>aat
+>shi9t
+>program
+>var
+>integer
+>begin
+>end
+>for
+>to
+>do
+>write
+>writeln
+>repeat
+>until
+>while
+>pred
+>succ
+>;mainkeys 
+>backspace=
+>escapeldsjkljsdkfjskldfs
+>                                                                                
+>Init SD SPI bus ......OK                                                        
+>Mount MicroSD card ...OK (SPI, CS=10 MOSI=11 MISO=13 SCK=12, 25000000 Hz)       
+>Terminal profile .....LOADED WITH ERRORS (1)                                    
+> 282: [bank3]: shift_ctrl_z1=send:\xdF                                          
+>klsdjklfsjdfsTerminal history .....OK                      
+>klsdjklfsjdfsklsdjklfsjdfssend:\x8B
+>shift_backspace=send:\x9B
+>ctrl_backspace=send:\xcB
+>x8c
+>ctrl_shift_escape=send:\xdcshift_escape=send:\x9c
+>ye7xtgvtrm.ini
+>ye7xtm.inini
+>ye7xtgvtrm.ini
+>display
+>ye7xtgvtrm.ini
+>display:
+>display
+>sc
+>s6
+>16
+>y20
+>ye7xtgvtrm.ini
+>qs6
+>40
+>ye7xtgvtrm.ini
+>vc
+>; test INI save
+>P41024s02000
+>ye7xtgvtrm.ini
+>ye
+>yeprog.pas
+>crrd
+>xprog.com
+[4]
+[5]
+>str$()
+>val()
+>exit
+>exp()
+>ln()
+>log()
+>get$#
+>false
+>true
+>rectangle
+>local
+>step
+>gcol
+>get
+>get$
+>read#
+>inkey
+>inkey$
+>renumber
+>himem
+>lomem
+>line
+>instr()
+>int()
+>left$()
+>mid$()
+>right$()
+>let
+>load
+>save
+>mod
+>mouse
+>off
+>on error
+>opt
+>origin
+>oscli
+>page
+>pi
+>point
+>pos
+>tab()
+>on gosub
+>sgn()
+>spc()
+>sqr()
+>string$()
+>sum()
+>sumlen()
+>swap
+>sys
+>time
+>trace
+>trace on
+>trace off
+>usr()
+>vpos
+>wait
+>*bye
+>*cpm
+>*dir
+>*drive
+>*era
+>*load
+>*opt
+>*ren
+>*reset
+>*save
+>*type
+>load "prog
+>load "prog"
+>list
+>runt
+>run
+>l.
+>edit 20
+>20 print i;" "; : rem dkfhsjkdhfsjkdfsdf
+>l.
+>20 print i;" ";
+>l.
+>run
+>system
+>l.
+>load "prog"
+>save "prog.bas",a
+>load "prog"
+>list
+>l.
+>run
+>l.
+>load "prog
+>load "prog"
+>list
+>*spool prog.bas
+>list
+>*spool
+>list
+>*exec prog.bas
+>list
+>run
+[6]
+[7]
+>/Text?
+>soubor:
+>datum:
+>nazev ulohy:koleje
+>Edit/Sort/Rprt/Merg/Proc/Disk/eXec/Text?ezaci
+>Celou vetu/Seznam udaju?sprijemni,jmeno
+>Include error messages (Y/N)?ye7xtgvtrm.ini
+>datum:
+>nazev ulohy:koleje
+>Edit/Sort/Rprt/Merg/Proc/Disk/eXec/Text?ezaci
+>Celou vetu/Seznam udaju?sprijmeni,jmeno
+>        .  .       v.04/89     veta:    1   Kontr      A:ZACI N            8
+>          PECKY                       L                 .  .       v.04/89     v
+> Oa:    1   Kontr      A:ZACI           .  .       v.04/89     veta:    1   Kont
+> ODA           5r      A:ZACI           .  .       v.04/89     veta:    1   Kont
+> ODA           5UDA                         L      v.04/89     veta:    1   Kont
+> ODA           5UDA                         LOS           5    veta:    1   Kont
+>       M:ZACI           .  .       v.04/89     veta:    1   Kontr      A:ZACI
+>       MROSLAV       9  .  .       v.04/89     veta:    1   Kontr      A:ZACI
+>       MROSLAV       9RNY                         J:    1   Kontr      A:ZACI
+>     LROSLAV       4COLA                        DVID          3PECKY
+>           DDEK          6PECKY                       LDEK          6PECKY
+>     LROSLAVRDA          6                      DVID          3RTINEK
+>     LROSLAVRDA          6RTINEK                      J       3RTINEK
+>     LROSLAVRDA          6ABAL                        LDEK          7
+>                 L       6PECKY                       LDEK          6PECKY
+>TR           4
+>TR           4SEK                         P
+>TR           4GR                          LBOR          4
+>     L
+>      VEL          7K          6PECKY                       LDEK          6PECKY
+>      VEL          7DLEC                        P           LDEK          6PECKY
+>      VEL          7KAREK                       ODRA          7K          6PECKY
+>           O           LDEK          6PECKY                       LDEK
+>      VEL   ROSLAV       3                      ODRA          7OBNY
+>      VEL   ROSLAV       3OBNY                        J       7OBNY
+>NKA          6
+>NKA          6RTELNA                      L
+>NKA          6BAN                         MLOS          5
+>     M
+> 31   Kontr      A:ZACI           .  .       v.04/89Q^Qezaci...
+>Celou vetu/Seznam udaju?sprijmeni
+>pinace---^K-akce---^B-soubezaci
+>Celou vetu/Seznam udaju?sprijmeni
+>pinace---^K-akce---^B-soub
+>datum:
+>nazev ulohy:koleje
+>^U! ocekavam :
+>Include error messages (Y/N)?y
+>>ekoleje.dbd
+>datum:
+>nazev ulohy:koleje
+>      Jmeno   :A,15;adek     Sloupec              A:KOLEJE.DBD
+>      Prijmeni:A,30;
+>      CP      :A,3;
+>$FILE_KLIC
+>koncit beze zmen a/n?aezaci
+>Celou vetu/Seznam udaju?sprijmeni,jmeno
+>   Edit/Sort/Rprt/Merg/Proc/Disk/eXec/Text?srmpmenu
+>Edit/Sort/Rprt/Merg/Proc/Disk/eXec/Text?do
+>Obsah/Montuj/Sundej/Navesti/Kopie/Vymaz/prAzdny/Prejmenuj?msnkvap
+>Edit/Sort/Rprt/Merg/Proc/Disk/eXec/Text?x
+>Edit/Sort/Rprt/Merg/Proc/Disk/eXec/Text?xfand
+>datum:
+>nazev ulohy:koleje
+>Edit/Sort/Rprt/Merg/Proc/Disk/eXec/Text?xfandedit
+>datum:
+>nazev ulohy:
+>datum:
+>nazev ulohy:koleje
+>Edit/Sort/Rprt/Merg/Proc/Disk/eXec/Text?tutest
+>nazev procedury:pokus
+>nazev oper.systemu:cpm
+>datum:
+>nazev ulohy:
+>datum:
+>nazev ulohy:koleje
+>Edit/Sort/Rprt/Merg/Proc/Disk/eXec/Text?tutest1
+>nazev procedury:pokus1
+>nazev oper.systemu:fand
+>datum:
+>nazev ulohy:koleje
+>Edit/Sort/Rprt/Merg/Proc/Disk/eXec/Text?tea
+>fdsdsfsdfssdfdflkjlkdfjglkdfjljlkjlkjlkj
+>datum:
+> vytvorit a/n?aa
+>datum:
+>nazev ulohy:koleje
+>Edit/Sort/Rprt/Merg/Proc/Disk/eXec/Text?ezaci
+>Celou vetu/Seznam udaju?sjmeno cp
+>^U! ocekavam ,
+>,cvyber(ET=vse cp
+>-hledat---^W-duplik---^O-prepinace---^K-akce---^B-soub
+[8]
+>a0:
+>koleje
+>ezaci
+>sprijmeni,jmeno
+>ezaci
+>sprijmeni,jmeno
+>ezaci
+>sprijmeni,jmeno
+>-bbbbbbbbbb
+>bbbb
+>ye7xtgvtrm.ini
+>fTP301
+>;;;;;;;;
+>x8808\x
+>;7xtgv KBD SEMANTIC CONTROL
+>; - main 16 special keys on keyboard
+>    =up 1=left 2=down 3=right
+>;   4=pgdn 5=pgup 6=end 7=home 8=del 9=ins
+>;   A=tab B=space C=escapeeteert D=backspace E=enter F=context/xx
+>; - general modifiers: ctrl shift altaas upper nibble +0x80s lower nibble 
+>;   80 = no modifier
+>90 = 1001 =;   1000 = 
+>;   A0 = 1010 =
+>; = 1011 =
+>;   C = 1100 =
+>;   D = 1101 =
+>;   E = 1110 =
+>;   F = 1111 =
+>CCTRL+SHIFT+ALTCTRL+ALTCTRL+SHIFTSHIFTTRL; ALT+SHALT
+>;; - "SIMPLEST ONE-BYTE" CONTROL FOR 7xtgv-terminal  MAIN KEYS
+>load "fractal
+>list
+>run
+[9]
+>quit
+>DIR GCLS.*
+>ASM GCLS
+>ASM GPIX
+>A6:
+>ASM GCLS
+>DIR
+>CLS
+>PRINT CHR$(155);"2J";CHR$(155);"H";"C1-OK"
+>SYSTEM
+>VT52
+>PRINT CHR$(27);"E";CHR$(27);"Y";CHR$(37);CHR$(42);"VT52-OK"
+>PRINT CHR$(27);"H";CHR$(27);"J";CHR$(27);"Y";CHR$(37);CHR$(42);"VT52-OK"
+>SYSTEM
+>CLS
+>PRINT CHR$(155);"2J";CHR$(155);"H";"C1-7"
+>SYSTEM
+>PRINT CHR$(27);"H";CHR$(27);"J";CHR$(27);"Y";CHR$(37);CHR$(155);"EDGE"
+>SYSTEM
+>CONSOLE8
+>PRINT CHR$(27);"[>68;2v"
+>PRINT STRING$(90,"X")
+>SYSTEM
+>PRINT CHR$(27);"H";CHR$(27);"J";CHR$(27);"Y";CHR$(37);CHR$(155);"X"
+>PRINT CHR$(27);"[>68;1v"
+>PRINT STRING$(90,"Y")
+>SYSTEM
+>PRINT CHR$(27);"[>68;1v"
+>PRINT STRING$(90,"Z")
+>WIDTH 132
+>PRINT STRING$(120,"W")
+>SYSTEM
+>PRINT CHR$(27);"H";CHR$(27);"J";CHR$(27);"Y";CHR$(37);CHR$(155);"X"
+>SYSTEM
+>jhkjfdhhgkjdfhgjkdfg
+>A1:
+>print 2+2
+>print "before-cls"
+>cls
+>print chr$(27);"[2J";chr$(27);"[H";"bbc-ansi"
+>10 print "edit-ok"
+>edit 10
+>run
+>quit
+>A0:
+>bbm
+>[Q
+>yeprog.pas
+>SYSTEM
+>; 7xtgv terminal config
+>[display:ES3_5]
+>view_zoom=2
+>zoom1_terminal=132x48
+>zoom2_terminal=80x24
+>zoom3_terminal=44x16
+>zoomY; 7xtgv terminal config
+>[display:ES3_5]
+>view_zoom=2
+>zoom1_terminal=132x48
+>zoom2_terminal=80x24
+>zoom3_terminal=44x16
+>zoomY; 7xtgv terminal config
+>[display:ES3_5]
+>view_zoom=2
+>zoom1_terminal=132x48
+>zoom2_terminal=80x24
+>zoom3_terminal=44x16
+>zoomY; 7xtgv terminal config
+>[display:ES3_5]
+>view_zoom=2
+>zoom1_terminal=132x48
+>zoom2_terminal=80x24
+>zoom3_terminal=44x16
+>zoomY; 7xtgv terminal config
+>[display:ES3_5]
+>view_zoom=2
+>zoom1_terminal=132x48
+>zoom2_terminal=80x24
+>zoom3_terminal=44x16
+>zoomY; 7xtgv terminal config
+>[display:ES3_5]
+>view_zoom=2
+>zoom1_terminal=132x48
+>zoom2_terminal=80x24
+>zoom3_terminal=44x16
+>zoomY; 7xtgv terminal config
+>[display:ES3_5]
+>view_zoom=2
+>zoom1_terminal=132x48
+>zoom2_terminal=80x24
+>zoom3_terminal=44x16
+>1_terminal=132x48
+>zoom2_terminal=80x24
+>zoom3_terminal=44x16
+>1_terminal=132x48
+>zoom2_terminal=80x24
+>zoom3_terminal=44x16
+>1_terminal=132x48
+>zoom2_terminal=80x24
+>zoom3_terminal=44x16
+# crc32=81DB6F64

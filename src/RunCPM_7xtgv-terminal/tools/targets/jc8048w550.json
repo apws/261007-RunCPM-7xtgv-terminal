@@ -1,4 +1,5 @@
 {
+  "optimization_property": "compiler.optimization_flags",
   "display_id": "ES3_5",
   "description": "ESP32-S3 JC8048W550 ST7262 RGB 5-inch",
   "method": "arduino-cli",

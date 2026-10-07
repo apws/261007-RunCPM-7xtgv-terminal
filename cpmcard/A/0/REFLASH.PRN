@@ -1,0 +1,33 @@
+
+
+                ; REFLASH.COM -- request an opt-in host firmware reflash from 7xtgv terminal.py.
+                ;
+                ; First forces the same verified history save as SYNC.COM (port 7Dh).  Only
+                ; after that succeeds does it emit the reserved guest-to-host event ESC[>64v.
+                ; It does not reboot the MCU and does not itself alter firmware. The PC bridge
+                ; acts only when its XTGV_REFLASH_COMMAND is configured.
+                ;
+                ; Build on CP/M:  ASM REFLASH
+                ;                LOAD REFLASH
+ 0100                   org     0100h
+                
+ 0100 3E01              mvi     a,1
+ 0102 D37D              out     07dh
+ 0104 DB7D              in      07dh
+ 0106 FE01              cpi     1
+ 0108 C21401            jnz     failed
+                
+ 010B 111D01            lxi     d,request
+ 010E 0E09              mvi     c,9
+ 0110 CD0500            call    5
+ 0113 C9                ret
+                
+ 0114 112401    failed: lxi     d,errmsg
+ 0117 0E09              mvi     c,9
+ 0119 CD0500            call    5
+ 011C C9                ret
+                
+                request:
+ 011D 1B5B3E3634        db      27,'[>64v','$'
+ 0124 5245464C41errmsg: db      'REFLASH: history save failed',13,10,'$'
+

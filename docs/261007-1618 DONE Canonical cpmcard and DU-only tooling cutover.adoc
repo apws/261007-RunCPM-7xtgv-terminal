@@ -1,0 +1,146 @@
+= DONE: canonical cpmcard and DU-only tooling cutover
+:source-highlighter: highlight.js
+:toc:
+
+[IMPORTANT]
+====
+The publication filtering recorded below is historical and was superseded
+later the same day at Petr's request. The
+link:261007-1645%20DONE%20Version%20complete%20cpmcard%20without%20content%20exclusions.adoc[complete-card decision]
+includes all drives, INI/history, databases, backups and host snapshots;
+the 200-file manifest and card-local ignore file have been removed.
+====
+
+Local implementation of the
+link:261007-1234%20PLAN%20Consolidate%20CP-M%20content%20into%20cpmcard.adoc[migration plan],
+after Petr cleaned the old mirror and confirmed that the hardware-tested
+`cpmcard` is primary. No firmware or physical card changed. Commit/push is
+separate; these changes are not yet available from the remote repository.
+
+== Reconciliation and recovery
+
+The fresh comparison found *44 identical, 31 differing and 9 old-only paths*.
+Existing card content won every conflict; timestamps did not select winners.
+Configured binaries, live INI/BUF, catalogs, Mandelbrot scripts and GCLS
+artifacts were preserved. The final hash check found *no modifications to
+pre-existing working-card guest files*.
+
+* Copied only absent authored `CARDMARK.ASM`, `VTPAL.ASM`, `ZOOM.ASM` into A0;
+  copies were byte-checked.
+* Four old-only A6 benchmark binaries already matched the copies in card A0.
+  No duplicate installations were created.
+* Old-only `7XTGVTRM.TXT` and the Mandelbrot PDF remain in the recovery archive.
+* Moved six private INI snapshots to `cpmcard/.7xtgvtrm-ini-history/`.
+* Archived obsolete `cpmcard/A/README.md`, `layout.json`, `progress.json`.
+* Retired the remaining `cpmdrive` root to
+  `build/card-migration-261007-1608/retired-cpmdrive/`; all 87 files were
+  hash-verified after moving. Nothing in that archive was discarded.
+
+The fresh inventory is retained beside it as `inventory-before.json`.
+This private recovery archive is ignored by Git. Previously committed
+versions also remain in Git history. Petr's earlier deletions were respected,
+not reversed. The physical microSD was never a destination.
+
+== DU-only tooling
+
+Use `cpmcard/A/0` through `cpmcard/A/F`, etc. Hexadecimal host user-directory
+names are inherited from *RunCPM*, not introduced by 7XF. `disk.h` builds
+the user component with `toupper(tohex(userCode))`; both Arduino and POSIX
+abstractions use that convention. CP/M itself has numeric user areas.
+
+`tools/card_paths.py` centralizes the root and transfer mapping:
+
+* Working root: `XTGV_CARD_ROOT`, otherwise repository `cpmcard`.
+* Transfer root: `XTGV_TRANSFER_ROOT`, legacy `XTGV_XMODEM_ROOT`, then working root.
+* Host selector: `AF:` and decimal alias `A15:` both select `A/F`.
+* No descriptive-folder fallback, old-root fallback or implicit DU creation.
+* Transfer selection rejects symlinked drive/user directories.
+* Missing fixtures explain how to provision the card.
+
+Updated active dependencies: transfer UI, INI fetch/archive helper, VTPAL and
+VTINFO/VTZOOM assembly helpers, BASIC tests, VTDRV tests, SDL VTESTS and PTY
+lifecycle fixtures, local desktop launcher, current manuals and repository
+guidance. The transfer CLI already takes explicit paths. Mounted desktop
+cards still require explicit selection. Host transfer DU selection does not
+change the device DU.
+
+Two assembler/test helpers formerly installed results unconditionally; they
+now require `--install`. VTDRV installs only in A0. Its historical binary
+patcher requires an explicit directory and no longer selects live binaries
+by default. Tests work on disposable copies, not the working card.
+
+Remaining old-name references are intentional: historical documentation,
+the read-only migration audit and its synthetic regression fixture. The old
+layout/progress JSON files have no active code consumers and are not the
+current card's allocation authority.
+
+== Versioned seed and publication boundary
+
+link:../cpmcard/README.adoc[The new card README] documents the actual layout.
+`seed-manifest.json` and `cpmcard/.gitignore` expose an explicit *200-file seed*:
+
+* Project-maintained helpers/sources/tests and development catalogs.
+* Additional bytes already present in committed repository CP/M content.
+  This preserves repository provenance; it is not a new license determination
+  or a grant of redistribution rights for third-party packages.
+
+Live INI/BUF and snapshots, remembered `DRV.7XF` state, personal databases,
+editor backups, generated scratch files, the root photograph and unreviewed
+packages/configured variants remain intact and ignored locally. FAND-area
+personal content is excluded even where an old Git version existed. No Git
+history rewrite or remote-content removal was attempted.
+
+`tools/check_card_seed.py` checks the manifest and exports only listed files
+to a new disposable directory. It rejects missing/duplicate/invalid paths,
+symlinks, existing destinations and exports inside the source card. It is not
+a sync, physical deployment or delete tool. Do not force-add the live tree.
+
+The isolated export tests verify the pending seed content, *not a published
+fresh clone*. Commit/push and decisions about additional local packages
+remain separate. Firmware builds do not install the seed onto SD.
+
+== Catalogs and INFO.TXT
+
+* `DIR.7XF` and `VOL.7XF` are the opinionated developer catalogs for our
+  internal 7XF shell. Named paths still resolve to flat drive/user areas.
+* `DRV.7XF` remembers runtime selections; it is not versioned seed content.
+* Catalogs can describe applications not included in the published seed.
+* `VOL` remains the RunCPM `INFO.TXT` command, not a `VOL.7XF` reader.
+* `A7:CINF.BAS` prompts for a description and creates/replaces `INFO.TXT` in
+  its current DU; empty input cancels. It does not load old text for editing
+  or modify 7XF catalogs.
+
+== Validation
+
+* Four canonical path tests cover all hexadecimal areas, decimal aliases,
+  overrides, missing inputs and rejection of old layout/symlinks.
+* Mirror helper suite: 35 tests; desktop launcher suite: 7 tests.
+* Two seed-export tests cover privacy, invalid paths and overwrite refusal.
+* Read-only migration auditor regression passed.
+* All 200 seed entries are visible to Git; representative INI/BUF, private
+  history, current catalog state and personal databases remain ignored.
+* With `cpmdrive` absent, exported the seed into
+  `/tmp/7xtgv-seed-261007-1608`. Five BASIC programs loaded; SAVE-as-ASCII
+  round-trip and nine menu tests / 14 pages passed. VTINFO/VTZOOM assembly
+  and valid/malformed/timeout reply checks passed.
+* VTPAL's 16 argument/output checks and VTDRV write/read/verify plus
+  old-firmware fallback checks passed on disposable cards; no install flag used.
+* Quiet EP4_10 SDL ran all five scrolling stages using the exported seed.
+  Mirror captures and framebuffer PPMs are under
+  `build/card-migration-261007-1608/sdl-seed/`.
+* PTY lifecycle checks passed from that seed: boot, desktop CARDMARK rejection,
+  reconnect, idle/compute/output shutdown and reboot. VTPAL.BAS matrix,
+  paper/preset selection, redraw and exit also passed.
+* Changed AsciiDoc rendered without warnings; source-link and whitespace
+  checks passed. Feature registry validates 198 entries.
+
+No MCU rebuild, serial transfer or physical acceptance test was performed.
+These checks do not certify every imported application or its distribution rights.
+
+== Future hexadecimal guest DU syntax -- discussion only
+
+Petr suggested optionally accepting hexadecimal DU commands such as `AF:`
+under a future 7XF mode, alongside named selections. Host directory names,
+CCP command syntax and external applications' parsers are separate layers.
+A CCP change would not alter PIP's `[Gx]` interpretation. No CCP/core or
+guest-command syntax was changed by this migration.

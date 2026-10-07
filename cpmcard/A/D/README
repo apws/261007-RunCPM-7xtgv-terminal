@@ -1,0 +1,58 @@
+On your MicroSD card create a directory DISKS80 and copy the *.dsk files
+into it. When you run the picosim machine and you want to boot an OS,
+put a bootable disk image into drive 0. The disk images are:
+
+cpm22.dsk	- Yeah well, good old CP/M 2.2 for 8080 (bootable)
+cpm3gen.dsk	- used to bring up CP/M 3 on CP/M 2.2 (NOT bootable)
+cpm3-1.dsk	- CP/M 3 system disk 1 for 8080 (bootable)
+cpm3-2.dsk	- CP/M 3 system disk 2 for 8080 (NOT bootable)
+mpm-1.dsk	- MP/M II system disk 1 for Z80 and RP2350 only (bootable)
+mpm-2.dsk	- MP/M II system disk 2 for Z80 and RP2350 only (NOT bootable)
+empty.dsk	- empty CP/M disk, we often need one (NOT bootable)
+comms.dsk	- CP/M communication programs adapted to this machine (NOT bootable)
+dazzler.dsk	- CP/M programs for Cromemco Dazzler (NOT bootable)
+
+fig80.dsk	- FIG Forth for the 8080, versions 1.1 and 1.3 (bootable)
+fig80scr.dsk	- Forth block device with source screens for editor, 8080
+		  assembler, tools. Use with FIG Forth only, other OS's
+		  likely will corrupt the disk.
+
+ucsd1.dsk	- UCSD p-System system disk 1 for 8080 (bootable)
+ucsd2.dsk	- UCSD p-System system disk 2 for 8080 (NOT bootable)
+ucsdint.dsk	- UCSD p-System interpreter, used to reconfigure system
+		  (NOT bootable)
+ucsdgame.dsk	- UCSD p-System games with sources (NOT bootable)
+
+
+The disk images are in IBM 3740 format, the diskdef for cpmtools is:
+
+diskdef ibm-3740
+  seclen 128
+  tracks 77
+  sectrk 26
+  blocksize 1024
+  maxdir 64
+  skew 6
+  boottrk 2
+  os 2.2
+end
+
+
+Additional notes:
+
+MP/M:
+If you boot the MP/M II disk, it will boot CP/M 2.2 and to start MP/M use
+the command mpmldr. One can make MP/M bootable directly by writing boot
+code and mpmldr to the system tracks, the MP/M documentation explains
+how to do this. You can use the putsys program provided in srcmpm to do it.
+However, for developers a system booting into CP/M first is much
+more handy, because you need CP/M to assemble a modified BIOS and sysgen
+MP/M. Also it is possible to run MP/M under control of some debugger like
+DDT or SID from CP/M, to find some problem, see manuals.
+
+Forth:
+Also FIG Forth will boot into CP/M 2.2 and then you run it from there.
+Almost all implementations for 8080/Z80 use CP/M as host OS, because
+then it runs on every system with a working CP/M. Native Forth versions
+must match the hardware exactly and won't work on a slightly different
+system, without porting work.

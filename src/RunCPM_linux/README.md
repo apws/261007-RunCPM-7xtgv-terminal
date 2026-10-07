@@ -40,7 +40,7 @@ The binary and default writable CP/M directory tree live under
 `build/RunCPM_linux/`. `run` creates `data/A/0` if needed and runs with `data/`
 as its working directory; `EXIT` leaves RunCPM normally. To use a separate
 file-tree copy, set `RUN_ROOT=/absolute/path/to/private/copy` on `make run`.
-Never point it at a live card mount or `cpmdrive/`: CP/M programs can create,
+Never point it at a live card mount or `cpmcard/`: CP/M programs can create,
 overwrite, rename, and delete host files. A card snapshot should be copied
 read-only while the device is off, then cloned again into a writable test tree.
 The host folders must use the usual `A/0`, `A/1`, etc. layout and uppercase

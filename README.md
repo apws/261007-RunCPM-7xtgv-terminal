@@ -18,7 +18,7 @@ for the RunCPM fork, HAL, protocol and license boundaries.
 | --- | --- |
 | [`src/`](src/) | Current firmware and earlier demo/source projects |
 | [`build/`](build/) | Generated Arduino build output; ignored by Git |
-| [`cpmdrive/`](cpmdrive/README.md) | Documented mirror of CP/M drive A user areas |
+| [`cpmcard/`](cpmcard/README.adoc) | Complete versioned working card using RunCPM drive/user paths, including settings/history and snapshots |
 | [`docs/`](docs/) | [Central feature ledger](docs/FEATURES.adoc), recovery notes, reference material, and archived experiments |
 | `backups/` | Local generated backups; ignored by Git |
 | `private/`, `docs/private/` | Local-only material; ignored by Git and absent from a fresh clone |
@@ -74,4 +74,4 @@ python3 tools/terminal.py
 Press `Ctrl+]`, then `q`, to leave the terminal without rebooting CP/M. See
 the [main project documentation](src/RunCPM_7xtgv-terminal/README.md),
 [validation record](src/RunCPM_7xtgv-terminal/VALIDATION.md), and
-[CP/M user-area map](cpmdrive/README.md) for details.
+[CP/M user-area map](cpmcard/README.adoc) for details.

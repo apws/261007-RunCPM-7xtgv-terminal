@@ -1,0 +1,437 @@
+= Arduino-compatible SDL desktop emulator: analysis and implementation plan
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+
+== Decision and scope
+
+Petr requests a desktop build of our existing Arduino-integrated product,
+not a replacement terminal written in SDL and not merely the headless POSIX port.
+This document records source-grounded analysis and a staged plan; no emulator
+implementation, firmware rebuild, package installation or hardware action is done.
+
+Recommended first target: native Linux on this machine. Preserve our existing
+RunCPM 6.9 core, `ccp7xf.h`, `abstraction_arduino_7xtgv.h`, terminal/runtime,
+INI/history machinery, fonts and private guest/host ports wherever practical.
+Replace only the platform services they call. Windows packaging follows a
+working Linux implementation; macOS remains a later portability gate.
+
+The claim is *compile the same application sources against desktop services*.
+It is not a claim that an unmodified sketch plus one new board header will
+already compile: target selection, runtime selection and hardware-capability
+assumptions currently require a few narrow integration points.
+
+Preserve the older plans as history:
+
+* `260914-00 7xtgv Windows SDL2 desktop emulator plan.adoc`:
+  RGB565 framebuffer, shared terminal, milestones and automation.
+* `261005-7xtgv-runcpm-z80pack-romwbw-terminal-notes.adoc`:
+  newer Linux-first preference and broader terminal/backend discussion.
+
+== Evidence: what the linked simulator actually implements
+
+Inspected source snapshot:
+https://github.com/tandalesc/round_touch/tree/3d153f17cb733c4eca2e9f39f3249a0b81eae1d2/simulator[round_touch simulator at 3d153f17].
+Temporary read-only audit checkout: `/tmp/xtgv-round-touch-261005-audit`.
+
+Useful precedent:
+
+* CMake places shim headers before application/library headers.
+* Shared application C++ sources compile against `Arduino.h` substitutes.
+* Timing, Serial and board-specific drivers are supplied by the desktop platform.
+
+Important limitations:
+
+* `shims/Arduino_GFX_Library.h` defines a replacement `Arduino_GFX` class.
+  Rectangles, lines and bitmap pixels are translated into SDL drawing calls;
+  it does not compile the original Arduino_GFX implementation.
+* Its bitmap method is the big-endian-named variant, whereas our production
+  renderer calls `draw16bitRGBBitmap`; this is not our exact API surface.
+* Its Serial shim prints to stdout and has no complete keyboard receive path.
+* Its SD shim always fails mount/open; the storage driver explicitly has no SD.
+* Its `micros()` is derived from millisecond ticks. Our benchmarks need a real
+  high-resolution monotonic clock.
+* Its current CMake executable uses LVGL's built-in SDL window through
+  `SimDisplayDriver`. `platform/SimDisplay.cpp` is not in its executable's
+  source list. The presence of a GFX shim is not proof that this target runs it.
+
+Therefore use its *include-order/platform-substitution pattern*, not its
+renderer or storage as a ready-made implementation. No code was copied.
+No top-level license file was found in the inspected checkout; establish
+applicable licensing before any future reuse of its source.
+
+== Evidence: our existing boundaries
+
+[cols="1,2,2",options="header"]
+|===
+|Component |Current behavior |Desktop consequence
+|`RunCPM_linux`
+|Makefile includes core headers from `../RunCPM_7xtgv-terminal`; native entry
+uses `abstraction_posix.h` and ordinary `ccp.h`.
+|Useful comparison executable, not the integrated terminal/7XF product.
+|Arduino sketch
+|Selects board before abstraction; includes terminal persistence, then our
+abstraction, core and selected CCP; runtime supplies setup/loop.
+|Build this source as C++ with explicit desktop target/composition definitions.
+|Integrated console abstraction
+|`_kbhit`, `_getch`, `_putch` use `virtualAvailable`, `virtualRead`, `virtualWrite`.
+|Keep this path. No PTY, terminal subprocess or stdout round-trip is necessary.
+|Production terminal runtime
+|Ordinary C++/atomics, Arduino time and Serial APIs, board GFX factory and
+backlight functions. Existing tests already compile the actual runtime with stubs.
+|Substitute production-capable platform services, not a second terminal.
+|Storage and persistence
+|Use `SD`, `File`, numeric SdFat open flags, directory handles and rename/save
+transactions. Only the RunCPM/storage owner performs filesystem operations.
+|A real SdFat-compatible host-filesystem facade is necessary.
+|Raw-card diagnostics
+|CARDMARK currently assumes direct-SdFat raw-card capability unless the legacy
+W535 SD_MMC option is set.
+|Desktop capability must be explicit; do not masquerade as the legacy option.
+|===
+
+`globals.h` defines 8/16/32-bit core types using char/short/int; confirm them
+with static assertions on each host toolchain. Native Linux `long` and pointers
+differ from Arduino; audit format strings and position conversions separately.
+Do not change the emulated CP/M word/record sizes to host sizes.
+
+== Proposed architecture
+
+[source,text]
+----
+Same Arduino sketch + RunCPM core + 7XF
+    | virtual console queues           | SD / File compatibility API
+    v                                  v
+Same 7xtgv terminal/runtime             Host directory backend
+    | Arduino_GFX API                  (one filesystem owner)
+    v
+Real Arduino_GFX 1.6.4 + Arduino_Canvas
+    | RGB565 framebuffer
+    v
+SDL texture upload / scale / dim / present
+----
+
+SDL is a display/input host, not a VT parser, font engine, CP/M emulator,
+filesystem layer or electrical SPI/DSI simulator.
+
+== Graphics: compile the real library first
+
+The locally installed library is Arduino_GFX 1.6.4, matching our pinned builds.
+`Arduino_GFX.h` has the expected abstract device operations; `Arduino_Canvas`
+already supplies RGB565 RAM drawing, bitmap operations and `getFramebuffer()`.
+This is a stronger starting point than reimplementing its drawing methods.
+
+Preferred small compile proof:
+
+. Supply the minimal portable `Arduino.h` and `Print.h` services actually needed.
+. Compile the relevant original GFX base/canvas sources, not every panel or bus.
+  Initial source candidates are `Arduino_G.cpp`, `Arduino_GFX.cpp`,
+  `canvas/Arduino_Canvas.cpp`, with DataBus/utility sources added only if required.
+. Use a desktop `Arduino_GFX_Library.h` umbrella that includes those real classes,
+  rather than defining a second class with the same name.
+. Derive `XtgvDesktopCanvas` from real `Arduino_Canvas`, constructed with no
+  hardware output. Override only presentation notification as needed.
+. Expose its original buffer to the SDL presenter. Do not allocate a second
+  application framebuffer just to mimic a panel transfer.
+
+`Arduino_DataBus.h` depends on Arduino compatibility definitions even for a
+canvas-only build. The minimal source manifest and Print/progmem helpers are a
+compile gate, not assumed solved. Do not define ESP32/RP2040 to silence errors;
+that would select SDK, IRAM, GPIO or MCU-specific branches.
+
+If a portable-library obstacle requires broad upstream modification, stop and
+report it. A small compatible framebuffer implementation is a fallback only
+after explaining the loss of real-library reuse; do not silently substitute it.
+
+=== Frame size, presentation and backlight
+
+Start with 1280x800 to exercise the existing P4-style full-frame path:
+
+* One RGB565 framebuffer is 2,048,000 bytes (about 1.95 MiB).
+* Full uploads at 30 Hz transfer about 61.44 MB/s before SDL/backend overhead.
+  This is a proposed desktop workload, not measured performance.
+* Logical framebuffer geometry is fixed; window resizing scales or letterboxes,
+  never silently changes CP/M/terminal columns.
+* Default to nearest-neighbor/integer scaling. A full-size image need not fit
+  every desktop; reduced window scaling can be an explicit presentation option.
+* Present only after a completed terminal rendering batch/flush; never per glyph.
+  Dirty generations and a bounded refresh rate avoid unnecessary texture uploads.
+* UI thread owns both drawing and SDL presentation; no framebuffer race or
+  double buffering is necessary initially.
+
+Simulate backlight by multiplying the presented texture's RGB channels using
+https://wiki.libsdl.org/SDL2/SDL_SetTextureColorMod[SDL texture color modulation].
+Level zero produces a black display but does not erase cells or the framebuffer.
+Retain the ordinary 32-level board curve and boot ramp; choose a desktop curve
+for visible UI behavior, not claims about physical panel luminance.
+
+Do *not* use
+https://wiki.libsdl.org/SDL2/SDL_SetWindowBrightness[SDL_SetWindowBrightness]:
+it targets the whole monitor and may be unsupported. Check modulation support
+and specify a software presentation fallback if necessary. Headless framebuffer
+hashes must remain independent of backlight; a separate presented-image capture
+may include dimming.
+
+== HAL and platform layout
+
+Proposed minimal structure, not files already implemented:
+
+[source,text]
+----
+hardware/arduino_7xtgv/boards/sdl_emulator.h
+hardware/arduino_7xtgv/runtime_emulator.h
+desktop/
+    CMakeLists.txt
+    main.cpp
+    platform.h / platform.cpp
+    storage.h / storage.cpp
+    shims/Arduino.h
+    shims/Print.h
+    shims/Arduino_GFX_Library.h
+----
+
+One human-readable emulator board header, with the same numbered sections as
+the MCU boards: identity/geometry, render/backlight policy, capabilities,
+storage setup/reporting, display creation and begin, history allocation, reboot.
+Functions remain ordinary typed functions; no drawing/storage code-body macros.
+The host filesystem and SDL service implementations belong in coherent platform
+sources, not many board-feature fragments or a large fake ESP SDK.
+
+Keep the existing `XTGV_HAL_IMPLEMENTATION` one-translation-unit rule.
+The board header may use desktop service classes without hiding all their code
+inside that header. This is a substantial platform backend, not a pin variant.
+
+Recommended first identity: one desktop display ID, provisionally `SDL_1280`,
+and target `sdl-emulator`. OS choice belongs to the build/platform, not duplicated
+terminal logic. These names are proposals requiring Petr's confirmation.
+If separately named Linux/Windows targets are desired, keep them thin identity
+selections over the same implementation. Do not duplicate the emulator HAL to
+accommodate ordinary operating-system differences.
+
+== Host storage: retain the existing abstraction API
+
+Implement a directory-backed SD facade, not a fake SPI bus or raw block device.
+The board defines the global `SD` and `File` type expected by the sketch before
+`abstraction_arduino_7xtgv.h` is included.
+
+Required initial surface found in our sources:
+
+* SD: `open`, `exists`, `mkdir`, `remove`, `rename` and board initialization.
+* File: bool conversion, read byte/buffer, write byte/buffer, `available`,
+  `size`, `seek`, `close`, `flush`, `truncate`, handle `rename`, `getName`,
+  `isDirectory`, `openNextFile`, `dirEntry`.
+* Numeric `O_READ`/`O_RDONLY`, `O_WRITE`, `O_RDWR`, `O_CREAT`, `O_APPEND`,
+  and `FILE_READ` semantics must match SdFat calls, not Arduino SD string modes.
+
+Tests must define the behavior, not merely make signatures compile:
+
+* Read returns -1 at EOF; binary data, embedded zeroes and CP/M Ctrl-Z survive.
+* `O_CREAT | O_WRITE` must not add truncation that the caller did not request.
+* Seeking, extension/padding and truncation preserve existing 128-byte BDOS
+  record behavior. Test short files and random records.
+* Value-returned/copied file handles cannot dangle or double-close; document
+  shared-handle/cursor behavior and test return, assignment and explicit close.
+* Directory handles maintain enumeration state, close safely and have a
+  predictable order in fixtures. Validate 8.3-name handling and case collisions.
+* `dirEntry` is currently populated but has no observed reads elsewhere in
+  our source audit. Supply the compatible type/contract without inventing card
+  metadata; recheck before relying on a minimal implementation.
+* INI/BUF NEW/BAK rename transactions, reopen verification and failed-save
+  recovery must work. Windows open-file/rename semantics are a separate gate.
+* `flush` reports failures where the API allows; do not claim crash-durable
+  rename merely because a C++ stream was flushed.
+
+Use C++17 filesystem/streams or a small explicit native I/O layer; choose based
+on reliable error/seek/rename behavior. Do not reuse POSIX abstraction wholesale:
+its algorithms are useful comparison material, but the goal is to keep the
+Arduino abstraction's existing callers.
+
+The selected card root is explicit and immutable during a run. Resolve `/A/0`,
+`A/0` and `./A/0` as card-relative, never host-root paths. Reject traversal and
+symlink escape, reject ambiguous case-normalized names and test containment.
+Default tests use a dedicated copied fixture, never modify `cpmdrive/`, a real
+mounted card or Petr's live INI/BUF. The repository's descriptive `A0 - ...`
+mirror folders are not automatically a ready `A/0` tree; materialize an approved
+disposable tree explicitly.
+
+Keep the RunCPM worker as sole filesystem owner, including persistence. No SDL
+thread opens INI/BUF independently. Raw SD/CID/CSD/CMD6 and SPI speed tests are
+unavailable for a host directory. CARDMARK must say so, not return fabricated
+registers or test the host disk as if it were a microSD link.
+
+== Runtime and concurrency
+
+Reuse our integrated ownership model without emulating FreeRTOS:
+
+* Main thread: SDL init/events, `terminalSetup`, repeated `terminalLoop`, drawing
+  and framebuffer presentation. All SDL window/renderer calls stay here.
+* One C++ worker: existing `runCPM`, CP/M guest execution, SD facade and lazy
+  persistence. Start it only after terminal/platform initialization.
+* Existing SPSC byte queues and atomic requests connect the two owners.
+  Inspect the current non-atomic shared fields under host sanitizers; queue
+  correctness alone does not prove the whole runtime race-free.
+* `delay(1)` sleeps/yields on its caller. It must not run SDL event polling
+  from the guest thread, unlike the linked simulator's generic delay shim.
+* `millis`/`micros` use `steady_clock`, relative to one process epoch, with
+  Arduino-compatible wrap behavior. Provide deterministic fake time only in
+  explicit tests; do not reuse the simulator's millisecond-derived micros.
+
+Serial is a platform input/mirror service, not CP/M's direct console here:
+
+* SDL events feed the same byte/control protocol the hardware receives through
+  Serial, then the existing keyboard/profile/history layer translates it.
+* Implement `begin`, bool/connected state, `available`, `read`,
+  `availableForWrite`, and byte/buffer writes as actually required.
+* Bound queues and drain/discard optional mirror output without unbounded growth.
+  A desktop key-input source need not pretend an external USB mirror is attached.
+* Keep diagnostics on a separate host log; do not inject them into guest output.
+* No fake UART baud timing, USB stack, SPI transactions or GPIO register model.
+
+SDL key translation needs explicit tests: printable TEXTINPUT versus KEYDOWN,
+Ctrl controls, modifiers, navigation/functions, RAW, Alt profile selection,
+backlight chords, Ctrl+Alt+C, Czech layout and AltGr. Do not produce duplicate
+characters or bypass terminal input handling by writing guest queues directly.
+Clipboard, IME and broader Unicode handling can wait; document initial byte
+encoding rather than silently passing UTF-8 into an 8-bit guest.
+
+=== Shutdown and reboot are a real integration gate
+
+The Arduino sketch is designed to keep a device alive. A guest can wait for
+input, block on a full output queue or run a compute-only COM indefinitely.
+A desktop cannot simply join that worker after SDL_QUIT and expect it to stop.
+
+First test natural CP/M EXIT and completion signaling. For window close/reboot,
+use explicit stop state and our existing forced-return mechanism only where
+it actually reaches a safe boundary. Continue draining output during shutdown.
+Do not detach a live worker, cancel a thread asynchronously, or free terminal
+state while the guest still uses it.
+
+If clean stopping requires changes to the sketch loop, virtual wait functions,
+or core polling, stop and explain the exact seam to Petr before editing those
+RunCPM-related files. A clean process relaunch is preferable to unsafe reuse of
+all static globals for reboot. Persist only through the existing owner, not a
+new UI-side emergency save. Host REFLASH must not launch a hardware uploader.
+
+== Narrow integration changes anticipated
+
+[cols="1,3",options="header"]
+|===
+|File/boundary |Expected change and constraint
+|`runcpm-config.h`
+|Recognize the new desktop target, keep composition values explicit and validate
+exactly one board. Define Arduino compatibility without faking MCU architecture.
+|HAL `board.h`
+|One direct include branch for the emulator before native-test RP2_2 fallback.
+|HAL `runtime.h`
+|One desktop branch selecting `runtime_emulator.h`; no FreeRTOS compatibility maze.
+|Arduino_GFX umbrella/build
+|Select portable upstream base/canvas sources and minimal Arduino/Print services.
+|HAL `cardmark.h`
+|Replace negative legacy-board test with an explicit raw-card capability, default
+true for existing direct-SdFat MCU targets and false for host directories.
+|Sketch storage reporting
+|Current banner and clock application refer to `xtgvStorageSpi.requestedHz()`
+and unconditionally identify storage as SdFat/SPI. Use an honest HAL reporting
+seam rather than fake SPI state. Explain and obtain approval before sketch edit.
+|Host identity
+|`HostOS` is supplied only by MCU branches in the Arduino abstraction. Define
+the desktop host identity through the board/platform using established RunCPM
+codes; inspect Windows upstream before assigning a Windows value.
+|Shutdown/reboot boundaries
+|Potential narrow sketch/runtime/abstraction seam, only if the compatibility
+layer cannot safely terminate the worker. Requires explicit review/approval.
+|===
+
+Intent: no changes to CPU/BDOS/BIOS/disk/console/7XF behavior for initial bring-up.
+The current Arduino abstraction should remain byte-identical if the adapters
+satisfy it; this is a goal to verify, not an unconditional promise.
+Do not implement fake raw-card methods merely to achieve that promise.
+
+`sdfat_spi` in an imported INI has no physical meaning on desktop. Preserve the
+setting without changing the card's config, but label it not applicable in host
+reporting. A banner that says host filesystem is preferable to fictitious MHz.
+
+== Build and dependencies
+
+Use a separate host CMake build, source files still inside this project:
+
+* C++17, SDL2, threads and a pinned Arduino_GFX source dependency.
+* Explicit `ARDUINO` compatibility version, desktop target, `XTGV_RUNCPM=1`,
+  `XTGV_TERMINAL=1`, `XTGV_CCP_7XF=1`, fresh build stamp and width assertions.
+* Compile the `.ino` as C++ in its original directory or via a thin include TU.
+  Verify declarations normally generated by Arduino preprocessing; add explicit
+  declarations at a reviewed boundary if required, not a second sketch copy.
+* Preserve include order: desktop Arduino/Print/umbrella shims first, followed
+  by the real pinned graphics source include tree and product includes.
+* Do not rely on this machine's `~/Arduino` path in the published build.
+  Provide an explicit pinned dependency fetch/cache or user-selected source path.
+* Keep outputs under `build/RunCPM_7xtgv-terminal/sdl-emulator/`; never overwrite
+  MCU candidates. An emulator is not a serial reflash target.
+* GNU/Clang first. Baseline whole-build optimization, then benchmark separately;
+  no IRAM attributes or claims of matching MCU instruction throughput.
+
+This machine has `g++`, `cmake` and `sdl2-config` (reported version 2.32.74).
+That is prerequisite discovery only; no emulator compile or SDL window test was
+performed. Pinned GFX license is present; retain its notices in distribution.
+
+Later Windows build should reuse board/storage/runtime sources, substituting
+only genuinely OS-specific filesystem/process/package details. MinGW/Wine can
+be a packaging/test step after native Linux works, not a reason to duplicate
+terminal behavior. No Hangover/ARM compatibility claim is made in this audit.
+
+== Ordered implementation checkpoints
+
+[cols="1,3,3",options="header"]
+|===
+|Stage |Deliverable |Acceptance / stop condition
+|1: real GFX compile proof
+|Portable Arduino/Print subset and real Canvas; no RunCPM or SDL required.
+|RGB565 fill/rect/bitmap/clipping/rotation tests and fixed framebuffer hash.
+Stop on broad upstream patch requirements.
+|2: terminal framebuffer proof
+|New emulator board plus existing terminal/runtime under headless platform.
+|Real QL 6x10 glyphs, palette, zoom/pan, cursor, DEC graphics and plot fixtures.
+No replacement parser/renderer.
+|3: host storage facade
+|Isolated directory fixtures and complete required File/SD methods.
+|Read/write/random records, flags, listing/rename/truncate and INI/BUF recovery;
+root escape and failure tests. No live card/mirror writes.
+|4: integrated headless sketch
+|Existing sketch/core/7XF with emulator runtime and storage.
+|Boots to real 7XF prompt, DIR/TYPE/CLS and a guest COM; lazy persistence works;
+no physical CARDMARK capability. Review required seams before editing.
+|5: SDL viewer and keyboard
+|Present real framebuffer; map events to existing input protocol.
+|Responsive window during compute and disk COMs; keys/chords/RAW/abort work;
+texture-only brightness, resize and idle/blink behavior.
+|6: lifecycle and parity
+|Clean quit, natural EXIT, reboot/relaunch and bounded shutdown.
+|No hung worker, concurrent filesystem writer or corrupt INI/BUF; compare known
+app/replay output with host tests and hardware observations. Sanitizer review.
+|7: packaging/reproducibility
+|Fresh Linux build instructions; later Windows executable/Wine smoke test.
+|No hidden Arduino installation dependencies, isolated writable card root and
+retained license notices. Other platforms require their own validation.
+|===
+
+Stage 1 is the recommended next implementation task. Do not implement all seven
+stages in one unreviewed change. If complexity expands, stop and ask as Petr
+requested. Headless mode, replay/captures and deterministic timing should fit
+these stages rather than becoming a second emulator architecture.
+
+== Findings and open choices
+
+Feasible architectural route with strong existing seams, but no desktop build
+has yet verified the full combination. The harder portions are faithful file
+semantics, lifecycle and small hardware-assumption seams, not SDL rectangles.
+
+Proposed defaults: Linux first, one portable emulator board, real Arduino_Canvas,
+1280x800 RGB565, two ownership threads, isolated host directory, texture dimming,
+no physical SD diagnostics and no automatic hardware reflash.
+
+Before implementation confirm the display/target naming and starting geometry.
+The individual required core/sketch edits still need explicit approval at their
+stage; approving this plan is not authorization for broad RunCPM refactoring.
+
+No original user documents were rewritten. A pre-existing working-tree deletion
+of the literal transcript was observed and left untouched.

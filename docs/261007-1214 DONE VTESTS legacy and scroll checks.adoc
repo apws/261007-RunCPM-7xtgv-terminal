@@ -1,0 +1,113 @@
+= VTESTS legacy, attribute and scrolling-region checks
+:source-highlighter: highlight.js
+:toc:
+
+== Request and scope
+
+Petr asked to reference
+link:261005-7xtgv-runcpm-z80pack-romwbw-terminal-notes.adoc[the RunCPM / z80pack / RomWBW terminal discussion]
+in the Technical Reference and implement its practical scrolling tests. He also
+asked to review the weak VT52 page and confusing blink/reverse/DEC examples,
+using the new quiet desktop emulator for real testing.
+
+This checkpoint changes the canonical A7 `VTESTS.BAS`, host tests and
+documentation. *No RunCPM core, terminal-engine or MCU firmware changes.*
+Neither the local `cpmcard` nor `/run/media/falken/RunCPM/` was modified.
+The sketch's older `tests/VTESTS.BAS` is documented as a historical fixture and
+was intentionally left unchanged.
+
+== Concrete findings
+
+* Combined ANSI page 7 enabled underline, then blink, then reverse without
+  clearing the preceding attributes. The following DEC frame inherited all
+  three. This was a test-program defect, not evidence of incorrect DEC drawing.
+* The original VT52 page only placed labels and drew a long graphics line.
+  It did not meaningfully demonstrate movement or erasing.
+* During the expanded MBASIC tests, default output-width handling inserted
+  CR/LF inside an escape sequence. `WIDTH 255` now disables MBASIC's automatic
+  output wrapping; logical screen wrap remains the terminal's responsibility.
+* The pan-page `STRING$(8,"01234567")` repeated the first character rather than
+  making a ruler. It now prints a literal digit ruler.
+* No parser/renderer failure was found in the targeted checks. This is not a
+  claim of complete VT52 or VT100 conformance.
+
+== Revised menu
+
+[cols="1,3,3",options="header"]
+|===
+|Item |Test |Expected result
+|3 |Independent ASCII attribute samples |Bold/underline/blink/reverse each have a selective-off comparison. Only BLINK disappears; REVERSE remains visible.
+|5 |VT52 ESC Y, A/B/C/D, H/J/K and F/G |Movement writes `[PASS]`; KEEP survives and the unwanted text is erased. Graphics mapping is shown separately from literal ASCII. Enter sends ESC < and returns to ANSI.
+|7 |Combined ANSI and DEC |Attribute samples reset individually. The following DEC frame is normal, steady and not underlined/reversed.
+|9 |Five scrolling-region stages |Select exactly 80x24 logical cells before running. The physical viewport may be smaller.
+|===
+
+Menu entry and normal test return restore ANSI, SI, ASCII G0/G1, SGR 0,
+origin mode off and full-screen margins. This is deliberate test cleanup, not
+a new blanket CCP reset policy. An external interruption in the middle of a
+test does not execute its BASIC cleanup.
+
+=== Scrolling stages
+
+. DECSTBM rows 2--22; print 25 numbered lines with final newlines. Header stays
+  at row 1 and footer at row 23. Rows 2--21 contain 6--25; row 22 is blank.
+. Reverse index at row 2 inserts a blank top row. Number 6 moves to row 3;
+  header/footer remain untouched.
+. Seed rows 2--22, insert three lines and delete two at row 10. Row 10 is
+  blank, row 11 contains the former row 10. Bottom lines lost on insertion
+  do not reappear after deletion; the last two region rows are blank.
+. Set margins 5--20 and DECOM. CUP 1;1 and 16;1 address those boundaries.
+  Large CUU/CUD values clamp TOP CLAMP at physical row 5 and BOTTOM CLAMP
+  at physical row 20.
+. Reset margins/origin, print a newline at row 24. The old header scrolls
+  away and the row-24 text moves to row 23. Return restores normal state.
+
+== Automated evidence and reproduction
+
+* Existing POSIX RunCPM output checker: all five maintained ASCII programs
+  load; SAVE ASCII round-trip; all nine menu entries / fourteen pages pass.
+  This checks MBASIC output, not the 7xtgv renderer.
+* Production desktop framebuffer test: exact VT52 movements, erase boundaries,
+  reverse index, graphics/ASCII switching and ANSI return; exact DECSTBM,
+  DECOM/clamping and IL/DL contents; both blink phases and reverse ink/paper
+  pixels. Passed on EP4_10 buffered and EC6_147 direct board selections.
+* Integrated SDL runner: real MBASIC on a minimal disposable host card,
+  production sketch/Arduino abstraction, PTY mirror, parser and Arduino_GFX.
+  Captures items 3, 5, 7 and all five stages of 9 independently.
+* EP4_10 and EC6_147 runs: all eight captures per board passed mirror content
+  checks. Inspected actual
+  GFX Canvas images for VT52, attributes, combined DEC frame and DECOM.
+* Existing CTest suites: 8/8 passed on each of EP4_10 and EC6_147.
+
+[source,bash]
+----
+python3 src/RunCPM_7xtgv-terminal/tools/test_vtests_basic.py
+python3 src/RunCPM_7xtgv-terminal/desktop/tests/vtests_sdl.py \
+  build/RunCPM_7xtgv-terminal/desktop/jc8012p4a1c/xtgv_desktop \
+  build/vtests-check --choice 5
+----
+
+Omit `--choice` to run all selected pages. The runner uses SDL's dummy driver,
+so no visible window or physical connection is needed. Reserved bank 9 keeps
+the automation convention; all configuration/history writes remain inside
+new disposable cards. Evidence from this checkpoint is under
+`build/vtests-261007/`: per-run `mirror.bin`, `mirror.txt`, `run.log` and
+`panel.ppm`. Those generated artifacts are not deployment sources.
+
+PPM is the actual unscaled Canvas content, not a screenshot of the last
+published SDL texture. One static capture cannot prove blinking timing;
+deterministic renderer checks cover both phases. Physical panel behaviour,
+all VT52 commands, every DEC glyph and full standards conformance remain
+outside this test's acceptance claim.
+
+== Deployment and manual follow-up
+
+The updated source is in `cpmdrive/A7 - MBASIC and VT tests/VTESTS.BAS`,
+ASCII with CRLF, final Ctrl-Z and source lines no longer than 80 columns.
+It has *not* been copied to the user's local card or physical SD.
+No hardware rebuild/reflash is needed for the BASIC-only changes.
+
+After an explicitly requested deployment: run MBASIC, `RUN "VTESTS"`, then
+3, 5, 7 and 9. Use 80x24 logical geometry for 9; pan a smaller viewport as
+needed. Check the normal menu/prompt after each return. Hardware visual
+acceptance remains Petr's next checkpoint.

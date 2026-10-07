@@ -5,6 +5,7 @@ nukedc-recovery-mostly-corrupted-some-valid/
 /src/RunCPM_7xtgv-terminal/tools/targets/*-reflash.log
 /src/RunCPM_7xtgv-terminal/tools/targets/*/rebuild.log
 /src/RunCPM_7xtgv-terminal/tools/targets/*/reflash.log
+/src/RunCPM_7xtgv-terminal/tools/targets/*/desktop-*.log
 /src/RunCPM_comparison/
 # Local comparison snapshots; the committed history is the reproducible baseline.
 /src/260928_260126_RunCPM_comparison.zip
@@ -25,7 +26,7 @@ cpm-languages/comal/
 cpm-languages/comal-unpacked/
 cpm-languages/turbo/
 # Local/raw hardware backups and regenerated/vendor build material.
-cpmcard/
+# The complete cpmcard tree is included explicitly below.
 docs/tft-ips-modules/
 *.o
 *.swp
@@ -33,7 +34,10 @@ docs/tft-ips-modules/
 *.pyc
 # Local/private MIXWORX working notes, at any depth.
 *MIXWORX*
-cpmdrive/.7xtgvtrm-ini-history/
 # Imported third-party CP/M material and the raw card backup stay local.
 ext/
 260914 backup - cpmcard.zip
+# Petr's shared development card, including configurations, history, databases,
+# backups and host-side INI snapshots. Override the generic filters above.
+!/cpmcard/
+!/cpmcard/**

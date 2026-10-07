@@ -1,0 +1,437 @@
+= Manual reorganization: Petr's practical usage outline
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+
+*Original notes:* 261004. *AsciiDoc conversion and relocation:* 261007.
+
+This is Petr's historical working outline, not a replacement for the
+current manuals. Wording, examples, personal observations and open ideas
+are retained; separator lines and ad-hoc indentation become headings
+and lists. The original filename was `261004-11 manual reorg.txt` in
+`docs/260912-23 7xtgv terminal manual/`.
+
+== Editorial cautions added at conversion
+
+* The upstream/CP/M 3 migration mentioned below is not proven complete.
+  The recovered approximately 260126 baseline and cleaned integration
+  seams are documented in the link:260912-23%207xtgv%20terminal%20manual/technical-reference.adoc#runcpm-baseline-and-upstream-roadmap[Technical Reference].
+* `7XF` is a CCP built-in; the original `7XF.COM` wording below is historical.
+* An 80-column terminal on a 52-column viewport needs *horizontal*
+  panning; the original VERTICAL wording below is preserved, not endorsed.
+* Shortcut assignments, persistence scope and palette details must be
+  checked against the current link:260912-23%207xtgv%20terminal%20manual/reference-guide.adoc[Reference Guide]
+  and active INI. Coarse brightness controls were not removed merely
+  because these notes call them obsolete. Keyword lists and other
+  future ideas are not claims of implemented features.
+* The link:261004-1647%20Manual%20task-first%20reorganization%20and%20reproducibility%20gates.adoc[261004 first manual pass]
+  records the ensuing decisions and remaining work. The separate
+  link:261007-1146%20DONE%20Design%20evolution%20and%20key%20milestones.adoc[design-evolution overview]
+  provides a later high-level synthesis, without rewriting these notes.
+
+== Original motivation
+
+* we need to reorganize manual to be MORE CLEAR, towards real usage of 7xtgv-terminal features against CP/M or any other target
+* now our CCP_7XF is of course integrated with CP/M and entire terminal has features mostly extending CP/M ....
+
+== a) module BOOTS: (is powered up)
+
+* we see boot banner, info about CP/M and module
+
+* `CP/M 2.2 Emulator v6.9 by Marcelo Dantas` — RunCPM versio info
+* `Arduino read/write support by Krzysztof Klis` — Arduino read/write, using SdFat/SPI so designed for THIS init (not for SDMMC)
+* `Arduino 7xtgv HAL by Petr Antos (@apws/@7alken)` — our own Arduino_7xtgv separate/extended arduino HAL, differences from RunCPM
+
+* `Heap before: free=238792 largest=212980 B` — or esp32-C6 codex added diags as this build is special, on SINGLE-core MCU
+* `Heap startup: free=80848 largest=51188 B` — but using FreeRTOS the same way as on DUAL-code esp32-s3 / esp32-p4
+(rp2350 modules have baremetal arudino support for dual-core, no FreeRTOS there)
+
+* `Build:  7xtgv-terminal / 261004-1109` — our build nama and YYMMDD-hhmm timestamp/version
+
+* `CPU is Model 1` — RunCPM configured CPU emulation style
+* `13015509 T-states in 1482 ms`
+* `Estimated Z80 clock speed: 8 MHz` — estimated speed test by RunCPM (corrected, there were some bad cycles/timing data)
+
+* `BIOS at 0xfe00 - BDOS at 0xfd00` — RunCPM has only thin adapter to HOST-native CP/M written in C ...
+* `CCP CCP-INTERNAL v3.3 at 0xfd00`
+* `BIOS/BDOS     method interrupt    handoff` — CP/M BDOS/BOS calling style, now using interrupts
+* `Banked Memory        01 bank` — no special banking support here, only 64kB are, TPA probably 60kB
+
+* `Module:  EC6_147 320x172 Zoom: 1 (80x24 / 52x17)` — our module identification, resolution, boot zoom, terminal size (logical/panned)
+* `Storage: Arduino SdFat/SPI (40 MHz)` — our storage layer SPI speed (read from INI as global value, or default as 20MHz)
+the value is only ESTIMATE Arduino argument, recalculated by real HW support for
+something slightly lower, what is allowed by DIVISORS from top SPI clokc speed
+(it is basically different for esp32 and rp2350 ... and there are in docs tables
+which describe REAL CLK speed based on entered value - for now, we DONT read this
+value specifically from module/display profile, this is possible later)
+
+* `RunCPM Version 6.9 (CCP-INTERNAL v3.3 / 7XF shell)` — we now use cca 260126 version of RunCPM, just BEFORE author started extending it
+also for CPM3 support (not sure if finished)
+* `Backlight capped at 50%: vendor thermal advice.`
+** our basig on that OLD 260126 version happened as I at that time TESTED FEASIBILITY
+or executing RunCPM-Arduino simply in ONE rp2350 core and the 7xtgv "chip" engine
+in other core ... then I leaved it as-is for furter work, but then I lost the source in mid may 2026 ("nukedc" incident here) - so later at the start of september I was recovering sources from chatgpt and also from DMDE-tool recovered remnants of NTFS MFT - which WAS successfull, I got the sources back, but when I
+asked codex to do this recovery, I know it asked for CPM3, but I didnt understood,
+it is aksing for HEAD of RunCPM ... so there is the CLASH ... we stayed with old RunCPM version .... but okay, we later cleaned our seams, where we were forced to inject RunCPM by some tiny extensions ... and reapplying this to HEAD CPM3 will be
+okay too, checked ...
+
+== b) CONFIGURATION FILE = 7XTGVTRM.INI
+
+* in CP/M A0: is placed this SINGLE config file from which
+even during BOOT is RunCPM and "7xtgv-terminal" fetching
+some initial settings, including later decribed THEME / PALLETE
+also default module ZOOM level (1x 2x 3x 4x for now) and ALSO
+logical terminal SIZE for EACH that zoom level - so these values
+MAY be dynamic, although regular usage is probably BEST on standard
+CP/M logical size 80x24 which stays the same also in AD-HOC zoom-in/out
+from keyboard - is fully possible to ZOOM IN/OUT and to PAN over terminal
+size, to be ALWAYS somehow (well) useable on ANY ZOOM
+
+* INI dile defines these module specific things like palette/zoom/terminal-size
+* it also defines some GLOGAL values
+* it also defines so called APP PROFILES / BANKS which may affect/switch controls
+for apps, which are not configurable in CP/M or in case some special handling is
+necessry - these BANKS/PROFILE (0-9, named) also have each its OWN terminal HISTORY
+** this has more complex design based on CCP or in-app state, but it is EXPLICITLY
+selectable easily from keyboard, rather that some "app auto-detection"
+* for some more complex apps, the 7xtgv-terminal has also builtin special handlers
+of normal/modern editing - for example for MBASIC (local compose) and BBCBASIC ...
+these things are CONFIGURABLE per APP BANK/PROFILE, and it is somehow extensible
+(whole motivaiton for this was ability to work with CP/M from terminal in some
+unified way, in case some APPS are in CP/M behaving specially in terms of CONTROLS)
+* 7xtgv-terminal output is for CP/M APPS mostly ANSI VT100 style, with optional VT52
+and interpreting also "DEC graphics" and very primitive xterm256/SGR rendering mode
+
+=== editing of INI file
+
+* for editing we use almost solely TURBO PASCAL editor (it is TINST configured for ANSI ourput, using short 8bit Controls)
+INI bank/profile section of TURBO APP itself contains definitions of specific controls in THIS TP mode ...
+(TE is unable to edit LONG files...)
+
+== c) CCP-INTERNAL default, possibly switched to our "7XF shell"
+
+* after terminal boots it is in NORMAL CCP-INTERNAL mode
+having prompt "A0>"
+
+* usually from here is possible (but ALSO anythime out of CCP, in running app)
+to SWITCH APP BANK / PROFILES by:
+
+* `ALT + PgDn` — next bank/profile (in CCP, may be issues "on_select" command to change DU/directory by DU: U: or cd "dir")
+* `ALT + PgUp` — previous bank/profile
+* `ALT + SPACE` — temporary SHOW of current bank/profile at "cursor line" (BRIGHT)
+
+* when incorrect profile is selected in-app, then the control of app may be impossible, so this is time to SWITCH IT ...
+special behavior related to CCP prompt, which ALWAYS uses definition of profile #0 (CCP), even that selected APP profile is different
+
+* 7xtgv-terminal has intentionally GLOBAL and PER BANK / PROFILE configurable two special operationc:
+
+* clear screen:
+* `ALT + BS` — CLS (in CCP) or per application like MBASIC / BBCBASIC by emitting ANSI controls to CLEAR SCREEN
+
+* exit app:
+* `ALT + ESC` — in CCP nothing, but in APP profiles it has configured specific way to EXIT (MBASIC = system, BBCBASIC = quit)
+** for BBCBASIC we have also PATCHED "bbclower" which is BBCBASIC using "lowercase keywords" during INPUT ...
+(only convenience for me here mostly, as I have configured typewriter-style CAPS/SHIFT behavior, and it almost
+impossible to work with UPPERCASE required by BBCBASI ... btw, I HATE UPPERCASE keywords, anywhere ...
+if something in code is UPPERCASE, I treat it as CONSTANT mostly)
+
+* 7XF command allows to acitvate "7XF shell" - this is something which lightly resembles UNIX prompt
+** originally this commmand was added to internal CCP to change prompt to HEX DU> and to omit U so D> only
+** when introducing UNIX-like paths to DRIVES and USERAREAS, this very simple "mimicking" for CCP/shell usage
+was added option to change prompt quite heavily to show:
+
+* `/[drive]/[useareaname]>`
+
+* (this is activated by just running 7XF.COM or 7XF DN)
+
+* other simple options of 7XF are:
+* `7XF DD` (DEC> decimal, default)
+* `7XF DH` (HEX>)
+* `7XF D` — (only DRIVE>)
+
+* In "7XF shell" mode is shown prompt reading data from:
+
+* `A0:VOL.7XF` (descriptions of drives/volumes)
+* `A0:DRV.7XF` (current selected useararea/director on each drive)
+* `XX:DIR.7XF` (description of directory/userarea + descriptions = long names = for possibly EACCH file in directory, not )
+
+* this "catalog" is used by "UNIX-like" commands as "ls" "ll" and "cd" - only these three are now implemented:
+
+* info about set of drives/volumes and on directories/useareas on drive (they may be NAMED by catalog)
+* `ls /` / `ll /`
+* `ls /a` / `ll /a`
+
+* alternative DIR/LDIR, more similar to UNIX-like ls/ll
+* `ls xx*`
+* `ls *.ex*`
+
+* change directory in UNIX-style:
+* `cd /a/xterm256`
+* `cd /a/mbasic`
+* `cd /a/tp`
+* `cd /a/cpm`
+...
+
+=== some our simple commands added on A0
+
+* `VTINFO` — prints module and terminal info
+* `REBOOT` — reboots the 7xtgv-terminal with CP/M (so reboots entire module, ALMOST like reset)
+* `SYNC` — as we have some LAZY writes, this ensures them (reboot uses internally, the same REFLASH)
+* `REFLASH` — when module supports this (not necessary BOOTSEL power-up), then this sends REQUEST to tooling to REFLASH module
+* `VTCPU` — CPU speedtest, originally it was more precise than boot banner info, this was later corrected, mostly
+* `VTDRV` — FS speedtest from CP/M view, depends on SPI CLK speed, on SDK/MCU, is affected by underlying FAT32 simple handling
+(by default is READ ONLY, using VTDRV W does READ/WRITE test)
+* `CARDMARK` — detailed internal (so native code implemented) detection of SD/MMC CARD CID/CSD details + READD benchmark
+(default is short, with CSD argument it decodes entire card CSD specific items - verbose)
+* `CONSOLE8` — RunCPM switch to 8bit terminal (necessary for our 8bit short control codes for TurboPascal TP301)
+(but it IS enable by default by INI settings also)
+* `VTPUT` — our toolingg uses these commands instead of XMODEM (problematic, sometimes)
+* `VTGET` — our toolingg uses these commands instead of XMODEM (problematic, sometimes)
+
+=== command histroy
+
+* per app bank/profile list of history commands (now 100 per profile) is persisted using 7XTGVTRM.BUF file
+
+* `CursorUp` — recalls previous commands entered as new when you start typing some chars, that history is FILTERED
+(I was at one time trying to extend this to some possible in-app entering "keywords" by prssing PREFIX and CursorUp
+this is still affecting som ehistory behavior in some cases, and not probably too well ...
+so LATER I decided that such in-app keywords completion support MAY be there, but using SEPARATE list from BUF, which is history)
+
+* `CursorDn` — recalls previous command from history, either in regular order or FILTERED,
+till now, some recalled existing commands ARE NOT placed at the TOP if history FIFO, which may be returned there
+originally this was behviang more predictably, but we complicated it with our test for "keywords"
+as I sed, app bank/profile specific "keywords" lists (alse few separate selected??) is good thin but it needs separate FILES
+
+* each NEW entered command is added at top TOP of FIFO, recalledd commands are not (possible to reach tem by PREFIX letter(s)
+
+=== history command deletion
+
+* is possible to DELETE any ""weird"" mistyped command from history, by just recalling it and pressing CTRL+SHIFT+BS ...
+** this is important feature, it works good
+
+* the "keywords-lists" WILL be added also, having EDITABLE lists of arbitrary tokens/symbols/keywoards, possible to add by ENTER
+and possible to be also DELETED ... just for SIMPLE editting of OFTEN used words by in-app profile currently selected
+(there may be also selected specific keywords list, one ofmore of them inside each app bank/profile)
+theseare features mostly devoted to any code editing even outside CP/M ...
+
+=== forced warm boot / FOPRCED ABORT
+
+* ability to STOP ANY Z80 code even in infinite loop from terminal
+* more powerfull CTRL + C ... for example to freak xterm256 brot_bs / brot_ps rendering programs
+* `CTRL+ALT+C` !!!!
+
+== d) COLOR THEMES/PALETTES
+
+* although I personally wanted "7xtgv" initially in "positive"
+WHITE PAPER mode mostly, when some features were tested, I
+introduced also some alternative palletes for NORMAL/IMPLICIT INK
+and NORMAL/IMPLICIT PAPER - 7xtgv chip is expected to have 16 INK
+colors and 4 PAPER colors, so there IS ANSI CLASH, as I dont expect
+to support FULL ANSI PAPER colors, the same as INKS, and also MEANING
+of attributes intpreted by ANSI will be slightly different, intentionally
+
+* 7xtgv-terminal code now STILL DOES NOT USES full 7xtgv "chip-like" spec
+* we have that spec ready, and it will be implemented (7xtgv-terminal
+exists also as TESTING platform for "7xtgv" chip-like HDL-friendly design
+
+* for now we have some basic commands, which are in CP/M FS named usually with VT* prefix
+(althouth, this will be changed probably to XT* to not confuse; it is NOT fully ANSI VT)
+
+* basic palletes can be selected by "VTPAL n":
+this basically selects/modifies ONLY normal/implicit INK and PAPER, other colors stay ste same
+* basic INK colors are 8 normal + 8 emphasized (on WHITE paper, emphasis means DARK, on DARK modes, emphasis means BRIDGH)
+* basic PAPER colors are 4: normal/implicit paper/background + 3 RGB "markers"
+(on WHITE paper some pale/pastell markers, on DARK paper/crt, some darker TINTS of RGB also ... just for EMPHASIS related to TEXT APPs)
+
+* `VTPAL 0` ... WHITE PAPER (moderny GUI/positive style/theme)
+* `VTPAL 1` ... CRT green phosphor (appropriate ink and ALSO background "tint" used)
+* `VTPAL 2` ... CRT amber phosphor
+* `VTPAL 3` ... CRT white phosphor (BW)
+* `VTPAL 4` ... PLASMA red
+* `VTPAL 5` ... VFD cyan
+
+== e) BACKLIGHT / BRIGHTNESS CONTROL
+
+* each module has tuned its own array of 32 backight values, usually calculated using gama2.2 for linear perception of brightness
+that backlight level is lazily persisted for module into INI and restored abter boot
+
+* backlight control:
+* `ALT+CTRL+SHIFT + PgUp` — higher backlight intensity (top is usually 100% duty/level)
+* `ALT+CTRL+SHIFT + PgDn` — lower backlight intensity (low is usually set as something VERY DIM but useable in darkness)
+* `ALT+CTRL+SHIFT + 0` — backlight OFF (totalyl black screen)
+* `CTRL+SHIFT + 1-9` — former 10 level control, obsolete, 9 levels + 0 = OFF
+
+== f) TERMINAL SIZE / PANNING
+
+* each module has of course some native HI-RES possibilities which define VISIBLE viewport
+
+* crucial for 7xtgv is FIXED FONT/GLYPH RASTER as 6x10px, ALWAYS - THIS IS THE CORE OF 7XTGV;
+* you can calculate visible viewport on say 320x240 as 320/6 (round down to even cols #) and 240/10 => 52 x 24
+so on common 320x240 displays (often 3inch, 3.5inch, also 2inch or smaller) only 52x24 is visible
+and VERTICAL panning is necessary to view ENTIRE terminal logical size
+terminal logical size is defined in INI file for each boot zoom specificall, even defualt 80x24 is preffered
+* this means that MINIMAL NATIVE resolution for full 80x24 (80x32) terminal size are displays of 480x320
+(usually these displays are 3.5inch and higher, as 4inch, 5inch ... THIS is also some border for SPI-RGB565-FRAMWBUFFER controllerrs)
+(LARGER displays over 5inch usually DONT HAVE local VRAM memory in display controller and are nNOT connected over SPI RGB565)
+(For these cases is used mostly MIPI DSI today, DMA transfers from MCU connected memory, usually QSPI PSRAM on esp32 ...)
+
+* zoom control:
+* `CTRL+SHIFT + PgUp` — ZOOM OUT
+* `CTRL+SHIFT + PgDn` — ZOOM IN
+
+* there is also command VTZOOM
+(but it is still TEMPORARY - only persistend zoom is read from INI during boot)
+
+* panning control:
+* `CTRL+SHIFT + Home` — top/left corner or previous viewport (left-right / top-bottom)
+* `CTRL+SHIFT + End` — bottom/right corner OR next viewport (left-right / top-bottom)
+** for simple cases of HORIZONTAL PAN ONLY usually simple, 2 viewports, max 3 ... but it depends on ZOOM/SIZE
+
+* `CTRL+SHIFT + Down` — pan down
+* `CTRL+SHIFT + Up` — pan up
+* `CTRL+SHIFT + Right` — pan right
+* `CTRL+SHIFT + Left` — pan left
+
+== g) TERMINAL MODES as ANSI/VT100 vs VT52 (ADM3a is NOT yet implemented, but will be too)
+
+* switching terminal mode by keyboard and commands, possible:
+DEC graphics possible
+details are described in reference guide and depper implementation details in tecnical reference guide
+
+== h) TOOLING VTPUT / VTGET transfer = CTRL+SHIFT + X
+
+* transefering files, instead of XMODEM as this is more reliable here / simpler
+
+== i) DEMONSTRATION OF CP/M USAGE using CCP/7XF shell mode:
+
+* `7xf` — (activates shell mode, changes prompt to "unix-like")
+
+* `cd xterm256` — (changes to this directory, it is in fact some "userarea on A aka /a/...")
+* `cls`
+* `submit brot_bs` — (launching demo rendering of SGR mandelbrot benchmark which is initialized by GCLS command, expect single transaction)
+or
+* `submit brot_ps` — (there are two unmodified binary renderings/calculatioins of SGR mandelbrot,
+one is from Bill Shen, one is from Philip Stevens - re retro-comp group)
+
+* `cd mbasic`
+* `mbasic`
+* `ALT+PgDn` — selecting mbasic profile
+
+* `load "vtests"` — our simple terminal test program
+* `run`
+* `load "vtpal"` — our alternate palettes tes program
+* `run`
+
+== some progress notes and some unimplemented plans:
+
+* DDT configuring app bank/profile
+** link:260911_7xtgv_terminal_new_additions_DDT_history_plan.adoc[260911_7xtgv_terminal_new_additions_DDT_history_plan]
+
+* terminal desktop BIRDS EYE VIEW
+** link:260912-10_7xtgv_terminal_viewport_birdseye_xterm256_spec.adoc[260912-10_7xtgv_terminal_viewport_birdseye_xterm256_spec]
+** link:260914-23_7xtgv_generic_zoom_in_display_geometry_plan.adoc[260914-23_7xtgv_generic_zoom_in_display_geometry_plan]
+
+* SGR256/xterm256 advanced images
+** link:260912-20_7xtgv_xterm-256_cpm_image_demo_plan.adoc[260912-20_7xtgv_xterm-256_cpm_image_demo_plan]
+* 7XF shell additiona unix-alikes
+** link:260912-22%20RunCPM%20CP-M%20drive-user%20PIP%20and%20CCP%20quirks.adoc[260912-22 RunCPM CP-M drive-user PIP and CCP quirks]
+
+* Windows RunCPM + SDL 7xtgv-term
+** link:260914-00%207xtgv%20Windows%20SDL2%20desktop%20emulator%20plan.adoc[260914-00 7xtgv Windows SDL2 desktop emulator plan]
+
+* Terminal configs, VT52, ADM3a
+** link:260916_7xtgv_terminal_legacy_compatibility.adoc[260916_7xtgv_terminal_legacy_compatibility]
+
+* HDL-friendly memory for 1280x800
+** link:260918-13%20terminal%20profiles%20DEC%20graphics%20and%20native%207xtgv%20design%20notes.adoc[260918-13 terminal profiles DEC graphics and native 7xtgv design notes]
+(204x80 = 64kB for all 4 buffers)
+
+* CRT scanline effect, palettes
+** link:260918-23%20TP301%20input%20profiles%20and%20ANSI%20attribute%20marker%20notes.adoc[260918-23 TP301 input profiles and ANSI attribute marker notes]
+
+* CZ keyboard layout specials
+** link:260919-18%20CZ%20KBD%20layout%20keys%20to%20detect%2Boverride%20using%20these%20IDc%20--%20Screenshot_20260919_180409.adoc[260919-18 CZ KBD layout keys to detect+override using these IDc -- Screenshot_20260919_180409]
+** link:260919-19%20terminal%20keyboard%20physical%20keys%20and%20sparse%20overrides%20plan.adoc[260919-19 terminal keyboard physical keys and sparse overrides plan]
+
+* FAND / FANDINST / MZ-800 tweaking
+** link:260920-22%20Sharp%20MZ-800%20Czech%20CP-M%20BIOS%20source%20reference.adoc[260920-22 Sharp MZ-800 Czech CP-M BIOS source reference]
+** link:260921-00%20FAND%20MZ-821%20Lamac-LEC%20CP-M%20investigation.adoc[260921-00 FAND MZ-821 Lamac-LEC CP-M investigation]
+
+* 8bit KDB CORE KEYS
+** link:260921-18%207xtgv%20KBD%20CORE%20KEYS%20CONTROL%20%20--%20Screenshot_20260921_180114.adoc[260921-18 7xtgv KBD CORE KEYS CONTROL  -- Screenshot_20260921_180114]
+** link:260922-00%207xtgv%20private%208-bit%20core%20key%20codes%20and%20TP3%20proof.adoc[260922-00 7xtgv private 8-bit core key codes and TP3 proof]
+
+* FEATURES.TSV structured registry
+** link:260922-16%20structured%20feature%20registry%20design.adoc[260922-16 structured feature registry design]
+
+* Terminal mirror CTRL+SHIFT+X
+** link:260923-20%20transfer%20local%20DU%20target%20names%20and%20overwrite%20confirmation.adoc[260923-20 transfer local DU target names and overwrite confirmation]
+** link:260923-21%20VTPUT%20VTGET%20profile%20restoration.adoc[260923-21 VTPUT VTGET profile restoration]
+
+* MBASIC and BBCBASIC ascii formats
+** link:260924-17%20BASIC%20ASCII%20sources%20and%20ink%20test%20labels.adoc[260924-17 BASIC ASCII sources and ink test labels]
+* DEC graphics cleanup, more tests
+** link:260924-20%20DEC%20graphics%20review%20and%20expanded%20VTESTS.adoc[260924-20 DEC graphics review and expanded VTESTS]
+* Zommig/panning tweaks of behavior
+** link:260924-22%20zoom%20shortcut%20direction%20and%20narrow%20viewport%20follow-up.adoc[260924-22 zoom shortcut direction and narrow viewport follow-up]
+
+* Manual guides split
+** link:260924-23%20uncommitted%20work%20and%20documentation%20checkpoint.adoc[260924-23 uncommitted work and documentation checkpoint]
+** link:260926-12%20terminal%20guide%20split%20and%20ownership%20plan.adoc[260926-12 terminal guide split and ownership plan]
+
+* RAM INI editing and reliable save
+** link:260925-16%20RAM-backed%20INI%20and%20sequential%20autosave.adoc[260925-16 RAM-backed INI and sequential autosave]
+* 2D stepped panning, enhancement
+** link:260925-19%20two-dimensional%20stepped%20viewport%20panning.adoc[260925-19 two-dimensional stepped viewport panning]
+* 7XF advanced tins VFS vs RomWBW
+** link:260926-19%20CP-M%20extents%20RomWBW%20hd1k%20RunCPM%20and%20femtobox%20namespace%20technical%20preview.adoc[260926-19 CP-M extents RomWBW hd1k RunCPM and femtobox namespace technical preview]
+
+* 260126 RunCPM recovered compare
+** link:260928-16%20RunCPM%20recovered%20baseline%20and%20upstream%20drift%20note.adoc[260928-16 RunCPM recovered baseline and upstream drift note]
+** link:260928-23%20RunCPM%20core%20delta%20and%20upstream%20seams.adoc[260928-23 RunCPM core delta and upstream seams]
+** link:260930-08%20RunCPM%20core%20delta%20raw%20doc%2C%20our%20injections.adoc[260930-08 RunCPM core delta raw doc, our injections]
+** link:260930-13%20RunCPM%20cleanup%2C%20CCP%207XF%20and%20terminal-only%20build%20plan.adoc[260930-13 RunCPM cleanup, CCP 7XF and terminal-only build plan]
+** link:261001-0657%20optional%20RunCPM%20core%20hooks%20and%20upstream%20integration%20boundary.adoc[261001-0657 optional RunCPM core hooks and upstream integration boundary]
+** link:261003-1445%20Corrected%20boot%20Z80%20clock%20estimate.adoc[261003-1445 Corrected boot Z80 clock estimate]
+
+* HAL layout cleanup as single .h
+** link:261001-1322%20HAL%20challenge%20and%20readable%20board%20consolidation.adoc[261001-1322 HAL challenge and readable board consolidation]
+** link:261001-1322%20legacy%20graphics%20candidate%20excerpts.adoc[261001-1322 legacy graphics candidate excerpts]
+
+* 7xtgv-terminal FORMATING
+** link:261001-14_Formatting_Conservative_Embedded_CPP_Style.adoc[261001-14_Formatting_Conservative_Embedded_CPP_Style]
+
+* SD CARD WIRING, manual images
+** link:261001-1649%20SD%20card%20bus%20wiring%20on%20W535%20and%20RP2_2.adoc[261001-1649 SD card bus wiring on W535 and RP2_2]
+
+* !!! SdFat/SPI NATIVE (no SDMMC)
+** link:261001-1818%20W535%20SPI%20storage%20trial%20build%20checkpoint.adoc[261001-1818 W535 SPI storage trial build checkpoint]
+
+* 7xtgv code refactoing/renames
+** link:261001-2237%20VOL%20compatibility%20and%20XTGV%20injection%20naming%20review.adoc[261001-2237 VOL compatibility and XTGV injection naming review]
+** link:261001-2317%20XTGV%20integration%20naming%20and%20positive%20build%20guards.adoc[261001-2317 XTGV integration naming and positive build guards]
+
+* ESP32-P4 FASTEST porting
+** link:261002-09%20P4%20NewPanel%20HAL%20first%20checkpoint.adoc[261002-09 P4 NewPanel HAL first checkpoint]
+** link:261002-10%20P4%20memory%20caches%20and%20PSRAM%20execution.adoc[261002-10 P4 memory caches and PSRAM execution]
+** link:261002-10%20P4%20whole-build%20Os%20O2%20O3%20comparison.adoc[261002-10 P4 whole-build Os O2 O3 comparison]
+** link:261002-12%20SdFat%20buffer%20transfers%20and%20SPI%20clock%20audit.adoc[261002-12 SdFat buffer transfers and SPI clock audit]
+** link:261002-15%20P4%20full-frame%20redraw%20budget%20trial.adoc[261002-15 P4 full-frame redraw budget trial]
+** link:261002-17%20P4%20backlight%20calibration%20preparation.adoc[261002-17 P4 backlight calibration preparation]
+
+* SD CARDMARK detection CID/CSD
+** link:261002-13%20Global%20SdFat%20SPI%20clock%20and%20CARDMARK%20preparation.adoc[261002-13 Global SdFat SPI clock and CARDMARK preparation]
+** link:261003-11%20CARDMARK%20CSD%20decoding%20and%20CMD6%20query.adoc[261003-11 CARDMARK CSD decoding and CMD6 query]
+
+* RunCPM BOOT Z80 speedtest correct
+** link:261003-1445%20Corrected%20boot%20Z80%20clock%20estimate.adoc[261003-1445 Corrected boot Z80 clock estimate]
+
+* INI / BUF cache lowmem on rp2350
+** link:261003-22%20RP2_2%20INI%20cache%20pressure%20and%20Os%20trial.adoc[261003-22 RP2_2 INI cache pressure and Os trial]
+
+* SINGLE-CORE ESP32-C6 feasibility
+** link:261004-0030%20ESP32-C6%20single-core%20integrated%20runtime%20feasibility.adoc[261004-0030 ESP32-C6 single-core integrated runtime feasibility]
+** link:261004-1057%20EC6_147%20experimental%20HAL%20implementation.adoc[261004-1057 EC6_147 experimental HAL implementation]
+
+* BUILD OPTIONS in Arduino envs
+** link:261004-1302%20Build%20performance%20options%20and%20uniform%20optimization.adoc[261004-1302 Build performance options and uniform optimization]

@@ -25,7 +25,9 @@ class HelperTests(unittest.TestCase):
         transfer = bridge.load_console_transfer()
         for cd_row in (' A7:', ' A7: /a/mbasic'):
             link = object.__new__(transfer.Link)
-            link.screen = Mock(rows=[list(cd_row), list('A7>')], y=1)
+            # A drive-only prompt needs the CD fallback. A7> already proves
+            # the requested area and intentionally avoids that extra query.
+            link.screen = Mock(rows=[list(cd_row), list('A>')], y=1)
             link.fresh_screen = Mock()
             link.command = Mock()
             def check(predicate, **_kwargs):
@@ -91,8 +93,8 @@ class HelperTests(unittest.TestCase):
     def test_vt_transfer_borrows_fd_preserves_device_du_and_renames(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = pathlib.Path(temporary)
-            folder = root/'AF - tests'
-            folder.mkdir()
+            folder = root/'A/F'
+            folder.mkdir(parents=True)
             for direction in ('send', 'receive'):
                 prompt = bridge.TransferPrompt(root=root)
                 prompt.direction = direction
@@ -300,8 +302,8 @@ class HelperTests(unittest.TestCase):
     def test_xmodem_both_directions_du_and_filename(self):
         with tempfile.TemporaryDirectory() as temporary:
             root=pathlib.Path(temporary)
-            folder=root/'A6 - Benchmarks and CPU tests'
-            folder.mkdir()
+            folder=root/'A/6'
+            folder.mkdir(parents=True)
             (folder/'EXIST.INI').write_bytes(b'test')
             for key,direction in ((b's','send'),(b'r','receive')):
                 prompt=bridge.TransferPrompt(root=root)
@@ -321,16 +323,17 @@ class HelperTests(unittest.TestCase):
                 for bad in ('../bad.ini','/tmp/bad.ini','A/0/file.ini','..'):
                     with self.assertRaises(ValueError): prompt.chosen_path(bad)
 
-    def test_xmodem_du_missing_ambiguous_and_decimal_user(self):
+    def test_xmodem_du_missing_symlink_and_decimal_user(self):
         with tempfile.TemporaryDirectory() as temporary:
             root=pathlib.Path(temporary)
-            (root/'AF - FAND').mkdir()
+            (root/'A/F').mkdir(parents=True)
             prompt=bridge.TransferPrompt(root=root)
             for value in ('A16:','A6:','A/0','Z0:'):
                 with self.assertRaises(ValueError): prompt.select_directory(value)
             prompt.select_directory('a15:')
             self.assertEqual(prompt.du,'AF:')
-            (root/'AF - Duplicate').mkdir()
+            (root/'A/F').rmdir()
+            (root/'A/F').symlink_to(root, target_is_directory=True)
             with self.assertRaises(ValueError): prompt.select_directory('AF:')
             prompt.feed(b'rA6:\r')
             self.assertEqual(prompt.stage,'du')

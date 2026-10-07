@@ -2,7 +2,9 @@
 
 // Whole setup/loop implementations: runtime family, not individual board policy.
 // runCPM() stays in the sketch; no code-generating or include-path macros.
-#if XTGV_TERMINAL == 0
+#if XTGV_DESKTOP
+    #include "runtime_desktop.h"
+#elif XTGV_TERMINAL == 0
     #include "runtime_serial_runcpm.h"
 #elif defined(ARDUINO_ARCH_ESP32)
     #if CONFIG_FREERTOS_UNICORE

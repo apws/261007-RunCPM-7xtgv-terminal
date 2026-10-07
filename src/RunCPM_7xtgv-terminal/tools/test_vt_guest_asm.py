@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Assemble the project-owned display helpers in disposable native RunCPM."""
 import os
+import argparse
 import pty
 import select
 import shutil
@@ -12,8 +13,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 RUNCPM = ROOT / "build/RunCPM_linux/RunCPM"
-DRIVE = ROOT / "cpmdrive/A0 - CP-M core"
-ASM = ROOT / "cpmdrive/A4 - Assembler and development tools/ASM.COM"
+from card_paths import card_root, require_files
+DRIVE = card_root() / "A/0"
+ASM = card_root() / "A/4/ASM.COM"
 
 
 def until_bytes(fd, needle, timeout=15):
@@ -33,6 +35,10 @@ def until_prompt(fd, timeout=15):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--install', action='store_true', help='Replace tested local card COM files')
+    args = parser.parse_args()
+    require_files(ASM, DRIVE / 'LOAD.COM', DRIVE / 'VTINFO.ASM', DRIVE / 'VTZOOM.ASM')
     if not RUNCPM.is_file():
         raise SystemExit("Build native RunCPM first: make -C src/RunCPM_linux")
     with tempfile.TemporaryDirectory(prefix="7xtgv-vt-asm-") as temp:
@@ -101,8 +107,9 @@ def main():
             until_bytes(master, b"\x1b[>72v")
             if b"VTINFO: NOT SUPPORTED" not in until_prompt(master, timeout=15):
                 raise AssertionError("Unanswered query did not time out")
-            for name in ("VTINFO", "VTZOOM"):
-                shutil.copyfile(drive / f"{name}.COM", DRIVE / f"{name}.COM")
+            if args.install:
+                for name in ("VTINFO", "VTZOOM"):
+                    shutil.copyfile(drive / f"{name}.COM", DRIVE / f"{name}.COM")
             os.write(master, b"EXIT\r")
             if process.wait(timeout=10):
                 raise AssertionError("RunCPM exited unsuccessfully")

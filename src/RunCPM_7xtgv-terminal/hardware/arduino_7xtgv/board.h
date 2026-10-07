@@ -43,6 +43,7 @@ bool xtgvBoardStorageSetMHz(uint8_t mhz);
 void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus &status,
                                 void (*write)(const char *));
 void xtgvBoardPrintBootExtra(void (*write)(const char *));
+void xtgvBoardPrintStorageSummary(void (*write)(const char *));
 Arduino_GFX *xtgvBoardCreateDisplay();
 bool xtgvBoardBeginDisplay(Arduino_GFX *display);
 vt::LineHistory *xtgvBoardCreateHistory();
@@ -52,11 +53,7 @@ void runCPMHardwareReboot();
 
 // One direct selection. No include-path macros or per-feature dispatchers.
 #if defined(RUNCPM_TARGET_JC8048W535)
-    #if defined(XTGV_W535_SD_MMC)
-        #include "boards/jc8048w535_sdmmc.h"
-    #else
-        #include "boards/jc8048w535.h"
-    #endif
+    #include "boards/jc8048w535.h"
 #elif defined(RUNCPM_TARGET_ESP32C6_LCD_1_47)
     #include "boards/waveshare_esp32c6_lcd_1_47.h"
 #elif defined(RUNCPM_TARGET_JC8012P4A1C)
@@ -70,6 +67,18 @@ void runCPMHardwareReboot();
     #include "boards/pico_rp2350_touch_lcd_2.h"
 #else
     #error "No 7xtgv board header matches this Arduino build"
+#endif
+
+#if XTGV_DESKTOP
+#include "../../desktop/platform.h"
+#define XTGV_STORAGE_HAS_SPI_CLOCK 0
+#define XTGV_STORAGE_HAS_RAW_CARD 0
+#endif
+#ifndef XTGV_STORAGE_HAS_SPI_CLOCK
+#define XTGV_STORAGE_HAS_SPI_CLOCK 1
+#endif
+#ifndef XTGV_STORAGE_HAS_RAW_CARD
+#define XTGV_STORAGE_HAS_RAW_CARD 1
 #endif
 
 // Header-only identity queries; no hardware access or stored runtime state.

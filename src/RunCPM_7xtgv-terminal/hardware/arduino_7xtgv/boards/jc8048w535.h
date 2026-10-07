@@ -34,7 +34,7 @@ static constexpr uint32_t XTGV_STORAGE_HZ = 20000000UL;
 
 // Only the sketch defines this guard. Functions below have ordinary external
 // linkage; calling them from the terminal does NOT change task/core ownership.
-#ifdef XTGV_HAL_IMPLEMENTATION
+#if defined(XTGV_HAL_IMPLEMENTATION) && !XTGV_DESKTOP
     #include <Arduino.h>
     #if XTGV_TERMINAL
         #include <Arduino_GFX_Library.h>
@@ -94,6 +94,16 @@ void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus &status,
 #endif
 
 // No additional startup credit on this board.
+#if defined(ARDUINO)
+void xtgvBoardPrintStorageSummary(void (*write)(const char *)) {
+    char message[80];
+    snprintf(message, sizeof(message),
+             "Storage: Arduino SdFat/SPI (%lu MHz)\r\n",
+             (unsigned long)(xtgvStorageSpi.requestedHz() / 1000000UL));
+    write(message);
+}
+#endif
+
 void xtgvBoardPrintBootExtra(void (*)(const char *)) {
 }
 

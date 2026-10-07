@@ -1,0 +1,378 @@
+= Sinclair QL channels and windows: inspiration for native 7xtgv
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+
+Research sidenote, 261007. DONE means the *research note* is complete, not
+that a channel API or native window compositor has been implemented.
+Historical descriptions below are paraphrases; the final section preserves
+Petr's request verbatim. Suggested applications to 7xtgv are our analysis,
+not claims made by the historical manuals.
+
+== First: which project is the objective?
+
+[IMPORTANT]
+====
+*7xtgv-native is the primary objective of this endeavour.*
+The implemented *7xtgv-terminal* and its RunCPM/VT/ANSI compatibility are a
+working development vehicle and test environment. They are not the definition
+of the native display architecture.
+
+The intended direction is to express terminal behaviour through native
+7xtgv primitives, with compatibility state and translation in software.
+This does not mean the current terminal already uses the proposed native
+four-byte cell format.
+====
+
+Historical notes sometimes use `7xtgv` for the terminal product. In this note:
+
+* *7xtgv-native*: the intended cell/glyph/colour architecture and its future
+  hardware-friendly implementation.
+* *7xtgv-terminal*: the implemented terminal parser, buffers, rendering,
+  interaction and hardware/desktop integration.
+* *Channel-inspired services*: an idea for software above native cells;
+  not a new cell format, an approved protocol, or a delivered feature.
+
+Local design anchors:
+
+* link:260910-13%207xtgv%20v0.1%20native%20specification%20and%20implementation%20plan.adoc[Native v0.1 specification]: cell layout, glyph masks, modes, brightness and software composition.
+* link:260918-13%20terminal%20profiles%20DEC%20graphics%20and%20native%207xtgv%20design%20notes.adoc[Terminal profiles and native design]: compatibility semantics belong above native display primitives.
+* link:261005-7xtgv-runcpm-z80pack-romwbw-terminal-notes.adoc[Terminal architecture notes]: four-byte cells, compatibility and scrolling questions.
+
+The broader milestones document is deliberately not rewritten in this
+checkpoint; Petr reserved its objective/naming clarification for a next step.
+
+== Historical bearings
+
+[cols="1,3",options="header"]
+|===
+|Period |Relevant distinction
+|1978
+|VT100 generation. DEC's first User Guide is dated August 1978; its terminal model uses character coordinates and host control sequences.
+|1984
+|Original Sinclair QL and its QDOS/SuperBASIC screen-channel model. Sinclair's second-edition User Guide is copyright 1984.
+|Later QL extensions
+|QJUMP's Pointer Environment adds facilities beyond original QDOS windows. The consulted QPTR fifth-edition manual carries copyright 1988; that is not a claim about its exact first release date.
+|Around 1990
+|VT420 generation. The archive lists an installation manual dated November 1989. The programmer reference consulted here is February 1992: its edition date must not be mistaken for the terminal's introduction.
+|===
+
+Sources: https://bitsavers.org/pdf/dec/terminal/vt100/EK-VT100-UG-001_VT100_User_Guide_Aug78.pdf[DEC VT100 User Guide],
+https://www.sinclairql.net/djw/docs/ebooks/olqlug/index.html[Sinclair User Guide edition information],
+https://www.sinclairql.net/djw/docs/manuals/QPTR%20manual.pdf[QJUMP QPTR manual],
+https://bitsavers.org/pdf/dec/terminal/vt420/[VT420 primary-manual archive listing],
+https://vt100.net/mirror/mds-199909/cd3/term/vt420rm2.pdf[DEC VT420 Programmer Reference].
+The November 1989 VT420 PDF itself could not be retrieved during this review;
+its date here is explicitly the archive's identification, not a verified
+shipping date. No historical influence from QL to DEC is implied.
+
+== QL: a channel is not merely a rectangle
+
+=== Connection, state and device
+
+QDOS opens a named device and returns an I/O channel ID. SuperBASIC's `#n`
+is an entry in its own channel table, not that OS ID. Files, serial devices,
+pipes and screen devices fit this connection model; device-specific operations
+extend basic byte I/O.
+
+* `SCR`: output window.
+* `CON`: window with keyboard input; line input can use the system editor.
+* Default SuperBASIC channels `#0`, `#1`, `#2` are all consoles.
+* A screen channel carries its own cursor, colours, fonts and drawing state.
+* Opening several channels does not itself start several jobs.
+* Ctrl+C normally cycles consoles *waiting for input*, not arbitrary windows.
+
+Original windows can overlap, but QDOS does not save and restore the obscured
+area. Horizontal window position and width have even-coordinate restrictions.
+Thus “pixel-positioned” does not mean every operation accepts every possible
+unaligned coordinate.
+
+Screen operations are OS calls, not simply ANSI escapes hidden in `PRINT`.
+Byte redirection does not make graphics/window operations meaningful on a file.
+Source: https://www.sinclairql.net/djw/docs/manuals/qltm.pdf[QL Technical Guide],
+sections 5.0--5.3, printed pages 24--30.
+
+=== How a programmer uses it
+
+Typical SuperBASIC roles are `#0` commands/errors, `#1` output/graphics and
+`#2` listings. An application can open other channels and address each explicitly.
+
+[cols="1,3",options="header"]
+|===
+|Command family |Purpose
+|`OPEN`, `CLOSE`, `PRINT #n`, `INPUT #n`
+|Manage and use a connection.
+|`WINDOW`, `BORDER`
+|Set a screen rectangle and its border.
+|`AT`, `CURSOR`, `CSIZE`
+|Choose row/column position, pixel position, or character size.
+|`INK`, `PAPER`, `STRIP`, `OVER`
+|Control drawing colour and text-background/overprinting behaviour. STRIP supplies the text background for `OVER 1`; setting PAPER also resets STRIP.
+|`CLS`, `SCROLL`, `PAN`
+|Clear or move contents within a window; text output wraps and scrolls there.
+|`POINT`, `LINE`, `CIRCLE`, `SCALE`
+|Draw graphics using a window-relative, scalable coordinate system.
+|===
+
+Original illustrative fragment, not executed on a QL in this review:
+
+[source,text]
+----
+OPEN #3,scr_
+WINDOW #3,200,80,24,24
+PAPER #3,0: INK #3,7: CLS #3
+PRINT #3,"Status channel"
+CURSOR #3,10,25
+PRINT #3,"Pixel-positioned text"
+CLOSE #3
+----
+
+`AT` provides a convenient character grid; `CURSOR` is not bound to that grid.
+Closing the channel is not a promise to restore whatever was behind it.
+Sources: Sinclair User Guide
+https://www.sinclairql.net/djw/docs/ebooks/olqlug/QL%20Manual%20-%20Concepts.htm[Concepts]
+and https://www.sinclairql.net/djw/docs/ebooks/olqlug/QL%20Manual%20-%20Keywords.htm[Keywords].
+
+=== What sits below the text
+
+The QL video hardware reads a memory-mapped picture; it does not fetch native
+character codes from a hardware text-cell screen. QDOS rendering supplies the
+pixels. Consequently a glyph already drawn is part of the picture, not a
+persistent character object understood by the display hardware.
+The service manual describes the ZX8301's timed display-memory reads and
+priority over CPU memory access.
+Source: https://www.sinclairql.net/srv/qlsm1.html[QL Service Manual, sections 5.2 and 6.1].
+
+For our comparison, the important difference is *what the display remembers*:
+pixels versus compact instructions for constructing each cell. Both ultimately
+produce a raster image; that superficial similarity does not make their
+programming models equivalent.
+
+=== Original windows versus the Pointer Environment
+
+QJUMP's later Pointer Interface extends the screen driver with non-destructive
+windows, pointer handling and save facilities. Its Window Manager supplies
+utilities operating on window definitions, including drawing, moving and input.
+Together these form the Pointer Environment; the SuperBASIC Pointer Toolkit
+exposes those services to BASIC.
+Source: https://www.sinclairql.net/djw/docs/manuals/QPTR%20manual.pdf[QPTR fifth edition],
+Introduction, printed page 1.
+
+For 7xtgv, this is a useful separation of responsibilities, not an instruction
+to reproduce a whole QL desktop. Independent output regions, overlap recovery,
+input selection, menus and process scheduling are *different features*.
+
+== Terminal scrolling is a different contract
+
+=== VT100: a band of complete rows
+
+`DECSTBM` selects top and bottom margins; the horizontal extent remains the
+terminal width. `DECOM` determines origin-relative cursor addressing.
+This permits an application to retain a header/footer while scrolling its
+central text. It does not create independently named channel objects or
+pixel rectangles.
+Source: https://oldmanprogrammer.net/webapps/vt100/doc/vt100-ug/chapter3.html[DEC VT100 User Guide, programmer information].
+
+That is the basic model exercised by our current VTESTS scrolling checks.
+The *logical* terminal width matters: panning a small physical viewport does
+not narrow the scrolling band.
+
+=== VT420: rectangular character regions, still not QDOS
+
+The VT420 adds `DECSLRM` left/right margins in VT400 mode when `DECVSSM`
+is enabled (`CSI ? 69 h`). Together with top/bottom margins this permits a
+rectangular *character* scrolling region. Its rectangular copy/erase/fill
+operations are another capability, distinct from margin selection.
+
+Page memory and dual-session display are also distinct from an arbitrary
+collection of QDOS I/O channels. A rectangle does not automatically acquire
+its own file handle, job, independent parser or saved-overlap storage.
+Source: https://vt100.net/mirror/mds-199909/cd3/term/vt420rm2.pdf[VT420 Programmer Reference],
+page-format and rectangular-area chapters; margins on printed pages 133--136.
+
+These are historical comparison points, *not claims of VT420 support in our
+terminal*. Adding rectangular native software windows would not require
+implementing the entire VT420 protocol first.
+
+== Comparison with our two layers
+
+[cols="1,2,2,2",options="header"]
+|===
+|Question |QL model |7xtgv-terminal today |7xtgv-native objective
+|What is addressed?
+|Channel and its drawing rectangle.
+|Terminal rows/cells, parser state and viewport; additional graphics paths.
+|Native cells, glyph resources, modes, colours and levels.
+|What is stored for display?
+|Raster picture plus software channel state.
+|Terminal-specific character/colour/flag arrays; board-dependent presentation buffers.
+|Four-byte native cells, plus shared fonts/palettes and optional desktop background.
+|Who interprets legacy controls?
+|Not inherently an ANSI terminal service.
+|The terminal parser.
+|A software compatibility client above native rendering.
+|Where do independent windows belong?
+|Screen/console driver and, later, additional window services.
+|Not implied by profile/history banks or a scroll band.
+|Proposed software surfaces/compositor above cell RAM.
+|Must text begin at any pixel?
+|Pixel-positioned text, subject to operation/mode restrictions.
+|Renderer can draw pixels, but normal text has a cell grid.
+|No arbitrary pixel text-origin promise in the base native cell model.
+|===
+
+The QL column summarizes the sources above. Our columns follow the linked
+native design documents and current
+`src/RunCPM_7xtgv-terminal/src/terminal/terminal.h`.
+In particular, today's `Underline`, `Reverse`, `Graphics`, `Blink` flags are
+part of the terminal representation, not evidence of native attribute bits.
+
+=== A framebuffer backend is not a framebuffer API
+
+EP4_10 and the SDL presenter may use framebuffer storage to display the
+result. Arduino_GFX rasterizes drawing operations. Neither fact requires
+the future native application interface to offer arbitrary pixel placement.
+
+Likewise, our Mandelbrot/pixel experiments do not prove that native SEMI
+is a full-resolution bitmap mode. The specified SEMI subdivision is *2x5
+subcells per 6x10 cell*: an 80x24 grid gives 160x120 semigraphics positions.
+
+Special software could precompose pixel effects into glyph tiles or an
+external background. That costs resources and needs defined semantics;
+it is not a free capability of the base cell format and is not proposed here
+as a way around the intended constraints.
+
+== Down to the four native bytes
+
+For TEXT/WIND/INST, the local specification defines:
+
+* `CHAR_A`: ink glyph mask.
+* `CHAR_B`: paper-cutout mask, *not* a second independently coloured glyph.
+* `ATTR`: mode, paper index and ink index.
+* `EXTA`: separate paper and ink level nibbles.
+
+At a glyph pixel: A set means ink; otherwise B clear means paper; otherwise
+the external hard-desktop background shows through. The compact representation
+is powerful precisely because these meanings stay specific.
+
+An 80x24 surface needs `80 * 24 * 4 = 7680` bytes for cells, before fonts,
+palettes, software window state or a background image. It is not a complete
+system-memory budget. Nor are the four conceptual byte planes a requirement
+to use four separate physical allocations.
+
+=== No cheap hidden terminal-attribute bits
+
+The following are implementation approaches to evaluate, not newly assigned
+native protocol features:
+
+[cols="1,3",options="header"]
+|===
+|Effect |Software treatment above the native cells
+|Underline
+|Select/create a glyph variant with the underline pixels. Allocate/cache variants deliberately: changing a shared glyph can affect every cell using it, and the glyph namespace is finite.
+|Blink
+|Keep original content and timing outside the displayed native cell; alternate visible and hidden cell/glyph content. For opaque text, a blank A glyph can reveal paper. Preserve the intended B mask.
+|Reverse
+|Resolve the desired pixels, not just swap unequal-width colour indices. For an opaque two-colour cell, complementing the A mask exchanges the ink/paper pattern without swapping indices. Cutouts and more complex effects require separate handling.
+|Intensity/fade
+|Use the defined EXTA levels and palette/LUT interpretation. These are logical colour levels, not alpha and not the physical panel backlight.
+|Cursor
+|Treat its visible phase as an overlay/composition decision; preserve underlying content for restoration. A cursor is not an accidental permanent edit to the application surface.
+|===
+
+Two traps deserve explicit warnings:
+
+* Ink level zero means black under the stated v0.1 semantics, not “the glyph
+  disappears into whatever paper is behind it”. A non-black paper disproves
+  that shortcut immediately.
+* Native ink and paper index ranges differ. An unrestricted ANSI colour-role
+  swap is not automatically representable by swapping native index fields.
+
+This is why the compatibility client may need more metadata than the final
+four-byte output cell. Native display memory is the resolved presentation,
+not a complete history of how an ANSI application requested it.
+
+== What we could borrow from channels
+
+The strongest inspiration is *explicit ownership of output state*, not QL
+pixel coordinates. One program could address a log, a command area and a
+status area without manually saving a global cursor and colours on every write.
+
+=== Smallest useful experimental design
+
+No API names or wire command numbers are reserved by this sketch:
+
+. A software channel handle identifies a destination and its state.
+. A display destination owns a cell-aligned surface: dimensions, local cursor,
+  wrapping/scrolling policy, default ink/paper and optional input queue.
+. Writes resolve into that surface's native cells; a VT/ANSI parser is only
+  one possible producer. Native applications need not emit ANSI at all.
+. A compositor clips/places visible surfaces into the final cell grid.
+  Overlap order and restoring uncovered content are explicit policy.
+. Rendering consumes the resolved grid using the native format.
+
+This layering keeps a channel distinct from a surface: a file/log sink might
+accept bytes but reject drawing operations. Capability checks should be
+explicit, not pretend that every destination implements every operation.
+
+=== A rectangular scrolling example, without pixels
+
+Imagine a native surface 30 cells wide and 8 high at desktop column 5, row 4.
+On a newline at its bottom, software moves only that surface's rows upward,
+fills its last row using an explicit blank native cell, then marks the
+affected rectangle dirty. Neighbouring cells remain unchanged.
+
+This is rectangular scrolling in *cells*, not arbitrary pixel-coordinate
+scrolling. It is compatible with a simple final cell rasterizer. It does not
+require a hardware window manager or a new blink/underline bit.
+
+For overlapping surfaces, copying directly within the visible desktop is
+insufficient: it could copy another window's pixels/cells. Keep source surfaces
+or require application redraw, then compose. Start with non-overlapping panes
+if resource use is the priority.
+
+=== Boundaries worth retaining
+
+* A channel is not a task/thread. Several channels can belong to one program.
+* A history/profile bank is not automatically a screen surface or process.
+* Input focus is independent of output: background output must not steal keys.
+* Commands and their data need ordered ownership; concurrent producers must
+  not accidentally share a half-parsed control sequence or global drawing state.
+* Per-surface clipping, colour state and cursor state should be deterministic.
+* Retained source surfaces consume RAM. Budget them separately from the one
+  final native grid; do not promise unlimited windows on small MCUs.
+* WIND supplies native visual vocabulary; it does not itself manage windows.
+* QL compatibility, QDOS emulation, pixel windows and VT420 emulation are not
+  implied requirements.
+
+The QL is a particularly coherent inspiration, but this note does not claim
+that it invented all channel-based I/O. Our useful takeaway is narrower:
+*make independent destinations pleasant to program while keeping native
+7xtgv cells the primary display contract*.
+
+== Checkpoint and possible next discussion
+
+* Completed: primary-manual research, comparison with local native documents,
+  explicit distinction between original QDOS and later Pointer Environment.
+* Verification: inspected the Technical Guide's window page visually;
+  checked command syntax against the keyword reference. The BASIC example
+  is illustrative, not emulator-tested.
+* No firmware, native ABI, parser behaviour, card content or hardware changed.
+* Channel-inspired services remain brainstorming, not an implementation plan.
+* Next separate documentation task: clarify native primacy and naming in the
+  high-level milestones narrative without rewriting historical evidence.
+
+== Petr's request -- verbatim
+
+The following is the complete request that commissioned this note, including
+its spelling and punctuation. It is not normalized into specification language.
+
+[listing,subs="none"]
+----
+btw, that QL concept of channels is unique, I am still using theirs vocabulary as INK and PAPER ... may you pls put into docs as separate sidenote adoc complete overview of that Sinclair QL concept of channels for text and screen windows, how they used this and how it differs from our text/cells based terminal (down to 7xtgv-native ?) and generally terminal capabilities as you noted now that VT420 (years when it appeared also?) - I quite like that concept of channels, while QL dont have cell based display and they rendeer everything into framebuffer and may position on arbitrary pixels coords - this is (will be) impossible in 7xtgv-native (and our VT/ANSI terminal emulation is only intermediate testing step for full 7xtgv-native-only mapping to VT/ANSI - so no cheap blinking, no cheap underlines, while our 4byte cell WILL allow to simulate these attrs as we have already documented - that 7xtgv-native IS REALLY PRIMARY OBJECTIVE of this entire endeavor ... AND we may in fact take inspiration from QL channels too
+
+pls, do research of that matter, you may not copy some QL docs, but by your words, in context of 7xtgv-native, describe fully and compare QL channels and windows (text/screen) usage to what you know till now about "7xtgv" - btw, we/you  since start of project used the "7xtgv" tag in place of this entire "7xtgv-terminal" often, which was not precise, but nevermind, it is in historic docs, okay ... also our recent "milestones" adoc will need some clarifications in relation to 7xtgv-native PRIMARY OBBBJECTIVE :-) but this is okay in next step ... 
+
+now, even it is mostly unrelated, make pls this excursion into QL :-), tnx
+(and include verbatim also this my wish :-)
+----

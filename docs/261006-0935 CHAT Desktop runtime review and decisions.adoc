@@ -1,0 +1,292 @@
+= CHAT: Desktop runtime review and decisions
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+:prewrap:
+
+== Scope and reading order
+
+This records the substantive 261006 emulator review discussion: Petr's initial
+five-point review request, his follow-up, Ari's complete review response,
+Petr's second comments, Ari's complete second response, and Petr's final scope
+and documentation decisions. Speaker text below is preserved as literal text,
+including spelling, Markdown and examples. The surrounding headings are editorial.
+Operational tool calls and interim progress messages are omitted. This is not
+an export of the entire older hardware-development conversation.
+
+Earlier context is recorded in
+link:261005-2012%20Arduino-compatible%20SDL%20desktop%20emulator%20analysis%20and%20plan.adoc[the initial proposal]
+and link:261005-2120%20Headless%20Arduino%20desktop%20build%20and%20real%20GFX%20proof.adoc[the headless checkpoint].
+The governing decisions are consolidated in
+link:261006-0935%20PLAN%20Desktop%20runtime%20using%20existing%20board%20HALs.adoc[the current PLAN].
+Proposals discussed and later rejected here are not implementation instructions.
+
+== 1. Petr: review request
+
+[listing,subs=none]
+----
+hi Ari good morning :-) ok, I now switched to GPT6-Astra-high also, forgot again, as this is complext task ... pls I need here from complete review OF your results again - Iread both our latest emulator documents, proposal/plan and work done and I have few questions/comments:
+
+a) first, I copied along with cpmdrive folder also REAL "cpmcard" content (so this is orifinally FAT32, so case insensitive) - will be good/necessary to be able to work with such folder "cpmcard" in linux hostfs BUT also allow to map (probably in /boards/ item to any mounted REAL sdcard (so fat32, hope linux host file api is transparent to underlying filesystem, with respection of case-sensitivity - we in fact are okay with case-INsensitive access there, so even if /boards/ item maps to linux folder (so "cpmcard") or some arbitrary path to usb-reader mounted sdcard (the REAL one, shared till now between our HW boards, when I always reinsert our "evolved" card content to new module, and that card content is our "source of truth" - will be VERY usefull when working on emulator (emulators boards in fact, next point) to use ALSO THIS card content too ... like if it is just OTHER HW tested ...)
+
+b) not sure if your approach is reflecting that now fully, but I would realllike to have possibility to have in /boards/ items like SDL_1280x800.h and SDL_480x320.h ... you know, just to compile with arduino_abstraction_7xf, and that selected "target" for desktop, like if this is REAL HW board (sure no specific MCU, no specific TFT module/controller, so no SPI, but in fact, having the build behaving like if this /boards/ SDL_xxxxx item is separate target (to be able to defina that large 1280x800 but also smaller one as 480x320 - as you noted, the big one may not fit in case host has not such large resolution - so be able to really emulate EXACT resolution of targets, to switch them and to TEST this way on desktop (also for you) ee visual behavior of similar size real HW display in form of desktop SDL window, without necessity of target hardware/terminal size - OR ... there is ANOTHER ALTERNATIVE ... just to select REAL /boards/ item like say "jc8048w550.h" but specify during build it as EMULATOR, so emulate ONLY that defined display hi-res size using SDL output window, and maintain ALL other existing (tooling, mirror) code almost intact to communicate with this desktop "emulated arduino_abstraction_7xtgv + SDL display" - so providing input from our mirror terminal and grab to him even the output from desktop cells buffer .... it may be AGAIN simplification in fact for you here, switching only "transport layer" from boards specific USB-SERIAL to something in-memory/process ...
+
+c) I am not sure how we still need tht "W535_SD_MMC" in codebase, this was misunderstood adapting of SdFat to SD_MMC, so we can just simply ALWAYS for these inherently not fast access to sdcad use that SdFat abstraction, always, including on desktop (where the adapter for linux fs approach IS necessary and requested, sure, expecting the hosti is fast as hell, so any aditional layer of such emulator is okay ...)
+
+d) this ALL in fact looks more like some "limited arduino layer desktop emulation", with our selected primitives as Arduino_GFX and SdFat and probably Serial and those calls used by Arduino, which is fortunatelly based on C++ so some emulation adapters are quite possible and switchable, as things are based on C++ abstract classes (SdFat also?? Serial also ??) ...
+- btw in spite of this we MAY in fact also have tht faked SPI (raw, doing nothing), just only to satisfy SdFat emulation adapter ... tell me even more about current approach ...
+
+e) you know, in fact by fetching display resolution from REAL HW board "HAL definition header" and flaging such build as "desktop emulated" (sure only that resolution is crucial, as everything else is abstracted by Arduino_GFX, and specifics of FAT32 filesystem connection are not important and abstracted by SdFat...) and switching only in our tooling/mirror that "transport layer from USB to something simpler, everything we have till now may stay the same, and WILL BE ALSO TESTED by such emulations ... when only SDL window may be shown as "output only canvas/window" ... the emulator is expected anyways as "developers tool" for porting to other hardware (again, only different display resolution is important, everything else is abstracted by /boards/ item code ...), so even having "mirror terminal" used at least for INPUT (may be not emiting output? or yes, to simulate even mirror behavior with different configured terminal sizes in our defaults and persisted in INI etc) as "parallel" to SDL window output is not bad...
+
+not sure if this is all well understood - I am trying to find SIMPLEST viable path just to "emulate that ours RunCPM with output to SDL window", even based on current hardware definitions, with unnecessary pahts skipped ....
+----
+
+== 2. Petr: follow-up during review
+
+[listing,subs=none]
+----
+(review pls this and compare what you have now, all very good work already ...)
+----
+
+== 3. Ari: first review response
+
+[listing,subs=none]
+----
+Good morning, Petr :-) Yes—I understand the intended direction, and **your mirror-driven, output-only SDL window is the simplest next step**. I reviewed the implementation and both documents against your comments. The existing work is a usable foundation, but several parts need adjustment.
+
+First, a correction to yesterday’s report: all four headless tests still pass, but saying “the first four acceptance stages are implemented” was too broad. We have working proofs across those stages; the planned full visual fixtures, persistence recovery and representative card-content tests are not all covered yet.
+
+**a) `cpmcard` and a mounted real SD card**
+
+The adapter already accepts an arbitrary existing directory as its root. That can be either:
+
+- Your copied `cpmcard` tree.
+- The mount point of the real FAT32 card in a USB reader.
+
+The operating system handles the underlying filesystem. However, copying FAT32 files onto an ordinary Linux filesystem does **not** preserve case-insensitive lookup. Our current adapter inherits that difference.
+
+This matters with your actual copy: I found mixed-case filenames such as `Fand.com`. RunCPM can list such a name in uppercase, then attempt to open `FAND.COM`; our current Linux adapter can fail there.
+
+The correction belongs entirely in the host storage adapter: case-insensitive lookup for each path component, consistently applied to open, existence checks, creation, removal and rename. If a Linux directory contains both `TEST.COM` and `test.com`, we should report that ambiguity rather than choose arbitrarily.
+
+I would select the card root at launch, with an optional default in the launcher—not require recompilation or put your machine-specific mount path into every board header. The selected root stays fixed during the run. Ordinary INI/history saves would then reach that selected card, just as on hardware.
+
+**b) Separate SDL boards versus reusing existing boards**
+
+Both are possible. For your intended testing, I now prefer **selecting an existing board plus a desktop-build mode**.
+
+There is already a useful boundary in every board header: its constants and defaults precede the `XTGV_HAL_IMPLEMENTATION` section. We can reuse those definitions while supplying desktop implementations of storage, display creation, backlight and runtime.
+
+Importantly, we should reuse more than resolution:
+
+| Board information | Why it matters on desktop |
+|---|---|
+| Physical width/height | Exact framebuffer and visible viewport |
+| `display_id` | Selects the same existing INI section |
+| Logical limits and zoom defaults | Reproduces terminal sizing and panning |
+| Indicator offsets and rendering settings | Reproduces relevant visual behavior |
+
+Your copied INI already has sections for all six physical display IDs. Yesterday’s new `SDL_1280` identity does **not** select `[display:EP4_10]`, even though both have 1280×800 pixels. Reusing the real board’s display identity fixes that mismatch.
+
+The running application should still identify its **backend as desktop**, separately from the display configuration it models.
+
+One detail needs deliberate handling: some physical boards draw directly and do not require a framebuffer `flush()`. The SDL presenter must still notice their completed drawing. We cannot blindly reuse every physical-driver setting and rely solely on yesterday’s Canvas flush counter.
+
+Dedicated `SDL_1280x800` or `SDL_480x320` configurations remain useful for arbitrary layouts later. They need not duplicate the entire desktop implementation.
+
+Window scaling is separate: a 1280×800 emulated framebuffer can be displayed in a smaller window without changing its terminal geometry.
+
+**c) The remaining W535 SD_MMC code**
+
+You are right: it is a retained legacy comparison route, not a dependency of this emulator.
+
+It remains in the alternate board header, board selection, `--w535-sd-mmc` build option, CARDMARK condition and associated tests. Current normal board configurations use SdFat/SPI.
+
+It can be removed from active code and tooling, while leaving the historical measurements in documentation. CARDMARK should depend simply on whether the selected backend provides raw-card access; it should not need a W535-specific exception.
+
+**d) What the “Arduino emulation” actually does**
+
+Your description is accurate: this is a limited desktop implementation of the Arduino services our application uses.
+
+| Service | Current implementation |
+|---|---|
+| Graphics | Real Arduino_GFX and real `Arduino_Canvas` |
+| Files | Our host adapter supplies the required `SD`/`File` operations |
+| Serial | Minimal input queue; output currently discarded |
+| Time | Native monotonic clock and thread sleeps |
+| Runtime | Main terminal/rendering thread plus RunCPM worker |
+
+One C++ distinction: these replacements do not all rely on abstract base classes. Arduino_GFX provides virtual graphics operations, but our storage replacement works primarily by exposing the same names and methods at compile time. It does not derive from a universal SdFat filesystem interface.
+
+Consequently, **the desktop build currently uses a SdFat-compatible application interface, not the real SdFat filesystem implementation**. The real SdFat library would expect a block device containing FAT structures; a no-op SPI implementation would not turn a host directory into that device.
+
+We could provide dummy SPI calls if some remaining caller needed them, but currently none does. Adding them would not improve compatibility with the code we actually run.
+
+**e) Existing mirror as input and parallel output**
+
+This is the strongest simplification in your proposal.
+
+The terminal runtime already produces its mirror from the terminal’s cell state. We can retain that exact path:
+
+```text
+Existing Konsole/Kitty mirror ↔ desktop Serial transport
+                                      ↕
+                             Existing terminal runtime
+                                ↕              ↓
+                              RunCPM      Arduino_GFX
+                                               ↓
+                                          SDL window
+```
+
+That reuses our existing keyboard translation, Czech-layout handling, chords, profiles and mirror reconstruction. SDL initially needs only display presentation and window events.
+
+For Linux, a **PTY—a local virtual terminal endpoint—looks like the smallest transport change**. The existing tools already operate on terminal file descriptors. There is one verified incompatibility: their serial setup unconditionally sets DTR; I checked a local PTY and that operation returns “inappropriate ioctl.” We therefore need an explicit desktop transport mode that skips physical serial controls and handles connection/snapshot state.
+
+This is a small transport adaptation, but not literally zero changes. Serial output buffering, backpressure and mirror reconnect behavior also need implementation. Windows will need its own transport decision later.
+
+My revised recommendation is therefore: **reuse the selected real board’s display configuration, use the host SD/File adapter with case-insensitive lookup, connect the existing mirror through a desktop Serial endpoint, and make SDL the framebuffer viewer.** That exercises substantially more of our current product with fewer new input-handling paths.
+
+I made no implementation changes during this review and did not run against your `cpmcard` contents. The next work should follow this revised direction, with the documentation’s completion claims tightened accordingly.
+----
+
+== 4. Petr: second comments and refinements
+
+[listing,subs=none]
+----
+grat review Ari, thanks, I will comment separatelly too:
+
+a) the handling of cpmcard (and generally everything in our fs support both for emulated mode and real SdFat) may probably stay case-sensitive and use solely uppercased filenames in DUs, those remnants in A11-15 you see were copied there from desktop but may be just batch-converted to uppercase (you may do tool for this and use it, or me, explicitly - I know that cp/m doesnt handle case, and we write anythime as uppercase, so this will be cannonical expected content of cp/m related filesystem, even linux hosted "cpmcard"; so here I expresssed badly, okay
+
+also, its fact that it is NOT necessary to have separate mount-point/path in board definition; in case we will use existing real hw /boards/ headers for emulated deisplay description and configured display_id names etc ... just to "really emulate" on desktop the specific target device geometry and treat its desktop emulation like if we use real hardware in relation to our INI settings - so we will only need way to be able to select linux "cpmcard" path and mounded usb-reader path for real card content
+
+b) yes to "selecting an existing board plus a desktop-build mode" - exactly in case will modify something in support for these hw boards, like the gutter handling and indicator and anything draw ny GFX, to be emulated, and having this "desktop-build mode" completelly transparent, getting most of its settings for SDL presenter from there - never again need to touch that transarent desktop build solution ... 
+
+sure, having "backend as desktop" with all the necessary adaptation
+?? will be possible to follow even the "direct and terminal framebuffer" variants in boards HAL settings? - again, to maintain transparent emulation, configured
+by this fact (may be added some constants in HAL describing this? if they are not there yet? - I feel that you selected just simple options when we direct-draw
+or when we use that preiodical flush - we have now for this flush also INI setting - you noted previously that Mockba RunVT in fact flushes each 15ms so even less often than our current defalth 10Hz - this MAY be also retained, to see even effects of this both on real TFT panel and on simulated one with SDL presenter/view)
+
+(these "Dedicated `SDL_1280x800` or `SDL_480x320`" is mostly nonsense, ignore this path then ...)
+
+c) just remove anything specific to "W535 SD_MMC code" sure, leave this only noted in docs, sure, as abandoned mistake;
+
+for CARDMARK - in fact we now use that arduino-native path - how hard would be to change behavior of CARMARK implementation to STAY compatible even with desktop-build mode, even it will require rewriting CARMARK code ... just to use SdFat layer transparently and possible on linux hosted "cpmcard" (mostly nonsese fast result) but ALSO on usb-reaader mounted REAL card (there results will test mostly the REAL card speed, as testing code is fast as hell, so only effect of card speed remains tested)
+
+d) ya, agreed that we dont fully emulate SdFat - this relates to CARMARK probably, we may modify its reading just to read ALL FILES of card (cpmcpard) at FILE level, for test ... not the raw LBA sectors ... no problem, its informative, comparable, relative between hw boards, how fast they handle content over SdFat (and its SPI, if on HW board, or not - these things vanish by desktop speed only to usb-reader and card limits, ya)
+
+so desktop SdFat compatible interface is enough
+
+e) that existing mirror still operating fully WILL be 
+good, it shows (adapts to) the current terminal size;
+
+in fact, the SDL-presenter window may be "always on top", WITHOUT any keyboard focus, having that focus in the mirror, writing there, having really that SDL presenter as transparent display OUTPUT emulated... the same as its now on real hw boards ... we dont use them for INPUT from theirs UART, yet ... this is another level (in fact keyboard is even physically separated thing from board, expected to send our 7xtgv-terminal CSI directly, it seem till now ...)
+
+for desktop transpor changes, here I dont understand what PTY is in fact, how this differs also in windows (conPTY?) 
+
+btw for our finally selected "desktop-build mode", will you need that separate "desktop" folder or rather have mostly that "runtime_emulator.h" or better "runtime_desktop.h" and place things inside this one ???
+- I am noting that we in fact have that "mode" as runtime alternative ... 
+
+so the "revised recomendations" looks good, ya, pls, review also here my comments again too ... at least one more turn of debate over this all ... tnx
+----
+
+== 5. Ari: second review response
+
+[listing,subs=none]
+----
+Yes, Petr—these comments make the direction clearer. I agree with the revised scope, with two important corrections about refresh frequency and what a desktop card benchmark can measure.
+
+**a) Uppercase card contents and root selection**
+
+Agreed: we can keep the host adapter case-sensitive and require canonical uppercase names in CP/M drive/user directories. That removes the case-insensitive lookup machinery I proposed.
+
+A separate normalization tool can first report proposed renames and collisions, then apply them explicitly. It should handle case-only renames reliably and refuse collisions such as `TEST.COM` alongside `test.com`. We need not rename unrelated material outside the CP/M drive/user tree.
+
+The desktop launcher selects either `cpmcard` or a mounted reader’s directory. This is independent of the selected board. Both use the same host filesystem adapter, and the selected board’s existing `display_id` chooses its existing INI section.
+
+**b) Preserve both direct drawing and explicit flushing**
+
+Yes—we can preserve those application-level behaviors. The current HAL already describes them:
+
+| Existing setting | Current effect | Desktop behavior |
+|---|---|---|
+| `XTGV_DISPLAY_NEEDS_FLUSH = false` | Drawing becomes visible without explicit `flush()` | Present changes after drawing, without waiting for a flush |
+| `XTGV_DISPLAY_NEEDS_FLUSH = true` | Terminal schedules `gfx->flush()` | Publish framebuffer changes when that flush occurs |
+| `XTGV_DISPLAY_FULL_FRAME_BUDGET` | Controls how much the terminal draws per batch | Retain the same drawing budget |
+| INI `render_flush_hz` | Limits pending flush frequency | Retain the same scheduling |
+
+The direct-drawing boards are currently the RP2350 modules and C6. The W535, W550 and P4 use explicit flushing.
+
+For buffered mode, SDL must keep showing the last published image while subsequent drawing modifies the Canvas. Its texture can hold that published image; there is no need to copy another complete framebuffer merely for this distinction. For direct mode, the presenter uploads changed pixels after a terminal drawing batch. Backlight changes and window repainting can still update presentation independently.
+
+Two corrections:
+
+- **15 ms means approximately 66.7 Hz**, which is more frequent than 10 Hz—10 Hz means 100 ms.
+- Current buffered-board defaults are **30 Hz** in the headers I inspected, although INI can override them. The parser currently accepts `render_flush_hz` from 0 to 60; zero removes the interval delay. Unchanged content does not cause continuous flushes.
+
+This will reproduce our drawing policy and visible update cadence. It will not reproduce physical SPI transfer duration, panel scanout, DMA contention or tearing. Those still require hardware measurements.
+
+And agreed: drop the dedicated `SDL_1280x800`/`SDL_480x320` board direction. Select an existing board and enable desktop mode. Ordinary future changes to geometry, gutters, indicators and terminal drawing should then carry across automatically. A genuinely new HAL operation may still require a corresponding desktop implementation.
+
+**c–d) SD_MMC cleanup and CARDMARK**
+
+The SD_MMC removal is now an agreed cleanup: remove the alternate implementation, build option and special-case tests/conditions; preserve the historical explanation in docs.
+
+For CARDMARK, I recommend **adding a file-level mode while retaining the existing raw mode**. You valued CID/CSD decoding, and raw reads still answer a different question from filesystem reads.
+
+For example:
+
+- `CARDMARK ...` — existing raw-sector test and card information on supported hardware.
+- `CARDMARK FILES` — common read-only file scan on hardware and desktop.
+
+The file mode can use only the shared `SD`/`File` API. It can traverse the selected card root, read files with a fixed-size buffer, count files/bytes, calculate checksums and optionally repeat the pass to check agreement. It remains native code called by the same CP/M helper. No fake SPI is needed.
+
+That is a moderate extension, not a rewrite of the whole diagnostic. Raw-card capability would restrict only the raw commands; CARDMARK itself could remain available on desktop.
+
+However, **desktop throughput will not necessarily reduce to the card’s physical speed**. Ordinary file reads pass through the operating system’s cache. A repeated scan may read mostly RAM, even when the root is a real mounted SD card. Linux provides advisory cache controls, but they are not a portable guarantee that every read reaches the card. [Linux cache-advice documentation](https://man7.org/linux/man-pages/man2/posix_fadvise.2.html)
+
+So the useful first version should report **file-read throughput through the selected backend**, with host caching explicitly identified. Using the same files and buffer size makes comparisons informative, but does not make desktop results equivalent to the existing raw SPI benchmark. A cache-controlled physical-media benchmark would be a separate, more platform-specific task.
+
+**e) Mirror input and an output-only SDL window**
+
+Agreed. Keep keyboard focus in the mirror, retain its full output, and let SDL show the simulated physical display. This also preserves the distinction between the mirror’s logical terminal view and the panel’s smaller viewport.
+
+We can request always-on-top and avoid activating the SDL window when it appears. A stronger “this window can never take keyboard focus, even when clicked” policy depends on the window manager/platform; that may need a small platform-specific addition. It does not affect the terminal architecture.
+
+A **PTY** is a software-created pair of connected terminal endpoints. On Linux, one end appears as a path such as `/dev/pts/7`. Our mirror can open that end much as it opens `/dev/ttyACM0`; the desktop Serial implementation owns the other end. Bytes travel between them without USB hardware. Raw mode prevents terminal echo and character processing from changing our protocol. [Linux PTY documentation](https://man7.org/linux/man-pages/man7/pty.7.html)
+
+**ConPTY** is Windows’ facility for hosting console applications through communication channels. It has a related purpose, but is not a drop-in `/dev/pts` replacement or virtual COM port. We do not necessarily need it between our two programs—a pipe or local socket may suit that byte transport better. Also, our current mirror uses POSIX terminal APIs, so native Windows support requires more than changing one endpoint name. [Microsoft’s ConPTY documentation](https://learn.microsoft.com/en-us/windows/console/creating-a-pseudoconsole-session)
+
+**Where the desktop code belongs**
+
+I agree with renaming the runtime to `runtime_desktop.h`. It describes the alternative execution environment accurately.
+
+I would still keep the `desktop/` directory. The runtime header should coordinate startup, the RunCPM worker and shutdown. The directory holds the substantial implementations: host files, Serial transport, SDL presentation, Arduino compatibility and native build/tests.
+
+Putting all of those into one runtime header would mix several independent responsibilities into a large file. This is different from keeping each board’s configuration together: the real board header remains the single source of its display definition, while `desktop/` implements the reusable platform underneath it.
+
+The settled direction therefore needs no separate SDL board definitions and no new keyboard translation layer. The substantive additions are desktop platform services, presentation respecting existing HAL policy, and the optional file-level CARDMARK mode. I have kept this turn to review; no files or card contents were changed.
+----
+
+== 6. Petr: final scope and documentation decisions
+
+[listing,subs=none]
+----
+b) ya, I have now on flushed boards in INI this: render_flush_hz=10
+
+c,d) you are true, that cardmark has almost no sense on desktop if we cantspecify non cached file access to that usb-reader (or isnt this possible simply?? at the usb-reader level? but our "runtime_desktop" doesnt now about this?) - as CIS/CSD are not accessible, SPI is not tested, and this is prolematic, we may simply report CARMARK as "unsupported" for desktop_runtime ... no big deal; too much work for almost nothing ... on real hw it is usefull as-is ...
+
+e) okay, for anything said there
+
+... so, if you are okay, lets create implementation PLAN in docs - btw, generally we may put there such planning docs as "YYMMDD-HHmm PLAN *" and your resulting work as "YYMMDD-HHmm DONE *" with your titles; put in docs also  pls this our entire discussion with my commnents somehow delimited in visible "code blocks" or so under "YYMMDD-HHmm CHAT *" ... and rather then following your actual implementation plan ... (so having them sorted as CHAT, PLAN ... and later by HHmm DONE) ... generally the "docs" folder is mostly raw set of "technical documents", there may be also some better SPEC documents later ... I am only trying to formalize this little bit ... its quite huge ...and YOU will probably need in context mostly the FINAL PLAN after compressions, or so, ya ???
+----
+
+== Final decisions (editorial index, not another chat message)
+
+* Canonical uppercase CP/M names; no case-insensitive host resolver.
+* Select real board plus desktop mode; no separate SDL geometry boards.
+* Preserve direct/flush policy and existing per-display INI settings, including 10 Hz.
+* Output-only SDL panel and complete existing mirror over desktop Serial transport.
+* Separate `runtime_desktop.h` coordinator and reusable desktop platform sources.
+* Remove W535 SD_MMC active support; preserve historical evidence.
+* CARDMARK remains useful on hardware; desktop unsupported. The proposed FILES mode is dropped.
+* New CHAT/PLAN/DONE filenames include minute precision; resume from PLAN plus later DONE evidence.

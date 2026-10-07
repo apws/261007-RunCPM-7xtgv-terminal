@@ -1,0 +1,152 @@
+= PLAN: Consolidate CP/M content into cpmcard
+:source-highlighter: highlight.js
+:toc:
+
+261007 follow-up: the local cutover is now recorded in
+link:261007-1618%20DONE%20Canonical%20cpmcard%20and%20DU-only%20tooling%20cutover.adoc[the DONE checkpoint].
+The inventory and pending-work wording below describe this plan's earlier
+state; use the checkpoint and `cpmcard/README.adoc` for current operation.
+
+== Decision and current boundary
+
+Petr wants to retire the descriptive `cpmdrive/` mirror and use the actual
+RunCPM card layout, `cpmcard/A/0` through `cpmcard/A/F`, as the local working
+content for desktop and hardware deployment. Desktop can also select an
+explicit mounted physical card root. This plan does not change DU allocation,
+rename application profiles, or reorganize the catalog.
+
+*Now implemented:* copied the reviewed `VTESTS.BAS` into local
+`cpmcard/A/7/VTESTS.BAS`, byte-for-byte checked against the authored source.
+SHA-256: `9b7766f57ab5626fb4ebfded52660e6a3dbc5c18760b8f191854a18c899acc56`.
+Previous local file retained at
+`build/card-migration-261007-1234/VTESTS.BAS.before`.
+The physical reader card, INI and history were not changed.
+This supersedes the local-deployment status in
+link:261007-1214%20DONE%20VTESTS%20legacy%20and%20scroll%20checks.adoc[the earlier VTESTS checkpoint].
+
+*Not implemented:* bulk reconciliation, tool-root changes, Git tracking policy,
+or removal of `cpmdrive`. Existing tools and repository guidance still use it
+until the migration checkpoint is completed. Do not delete it yet.
+
+== Read-only inventory, after the VTESTS copy
+
+The new `tools/audit_card_migration.py` under the sketch maps descriptive
+DU directory prefixes to hexadecimal card directories: `AA - ...` means
+`A/A`, not `A/10`. Matching names are folded to uppercase for the *audit*
+only; actual host lookup, filenames and file bytes are unchanged. Case
+collisions are reported instead of selecting a winner. Symlinks are skipped.
+
+[cols="2,1",options="header"]
+|===
+|Flat DU comparison |Count
+|Byte-identical files at the same mapped path |154
+|Differing files at the same mapped path |61
+|Only in cpmdrive at that mapped path |11
+|Only in cpmcard at that mapped path |123
+|Case collisions |0
+|===
+
+Of the 61 differences:
+
+* 33 have an exact common prefix and additional trailing bytes on one side.
+  CP/M record padding is a likely explanation for many, but this category
+  does *not* prove that truncation or those tail bytes are harmless.
+* 4 have identical printable ASCII before Ctrl-Z but different tails.
+* 10 agree after diagnostic-only ASCII newline/EOF normalization.
+* 14 require substantive content/configuration review, listed below.
+* Timestamps put `cpmdrive` later in 57 cases and `cpmcard` later in 4.
+  These are *not freshness verdicts*: card files include 1980/260101 placeholder
+  dates, and host copying can change timestamps without changing the payload.
+
+The audit separately inventories 9 cpmdrive and 48 card files outside the
+flat DU comparison. This includes metadata, INI history, root files and
+non-DU archives. They must not vanish merely because a DU sync ignores them.
+
+[source,bash]
+----
+python3 src/RunCPM_7xtgv-terminal/tools/audit_card_migration.py \
+  cpmdrive cpmcard --output build/card-migration-261007-1234/inventory.json
+python3 src/RunCPM_7xtgv-terminal/tests/test_card_migration_audit.py
+----
+
+The generated JSON records exact paths, sizes, hashes, UTC timestamps and
+classification hints. It contains no automatic apply mode. The report path
+must be outside both input trees. A fresh inventory is needed before migration;
+normal desktop use can change the live card after this checkpoint.
+
+=== Specific files requiring review
+
+[cols="2,4",options="header"]
+|===
+|Path in card layout |Observed difference and proposed handling
+|`A/0/7XTGVTRM.INI`, `7XTGVTRM.BUF`, `DRV.7XF` |Live local settings, history and current path differ from old mirror material. Preserve the local working state; no automatic overwrite or publication of private history.
+|`A/0/DIR.7XF`, `VOL.7XF`; `A/7/DIR.7XF` |Card catalog wording/names have user edits. Retain as baseline and review catalog completeness separately.
+|`A/0/REFLASH.ASM`; `A/6/GCLS.ASM`, `SYNC.ASM` |Inspected differences are explanatory comments: combined history/settings persistence and physical pixel wording. Candidate authored-source improvements to merge explicitly, not evidence of different compiled functionality.
+|`A/1/BBCBASIC.TOK` |Card contains a differently organized/expanded keyword list. Preserve and review; timestamp would wrongly favour the mirror.
+|`A/2/TURBO.COM` |Same-size but different binary. Preserve the card's configured application. Earlier TINST work is relevant context; this audit does not prove every changed byte is configuration.
+|`A/6/BROT_BS.SUB`, `BROT_PS.SUB` |Mirror has parameterized GCLS examples; card has chosen coordinates and different CLS/VTPAD setup. Keep working card scripts; preserve generic examples under explicitly distinct names if wanted.
+|`A/6/GCLS.HEX` |Mirror contains the short older GCLS payload; card contains a much larger parameter-handling payload. Do not promote the mirror just because its mtime is later. Rebuild from agreed ASM if a canonical HEX artifact is needed.
+|===
+
+=== Eleven mirror-only paths
+
+* Preserve/review source or documentation:
+  `A/0/CARDMARK.ASM`, `VTPAL.ASM`, `ZOOM.ASM`, `7XTGVTRM.TXT`.
+* Review package/work files:
+  `A/3/DOCS3.ZIP`, `A/7/_VTPAL.BAS`, `_VTPAL.INI`.
+* `A/6/VTCPU.COM`, `VTCPU8X.COM`, `VTDRV.COM`, `VTDRV8X.COM` are already present
+  *byte-identically in A0*. They are location duplicates, not missing tools.
+
+No item in this list was copied during the inventory. Also preserve host-only
+metadata, private INI snapshots and historical archive material outside the
+runtime card where appropriate; do not blindly deploy all of those to SD.
+
+== Implementation sequence
+
+. *Freeze a checkpoint.* Stop applications writing the chosen roots; record
+  hashes, archive both trees and retain Git history. The physical SD is an
+  independent working copy, never an automatic mirror destination.
+. *Reconcile by content.* Start with the known working card tree. Decide the
+  listed conflicts and unique files explicitly. Preserve uppercase 8.3 guest
+  names, CRLF/final Ctrl-Z for authored text, and exact bytes for executables,
+  tokenized BASIC, archives and other binary files. No blanket text conversion.
+. *Make fresh clones reproducible.* `cpmcard/` is currently entirely ignored
+  and has no tracked files. Replace that with a reviewed allowlist/manifest of
+  project-maintained guest sources and distributable seed artifacts at their
+  real card paths. Keep generated scratch files, private histories and personal
+  configuration ignored; supply a separate documented example configuration.
+  Review third-party licensing before tracking additional imported packages.
+  Required local-only programs such as MBASIC need an explicit provisioning
+  step and clear missing-file diagnostics, not an undocumented workstation copy.
+. *Switch all active tooling together.* Add a shared explicit card-root resolver
+  using direct `A/<hex-user>/NAME` paths. Update transfer defaults and DU mapping,
+  live-INI fetch/backup destinations, guest assembler/build helpers, VTESTS and
+  benchmark fixtures, desktop PTY fixtures, current READMEs and repository
+  guidance. Keep launch-time mounted-card selection; no mount path in board HALs.
+. *Keep automation off live data.* Test/build helpers copy necessary files to
+  disposable card roots. Interactive desktop uses the selected working card;
+  a second instance must not write the same root. Deployment is an explicit
+  reviewed file list, with extra approval for INI/BUF and no automatic deletes.
+. *Prove the cutover.* Clean-clone/provision tests, uppercase DU mapping A--F,
+  transfer send/receive mapping, helper builds and quiet SDL VTESTS must pass
+  with `cpmdrive` unavailable. Audit current source references; historical docs
+  retain old paths as provenance and should not be mass-rewritten.
+. *Retire the old root only after acceptance.* Archive unmigrated historical
+  assets; remove the tracked old mirror as a separate reviewed commit. Report
+  exactly what is retained, moved or intentionally excluded. No permanent
+  fallback to cpmdrive that could silently resurrect stale files.
+
+== Remaining choices at implementation time
+
+* Exact allowlist of versioned card content and licenses for third-party files.
+* Which mirror-only notes/temporary VTPAL material belong in the runnable card
+  versus a host source/archive directory.
+* Whether generic Mandelbrot scripts should be separate named examples.
+* Where private INI backup history should live outside the deployable tree.
+
+Recommended outcome: *one actual card layout*, no second descriptive mirror,
+but a clear distinction between versioned seed/source files and live personal
+state. An entire working SD tree is not automatically suitable for publishing.
+
+For what desktop testing can replace, and what must remain hands-on, see
+link:261007-1234%20PLAN%20Guided%20physical%20board%20acceptance.adoc[guided physical board acceptance].

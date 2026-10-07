@@ -35,8 +35,10 @@ static bool xtgvCardmarkArguments(const char *text, uint32_t (&args)[3],
 }
 
 // All current SPI board headers use our external SdFat clock-control driver.
-// The retained, opt-in W535 SD_MMC adapter does not provide this interface.
-#if !defined(XTGV_W535_SD_MMC)
+#ifndef XTGV_STORAGE_HAS_RAW_CARD
+#define XTGV_STORAGE_HAS_RAW_CARD 1
+#endif
+#if XTGV_STORAGE_HAS_RAW_CARD
 #define XTGV_CARDMARK_AVAILABLE 1
 
 // Wire registers are big-endian bit strings, independent of CPU struct layout.

@@ -1,0 +1,47 @@
+= DONE: version the complete cpmcard without content exclusions
+:source-highlighter: highlight.js
+
+== Petr's decision
+
+This supersedes the 200-file publication selection in
+link:261007-1618%20DONE%20Canonical%20cpmcard%20and%20DU-only%20tooling%20cutover.adoc[the initial migration checkpoint].
+Petr explicitly requested all A--P drive content, including databases, backups
+and the unfinished FAND area. He also confirmed including the tooling's
+host-side INI snapshots and keeping the existing image for now.
+
+* The complete `cpmcard/` tree is eligible for Git, with no filename/type filters.
+* Root `.gitignore` explicitly includes the tree after generic ignore rules.
+  Unrelated private project documentation remains ignored.
+* Removed the generated per-file card `.gitignore` and `seed-manifest.json`.
+  No guest file or snapshot was removed or rewritten.
+* This includes live `7XTGVTRM.INI`, `7XTGVTRM.BUF`, `DRV.7XF`, configured
+  applications, databases, backups, generated scratch files, all six host INI
+  snapshots and the photograph. There were 338 files at this checkpoint;
+  future additions do not require updating a manifest.
+
+== Tools and checks
+
+The historical `tools/check_card_seed.py` command now checks and exports the
+*complete* tree, including root-level documentation and snapshots. There is
+no publication-selection manifest. Existing destinations, destinations inside
+the source, symlinks and special filesystem objects remain rejected. These
+are safety errors, not silent exclusions of card files.
+
+Tests verify whole-tree copying and source preservation, overwrite refusal,
+empty-directory preservation, and symlink rejection. A synthetic Git repository
+checks every A--P drive, INI/history/backups and names matching generic project
+ignore rules. Actual repository checks found no ignored files in `cpmcard`.
+No firmware or terminal behaviour changed; earlier migration runtime tests
+remain applicable to the unchanged DU/root resolution.
+
+== Multi-machine operation
+
+A clone receives the committed card content after commit/push, not automatic
+updates from this machine's live filesystem. Git does not store empty
+directories. Desktop use can change versioned INI/history and runtime state;
+stop writers and review local changes before pulling or committing on either
+machine. Do not discard changes automatically to resolve a pull conflict.
+
+No commit/push or physical-card transfer was performed by this task. This
+selection does not confer new redistribution rights for third-party software.
+The root image can be removed in a later explicit cleanup, as Petr suggested.

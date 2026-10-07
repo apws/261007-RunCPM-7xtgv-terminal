@@ -1,4 +1,5 @@
 {
+  "optimization_property": "compiler.optimization_flags",
   "display_id": "EC6_147",
   "description": "Waveshare ESP32-C6 LCD 1.47-inch",
   "method": "arduino-cli",

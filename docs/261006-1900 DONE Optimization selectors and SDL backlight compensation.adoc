@@ -1,0 +1,71 @@
+= DONE: Optimization selectors and SDL backlight compensation
+:source-highlighter: highlight.js
+
+== Changes
+
+All six hardware targets and all desktop rebuild shortcuts now accept
+`-O0`, `-Og`, `-O1`, `-O2`, `-O3`, `-Os`, and the long form
+`--optimization default|O0|Og|O1|O2|O3|Os`.
+Hardware metadata names the correct Arduino property: ESP32 uses
+`compiler.optimization_flags`; RP2350 uses `build.flags.optimize`.
+No source-body optimization directives were added. Overrides reach Arduino's
+property-resolution query and compile command; precompiled SDK archives retain
+their original optimization. Upload-only/launch reject the build-only option.
+
+Desktop CMake applies the chosen flag across its compiled sources, including
+real Arduino_GFX. Debug symbols remain enabled. No option (or `default`) resets
+the override to O2, so an old CMake selection cannot silently stick. Hardware
+profile defaults are preserved. Unoptimized desktop builds use explicit `-O0`.
+
+Recommendation discussed with Petr: O2 for ordinary desktop use, keeping Debug
+available; preserve known hardware defaults pending measurement. P4's earlier
+Os result near 34 MHz was faster than its O2/O3 results near 32.4 MHz. O3 is not
+automatically a speed improvement. Petr subsequently approved O2 as the implicit
+desktop default and keeping hardware defaults unchanged; implemented here.
+
+== Brightness correction
+
+SDL formerly used raw hardware duty as an RGB multiplier. This made low levels
+very dark and even capped maximum brightness for boards such as C6, whose
+physical curve ends at 127/255 for thermal reasons.
+
+The single presenter compensation is now:
+
+[source,text]
+----
+0 duty:             SDL multiplier 0
+duty >= board max:  SDL multiplier 255
+otherwise:          round(255 * (duty / board_max)^(1/2.2))
+----
+
+The board maximum is taken from its existing level-31 curve entry, not a new
+per-board setting. This is a global visual approximation, not measured optical
+calibration. Physical limits, all board tables, INI settings and Canvas pixels
+remain untouched. SDL fully-off stays black; maximum is unattenuated.
+
+[cols="1,1,1,1",options="header"]
+|===
+|Board |Level |Old multiplier |New multiplier
+|EP4_10 |1 |3 |34
+|EP4_10 |10 |21 |82
+|EP4_10 |31 |255 |255
+|EC6_147 |1 |1 |28
+|EC6_147 |10 |12 |87
+|EC6_147 |31 |127 |255
+|===
+
+== Verification and boundaries
+
+145 Python tests pass, including all-target optimization-property routing,
+hardware wrapper forwarding, upload-only rejection and desktop CMake override
+reset. EP4 desktop O2 build passes eight native tests. The presentation test
+now verifies zero, board-specific maximum and monotonic shadow lifting.
+C6 desktop O2 also passes all eight native tests. Generated compiler flags for
+EP4 confirm `-g -std=c++17 -O2`. The updated EP4 and C6 executables are ready
+for relaunch; other desktop targets get the change at their next rebuild.
+
+No hardware compile/flash, card mutation or benchmark command was performed.
+Hardware settings are exposed and routing-tested, not newly hardware-qualified.
+Petr should relaunch updated desktop binaries and compare low backlight levels,
+maximum/off, VTCPU and the same Mandelbrot program. Existing running processes
+retain their old code until restarted. No commit or push.

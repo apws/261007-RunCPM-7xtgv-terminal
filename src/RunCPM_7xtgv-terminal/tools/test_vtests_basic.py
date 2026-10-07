@@ -13,7 +13,8 @@ import tempfile
 
 from build_vtpal import ROOT, receive
 
-SOURCE = ROOT / "cpmdrive/A7 - MBASIC and VT tests"
+from card_paths import card_root, require_files
+SOURCE = card_root() / "A/7"
 FILES = ("VTESTS", "PROG", "VTPAL", "VTDEMO", "VTDEMO2")
 ROLES = ("implicit", "red", "green", "blue", "shade", "cyan", "magenta", "yellow")
 SGR = (30, 31, 32, 34, 37, 36, 35, 33)
@@ -33,7 +34,7 @@ def check_compact_page(output):
                 col = int(coords[1] or b'1') if len(coords) > 1 else 1
                 assert 1 <= row <= 16 and 1 <= col <= 40, token
             else:
-                assert command in (b'm', b'J'), token
+                assert command in (b'm', b'J', b'r') or token == b'\x1b[?6l', token
         elif token == b'\r':
             col = 1
         elif token == b'\n':
@@ -44,6 +45,7 @@ def check_compact_page(output):
 
 
 def main():
+    require_files(SOURCE / 'MBASIC.COM', *(SOURCE / (name + '.BAS') for name in FILES))
     for name in FILES:
         data = (SOURCE / (name + ".BAS")).read_bytes()
         body, eof, _ = data.partition(b"\x1a")
@@ -51,6 +53,7 @@ def main():
         assert b"\n" not in body.replace(b"\r\n", b""), name
         lines = body.decode("ascii").splitlines()
         if name == "VTESTS":
+            assert data.endswith(b"\x1a"), "VTESTS must end with Ctrl-Z"
             assert all(len(line) <= 80 for line in lines), name
         assert all(re.match(r"^\d+ ", line) for line in lines if line.strip()), name
     with tempfile.TemporaryDirectory(prefix="xtgv-vtests-") as temporary:
@@ -79,9 +82,11 @@ def main():
             assert (drive / "VTASCII.BAS").read_bytes().startswith(b"10 ")
             os.write(master, b"RUN\r")
             receive(master, b"Select: ")
-            for choice in range(1, 9):
+            for choice in range(1, 10):
                 os.write(master, f"{choice}\r".encode())
-                prompt = (b"Enter: all 32 glyphs " if choice == 4
+                prompt = (b"Enter: return to ANSI " if choice == 5
+                          else b"Enter: next scroll check " if choice == 9
+                          else b"Enter: all 32 glyphs " if choice == 4
                           else b"Enter returns to menu: ")
                 result = receive(master, prompt)
                 assert b"error" not in result.lower(), result
@@ -137,6 +142,11 @@ def main():
                 if choice in (1, 2, 4):
                     assert b"\x1b[14;1HEnter returns to menu: " in result
                     check_compact_page(result)
+                if choice == 9:
+                    for stage in range(1, 5):
+                        os.write(master, b"\r")
+                        result = receive(master, b"Enter: next scroll check ")
+                        assert b"error" not in result.lower(), result
                 os.write(master, b"\r")
                 receive(master, b"Select: ")
             os.write(master, b"Q\r")
@@ -148,7 +158,7 @@ def main():
                 process.kill()
                 process.wait(timeout=5)
             os.close(master)
-    print("Five ASCII programs load; SAVE ,A round-trip; eight menu tests / nine pages pass")
+    print("Five ASCII programs load; SAVE ,A round-trip; nine menu tests / 14 pages pass")
 
 
 if __name__ == "__main__":

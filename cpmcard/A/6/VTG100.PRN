@@ -1,0 +1,13 @@
+
+
+                ; VTG100.COM -- fixed GCLS protocol probe, independent of argument parsing.
+                ; Emits only ESC[>4;2;100;100v, then returns to CCP.
+                
+ 0100                   org     0100h
+ 0100 110B01            lxi     d,control
+ 0103 0E09              mvi     c,9
+ 0105 CD0500            call    5
+ 0108 C30000            jmp     0
+                
+ 010B 1B5B3E343Bcontrol: db     27,91,62,52,59,50,59,49,48,48,59,49,48,48,118,36
+

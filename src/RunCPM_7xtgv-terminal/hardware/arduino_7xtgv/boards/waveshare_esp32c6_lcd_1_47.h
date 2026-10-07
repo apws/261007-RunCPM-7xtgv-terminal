@@ -29,7 +29,7 @@ static constexpr uint8_t XTGV_BACKLIGHT_DUTIES[] = {
 // ============================================================================
 static constexpr uint32_t XTGV_STORAGE_HZ = 20000000UL;
 
-#ifdef XTGV_HAL_IMPLEMENTATION
+#if defined(XTGV_HAL_IMPLEMENTATION) && !XTGV_DESKTOP
     #include <Arduino.h>
     #include <esp_heap_caps.h>
     #if XTGV_TERMINAL
@@ -102,6 +102,16 @@ void xtgvBoardCaptureBootHeap() {
     xtgvC6HeapBeforeTerminal = xtgvC6ReadHeap();
     xtgvC6HeapCaptured = true;
 }
+
+#if defined(ARDUINO)
+void xtgvBoardPrintStorageSummary(void (*write)(const char *)) {
+    char message[80];
+    snprintf(message, sizeof(message),
+             "Storage: Arduino SdFat/SPI (%lu MHz)\r\n",
+             (unsigned long)(xtgvStorageSpi.requestedHz() / 1000000UL));
+    write(message);
+}
+#endif
 
 void xtgvBoardPrintBootExtra(void (*write)(const char *)) {
     // This existing banner hook runs after task creation, SD/INI/history load,

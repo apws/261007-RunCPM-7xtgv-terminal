@@ -700,7 +700,7 @@ b.conum * { color: inherit !important; }
 
 #header h1 { font-weight: bold; position: relative; left: -0.0625em; /*mixworx*/ color: white; /*mixworx*/ }
 #content h2, #content h3, #content #toctitle, #content .sidebarblock > .content > .title, #content h4, #content h5, #content #toctitle { position: relative; left: -0.0625em; }
-#content h2 { font-weight: bold; }
+#content h2, #content h3 { font-weight: bold; }
 
 .paragraph.lead > p, #preamble > .sectionbody > .paragraph:first-of-type p { color: black; }
 

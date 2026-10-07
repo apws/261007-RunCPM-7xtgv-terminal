@@ -51,7 +51,7 @@ local transfer-folder root. No second serial reader should run during a transfer
 |Host setting |Effect
 |`++XTGV_TARGET++` |Exact named target selected in `++tools/terminal.conf++`; not inferred from USB identity.
 |`++XTGV_PORT++` |Optional serial-port override; absent means target JSON default/discovery. Explicit CLI `++--port++` wins over it.
-|`++XTGV_TRANSFER_ROOT++` |Optional local root for VTPUT/VTGET; defaults to this repository's `++cpmdrive++`.
+|`++XTGV_TRANSFER_ROOT++` |Optional local root for VTPUT/VTGET; defaults to `++XTGV_CARD_ROOT++` or this repository's `++cpmcard++`.
 |`++XTGV_REFLASH_COMMAND++` |Optional host dispatcher for a guest REFLASH request. Leaving it unset disables automatic flashing.
 |===
 
@@ -71,7 +71,7 @@ Leave CP/M idle at its CCP prompt. Open the host panel with `++Ctrl+Shift+X++` (
 |CP/M file to host |`++R++`, local DU, source, target |VTGET reads device current DU; asks Y/N/C if local target exists
 |===
 
-Both directions ask for *DU* first, e.g. `++a6:++` maps to `++cpmdrive/A6 - Benchmarks and CPU tests++`, then ask for *Source* and *Target* filenames. Target is prefilled with Source and can be edited before Enter. `++AF:++` and `++A15:++` both select the local `++AF - ...++` folder. DU matching is case-insensitive; missing or ambiguous folders are rejected, not created. Lowercase filenames match existing uppercase mirror names; new receive names are uppercase. Absolute paths and directory components are not accepted here. Set/export `++XTGV_TRANSFER_ROOT++` in `++tools/terminal.conf++` to use another mirror root (the old `++XTGV_XMODEM_ROOT++` remains a fallback). *DU selects only the local folder. The device stays in its current drive/user.* Filenames must be supported 8.3 names. To receive device A0 into local A3, leave the device at `++A0>++`, then choose `++R++`, local `++A3:++`, source and target in the panel. Use Left/Right, Home/End, Backspace/Delete to edit, Ctrl{plus}U to clear, and Enter to submit each field. Konsole's private encoded keys are handled locally. Send always asks permission to replace/create the device target (no remote existence probe). Receive asks only if the local target exists. `++Y++` proceeds, `++N++` returns to editing Target, `++C++` or Escape cancels; Enter is not consent. Confirmed local replacement is performed after the full download and a temporary-file write; a changed local target invalidates the earlier approval. Bytes are transferred unchanged, with CP/M record padding; there is no automatic text conversion or compression. Use the CLI `++--cpm-text++` option for LF-only source. New local files use exclusive creation. The result remains visible until Enter/Esc. Transfers temporarily use profile ++#++9 and RAW input. They read the original profile through Alt+Space and restore that profile and its RAW state on success or failure, without executing its `on_select` command. An unconfirmed restoration reports an error. If a transfer fails while CP/M is still running a helper, reset before retrying.
+Both directions ask for *DU* first, e.g. `++a6:++` maps to `++cpmcard/A/6++`, then ask for *Source* and *Target* filenames. Target is prefilled with Source and can be edited before Enter. `++AF:++` and `++A15:++` both select the local `++A/F++` folder. DU matching is case-insensitive; missing folders or symlinked DU directories are rejected, not created. Lowercase filenames match existing uppercase mirror names; new receive names are uppercase. Absolute paths and directory components are not accepted here. Set/export `++XTGV_TRANSFER_ROOT++` in `++tools/terminal.conf++` to use another card root (the old `++XTGV_XMODEM_ROOT++` remains a fallback). *DU selects only the local folder. The device stays in its current drive/user.* Filenames must be supported 8.3 names. To receive device A0 into local A3, leave the device at `++A0>++`, then choose `++R++`, local `++A3:++`, source and target in the panel. Use Left/Right, Home/End, Backspace/Delete to edit, Ctrl{plus}U to clear, and Enter to submit each field. Konsole's private encoded keys are handled locally. Send always asks permission to replace/create the device target (no remote existence probe). Receive asks only if the local target exists. `++Y++` proceeds, `++N++` returns to editing Target, `++C++` or Escape cancels; Enter is not consent. Confirmed local replacement is performed after the full download and a temporary-file write; a changed local target invalidates the earlier approval. Bytes are transferred unchanged, with CP/M record padding; there is no automatic text conversion or compression. Use the CLI `++--cpm-text++` option for LF-only source. New local files use exclusive creation. The result remains visible until Enter/Esc. Transfers temporarily use profile ++#++9 and RAW input. They read the original profile through Alt+Space and restore that profile and its RAW state on success or failure, without executing its `on_select` command. An unconfirmed restoration reports an error. If a transfer fails while CP/M is still running a helper, reset before retrying.
 
 VTGET tags each hex row with its record number to reject stale mirrored rows.
 The updated host also accepts the old clear-per-record format; old host clients
@@ -91,7 +91,7 @@ the previous local copy and replaces it only after a successful fetch. Stop
 on fetch failure: an older local INI can overwrite unrelated on-device edits.
 See link:../260924-21%20live%20INI%20preservation%20and%20narrow%20transfer%20limitation.adoc[live INI and transfer-width notes].
 
-Guest text in the local `cpmdrive/` mirror is maintained as CRLF with a final
+Guest text in the local `cpmcard/` working tree is maintained as CRLF with a final
 Ctrl-Z, ready for byte-preserving Send/Receive. No upload conversion is needed.
 The CLI text-conversion option is only for deliberate external host-text imports.
 Tokenized BASIC, binaries, disk images and checksummed history are not text;
@@ -320,7 +320,7 @@ The built-in `++LS++`/`++LL++` catalog commands list the current DU; `++LS /++` 
 
 When a pattern has no dot, a stem `++*++` also spans any extension: `++LS *++` lists every file, and `++LS VT*++` includes `++VTESTS.BAS++` and `++VTPAL.BAS++`. The same applies after an area path or `++A7:++`; an explicit dot keeps its normal 8.3-field meaning. CP/M 2.2 records do not carry a general exact final-byte length. The byte count in `++LS -L++` is the underlying RunCPM FAT file length; a file written through CP/M record I/O may already have been rounded to 128 bytes. A text Ctrl-Z is an application convention, not a reliable binary length marker.
 
-Bare `++CD++` reports both numeric DU and its named view, for example `++A7: /a/mbasic++`. `++CD MBASIC++` and `++CD /A/MBASIC++` select an area; `++CD /A++` returns to the last area selected on drive A. These slash paths name flat CP/M drive/user areas, not subdirectories. Each area's `++DIR.7XF++` stores a 12-character left-aligned area/file key, one space, then a description; its first key is the area name. `++A0:VOL.7XF++` stores drive letters in column 1, one space, and descriptions from column 3. `++A0:DRV.7XF++` stores the last selected area per drive as one `++/d/name++` line per drive. `++CD++` reloads this file before selection and saves it after a new explicit selection. The project `++cpmdrive++` mirror keeps these as CRLF text ending with Ctrl-Z.
+Bare `++CD++` reports both numeric DU and its named view, for example `++A7: /a/mbasic++`. `++CD MBASIC++` and `++CD /A/MBASIC++` select an area; `++CD /A++` returns to the last area selected on drive A. These slash paths name flat CP/M drive/user areas, not subdirectories. Each area's `++DIR.7XF++` stores a 12-character left-aligned area/file key, one space, then a description; its first key is the area name. `++A0:VOL.7XF++` stores drive letters in column 1, one space, and descriptions from column 3. `++A0:DRV.7XF++` stores the last selected area per drive as one `++/d/name++` line per drive. `++CD++` reloads this file before selection and saves it after a new explicit selection. The project `++cpmcard++` tree keeps these as CRLF text ending with Ctrl-Z.
 
 [cols="1,6",options="header"]
 |===
@@ -430,6 +430,13 @@ results: link:../261002-13%20Global%20SdFat%20SPI%20clock%20and%20CARDMARK%20pre
 
 Select A7, start `MBASIC`, then `RUN "VTESTS"`. Save maintained sources with
 `SAVE "VTESTS",A` (ASCII); load with ordinary `LOAD "VTESTS"`.
+
+The revised local source (`261007`) has isolated attribute comparisons in
+item 3, VT52 movement/erase checks in item 5, a steady DEC frame in item 7,
+and five scrolling-region checks in item 9. Item 9 requires *80x24 logical
+geometry*, independently of the panel's visible viewport. Updated source
+must be deployed separately; the physical card may still hold an older menu.
+See link:technical-reference.adoc#terminal-compatibility-test-notes[test scope].
 `VTPAL.BAS` is also maintained/deployed in A7, not the older A6 test location.
 
 VTESTS item 4 has two 40x16 pages: a continuous frame with junctions, patterns,

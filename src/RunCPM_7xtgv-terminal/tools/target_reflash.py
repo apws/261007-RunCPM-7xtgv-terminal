@@ -48,6 +48,7 @@ def failure_summary(text):
 
 
 from target_mirror import select_mirror
+from target_config import OPTIMIZATION_LEVELS, optimization_level
 
 
 def ready_serial(explicit, target, definition):
@@ -92,7 +93,10 @@ def main():
                         default='auto')
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--verbose', action='store_true', help='Show full compiler/uploader output')
+    parser.add_argument('-O', '--optimization', type=optimization_level, choices=OPTIMIZATION_LEVELS)
     args = parser.parse_args()
+    if args.optimization and args.upload_only:
+        parser.error('--optimization is a rebuild option, not a reflash option')
     _, definition = load_target(args.target)
     if args.allow_unidentified_target and args.allow_unidentified_target != args.target:
         parser.error('Recovery target must equal --target')
@@ -105,10 +109,11 @@ def main():
     os.environ.pop('XTGV_PORT', None)
     env['XTGV_REFLASH_COMMAND'] = str(TOOLS / 'reflash.py')
     base = [sys.executable, str(TOOLS / 'reflash.py'), '--target', args.target]
+    build_options = ['--optimization', args.optimization] if args.optimization else []
     if args.dry_run:
         print('Target:', args.target, 'upload method:', definition['method'])
         if not args.upload_only:
-            print('Build:', ' '.join(base + ['--build-only']))
+            print('Build:', ' '.join(base + ['--build-only'] + build_options))
         if not args.build_only:
             print('Then stop shared mirror, validate board, upload staged new/current, '
                   'and restore mirror. No device access in dry-run.')
@@ -121,6 +126,8 @@ def main():
     log_path = log_dir / f'{action}.log'
     log_path.write_text('Run: ' + datetime.now().strftime('%y%m%d-%H%M%S') + '\n')
     status(f'Module: {definition.get("display_id", args.target)} ({args.target})')
+    if args.optimization:
+        status('Optimization: ' + ('platform default' if args.optimization == 'default' else '-' + args.optimization))
     def section(name):
         with log_path.open('a') as log:
             log.write('\n\n*** ' + name + ' ***\n')
@@ -152,7 +159,7 @@ def main():
                 raise ReportedFailure(f'{label} failed') from None
         status(label + ': OK')
     if not args.upload_only:
-        step('Building fresh firmware', base + ['--build-only'], 'BUILD')
+        step('Building fresh firmware', base + ['--build-only'] + build_options, 'BUILD')
     image_dir = target_dir / ('new' if (target_dir / 'new').is_dir() else 'current')
     section('IMAGE')
     with log_path.open('a') as log:

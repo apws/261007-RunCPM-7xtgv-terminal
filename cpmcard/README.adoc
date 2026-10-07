@@ -1,0 +1,152 @@
+= Complete CP/M working card
+:source-highlighter: highlight.js
+:toc:
+
+== One card layout, shared by hardware and desktop
+
+`cpmcard/` is the primary local working card, originally copied from Petr's
+shared microSD and subsequently used by the desktop firmware. Its tested
+content takes precedence over the retired descriptive `cpmdrive` mirror.
+The physical card in a USB reader remains an independent copy: nothing here
+automatically synchronizes it or deletes files from it.
+
+Use only RunCPM's actual drive/user layout:
+
+[cols="1,1,2",options="header"]
+|===
+|DU |Host directory |Meaning
+|`A0:` |`A/0/` |Drive A, user 0
+|`A7:` |`A/7/` |Drive A, user 7
+|`AA:` |`A/A/` |Drive A, user 10 decimal
+|`AF:` |`A/F/` |Drive A, user 15 decimal
+|`B0:` |`B/0/` |Drive B, user 0
+|===
+
+Hexadecimal user-directory names are *RunCPM's convention*, inherited by
+this project, not a 7XF invention. CP/M itself has numeric user areas, not
+host filesystem directories. Our old `A7 - ...` host folder names are retired.
+The host transfer prompt also accepts `A15:` as an alias for `AF:`.
+
+Guest filenames should be uppercase 8.3 names. The host filesystem adapter
+remains case-sensitive. Some imported archival material still has mixed-case
+names; this migration does not silently rename or rewrite it.
+
+== What Git contains
+
+Petr's decision on 261007: *version the complete `cpmcard` tree*, not a
+curated seed. All A--P drive content is included without filename or type
+exclusions: applications, sources, configured binaries, catalogs, INI/BUF,
+databases, backups and scratch files. The unfinished FAND area is included too.
+Host-side `.7xtgvtrm-ini-history/` snapshots and the existing root photograph
+are also included. The photograph may be removed separately later.
+
+The root `.gitignore` explicitly includes `cpmcard/` and everything below
+it, overriding generic project filters there. There is no card-local ignore
+file or per-file manifest to maintain. The earlier 200-file selection has
+been removed. At this checkpoint the complete tree contains 338 files;
+that is an observation, not a limit on future additions.
+
+After commit/push, a fresh clone receives the committed card files directly.
+Git does not store empty directories. On an existing working copy, desktop
+use can modify versioned settings/history: stop the desktop before updating,
+inspect `git status`, and preserve or commit wanted changes before pulling.
+Do not reset away local changes just to make a pull succeed.
+
+This selection is not a new license grant for third-party software. Firmware
+builds still do not install files automatically onto a physical card.
+
+[source,bash]
+----
+# From the repository root: check the complete card, or make a disposable copy.
+python3 src/RunCPM_7xtgv-terminal/tools/check_card_seed.py
+python3 src/RunCPM_7xtgv-terminal/tools/check_card_seed.py --export /tmp/my-cpm-test-card
+----
+
+The command retains its historical `check_card_seed.py` filename, but now
+checks/copies the complete tree, including snapshots and history. Export
+refuses an existing destination, a destination inside the source, symlinks
+and special filesystem objects. Close writers before making a copy. This is
+an offline fixture helper, not an SD deployment or synchronization command;
+no automatic deletion or filename conversion is provided.
+
+== Catalogs: our opinionated development view
+
+The current `*.7XF` catalogs are the primary, opinionated organization used
+by our internal `ccp7xf.h` shell (7XF). They give flat drive/user areas useful
+names; slash-style paths do not turn CP/M into a hierarchical filesystem.
+
+* `DIR.7XF`, per user area: area name and file descriptions, used by the
+  named catalog commands (`LS`, `LL`, `CD`).
+* `A0:VOL.7XF`: descriptions of drives.
+* `A0:DRV.7XF`: remembered selection per drive. This mutable runtime state
+  is versioned alongside the rest of the working card.
+
+Catalogs describe a developer's working collection. They may mention
+applications that are absent or unfinished; they are neither a package
+installer nor proof that every listed program is present or working.
+
+This catalog preference *does not remove* RunCPM's `INFO.TXT` convention.
+`VOL` still displays `INFO.TXT`; it does not read `VOL.7XF`.
+The supplied `A7:CINF.BAS` asks for one line of text and creates/replaces
+`INFO.TXT` in the current drive/user area; empty input cancels. It does not
+load an existing description for editing and does not maintain `.7XF` files.
+See the link:../docs/260912-23%207xtgv%20terminal%20manual/reference-guide.adoc[Reference Guide]
+for exact catalog layout and command syntax.
+
+== Working configuration and text files
+
+* `A0:7XTGVTRM.INI` and `7XTGVTRM.BUF` are live local settings/history.
+  Hardware and desktop can update them. These are intentionally versioned;
+  a clone receives the committed settings/history. Do not overwrite newer
+  working state from an old mirror. Firmware defaults apply when settings
+  are absent; see the manual for INI settings and profile configuration.
+* `.7xtgvtrm-ini-history/` holds versioned host snapshots, outside the guest DUs.
+  The explicit fetch helper archives the previous local INI before replacing
+  it with the requested device copy. It never uploads history automatically.
+  Do not fetch over a local INI currently owned by a running desktop instance.
+* Authored guest text uses CRLF and a final Ctrl-Z. Maintain that format;
+  ordinary transfers preserve bytes. MBASIC sources use `SAVE "NAME",A`.
+* Never infer text format from the extension alone. Executables, tokenized
+  BASIC, disk images and binary history must stay byte-exact. Existing CP/M
+  record padding/tails are preserved, not blanket-normalized.
+* This README is host documentation, not CP/M text.
+
+The old `layout.json` and `progress.json` were historical reorganization and
+transfer records. No active tool consumes them. Their names and old area
+assignments are not current card metadata; they were archived with the retired
+mirror rather than retained as current card metadata.
+
+== Tools and tests
+
+* Host fixture tools default to repository `cpmcard`; `XTGV_CARD_ROOT` can
+  explicitly select a prepared copy. Missing fixtures produce a provisioning
+  message. There is no fallback to the old mirror.
+* Mirror VTPUT/VTGET use `XTGV_TRANSFER_ROOT`, then the legacy
+  `XTGV_XMODEM_ROOT`, then the working card root. DU selects only the *local*
+  `drive/user` directory; it does not change the device's current DU.
+* Per-board `desktop-local.sh` uses the working card. `desktop-card.sh`
+  requires an explicitly selected mounted card. Both are read/write sessions;
+  do not point concurrent writers at one tree.
+* Automated BASIC, assembler and SDL tests copy their fixtures into disposable
+  cards. Assembly tests do not install their output unless `--install` is
+  requested. The old VTDRV binary patcher requires an explicit directory
+  containing the historical binary layout; it is not a current build step.
+* Shared `VTCPU`, `VTDRV` and related helpers live in A0. Tests need not recreate
+  the old A6 duplicates. `VTDRV W` writes a scratch fixture; avoid running it
+  on a valuable physical card without intending that write.
+
+Typical visual test: select `A7:`, run `MBASIC`, then `RUN "VTESTS"`.
+The current menu includes separate attribute, VT52 and scroll-region tests;
+select 80x24 logical geometry for the scrolling test. Small panels may pan.
+
+== Migration checkpoint
+
+The 261007 cutover preserved every pre-existing working-card guest file.
+Only missing authored `A0:CARDMARK.ASM`, `VTPAL.ASM` and `ZOOM.ASM` were copied
+from the old mirror. Conflicting INI, catalogs, Mandelbrot scripts, GCLS and
+configured binaries were not overwritten based on timestamps.
+
+Local recovery evidence and the retired mirror are under
+`build/card-migration-261007-1608/`; this private archive is not committed.
+Previously committed versions remain recoverable from Git history.
+The physical microSD was not changed.

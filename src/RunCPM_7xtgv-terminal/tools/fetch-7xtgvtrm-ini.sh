@@ -4,11 +4,6 @@
 set -eu
 
 tools_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-source_root=$(CDPATH= cd -- "$tools_dir/.." && pwd)
-repo_root=$(CDPATH= cd -- "$source_root/../.." && pwd)
-mirror_dir="$repo_root/cpmdrive/A0 - CP-M core"
-mirror_file="$mirror_dir/7XTGVTRM.INI"
-history_dir="$repo_root/cpmdrive/.7xtgvtrm-ini-history"
 temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/7xtgvtrm-ini.XXXXXX")
 mirror_stopped=false
 
@@ -39,6 +34,17 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 port=$(python3 "$tools_dir/target_config.py" --print-port)
+
+# Local configuration snapshots are separate from the physical source card.
+# Honour the same explicit working-card selection as the host test helpers.
+card_root=$(python3 "$tools_dir/card_paths.py")
+mirror_dir="$card_root/A/0"
+mirror_file="$mirror_dir/7XTGVTRM.INI"
+history_dir="$card_root/.7xtgvtrm-ini-history"
+if [ ! -d "$mirror_dir" ]; then
+    echo "Missing local card directory: $mirror_dir" >&2
+    exit 1
+fi
 
 tmux kill-session -t 7xtgv-cpm 2>/dev/null || true
 mirror_stopped=true

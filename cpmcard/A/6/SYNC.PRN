@@ -1,0 +1,24 @@
+
+
+                ; SYNC.COM -- synchronously persist the 7xtgv terminal history to SD.
+                ; Port 7Dh returns 1 only after the verified temp/CRC/rename transaction.
+                
+ 0100                   org     0100h
+                
+ 007D =         port    equ     07dh
+ 0005 =         bdos    equ     5
+                
+ 0100 3E01      start:  mvi     a,1
+ 0102 D37D              out     port
+ 0104 DB7D              in      port
+ 0106 FE01              cpi     1
+ 0108 C8                rz
+                
+ 0109 111201            lxi     d,errmsg
+ 010C 0E09              mvi     c,9
+ 010E CD0500            call    bdos
+ 0111 C9                ret
+                
+ 0112 53594E433Aerrmsg: db      'SYNC: history save failed',13,10,'$'
+ 012E                   end     start
+

@@ -1,4 +1,5 @@
 {
+  "optimization_property": "compiler.optimization_flags",
   "display_id": "ES3_35",
   "description": "ESP32-S3 JC8048W535 AXS15231B 3.5-inch",
   "method": "arduino-cli",

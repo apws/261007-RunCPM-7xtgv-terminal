@@ -182,24 +182,6 @@ class DispatcherTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             self.invoke('--allow-unidentified-target', 'jc8048w535')
 
-    def test_w535_sdmmc_fallback_flag_is_build_only_and_explicit(self):
-        (self.targets / 'jc8048w535.json').write_text(json.dumps({
-            'method': 'arduino-cli', 'profile': 'jc8048w535', 'port': 'fake'}))
-        for args in (('--w535-sd-mmc',),
-                     ('--target', 'jc8048w535', '--w535-sd-mmc'),
-                     ('--build-only', '--w535-sd-mmc')):
-            with self.subTest(args=args), self.assertRaises(SystemExit):
-                self.invoke(*args)
-        with patch.object(reflash, 'resolved_build_properties',
-                          return_value={'build.extra_flags': '-DPLATFORM=1 -DXTGV_BUILD_STAMP=x'}):
-            output = io.StringIO()
-            with patch.object(sys, 'argv', ['reflash.py', '--target', 'jc8048w535',
-                                           '--build-only', '--w535-sd-mmc', '--dry-run']), \
-                    contextlib.redirect_stdout(output):
-                self.assertEqual(reflash.main(), 0)
-        self.assertIn('-DPLATFORM=1 -DXTGV_BUILD_STAMP=x -DXTGV_W535_SD_MMC=1',
-                      output.getvalue())
-
     def test_legacy_wrapper_routes_through_guarded_dispatcher(self):
         wrapper = (TOOLS / 'reflash-jc8048w535.sh').read_text()
         self.assertIn('reflash.py', wrapper)

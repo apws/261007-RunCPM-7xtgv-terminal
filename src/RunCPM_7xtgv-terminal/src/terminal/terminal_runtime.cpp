@@ -1227,6 +1227,7 @@ static bool plotOwnsPixels() {
 // become active.  This is independent of whether GCLS was typed or read from
 // a CP/M SUB file.
 static void retirePlotActiveRows();
+static void settleTextBeforePlot();
 static void rememberPlotActiveRow(int row);
 static void plotEndCleanupPoll(uint32_t now);
 static uint16_t rgb565(vt::RGB color);
@@ -1408,6 +1409,8 @@ static void terminalPlot(void *, vt::Terminal::PlotEvent event, uint16_t color) 
             terminal.indicatorDirty = true;
             requestDisplayFlush();
         }
+        if (!plotCapture)
+            settleTextBeforePlot();
         plotCapture = true;
         plotCanvasValid = true;
         rememberPlotActiveRow(activeRow);
@@ -1591,17 +1594,17 @@ static uint8_t graphicsRow(uint8_t c, int y) {
         return font1bpp[0]['?'][y];
     }
 }
-static void drawCell(int i) {
+static void drawCell(int i, bool overlays = true) {
     int sourceColumn = i % vt::MaxCols, row = i / vt::MaxCols;
     int column = sourceColumn - terminal.viewport;
     const int displayRow = row - terminal.rowViewport;
     uint8_t bank = (terminal.attrRAM[i] >> 6) & 3, ch = terminal.charRAM[i];
     vt::RGB foreground = terminal.foreground(i), background = terminal.background(i);
     const vt::HistoryProfile &profile = profiles.get(history ? history->activeBank() : 0);
-    if (profile.activeLine && row == activeRow)
+    if (overlays && profile.activeLine && row == activeRow)
         background = profile.activeLineOverride ? profileRGB(profile.activeLineRGB) : terminal.palette.activeLine;
     bool cursor =
-        terminal.cursorVisible && cursorPhase && terminal.x == sourceColumn && terminal.y == row;
+        overlays && terminal.cursorVisible && cursorPhase && terminal.x == sourceColumn && terminal.y == row;
     if (cursor) {
         background = profile.cursorOverride ? profileRGB(profile.cursorRGB) : terminal.palette.cursor;
         // The cursor is dark paper, but preserve the active-line colour as
@@ -1640,6 +1643,28 @@ static void drawCell(int i) {
     gfx->draw16bitRGBBitmap(origin + column * width + XTGV_DISPLAY_OFFSET_X,
                              displayRow * height + XTGV_DISPLAY_OFFSET_Y,
                              scaledPixels, width, height);
+}
+static void settleTextBeforePlot() {
+    if (!displayOK)
+        return;
+    // A fast SUBMIT burst can advance activeRow before its old pixels have
+    // been repainted. PlotEnd discards dirty text to preserve graphics, so
+    // finish those pending erasures *before* the first sample owns the canvas.
+    // Also remove the current row/cursor overlays without painting new ones.
+    // Do not clear the screen: unrelated retained graphics must survive.
+    for (int y = 0; y < terminal.visibleRows; ++y) {
+        const int row = y + terminal.rowViewport;
+        for (int x = 0; x < terminal.visibleCols; ++x) {
+            const int col = x + terminal.viewport;
+            const int i = terminal.index(col, row);
+            if (terminal.dirty[i] || row == activeRow ||
+                (row == terminal.y && col == terminal.x)) {
+                drawCell(i, false);
+                terminal.dirty[i] = false;
+            }
+        }
+    }
+    requestDisplayFlush();
 }
 static void writeHistoryNotice() {
     int first = terminal.index(0, historyNoticeRow);
@@ -2361,7 +2386,7 @@ uint8_t virtualRead() {
     while (!input.pop(c)) {
         if (forcedWarmReturn().pending()) return 0;
         // RunCPM and its filesystem live on this core. Lazy history writes
-        // must never touch SdFat/SD_MMC from the terminal/display core.
+        // must never touch card storage from the terminal/display core.
         terminalConfigStoragePoll();
         terminalHistoryStoragePoll();
         // REBOOT.COM returns to the CCP, making this input wait the safe point

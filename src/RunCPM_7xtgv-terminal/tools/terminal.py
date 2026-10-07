@@ -28,15 +28,14 @@ from pathlib import Path
 if str(Path(__file__).resolve().parent) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
 from target_config import resolve_port
+from card_paths import transfer_root, du_directory
 
 PREFIX = 0x1D  # Ctrl+]
 SOH, EOT, ACK, NAK, CAN, CRC_REQUEST = 0x01, 0x04, 0x06, 0x15, 0x18, 0x43
 SNAPSHOT_REQUEST = b'\x1b[>62v'  # PC mirror only; does not redraw the TFT.
 SNAPSHOT_RESET = b'\x1b[2J\x1b[H'
 MOUSE_MODES = (1000, 1002, 1003, 1005, 1006, 1007, 1015, 1016)
-TRANSFER_ROOT = Path(os.path.expanduser(os.environ.get(
-    'XTGV_TRANSFER_ROOT', os.environ.get('XTGV_XMODEM_ROOT',
-    str(Path(__file__).resolve().parents[3] / 'cpmdrive'))))).absolute()
+TRANSFER_ROOT = transfer_root()
 # Guest-to-host capability request.  This is deliberately handled by the PC
 # bridge only: the firmware has no knowledge of the host build/upload setup.
 HOST_REFLASH_REQUEST = b'\x1b[>64v'
@@ -272,18 +271,7 @@ class TransferPrompt:
         return matches[0] if matches else self.directory / value.upper()
 
     def select_directory(self, value):
-        match = re.fullmatch(r'([A-P])([0-9A-F]|1[0-5]):?', value.strip().upper())
-        if not match:
-            raise ValueError('Use DU such as A0:, A6:, AF: (or A15:).')
-        user = int(match[2], 10 if len(match[2]) == 2 else 16)
-        du = match[1] + format(user, 'X')
-        matches = [p for p in self.root.iterdir() if p.is_dir() and
-                   (p.name.upper() == du or p.name.upper().startswith(du + ' - '))]
-        if not matches:
-            raise ValueError(f'No local folder for {du}: under cpmdrive.')
-        if len(matches) != 1:
-            raise ValueError(f'Multiple local folders match {du}:; resolve ambiguity first.')
-        self.du, self.directory = du + ':', matches[0]
+        self.du, self.directory = du_directory(self.root, value)
 
     def _left(self):
         if self.position:
@@ -787,7 +775,8 @@ def configure_serial(fd):
     attrs[4] = attrs[5] = termios.B115200
     termios.tcsetattr(fd, termios.TCSANOW, attrs)
     # DTR allows the firmware to detect a connected PC and send a full snapshot.
-    fcntl.ioctl(fd, termios.TIOCMBIS, struct.pack('I', termios.TIOCM_DTR))
+    if os.environ.get('XTGV_DESKTOP_TRANSPORT') != 'pty':
+        fcntl.ioctl(fd, termios.TIOCMBIS, struct.pack('I', termios.TIOCM_DTR))
 
 
 def open_serial(port):
@@ -808,11 +797,12 @@ def close_serial(fd, saved_serial):
         return
     try:
         if saved_serial is not None:
-            fcntl.ioctl(fd, termios.TIOCMBIC, struct.pack('I', termios.TIOCM_DTR))
+            if os.environ.get('XTGV_DESKTOP_TRANSPORT') != 'pty':
+                fcntl.ioctl(fd, termios.TIOCMBIC, struct.pack('I', termios.TIOCM_DTR))
             termios.tcsetattr(fd, termios.TCSANOW, saved_serial)
         fcntl.ioctl(fd, termios.TIOCNXCL)
-    except OSError:
-        # A USB disconnect invalidates the old file descriptor.
+    except (OSError, termios.error):
+        # A USB disconnect or closed PTY master invalidates the descriptor.
         pass
     os.close(fd)
 
@@ -1037,10 +1027,21 @@ def main():
         'Ctrl+Shift+PgDn zooms in, PgUp zooms out; add Alt for backlight.'))
     parser.add_argument('--port', help='Serial device; otherwise XTGV_PORT or selected target data')
     parser.add_argument('--target', help='Target for port defaults; otherwise XTGV_TARGET')
+    parser.add_argument('--desktop-pty', action='store_true',
+                        help='Local desktop endpoint: no USB DTR or firmware uploader')
     parser.add_argument('--mode', choices=('ansi', 'vt52'), help='Select mode on connection; otherwise preserve it')
     parser.add_argument('--reflash-command',
                         help='opt-in host uploader invoked by guest CSI >64v; overrides XTGV_REFLASH_COMMAND')
     args = parser.parse_args()
+    if args.desktop_pty:
+        if not args.port or not os.path.realpath(args.port).startswith('/dev/pts/'):
+            parser.error('--desktop-pty requires an explicit /dev/pts/ endpoint')
+        if args.reflash_command:
+            parser.error('Desktop REFLASH is unsupported')
+        os.environ['XTGV_DESKTOP_TRANSPORT'] = 'pty'
+        os.environ.pop('XTGV_REFLASH_COMMAND', None)
+    else:
+        os.environ.pop('XTGV_DESKTOP_TRANSPORT', None)
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGHUP, interrupted)
     try:

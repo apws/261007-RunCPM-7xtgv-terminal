@@ -1,0 +1,56 @@
+
+
+                ; VTPAD.COM [count] -- emit count CR/LF pairs (default 18).
+                ; CP/M SUBMIT may discard empty source records, so use explicit console output.
+                
+ 0100                   org     0100h
+                
+ 0005 =         bdos    equ     5
+                
+ 0100 3E12      start:  mvi     a,18             ; default when no decimal argument is present
+ 0102 325801            sta     remain
+ 0105 218100            lxi     h,0081h          ; command tail (length byte at 80h)
+ 0108 7E        skipsp: mov     a,m
+ 0109 FE20              cpi     ' '
+ 010B C21201            jnz     first
+ 010E 23                inx     h
+ 010F C30801            jmp     skipsp
+ 0112 FE0D      first:  cpi     13
+ 0114 CA3A01            jz      emit
+ 0117 3E00              mvi     a,0
+ 0119 325801            sta     remain
+ 011C 7E        digit:  mov     a,m
+ 011D FE30              cpi     '0'
+ 011F DA3A01            jc      emit
+ 0122 FE3A              cpi     ':'
+ 0124 D23A01            jnc     emit
+ 0127 D630              sui     '0'
+ 0129 57                mov     d,a
+ 012A 3A5801            lda     remain
+ 012D 87                add     a                ; 2*n
+ 012E 5F                mov     e,a
+ 012F 87                add     a                ; 4*n
+ 0130 87                add     a                ; 8*n
+ 0131 83                add     e                ; 10*n
+ 0132 82                add     d                ; 10*n + digit, modulo 256
+ 0133 325801            sta     remain
+ 0136 23                inx     h
+ 0137 C31C01            jmp     digit
+ 013A 3A5801    emit:   lda     remain
+ 013D B7                ora     a
+ 013E C8                rz
+ 013F 1E0D              mvi     e,13
+ 0141 0E02              mvi     c,2
+ 0143 CD0500            call    bdos
+ 0146 1E0A              mvi     e,10
+ 0148 0E02              mvi     c,2
+ 014A CD0500            call    bdos
+ 014D 3A5801            lda     remain
+ 0150 3D                dcr     a
+ 0151 325801            sta     remain
+ 0154 C33A01            jmp     emit
+ 0157 C9                ret
+                
+ 0158 00        remain: db      0
+ 0159                   end     start
+

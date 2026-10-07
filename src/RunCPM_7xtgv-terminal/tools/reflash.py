@@ -8,7 +8,8 @@ import subprocess
 import sys
 from firmware_identity import require_target, IdentityUnavailable, TargetMismatch
 from target_config import (load_target, resolve_port, arduino_cli, target_label,
-                           arduino_command, ensure_serial_access)
+                           arduino_command, ensure_serial_access,
+                           OPTIMIZATION_LEVELS, optimization_overrides, optimization_level)
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -54,10 +55,8 @@ def main():
                         help="build a target-aware candidate as new, then upload it for hardware test")
     parser.add_argument("--build-only", action="store_true",
                         help="build and stage a target-aware new candidate without uploading")
-    parser.add_argument("--optimization", choices=("Os", "O2", "O3"),
-                        help="RP2350 or P4 trial build: override whole source-build optimization")
-    parser.add_argument("--w535-sd-mmc", action="store_true",
-                        help="W535 fallback build: select the former one-bit SD_MMC adapter instead of default SPI3/SdFat")
+    parser.add_argument("-O", "--optimization", type=optimization_level, choices=OPTIMIZATION_LEVELS,
+                        help="Override optimization for all compiled sources; prebuilt SDK libraries are unchanged")
     parser.add_argument("--storage-read-only", action="store_true",
                         help="P4 test build: reject filesystem sector writes, independent of INI")
     parser.add_argument("--promote-new", action="store_true",
@@ -86,11 +85,6 @@ def main():
         _, definition = load_target(args.target, TARGETS)
     except RuntimeError as error:
         parser.error(str(error))
-    if args.optimization and args.target not in (
-            "rp2350-lcd-1-47-a", "rp2350-touch-lcd-2", "jc8012p4a1c"):
-        parser.error("--optimization trials support RP2350 targets and jc8012p4a1c")
-    if args.w535_sd_mmc and (args.target != "jc8048w535" or not building):
-        parser.error("--w535-sd-mmc requires --target jc8048w535 and --build or --build-only")
     if definition.get("method") != "arduino-cli" and not (
             args.build_only and definition.get("method") == "bootsel-uf2"):
         parser.error(f"{args.target} requires {definition.get('method', 'an unspecified')} upload workflow")
@@ -135,13 +129,8 @@ def main():
     build_properties = dict(definition.get("build_properties", {}))
     if building:
         try:
-            optimization_key = ("compiler.optimization_flags" if args.target == "jc8012p4a1c"
-                                else "build.flags.optimize")
-            overrides = ({optimization_key: f"-{args.optimization}"}
-                         if args.optimization else None)
+            overrides = optimization_overrides(definition, args.optimization)
             build_properties = resolved_build_properties(cli, definition, stamp, overrides)
-            if args.w535_sd_mmc:
-                build_properties["build.extra_flags"] += " -DXTGV_W535_SD_MMC=1"
             if args.storage_read_only:
                 build_properties["build.extra_flags"] += (
                     " -DXTGV_STORAGE_READ_ONLY=1 -DUSE_BLOCK_DEVICE_INTERFACE=1")

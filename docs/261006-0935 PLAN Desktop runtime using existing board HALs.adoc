@@ -1,0 +1,308 @@
+= PLAN: Desktop runtime using existing board HALs
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+
+== Read this first when resuming
+
+Status: agreed implementation direction, implementation pending beyond the
+existing headless proof. This is the current execution plan for the desktop
+work. Read it before the older proposal; read subsequent linked `DONE` records
+and inspect the worktree before deciding what remains to implement.
+
+Source decisions: link:261006-0935%20CHAT%20Desktop%20runtime%20review%20and%20decisions.adoc[261006 discussion].
+Earlier evidence:
+link:261005-2012%20Arduino-compatible%20SDL%20desktop%20emulator%20analysis%20and%20plan.adoc[261005 source audit and proposal],
+link:261005-2120%20Headless%20Arduino%20desktop%20build%20and%20real%20GFX%20proof.adoc[261005 headless checkpoint].
+This plan supersedes the earlier standalone SDL board, SDL keyboard and
+case-insensitive host lookup proposals. Preserve those documents as history.
+
+* Select an existing real board and a separate desktop build mode.
+* Use its display ID, geometry, limits, defaults, gutter/indicator and drawing policy.
+* Compile our original Arduino sketch, Arduino abstraction, 7XF and terminal.
+* Draw with real Arduino_GFX; SDL presents the simulated panel as output only.
+* Keep our existing mirror for keyboard input and complete parallel output.
+* Select a host card directory at launch; canonical CP/M filenames are uppercase.
+* Keep CARDMARK unchanged on hardware and unsupported on desktop.
+* Remove the abandoned W535 SD_MMC alternative from active code/tooling.
+* Rename the runtime to `runtime_desktop.h`; retain coherent desktop platform sources.
+
+Petr reports `render_flush_hz=10` in his buffered-board INI sections. Preserve
+and exercise that setting. The inspected compiled defaults are 30 Hz; this
+does not override the selected INI setting. Ten Hz is a 100 ms interval;
+15 ms would be approximately 66.7 Hz, not slower than 10 Hz.
+
+== Existing implementation and evidence limits
+
+The dirty worktree contains a working Linux headless build under
+`src/RunCPM_7xtgv-terminal/desktop/`, provisional `boards/sdl_emulator.h`
+and `runtime_emulator.h`. It builds the actual sketch with real Arduino_GFX
+1.6.4 and a directory-backed SD/File adapter. A worker runs RunCPM; the main
+thread runs the terminal. Four CTests pass, including a real Z80 guest whose
+BDOS punch output is checked; the same four pass under UBSan. The source audit
+and recorded regression tests remain useful evidence.
+
+The earlier phrase "first four acceptance stages" was too broad: these are
+proofs spanning those stages, not completion of every listed acceptance test.
+Full glyph/zoom/pan/plot fixtures, persistence recovery and representative
+card-content coverage remain to be completed. UBSan does not prove race freedom.
+
+Current shortcomings:
+
+* Fixed 1280x800 board with `SDL_1280` identity; no real-board INI identity reuse.
+* Serial input fixture only; connected state is false and output is discarded.
+* No SDL window, interactive mirror transport or tested arbitrary shutdown.
+* Reboot sets a flag but does not restart anything.
+* Uppercase disposable fixtures only; no acceptance run on Petr's copied card.
+* Windows/macOS compilation and native mirror integration are unvalidated.
+
+Previous approval covers the sketch's HAL storage-summary seam. CPU, BDOS,
+CCP, disk, console and Arduino abstraction sources have not been changed for
+the emulator. Existing uncommitted work must be preserved and adapted in place.
+The unrelated deletion of the literal-transcript document predates this work.
+
+== Board selection and platform boundary
+
+=== One board description, two execution environments
+
+Introduce an explicit desktop build flag, provisionally `XTGV_DESKTOP=1`,
+independent of the existing real target selection. Do not define ESP32/RP2040
+architecture macros on the host. The chosen board's constants remain the source
+of identity, panel dimensions, terminal capacity, zoom presets, render policy,
+offsets, indicators and backlight curve.
+
+All real board headers already separate constants from their implementation
+with `XTGV_HAL_IMPLEMENTATION`. Suppress only hardware implementations in
+desktop mode, while retaining the existing declaration/constants interface.
+Provide desktop definitions of the normal HAL functions once, in desktop
+platform sources. Do not add a second geometry catalog, parse C++ headers from
+Python or generate per-feature board fragments.
+
+The sketch still needs the host `SD` declaration and `File` alias before the
+Arduino abstraction is included. Supply these through the desktop platform
+interface selected at the HAL boundary. Retain ordinary typed functions;
+avoid macro bodies and macro-generated include paths.
+
+Remove the provisional independent SDL board after the real-board host matrix
+passes. Do not add `SDL_1280x800` or `SDL_480x320` targets.
+
+=== Build and identity
+
+The desktop builder accepts the existing target ID or its display-ID alias,
+resolves that selection once and passes the existing target definition to CMake.
+Do not import physical Arduino FQBN, MCU toolchain, SPI-driver or upload flags
+into the host build. Keep per-target native outputs under
+`build/RunCPM_7xtgv-terminal/desktop/<target>/`.
+
+Preserve the selected board's `display_id` for INI lookup. Report desktop as
+the execution backend separately in startup/launcher information. Give host
+builds a fresh stamp through the build entry point; a cached configure-time
+stamp alone must not be represented as a fresh rebuild stamp.
+
+Desktop launching always selects the local transport explicitly. Never infer
+that an emulated ES3_5 identity authorizes a physical ES3_5 upload. Desktop
+REFLASH is unsupported and cannot invoke a hardware uploader.
+
+== Display presentation
+
+Keep the production terminal/parser/rendering sources and real Arduino_GFX
+1.6.4. Supply a Canvas-backed desktop graphics object with the selected board's
+physical dimensions; it owns one RGB565 drawing buffer.
+
+[cols="1,2,2",options="header"]
+|===
+|HAL policy |Production behavior |Desktop presentation
+|`XTGV_DISPLAY_NEEDS_FLUSH=false`
+|RP2_2, RP2_147 and EC6_147 draw without an explicit display flush.
+|Publish changed Canvas pixels after terminal drawing batches, without waiting for `flush()`.
+|`XTGV_DISPLAY_NEEDS_FLUSH=true`
+|ES3_35, ES3_5 and EP4_10 schedule explicit flushes.
+|Publish only when `flush()` occurs; retain the previously published texture between flushes.
+|`XTGV_DISPLAY_FULL_FRAME_BUDGET`
+|Selects the existing terminal drawing budget per batch.
+|Retain the same budget and production render path.
+|INI `render_flush_hz`
+|Schedules pending explicit flushes; zero removes the interval delay.
+|Use the existing scheduler, including Petr's 10 Hz values. Do not add another competing flush timer.
+|===
+
+Capture the flushed image before later drawing changes it: uploading on the
+flush call is simplest when UI ownership permits. A generation counter alone
+must not expose later unflushed changes. Audit drawing entry points to ensure
+direct-mode dirty tracking covers fills, bitmaps, plots and initialization.
+Avoid hashing a whole framebuffer continuously merely to discover changes.
+
+All Canvas drawing, SDL texture updates and presentation stay on the main
+thread. Backlight modulates the presented image without changing pixels in
+the Canvas; a brightness change can require a present without a new flush.
+Exposure, resize and a clean boot also require correct presentation of the
+last published image. Window scaling/letterboxing does not change emulated
+panel dimensions or logical terminal geometry.
+
+SDL is output only. Request always-on-top and no activation when shown; keep
+keyboard focus in the existing mirror. Strict click-proof non-focus behavior
+is a platform/window-manager qualification, not a portable SDL promise.
+Do not implement a second SDL key/chord translator.
+
+This emulates application drawing policy and update cadence. It does not
+model SPI transfer time, panel scanout, DMA contention, electrical failures,
+physical backlight luminance or hardware benchmark throughput.
+
+== Card directory and canonical filenames
+
+Use an explicit launch-time card-root path. The same host adapter accepts a
+copied `cpmcard` directory or an already mounted USB-reader FAT32 directory.
+No machine-specific mount path belongs in board headers. Keep the root fixed
+during one run and print it in launch information/logs.
+
+Host lookup remains case-sensitive where the underlying filesystem is
+case-sensitive. Canonical CP/M drive/user contents use uppercase filenames;
+no case-folding resolver is planned. Mounted FAT32 retains the host filesystem
+driver's own lookup behavior. Do not rewrite filesystem behavior globally.
+
+Provide a separate explicit normalization utility:
+
+* Default to an inventory/dry-run limited to recognized CP/M drive/user trees.
+* Report mixed-case names, invalid/unsupported CP/M names and uppercase collisions.
+* Apply only after an explicit apply request; collision checking precedes renames.
+* Handle case-only renames with a collision-checked temporary name when needed.
+* Preserve file contents byte for byte; do not touch unrelated card-root material.
+
+Initial emulator tests use disposable fixtures/copies. Petr's `cpmcard` and
+the real card remain source data until an explicit run selects them for use.
+The program can write INI, BUF and guest files during normal operation; reading
+a card root into the emulator is not inherently a read-only operation.
+Keep one RunCPM/storage owner and existing persistence request synchronization.
+Validate existing flag/seek/rename/handle semantics and failed-save recovery.
+No automatic synchronization with `cpmdrive/` is introduced.
+
+== Desktop Serial and mirror
+
+On Linux, use a PTY endpoint in raw mode as the Serial transport. The emulator
+owns one end; the existing mirror opens the other. Carry exactly the current
+byte protocol, with bounded queues, partial writes and backpressure.
+
+Implement connected/disconnected state so the existing mirror snapshot logic
+works on attach and reattach. PTYs do not provide physical USB DTR behavior;
+adapt desktop transport setup explicitly instead of suppressing arbitrary
+errors in hardware serial setup. Leave physical serial behavior unchanged.
+
+Reuse the existing terminal.py keyboard translation, Czech layout, chords,
+profile controls, screen reconstruction and resize protocol. Keep mirror
+output enabled; it may show a wider logical terminal than the SDL panel's
+viewport. Reuse the existing guest input/output queues rather than bypassing
+terminal processing.
+
+Give a desktop session its own endpoint and launcher/session identity. Do not
+overwrite the user's physical-port configuration or stop the physical mirror
+as a side effect of starting a desktop test. Preserve existing single-reader
+ownership when exercising transfers. Audit helpers that directly configure
+serial so their explicit desktop path handles the PTY consistently.
+
+Windows ConPTY is not a Unix PTY/COM-port replacement. Defer Windows transport
+selection and the existing POSIX mirror's portability work to its own stage;
+a pipe or loopback socket may be appropriate. Keep those details behind the
+desktop Serial boundary. macOS remains a later validation target.
+
+== CARDMARK and abandoned SD_MMC route
+
+Keep real hardware CARDMARK's raw-sector test, CID/CSD decoding and SPI clock
+trial behavior. Desktop reports unsupported through the existing capability
+protocol; verify the guest helper exits clearly. No `CARDMARK FILES` mode,
+fake CID/CSD, raw USB-reader access or cache-bypass benchmark is planned.
+
+Normal desktop file reads may be served by host cache; USB reader throughput
+is not guaranteed to be card throughput. Avoid expanding this emulator into
+a platform-specific storage benchmark.
+
+Remove W535 SD_MMC from active support: alternate board header, selector,
+`--w535-sd-mmc` option/build-property injection and tests of that option.
+Replace obsolete negative SD_MMC conditions with the actual raw-card capability
+where needed. Retain historical documents and measured results as history,
+marked obsolete in current reference points rather than rewriting old evidence.
+
+== Runtime ownership, shutdown and reboot
+
+Rename `runtime_emulator.h` to `runtime_desktop.h`. Keep it a small runtime
+coordinator. Retain `desktop/` for the substantial host services, native build,
+launcher, shims and tests. Do not combine filesystem, transport, SDL and build
+logic into a single large runtime header.
+
+* Main/UI thread owns terminal processing, Canvas and SDL.
+* RunCPM worker owns guest execution and all card filesystem operations.
+* Existing queues and atomic requests carry cross-thread communication.
+* SDL close and REBOOT must work while guest code waits for input, produces
+  output or loops without I/O. Continue draining queues during shutdown.
+* Join workers; do not detach, asynchronously kill a thread or free live state.
+* Prefer orderly process relaunch for reboot over resetting all static objects
+  in place. Flush/persist using the existing storage owner before completion.
+
+Audit the existing abort/poll paths before implementing lifecycle behavior.
+If a new RunCPM core/abstraction seam is necessary, explain the exact file and
+change and obtain the repository-required direction before editing it.
+The already approved storage banner seam does not authorize unrelated core edits.
+Do not repeatedly request approval for that already approved seam.
+
+== Implementation sequence and acceptance
+
+[cols="1,3,3",options="header"]
+|===
+|Step |Work |Acceptance evidence
+|1. Align target/runtime selection
+|Reuse real board constants; add desktop mode; replace provisional SDL board; rename runtime; preserve ordinary HAL calls.
+|All six existing board selections compile on host. Dimensions, display IDs, limits and INI selection agree with each real header. Existing native regressions pass.
+|2. Remove obsolete SD_MMC support
+|Remove its board/option/conditions and adjust capability tests.
+|Active code has no SD_MMC fallback references; normal W535 SPI and CARDMARK capabilities remain. Historical docs preserved.
+|3. Verify card contract
+|Add uppercase audit/apply utility; complete storage and actual persistence recovery coverage.
+|Dry-run collision fixtures, explicit rename fixtures, read/write/seek/list/rename and INI/BUF recovery pass on disposable trees. Real card untouched by automated fixtures.
+|4. Connect existing mirror
+|Implement PTY Serial and explicit desktop transport/launcher; enable mirror output and connection state.
+|Boot snapshot, reconnect, bidirectional bytes, partial writes, logical dimensions and existing chord paths work without changing physical USB behavior. No desktop uploader invocation.
+|5. Add SDL presenter
+|Present real Canvas using selected direct/flush policy, backlight and output-only window settings.
+|Buffered content stays unpublished until flush; direct boards update without flush. Test 10 Hz INI scheduling, resize/exposure, zero backlight, zoom/pan, gutters, indicators and retained plots. Petr checks visible behavior.
+|6. Complete lifecycle
+|Orderly close and reboot/relaunch through owner-controlled shutdown.
+|Guest EXIT, idle/input wait, compute loop, output saturation and pending persistence terminate/restart without hangs or leftover workers. Appropriate sanitizer checks pass; remaining limitations recorded.
+|7. Package Linux checkpoint
+|One documented build/launch workflow with explicit board and card-root choices; pinned dependencies and target-separated outputs.
+|Fresh isolated Linux build/launch instructions are tested to the stated extent. DONE records give exact commands, tests, artifact paths and remaining work. Windows/macOS explicitly remain pending.
+|===
+
+Use small reviewable checkpoints. Tests should establish observable contracts,
+not only assert the presence of new macros. Native tests do not replace MCU
+rebuild/hardware qualification after shared HAL changes. Firmware builds,
+flashes and real-card mutation remain separate user-directed actions.
+
+== Recovery and document workflow
+
+Current proof command from the repository root:
+
+[source,bash]
+----
+cmake -S src/RunCPM_7xtgv-terminal/desktop \
+  -B /tmp/xtgv-desktop-gfx-261005 \
+  -DXTGV_GFX_SOURCE="$HOME/Arduino/libraries/GFX_Library_for_Arduino" \
+  -DCMAKE_BUILD_TYPE=Debug
+cmake --build /tmp/xtgv-desktop-gfx-261005 -j2
+ctest --test-dir /tmp/xtgv-desktop-gfx-261005 --output-on-failure
+----
+
+This builds yesterday's provisional single desktop target until step 1 changes
+the interface. Replace these instructions in the relevant DONE/build README
+when the new selector exists; do not mistake proposed CLI options for shipped ones.
+
+Use `YYMMDD-HHMM CHAT ...`, `YYMMDD-HHMM PLAN ...` and, after implementation,
+`YYMMDD-HHMM DONE ...` AsciiDoc documents. Same-minute CHAT and PLAN sort in that
+order; later DONE records sort by their actual completion timestamp. A DONE
+record names its completed checkpoint, evidence and unfinished plan steps.
+It must not imply the whole plan is complete merely because a checkpoint is.
+
+On context recovery: current PLAN, latest relevant DONE, repository guidance,
+then git status/diff and the specific code. Read CHAT for rationale or unresolved
+intent, not as a substitute for the final decisions. Record material changes
+of direction in a new plan/revision and link them from the current reading map.
+Keep `docs/features.tsv` and the manual timeline honest about implemented versus
+planned work. Commit/push are separate; no publication occurs in this planning step.

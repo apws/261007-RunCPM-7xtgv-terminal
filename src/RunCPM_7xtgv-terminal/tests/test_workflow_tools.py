@@ -342,7 +342,7 @@ class WorkflowTests(unittest.TestCase):
 
     def test_wrappers_shell_syntax(self):
         paths = [TOOLS / 'fresh-build.sh', *sorted((TOOLS / 'targets').glob('* -- */*.sh'))]
-        self.assertEqual(len(paths), 19)
+        self.assertEqual(len(paths), 37) # six hardware/desktop scripts per board
         for path in paths:
             subprocess.run(['bash', '-n', str(path)], check=True)
 

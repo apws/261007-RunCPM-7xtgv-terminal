@@ -1,9 +1,0 @@
-; VT100.COM -- return to ANSI/VT100 output decoding without resetting colors.
-bdos      equ 5
-          org 0100h
-start:    ld c,9
-          ld de,sequence
-          call bdos
-          jp 0
-sequence: db 01bh,"<","$"
-

@@ -1,4 +1,5 @@
 {
+  "optimization_property": "build.flags.optimize",
   "display_id": "RP2_2",
   "description": "RP2350 Waveshare Touch-LCD 2-inch",
   "port_globs": [

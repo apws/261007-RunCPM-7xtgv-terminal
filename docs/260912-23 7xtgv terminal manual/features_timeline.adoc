@@ -16,9 +16,21 @@ renamed, or changes behavior.
 
 == Terminal and RunCPM foundations
 
+Latest test checkpoint, `261007-1214`:
+link:../261007-1214%20DONE%20VTESTS%20legacy%20and%20scroll%20checks.adoc[VTESTS review]
+isolates blink/reverse attributes, expands VT52 movement/erase checks and adds
+five DECSTBM/DECOM scrolling stages. Real MBASIC runs through the quiet SDL
+firmware on disposable cards; production renderer checks cover both blink
+phases and reverse pixels. This improves tests, not the terminal protocol;
+updated BASIC was subsequently copied to local `cpmcard/A/7` on Petr's request
+at `261007-1234`, but not to the physical card. See the
+link:../261007-1234%20PLAN%20Consolidate%20CP-M%20content%20into%20cpmcard.adoc[card-root migration plan].
+
 [cols="1,4,2",options="header"]
 |===
 |Checkpoint |What entered the project |Evidence
+|`++261007-1645++` |Petr chose the complete `++cpmcard++` tree, including all A-P content, INI/history, databases, backups, snapshots and the existing image. Removed the earlier 200-file filter; no guest content changed. |link:../261007-1645%20DONE%20Version%20complete%20cpmcard%20without%20content%20exclusions.adoc[Complete-card scope]
+|`++261007-1618++` |Made `++cpmcard++` primary with DU-only paths, private-state exclusions and a reviewed 200-file seed; archived the old mirror. Tests use disposable copies and helper installation is explicit. |link:../261007-1618%20DONE%20Canonical%20cpmcard%20and%20DU-only%20tooling%20cutover.adoc[Cutover]
 |`++260906-12++` |Recovered the Arduino/RunCPM and early 7xtgv workspace. This is a recovery baseline, not the start date of every imported program. |link:../260906-12%20RECOVERY.adoc[Recovery]
 |`++260907-21++` |Added the combined RunCPM plus buffered VT100-style terminal, TFT viewport, reconstructed PC mirror, tests, and the CP/M drive mirror. A7 MBASIC visual tests were reorganized soon after. |Commit `++900ee6b++`
 |`++260908-19++` |Brought up headless RunCPM on ESP32-S3, independently of the TFT terminal. |link:../260908-22%20runcpm-s3-headless-validation.adoc[S3 validation]
@@ -487,6 +499,89 @@ shared in this single installer. Real Debian/Fedora installation is pending.
 On 261005, every module gained `mirror.sh` for standalone visible mirror
 launch, sharing reflash's terminal selection without building or uploading.
 
+== Arduino-compatible desktop emulator plan (261005-2012)
+
+Later checkpoint: link:../261005-2120%20Headless%20Arduino%20desktop%20build%20and%20real%20GFX%20proof.adoc[261005-2120 headless implementation]
+builds the original Arduino sketch/7XF with real Arduino_GFX and host SD/File
+storage. Four native checks and their UBSan run pass; SDL UI, safe restart and
+Windows/macOS validation are still pending. MCU storage summary text is preserved
+through the approved HAL reporting seam; no firmware was rebuilt or flashed.
+
+Source audit refines the older Windows-first SDL proposal into Linux-first
+reuse of the existing Arduino sketch, abstraction, 7XF and terminal. Prefer
+real Arduino_GFX Canvas drawing into RGB565 memory, SDL presentation only,
+host File/SD compatibility and one UI plus one filesystem/RunCPM owner.
+The linked round_touch simulator is a shim-pattern reference, not a drop-in
+renderer or storage implementation. Raw-card capability and safe lifecycle
+remain explicit gates; no emulator implementation or build is claimed.
+
+See link:../261005-2012%20Arduino-compatible%20SDL%20desktop%20emulator%20analysis%20and%20plan.adoc[detailed source audit, seams and staged acceptance plan].
+
+== Desktop review and consolidated plan (261006-0935)
+
+Petr selects existing real board HAL definitions plus desktop build mode,
+preserving display IDs, INI defaults and direct/flush drawing policy. His
+buffered-board INI uses `render_flush_hz=10`. SDL becomes output only; the
+existing mirror retains keyboard and full output through desktop transport.
+Uppercase CP/M filenames replace the proposed case-insensitive resolver;
+CARDMARK stays unsupported on desktop and the W535 SD_MMC route is scheduled
+for removal. These are planning decisions, not newly delivered emulator code.
+
+link:../261006-0935%20CHAT%20Desktop%20runtime%20review%20and%20decisions.adoc[Discussion]
+and link:../261006-0935%20PLAN%20Desktop%20runtime%20using%20existing%20board%20HALs.adoc[current implementation plan].
+New chronological documents use CHAT/PLAN/DONE with minute timestamps; old
+documents retain their original names.
+
+== Interactive Linux desktop checkpoint (261006-1117)
+
+All six real-board HAL selections now build the original Arduino sketch and
+7XF natively. Real GFX paints a Canvas; output-only SDL publishes according
+to the board's direct/flush policy and INI scheduler. The existing full mirror
+uses an explicit local PTY, with its own Konsole/tmux session. Host card root
+is selected at launch; guest EXIT, cooperative stop and process-restart REBOOT
+are implemented. CARDMARK stays unsupported on desktop. Removed the abandoned
+W535 SD_MMC alternate and its build option; earlier entries remain history.
+
+Eight CTests pass per board; EP4 UBSan also passes. Copied local and mounted
+card contents boot; originals remain unchanged. Petr saw the SDL output and
+liked its dark end. Brightness is approximate. Broad visual/persistence-failure
+acceptance, fresh OS and Windows/macOS remain open; no MCU build or upload.
+
+link:../261006-1117%20DONE%20Linux%20desktop%20real-board%20SDL%20and%20mirror%20checkpoint.adoc[Evidence and remaining gates].
+
+== Quiet desktop shortcuts and ThinkPad integration (261006-1635)
+
+Integrated the fetched Linux setup and standalone hardware mirror changes with
+the desktop work. Six board folders gain separate `desktop-rebuild.sh`,
+`desktop-local.sh` and `desktop-card.sh`, with concise status and adjacent logs.
+Shared mirror selection supports Konsole, Kitty or the current terminal;
+desktop requires an isolated PTY session and never invokes an uploader.
+Optional `setup.sh --with-desktop` adds native build/SDL2 packages. Offline
+launcher/workflow tests pass; no installation or hardware operation here.
+
+link:../261006-1635%20DONE%20ThinkPad%20integration%20and%20quiet%20desktop%20shortcuts.adoc[Integration evidence and usage].
+
+== Optimization selectors and SDL brightness (261006-1900)
+
+All hardware/desktop rebuilds expose source-level -O0/-Og/-O1/-O2/-O3/-Os selection;
+hardware defaults remain unchanged, desktop now defaults to -O2, and
+upload/launch cannot change compiled flags.
+SDL compensates PWM duty with one global nonlinear curve normalized to the
+selected board's maximum. Off stays black and maximum becomes full brightness,
+including C6's physically capped curve, without changing hardware or INI.
+
+link:../261006-1900%20DONE%20Optimization%20selectors%20and%20SDL%20backlight%20compensation.adoc[Details and validation].
+
+== GCLS pending cursor-line cleanup (261006-2224)
+
+The shared renderer finishes pending text/overlay erasures before the first
+plot sample. This prevents a fast SUBMIT burst from leaving an old active-line
+strip when plot completion discards its text backlog. GCLS arming remains
+non-clearing and unrelated retained graphics survive. Real-GFX EP4_10 and
+EC6_147 regressions pass; rebuilt application/device testing remains pending.
+
+link:../261006-2224%20DONE%20GCLS%20pending%20cursor-line%20cleanup.adoc[Cause and validation].
+
 == Command and catalog name lineage
 
 This table is about *our additions and transitions*, not every supplied
@@ -514,5 +609,5 @@ itself prove its `++.COM++` is installed on the live device.
 
 For the exact *current* syntax and limitations, use the
 link:reference-guide.adoc#7xtgv-cpm-commands-and-user-areas[command reference].
-The live SD card and the local `++cpmdrive++` mirror can differ; this timeline
+The physical SD card, local `++cpmcard++` and its committed snapshot can differ; this timeline
 does not certify that every listed binary is currently installed on the card.

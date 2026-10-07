@@ -6,12 +6,18 @@ have record-padded slack after their 128-byte buffer, so the patch relocates the
 small remove_file helper there and uses the freed bytes for a jump to `XOR A;RET`.
 It refuses any binary whose expected instruction layout differs.
 """
+import argparse
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[4]
+# Historical one-shot repair, not a current firmware build/install step.
+# Never silently patch today's live card binaries.
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--directory', required=True, type=Path,
+                    help='Disposable directory containing the old 896-byte binaries')
+ROOT = parser.parse_args().directory
 SPECS = (
-    (ROOT / 'cpmdrive/A0 - CP-M core/VTDRV.COM', 0x148, 0x149, 0x249),
-    (ROOT / 'cpmdrive/A0 - CP-M core/VTDRV8X.COM', 0x15A, 0x15B, 0x25B),
+    (ROOT / 'VTDRV.COM', 0x148, 0x149, 0x249),
+    (ROOT / 'VTDRV8X.COM', 0x15A, 0x15B, 0x25B),
 )
 SUCCESS = 0x450                 # file offset 0x350 plus CP/M load address
 REMOVE = SUCCESS + 2

@@ -7,7 +7,7 @@ This is the everyday path for the current RunCPM terminal. The TFT shows a
 viewport of the logical CP/M screen; the PC mirror shows that complete screen.
 The selected CP/M drive/user area is where device commands read and write.
 The VTPUT/VTGET panel's *DU* instead chooses a folder in the host
-`++cpmdrive++` mirror. Zoom changes cell size, while pan changes which part of
+`++cpmcard++` working card. Zoom changes cell size, while pan changes which part of
 the same logical screen is visible on the TFT. Neither moves CP/M files.
 For when these behaviors and commands were added, see the
 link:features_timeline.adoc[Features Timeline].

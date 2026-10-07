@@ -1,0 +1,205 @@
+= Linux desktop runtime
+:source-highlighter: highlight.js
+
+Experimental developer tool: the original Arduino sketch, 7XF shell and
+`abstraction_arduino_7xtgv.h`, with the selected *real board's* geometry,
+display ID, INI section, limits and drawing policy. This is not the separate
+POSIX RunCPM port. No MCU firmware is built or uploaded by these commands.
+
+== Requirements
+
+* Linux, C++17 compiler, CMake 3.19+, a CMake build tool, Python 3.10+ and pthreads.
+* SDL2 development headers/library (or SDL2 compatibility package); tmux for the mirror.
+  Automatic terminal selection prefers Konsole, then Kitty, then the current terminal.
+* Real GFX Library for Arduino *1.6.4*, including `library.properties` and `src/`.
+  Default location: `$HOME/Arduino/libraries/GFX_Library_for_Arduino`.
+  Override it with `--gfx /path/to/library` on build/test/matrix.
+* A card directory containing `A/0` and uppercase CP/M filenames, plus any desired
+  applications and `7XTGVTRM.INI`. Card content is not downloaded or synthesized by launch.
+
+The native build does not need Arduino MCU cores, SdFat hardware drivers,
+esptool or USB permissions. Dependencies are checked, not automatically installed.
+`tools/setup.sh --with-desktop` adds CMake, make, C++ and SDL2 packages to the
+existing explicit Linux setup. Preview with `--dry-run`. This is additive,
+not a desktop-only installer: it still installs pinned Arduino cores/libraries.
+Nothing is installed automatically by launching or rebuilding.
+Windows/macOS transport and packaging are not implemented.
+
+== Build and launch
+
+=== Simple per-board shortcuts
+
+Open `tools/targets/DISPLAY_ID -- target/` and launch from that directory
+(including Shift+Enter in Double Commander):
+
+[cols="1,2",options="header"]
+|===
+|Script |Action
+|`desktop-rebuild.sh` |Build fresh desktop code for this board. No MCU firmware build or upload.
+|`desktop-local.sh` |Run the last desktop build against the repository's `cpmcard`, independent of current directory.
+|`desktop-card.sh` |Run against a mounted SD/USB filesystem: pass `--card-root PATH`, set `XTGV_DESKTOP_CARD_ROOT`, or enter the path at its prompt.
+|===
+
+Normal output is short status only. Details are in the same-named `.log` beside
+the script, replaced per run, with CONFIGURE/BUILD or DESKTOP/MIRROR delimiters.
+Failures name the log. `--dry-run` explicitly prints the resolved command only.
+Mounted-card mode refuses a directory which is no longer a mount point; it does
+not guess the reader. Both launch modes are read/write, including INI/history.
+No card content is copied or normalized automatically.
+
+Inside `tools/targets/EP4_10 -- jc8012p4a1c/`, for example:
+
+[source,bash]
+----
+./desktop-rebuild.sh
+./desktop-local.sh
+# Or, instead of the local launch:
+./desktop-card.sh --card-root /run/media/falken/RunCPM
+----
+
+`--mirror kitty`, `--mirror konsole` or `--mirror terminal` overrides automatic
+selection. Hardware `rebuild.sh`, `reflash.sh` and `mirror.sh` remain separate.
+
+=== Optimization selection
+
+Both `rebuild.sh` (hardware) and `desktop-rebuild.sh` accept
+`-O0`, `-Og`, `-O1`, `-O2`, `-O3`, `-Os`, or the longer
+`--optimization O2` / `--optimization default`. For example:
+
+[source,bash]
+----
+./desktop-rebuild.sh -O2
+./rebuild.sh -Os
+----
+
+These are separate builds; neither command flashes hardware. The option is
+also available on `tools/reflash.py --build-only` and desktop build/test/matrix.
+Launch and upload-only actions reject it: they use the existing artifact.
+No option (or `default`) preserves the selected hardware profile; the desktop
+builder defaults to `-O2`, with debug symbols retained. Overrides
+are per invocation, not persistent; omitting the option resets the CMake override.
+Use `-O0` explicitly for unoptimized desktop debugging.
+
+Hardware optimization applies to sources compiled by Arduino, not to prebuilt
+ESP32 SDK archives. Debug/unoptimized firmware may not fit; benchmark and test
+an explicit choice before adopting it. No automatic O3 or fast-math setting.
+
+=== Developer CLI commands
+
+From the repository root:
+
+[source,bash]
+----
+python3 src/RunCPM_7xtgv-terminal/desktop/desktop.py build --target EP4_10
+python3 src/RunCPM_7xtgv-terminal/desktop/desktop.py run \
+  --target EP4_10 --card-root ./cpmcard
+----
+
+The run command starts an output-only SDL panel and the existing selected mirror
+for input and parallel output. Use `--target ES3_35`, `ES3_5`, `EC6_147`,
+`RP2_147` or `RP2_2` to build/run those board geometries; long target IDs work too.
+Each selection has separate artifacts and `build.log` under
+`build/RunCPM_7xtgv-terminal/desktop/<target>/`.
+Build reconfigures CMake for a fresh stamp; run uses the last build and never
+silently rebuilds. Close the SDL window, press Ctrl+C in the launcher, or use
+guest `EXIT` to stop. Guest `REBOOT` cleanly exits with code 75 and the launcher
+starts a fresh process and mirror; invoking the native binary directly leaves
+that restart to its caller. Guest `REFLASH` cannot invoke a hardware uploader.
+
+For Petr's mounted reader, explicitly substitute:
+
+[source,bash]
+----
+python3 src/RunCPM_7xtgv-terminal/desktop/desktop.py run \
+  --target EP4_10 --card-root /run/media/falken/RunCPM
+----
+
+IMPORTANT: These are normal *read/write* runs. Guest programs and INI/history
+persistence can change the selected tree. Prefer a disposable copy initially.
+Do not run two instances against the same tree or remove a mounted card while
+running; close first, then unmount normally. No automatic synchronization with another card copy.
+
+== Display and storage boundaries
+
+* Real Arduino_GFX paints RGB565; SDL only uploads and presents its pixels.
+* Buffered boards publish on the production flush scheduler, including INI
+  `render_flush_hz=10`; direct boards publish after changed drawing batches.
+* SDL resizing scales/letterboxes the selected panel, not its terminal geometry.
+  Always-on-top/no-activation are requests to the window manager, not a promise
+  that clicking the window cannot give it focus. SDL keys are deliberately ignored.
+* Backlight uses one SDL-only compensation: normalize duty to the selected
+  board's level-31 maximum, then apply `255 * (duty / maximum)^(1/2.2)`.
+  Zero remains black, level 31 is full SDL brightness, and low levels are lifted.
+  This is a visual approximation, not panel calibration. Hardware curves and INI
+  are unchanged; pixels remain unchanged. Hardware timing, scanout,
+  SPI bandwidth and physical luminance are not emulated.
+* The worker owns RunCPM and storage. Main thread owns terminal/Canvas/SDL.
+  Shutdown cooperatively interrupts the guest, persists pending changes, closes
+  tracked handles and joins the worker. No thread is asynchronously killed.
+* The host adapter implements only the used SD/File interface, with ordinary
+  binary host files. It is not full SdFat or FAT emulation, nor a security sandbox.
+* Lookup follows the host filesystem; use uppercase names on case-sensitive
+  Linux storage. CARDMARK reports unsupported; no fake CID/CSD or raw-sector test.
+
+== Canonical-name utility
+
+Explicit inventory first; `--apply` is a separate intentional rename operation:
+
+[source,bash]
+----
+python3 src/RunCPM_7xtgv-terminal/desktop/card_names.py ./cpmcard
+python3 src/RunCPM_7xtgv-terminal/desktop/card_names.py ./cpmcard --apply
+----
+
+Only recognized CP/M drive/user trees are normalized. Collisions and invalid
+names block apply; unrelated root material and file bytes stay unchanged.
+Stop all users of the tree and keep a backup before applying.
+
+== Developer checks
+
+[source,bash]
+----
+python3 src/RunCPM_7xtgv-terminal/desktop/desktop.py test --target EP4_10
+python3 src/RunCPM_7xtgv-terminal/desktop/desktop.py matrix
+----
+
+Tests use disposable directories and local PTYs, not USB or the physical mirror.
+The SDL test uses its dummy video driver. The `test` action rebuilds first.
+`matrix` builds/tests all six real-board selections. Broad visual fixtures,
+host persistence fault injection and a fresh-OS install remain separate acceptance.
+
+An opt-in real MBASIC/VTESTS runner tests attributes, VT52 and scrolling regions
+through the integrated SDL executable. It creates minimal disposable cards from
+canonical `cpmcard/A/7` sources, forces 80x24 logical geometry for EP4_10/EC6_147,
+and retains mirror transcripts and GFX Canvas captures. No physical card or
+user `cpmcard` files are touched. Omit `--choice` to run all reviewed pages:
+
+[source,bash]
+----
+python3 src/RunCPM_7xtgv-terminal/desktop/tests/vtests_sdl.py \
+  build/RunCPM_7xtgv-terminal/desktop/jc8012p4a1c/xtgv_desktop \
+  build/vtests-check --choice 5
+----
+
+This uses `SDL_VIDEODRIVER=dummy`: quiet, with the production presenter active.
+The CTest `production_terminal_framebuffer` additionally checks exact VT52 and
+margin cell contents and both blink phases/reverse-colour pixels. A single PPM
+is a static Canvas capture, not evidence of real display timing or flashing.
+
+For automation, run with `--headless --no-mirror --run-for-ms 2000`, optionally
+`--input /path/to/raw-keys.bin` and `--snapshot /path/to/panel.ppm`.
+Input is raw terminal bytes (maximum 16 KiB), not a command/wait scripting
+language. Do not queue extra commands behind helpers which require empty input.
+The PPM captures the drawing Canvas without brightness/scaling; it is not an
+SDL-window screenshot or proof of the last published texture.
+
+For manual mirror attachment, invoke the native `xtgv_desktop` binary with
+`--card-root PATH --pty`; it prints `PTY=/dev/pts/N`. Attach exactly one reader:
+`tools/kon.sh --desktop-pty --port /dev/pts/N`, preferably with a unique
+`XTGV_SESSION`. The Python launcher does this and cleans up its own session;
+it never edits `terminal.conf` or stops `7xtgv-cpm`.
+
+Direct CMake users may specify `-DXTGV_WITH_SDL=OFF` for headless-only builds.
+Pass `-DXTGV_TARGET=<long-target-id>` and `-DXTGV_GFX_SOURCE=<library-root>`.
+The Python launcher expects the SDL-capable executable even with `--headless`;
+use `xtgv_headless` directly for a no-SDL CMake build.

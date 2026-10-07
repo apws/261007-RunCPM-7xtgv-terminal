@@ -50,8 +50,8 @@ error. The `8X` variant uses commands 5/6 and 7/8 for the same operations so
 the host can label its results; quiet read uses commands 9/10 and quiet write
 uses 11/12. Cancel 255 resumes a paused terminal after an I/O error. The host
 reports elapsed microseconds and KiB/s. Normal JC8048W535 builds now use
-SPI3/SdFat at a requested 40 MHz; the former one-bit SD_MMC adapter is an
-explicit fallback build. Results always
+SPI3/SdFat with the requested clock selected by `sdfat_spi` (20 MHz fallback).
+The former one-bit SD_MMC build alternative has been removed. Results always
 describe the firmware actually running, including its storage path, rather
 than the card's advertised maximum speed.
 

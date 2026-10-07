@@ -15,6 +15,37 @@ Do not confuse a successful local build with a proven clean-clone setup.
 Native Windows support for these host scripts is not established: even the
 build wrapper imports POSIX serial helpers. macOS/WSL are not validated paths.
 
+== Native desktop shortcuts
+
+=== Optimization on all targets
+
+In any target folder, `./rebuild.sh -O2` builds firmware using
+the selected optimization; `./desktop-rebuild.sh -O2` builds its
+native desktop counterpart. Choices are `O0`, `Og`, `O1`, `O2`, `O3`, `Os`
+and `default`. No setting is persisted: omission uses the hardware profile's
+current default, or desktop `-O2` with debug symbols. The longer
+`--optimization O2` form also works. Reflash/launch use existing binaries
+and reject this build-only option. `-O2` is the recommended desktop starting
+point; preserve measured hardware defaults rather than assuming O3 is faster.
+Source overrides do not rebuild precompiled SDK archives; low-optimization
+MCU firmware can exceed memory limits. No hardware build is implied here.
+
+=== Desktop launch
+
+For the Arduino-compatible SDL desktop runtime, see
+link:../../src/RunCPM_7xtgv-terminal/desktop/README.adoc[desktop build and launch].
+Each `tools/targets/DISPLAY_ID -- target/` folder now also has
+`desktop-rebuild.sh`, `desktop-local.sh` and `desktop-card.sh`.
+They emit short status and keep detailed same-named logs beside the scripts.
+Launch uses the last native build, never firmware upload. Normal runs may write
+INI/history and guest files to the selected card directory.
+
+`tools/setup.sh --with-desktop --dry-run` previews the optional CMake/C++/SDL2
+packages for the detected Arch/Debian/Fedora family. Remove `--dry-run` only
+to request installation; this extends normal setup, including Arduino dependencies.
+The shared mirror prefers Konsole, then Kitty, then the current terminal;
+desktop PTYs use isolated sessions and cannot invoke hardware reflash.
+
 == Clone the repository
 
 [source,sh]
@@ -30,7 +61,7 @@ an existing checkout. Record the commit when comparing builds. A clone contains
 only committed/pushed content, not Petr's uncommitted working tree or device files.
 
 * `src/RunCPM_7xtgv-terminal/`: integrated firmware, board HALs and host tools.
-* `cpmdrive/`: local CP/M file mirror, not a complete automatic SD installer.
+* `cpmcard/`: complete versioned working card, including settings/history and snapshots; not an automatic SD installer.
 * `docs/`: manual and development evidence.
 * `build/`, `private/`, `docs/private/`, backups and local comparison material:
   ignored/local content, not supplied by cloning.
@@ -286,10 +317,10 @@ stamp, module identity, SD mount and CP/M prompt.
 
 == SD card and CP/M tools are separate
 
-Flashing firmware does not copy the cpmdrive mirror to an SD card or install
+Flashing firmware does not copy the cpmcard working tree to an SD card or install
 every COM file. Use the RunCPM FAT directory layout, e.g. drive A user 0 is
 `A/0`; repository descriptive folder names are not literal SD folder names.
-See link:../../cpmdrive/README.md[CP/M mirror layout] for the mapping and
+See link:../../cpmcard/README.adoc[CP/M card layout and seed] for the mapping and
 link:reference-guide.adoc[transfer commands] for selective file deployment.
 Do not blindly copy historical archives or overwrite live INI/history files.
 An initial card needs appropriate CP/M contents; transfer via VTPUT/VTGET also

@@ -8,6 +8,10 @@
 
 #if XTGV_TERMINAL
 static bool _xtgvAbortRequested() {
+    #if XTGV_DESKTOP
+        // Cooperative unwind on the guest owner, outside filesystem calls.
+        xtgvDesktopCheckStop();
+    #endif
     #if defined(ARDUINO_ARCH_ESP32) && CONFIG_FREERTOS_UNICORE
         // Existing periodic guest poll is outside SD transactions. No core
         // edits: briefly block compute-only COMs so the idle task can run.

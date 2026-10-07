@@ -283,6 +283,7 @@ if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--port',help='Serial device; otherwise XTGV_PORT or selected target data')
     p.add_argument('--target',help='Target for port defaults; otherwise XTGV_TARGET')
+    p.add_argument('--desktop-pty', action='store_true', help='Use an explicit local desktop PTY')
     p.add_argument('--user',type=user_area,default=0,metavar='0-F',
                    help='CP/M mirror user area in hexadecimal (default: 0)')
     p.add_argument('--no-raw',action='store_true',
@@ -295,6 +296,10 @@ if __name__=='__main__':
     p.add_argument('files',nargs='+')
     p.add_argument('--directory',type=Path,default=Path('.'))
     args=p.parse_args()
+    if args.desktop_pty:
+        if not args.port or not os.path.realpath(args.port).startswith('/dev/pts/'):
+            p.error('--desktop-pty requires an explicit /dev/pts/ endpoint')
+        os.environ['XTGV_DESKTOP_TRANSPORT'] = 'pty'
     try:
         args.port = resolve_port(args.port, args.target)
     except RuntimeError as error:

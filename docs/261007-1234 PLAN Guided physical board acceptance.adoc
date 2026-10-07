@@ -1,0 +1,73 @@
+= PLAN: Guided physical board acceptance
+:source-highlighter: highlight.js
+:toc:
+
+== Purpose and honest coverage
+
+Petr proposes a simple scripted sequence for human testing of real boards,
+covering observations the desktop emulator and automated checks cannot make.
+This is a plan only; no new hardware runner or physical test has been executed.
+
+Desktop reuses the selected board's identity, geometry and drawing policies,
+the production terminal/parser and real Arduino_GFX drawing. It substitutes
+desktop HAL implementations, host storage, scheduling and SDL presentation.
+It does not execute the physical controller's init/SPI/DSI/scanout path, or
+reproduce FreeRTOS/core timing, MCU RAM limits, USB/power behaviour or PWM light
+output. Therefore desktop is the first regression gate, not hardware certification.
+
+== Proposed user-facing workflow
+
+* A short explicit launcher selects the target and explains the test scope.
+  Reuse the existing mirror and single-owner transport rather than opening
+  another serial reader. No implicit rebuild, flash, reset or card overwrite.
+* Preflight records display ID, build stamp, logical/visible geometry, relevant
+  INI values, card identity where supported and mirror/host environment.
+* Use reserved profile 9; save/restore the original profile and RAW state
+  without executing its `on_select`. Temporary geometry/theme/BL changes must
+  be reversible and must not silently become permanent INI edits.
+* Send one known test stage, then pause with a short expected-result checklist.
+  Human answers PASS / FAIL / SKIP, with optional note/photo and a cancel option.
+  Mirror logs alone can never mark physical-panel appearance as passed.
+* Store a concise per-board report and a detailed log under generated test
+  output, identifying automated checks separately from human observations.
+  Abort promptly on unstable transport; no recovery-keystroke loops.
+
+== Suggested stages
+
+[cols="1,3,3",options="header"]
+|===
+|Stage |Scripted stimulus |Human observation
+|1. Boot |Attach mirror; request identity/snapshot |Correct module, readable panel, boot progression; no blue flash or stuck screen.
+|2. Geometry |Borders/rulers, zoom 1--4 and pan extremes |No clipped columns, offsets, wrap errors, missing gutter/indicator, wrong orientation.
+|3. Text/attributes |VTESTS 3, 4, 5 and 7 |Blink cadence, reverse visibility, DEC joins and supported glyphs; mirror versus actual panel.
+|4. Regions |VTESTS 9 at 80x24 logical geometry |Protected header/footer, forward/reverse scroll, IL/DL, origin clamp and normal state after return.
+|5. Colour/backlight |Selected palettes; stepped BL 0,1,3,8,16,24,31 |Off/minimum visibility, monotonic curve, cursor contrast and bright markers. Respect board thermal caps; no long maximum-level dwell.
+|6. Update/plot |Fast output, CLS, retained Mandelbrot plot, return to prompt; selected flush settings |No tearing/underrun flashes, ghost cursor strips, corrupt retained graphics or stale panel while mirror progresses.
+|7. Input/transport |Prompt specific chords, Czech keys, profile/history navigation; controlled reconnect |Physical keyboard mapping, focus behaviour, no lost/stuck keys, complete mirror resnapshot. User drives gestures the runner cannot simulate faithfully.
+|8. Storage |Default read-only VTDRV and optional CARDMARK at normal configured speed |Real card and shared-bus activity remain stable; read failures reported. Desktop storage numbers are not a hardware baseline.
+|9. Lifecycle |Separately confirmed software reboot, hardware reset, power cycle |Recovery, BL off/on sequencing, retained settings, serial re-enumeration. Hardware reset/power are explicit human steps.
+|===
+
+VTDRV W and any file-creation test are a separate explicit opt-in on a backed-up
+or test card. Never schedule FORMAT, destructive filesystem tests, experimental
+SPI clocks or simulated power interruption during writes as ordinary acceptance.
+CARDMARK read agreement does not qualify writes or long-term electrical margin.
+
+== Implementation and acceptance gates
+
+. Define a small declarative stage list with expected results and target
+  capabilities. Reuse guest helpers; do not add another terminal implementation.
+. Exercise command sequencing, timeouts, cancellation and report generation on
+  disposable desktop cards and fake transport fixtures first.
+. Implement human-confirmation UI as concise terminal prompts with details in
+  the log, consistent with current rebuild/reflash launchers.
+. Validate restoration on success, skip and failure. If the device disappears,
+  report what could not be restored; never pretend cleanup succeeded.
+. Pilot on one direct-draw and one buffered panel. Petr confirms the checklist
+  is short enough and actually catches panel-only defects.
+. Expand to all boards, preserving separate per-build human results. Following
+  shared MCU HAL changes still requires relevant firmware compilation and
+  targeted physical checks even if desktop regression is green.
+
+No giant universal stress test is proposed: use a short routine acceptance
+sequence, with slow/thermal/storage-write experiments as separate opt-ins.

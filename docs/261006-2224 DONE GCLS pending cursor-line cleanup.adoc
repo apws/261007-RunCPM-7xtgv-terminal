@@ -1,0 +1,42 @@
+= GCLS pending cursor-line cleanup
+:source-highlighter: highlight.js
+
+== Report and cause
+
+Petr reported an old active-line strip left below `SYNC` after every
+`BROT_BS.SUB` run on the EP4_10 desktop target. The local card script runs
+`VTSTART`, `SYNC`, `GCLS 1 200 50`, `BROT_BS`, then `VTSTOP`.
+
+The shared terminal renderer can consume cursor movement and the first plot
+sample before its next text-render batch. The previous highlighted row is
+marked dirty, but its pixels remain. Plot capture suppresses text painting;
+plot completion discards pending dirty text to preserve the image. The old
+row can already be absent from the plot's active-row tracking by then, so
+its pending erasure is lost. This is not a SYNC or SDL-specific defect.
+
+== Correction
+
+At the first actual plot sample, finish visible pending text repaints and
+remove the current row/cursor overlays before drawing graphics. Use ordinary
+cell rendering with overlays temporarily disabled, not a full-screen clear.
+Unrelated retained graphics remain untouched. Merely arming GCLS still does
+not repaint the display; subsequent samples do not repeat this work.
+
+Only the product-owned terminal renderer changes. No RunCPM core, SUB file,
+INI, hardware HAL, or transport change; no additional persistent buffers.
+
+== Verification and delivery
+
+* Real Arduino_GFX regression fails before the fix at the old-highlight check.
+* EP4_10 buffered and EC6_147 direct-render test executables pass after it.
+* Checks cover non-clearing GCLS arming, old-strip removal at the first sample,
+  plot preservation, unrelated retained pixels, and the new prompt highlight.
+* Existing runtime render/mirror, disconnected USB, queue saturation and
+  reconnect tests pass with AddressSanitizer and UndefinedBehaviorSanitizer.
+  Leak detection was disabled because LeakSanitizer cannot run under this
+  environment's ptrace; this is not a leak-check result.
+
+Only test executables were rebuilt. Desktop launch binaries and MCU firmware
+still need an explicit rebuild; no running session was restarted or flashed.
+After rebuilding, run `SUBMIT BROT_BS` repeatedly and check that only the
+current prompt has an active-line strip, with the Mandelbrot image retained.

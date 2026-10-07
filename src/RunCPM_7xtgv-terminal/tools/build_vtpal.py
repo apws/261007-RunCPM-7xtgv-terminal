@@ -5,6 +5,7 @@ This tests guest byte output only, not the embedded 7xtgv renderer.
 Requires the existing build/RunCPM_linux/RunCPM comparison executable.
 """
 import os
+import argparse
 from pathlib import Path
 import pty
 import select
@@ -14,7 +15,8 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[3]
-CORE = ROOT / "cpmdrive/A0 - CP-M core"
+from card_paths import card_root, require_files
+CORE = card_root() / "A/0"
 
 
 def receive(fd, needle=b"A0>", timeout=10):
@@ -30,11 +32,16 @@ def receive(fd, needle=b"A0>", timeout=10):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--install', action='store_true', help='Replace local card VTPAL.COM after testing')
+    args = parser.parse_args()
+    assembler = card_root() / 'A/4/ASM.COM'
+    require_files(assembler, CORE / 'LOAD.COM', CORE / 'VTPAL.ASM')
     with tempfile.TemporaryDirectory(prefix="xtgv-vtpal-") as temporary:
         card = Path(temporary)
         drive = card / "A/0"
         drive.mkdir(parents=True)
-        shutil.copyfile(ROOT / "cpmdrive/A4 - Assembler and development tools/ASM.COM", drive / "ASM.COM")
+        shutil.copyfile(assembler, drive / "ASM.COM")
         shutil.copyfile(CORE / "LOAD.COM", drive / "LOAD.COM")
         source = (CORE / "VTPAL.ASM").read_text()
         (drive / "VTPAL.ASM").write_bytes(source.replace("\n", "\r\n").encode("ascii") + b"\x1a")
@@ -59,13 +66,14 @@ def main():
                     assert ("\x1b[>69;" + digit + "v").encode() in data, data
             os.write(master, b"EXIT\r")
             assert process.wait(timeout=10) == 0
-            shutil.copyfile(drive / "VTPAL.COM", CORE / "VTPAL.COM")
+            if args.install:
+                shutil.copyfile(drive / "VTPAL.COM", CORE / "VTPAL.COM")
         finally:
             if process.poll() is None:
                 process.kill()
                 process.wait(timeout=5)
             os.close(master)
-    print("VTPAL assembled; 16 argument/output checks passed; local COM updated")
+    print("VTPAL assembled; 16 argument/output checks passed" + ('; local COM updated' if args.install else '; card unchanged'))
 
 
 if __name__ == "__main__":

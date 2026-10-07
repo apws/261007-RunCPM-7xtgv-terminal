@@ -5,7 +5,7 @@
 == Source and scope
 
 Petr's authored source is
-link:260912-23%207xtgv%20terminal%20manual/261004-11%20manual%20reorg.txt[261004-11 manual reorg.txt].
+link:261004-11%20manual%20reorg.adoc[261004-11 manual reorg (converted from TXT and moved to docs/ on 261007)].
 Preserve that original and its observations; do not silently rewrite its history.
 This checkpoint records a first documentation pass, not a finished exhaustive
 reference audit or a change to SD contents, INI, profiles or firmware.

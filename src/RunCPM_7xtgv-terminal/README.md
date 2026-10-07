@@ -15,17 +15,20 @@ the sketch root. Terminal parser, profiles, history, font and renderer are in
 `src/terminal/`; one complete definition per board (including storage,
 display, backlight and reboot) is in `hardware/arduino_7xtgv/boards/`.
 `board.h` selects it directly; the sketch emits its implementation once.
-Normal W535 builds select the tested SPI3/SdFat 40 MHz header. Its former
-one-bit SD_MMC bridge remains selectable for comparison only with
-`tools/reflash.py --target jc8048w535 --build-only --w535-sd-mmc`.
-W550 now also uses direct SdFat32, on its existing SPI peripheral and pins
-at a requested 40 MHz; its former Arduino SD filesystem adapter has been removed.
+W535 and W550 use direct SdFat32/SPI. The former W535 SD_MMC bridge and
+its build option were removed; dated comparisons remain historical evidence.
+Hardware starts at requested 20 MHz, then applies the INI `sdfat_spi` value.
 Host launch, transfer, target selection and upload
 tools are in `tools/`. Exact targets and port/upload metadata are in
 `tools/targets/*.json`; compiled display IDs and default geometry are in
 the selected board header, exposed by `src/terminal/display_policy.h`. The headless
 [Linux RunCPM](../RunCPM_linux/README.md) build shares the CP/M core but not
 the Arduino display/storage stack.
+
+The experimental [Linux desktop runtime](desktop/README.adoc) instead runs
+this original Arduino sketch and terminal, with a selected real board's
+geometry/INI identity, real Arduino_GFX drawing, an output-only SDL window,
+the existing mirror over PTY and an explicit host card directory.
 
 ## Build and flash boundary
 
