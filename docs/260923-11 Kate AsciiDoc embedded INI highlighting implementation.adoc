@@ -22,10 +22,10 @@ version 10 so KDE selects it ahead of version 9.
 
 == Files and implementation
 
-* link:../src/kate-asciidoc/build_override.py[Override generator]: reads the installed
+* link:../src/RunCPM_7xtgv-terminal/tools/kate-asciidoc/build_override.py[Override generator]: reads the installed
   AsciiDoc grammar, checks the expected integration points, adds two contexts,
   and refuses to overwrite an existing customization or companion file.
-* link:../src/kate-asciidoc/test_override.py[Regression tests]: exercise the real
+* link:../src/RunCPM_7xtgv-terminal/tools/kate-asciidoc/test_override.py[Regression tests]: exercise the real
   `ksyntaxhighlighter6` in temporary, isolated user-data directories.
 
 The source definition used was:
@@ -76,7 +76,7 @@ Run from the repository root:
 
 [source,bash]
 ----
-python3 src/kate-asciidoc/test_override.py
+python3 src/RunCPM_7xtgv-terminal/tools/kate-asciidoc/test_override.py
 ----
 
 Seven tests passed, covering:
@@ -141,7 +141,7 @@ To generate a candidate without touching the installed override:
 [source,bash]
 ----
 candidate_dir=$(mktemp -d /tmp/xtgv-kate-candidate-XXXXXX)
-python3 src/kate-asciidoc/build_override.py --output-dir "$candidate_dir"
+python3 src/RunCPM_7xtgv-terminal/tools/kate-asciidoc/build_override.py --output-dir "$candidate_dir"
 ----
 
 Do not blindly raise the version number to defeat future upstream updates.

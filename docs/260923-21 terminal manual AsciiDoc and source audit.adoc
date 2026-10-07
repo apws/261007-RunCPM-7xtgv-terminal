@@ -5,7 +5,7 @@
 
 Petr requested conversion of the manual README and a source-grounded review
 while testing the device. The canonical manual is now
-link:260912-23%207xtgv%20terminal%20manual/README.adoc[README.adoc].
+link:../guides/README.adoc[README.adoc].
 The former README.md is replaced, not maintained as a second manual.
 Private MIXWORX application logs remain untouched.
 

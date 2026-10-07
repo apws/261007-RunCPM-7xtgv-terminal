@@ -9,7 +9,7 @@ checkpoints; they are not inferred invention dates. Dated sources retain
 their historical state. Current commands belong in the manuals.
 
 Read this for *why the design changed*. Use the
-link:260912-23%207xtgv%20terminal%20manual/features_timeline.adoc[Features Timeline]
+link:../guides/features_timeline.adoc[Features Timeline]
 for finer chronology and link:FEATURES.adoc[feature ledger] for individual
 delivery/test boundaries. Petr's
 link:261004-11%20manual%20reorg.adoc[practical manual outline] supplies the

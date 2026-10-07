@@ -1,7 +1,8 @@
 = Technical document navigation and naming
 :source-highlighter: highlight.js
 
-`docs/` contains chronological technical records alongside maintained manuals.
+`docs/` contains chronological technical records; maintained manuals live in
+root-level `guides/`.
 Historical notes describe the state at their date; they are not automatically
 current implementation instructions.
 
@@ -10,7 +11,7 @@ current implementation instructions.
 * link:261007-1426%20DONE%20Sinclair%20QL%20channels%20research%20and%20native%207xtgv%20sidenote.adoc[Sinclair QL channels and native 7xtgv]: historical excursion, terminal comparison and possible software-channel inspiration; explicitly preserves native 7xtgv as the primary objective.
 * link:261007-1146%20DONE%20Design%20evolution%20and%20key%20milestones.adoc[Design evolution and key milestones]: major architectural decisions, their motivation, evidence and remaining boundaries.
 * link:261004-11%20manual%20reorg.adoc[Petr's practical manual outline]: historical user-task notes, converted from the manual folder's raw TXT; not a replacement for the current guides.
-* link:260912-23%207xtgv%20terminal%20manual/technical-reference.adoc[Technical Reference]: current developer boundaries and baseline/integration notes.
+* link:../guides/technical-reference.adoc[Technical Reference]: current developer boundaries and baseline/integration notes.
 
 == New chronological records (agreed 261006)
 
@@ -45,13 +46,16 @@ to create a plan.
   link:261007-1234%20PLAN%20Guided%20physical%20board%20acceptance.adoc[human-guided board test plan].
   Complements desktop regression; not an implemented hardware runner.
 
+Start with current guides and code; search relevant dated records newest first.
 Read the current PLAN and latest corresponding DONE evidence, then inspect the
-worktree. Consult CHAT for rationale. This preserves context without requiring
-the whole conversational history on every continuation.
+worktree. Consult CHAT for rationale. Older filename suffixes are not always
+HHMM times; confirm chronology from the document when ambiguous. A newer PLAN
+is not proof of implementation and a DONE may document only a partial checkpoint.
+This preserves context without requiring the whole history on every continuation.
 
 * Desktop runtime: link:261006-0935%20PLAN%20Desktop%20runtime%20using%20existing%20board%20HALs.adoc[current plan].
   Latest checkpoint: link:261006-1117%20DONE%20Linux%20desktop%20real-board%20SDL%20and%20mirror%20checkpoint.adoc[Linux real-board SDL and mirror].
   Launcher follow-up: link:261006-1635%20DONE%20ThinkPad%20integration%20and%20quiet%20desktop%20shortcuts.adoc[ThinkPad integration and quiet shortcuts].
   Latest tuning: link:261006-1900%20DONE%20Optimization%20selectors%20and%20SDL%20backlight%20compensation.adoc[optimization options and SDL brightness].
 * Feature status: link:FEATURES.adoc[generated ledger], maintained via `features.tsv`.
-* Manuals: link:260912-23%207xtgv%20terminal%20manual/README.adoc[manual index].
+* Manuals: link:../guides/README.adoc[manual index].

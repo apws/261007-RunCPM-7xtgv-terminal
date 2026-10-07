@@ -14,7 +14,10 @@ breaks for some headings when printing through Chromium to PDF.
 
 This note separates document structure from visual size and pagination.
 See link:260923-10%20AsciiDoc%20documentation%20migration%20report.adoc[the migration report]
-and link:mixworx-golo.css[the custom stylesheet].
+and the historical `mixworx-golo.css` stylesheet (removed on 261007;
+recoverable from Git history). The current stylesheet is
+link:../asciidoctorjs-crx-mixworx.css[asciidoctorjs-crx-mixworx.css]; the analysis
+below describes the historical version, not necessarily the current one.
 
 == Current document hierarchy
 

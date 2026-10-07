@@ -1,0 +1,31 @@
+= DONE: Repository guidance review
+:source-highlighter: highlight.js
+
+Reviewed root `AGENTS.md` against the current launchers, target guard,
+BOOTSEL uploader, transfer helper, serial-access helper, card policy and
+latest relevant dated checkpoints. Kept the file versioned as repository
+working guidance, using neutral terms instead of a named user's preferences.
+
+* Grouped rules by architecture, builds, hardware, card data and documentation.
+* Recorded `guides/`, `src/legacy/`, the active project and project-relative
+  `tools/` paths explicitly.
+* Replaced manual-only RP2350 wording with the implemented wrapper/UF2 path;
+  retained physical-target uncertainty and mismatch safeguards.
+* Separated build-only staging, explicit upload and stable promotion/recovery;
+  guest-file deployment is not an automatic consequence of rebuilding.
+* Removed assumptions about a fixed serial node or mandatory ACL restoration;
+  check the actual target node and permissions instead.
+* Distinguished a mirror reconnect from a device reset: only the latter
+  necessarily loses the running application state.
+* Recognized desktop emulation alongside the still-useful POSIX comparator.
+* Removed personal names, model aliases and fixed keyboard-layout assumptions,
+  while retaining configured-layout preservation and scoped research practice.
+* Preserved core-edit approval, private-note rules, complete-card inclusion,
+  explicit device INI/BUF protection, profile/RAW restoration and publishing scope.
+* Added newest-first document discovery with a warning that proposals and
+  legacy filename order do not establish current implemented behavior.
+
+This is a documentation/policy cleanup, not new firmware or tooling behavior.
+Read-only source checks validate the stated workflow boundaries; no new hardware
+acceptance, compile, flash or device transfer is claimed. Existing unrelated
+worktree and card runtime changes remain untouched. No commit/push performed.

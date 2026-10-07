@@ -10,11 +10,19 @@
 #include <Arduino_GFX_Library.h>
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_IDF_TARGET_ESP32P4)
-#include "../7xtgv-jc8012p4a1c-newpanel.h"
+#include "7xtgv-jc8012p4a1c-newpanel.h"
 #endif
 
 Arduino_DataBus *bus;
 Arduino_GFX *gfx;
+
+// Arduino_GFX 1.2.x (the verified JC8048W550 vendor baseline) returns void
+// from begin(); newer releases return success.  Keep callers uniform.
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR < 3
+  #define GFX_BEGIN_OK() (gfx->begin(), true)
+#else
+  #define GFX_BEGIN_OK() gfx->begin()
+#endif
 
 
 /*******************************************************************************
@@ -29,6 +37,12 @@ Arduino_GFX *gfx;
 //#define WAVESHARE_RP2350_AMOLED_1_64
 #if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_IDF_TARGET_ESP32P4)
 #define JC8012P4A1C_NEW_PANEL
+#elif defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_IDF_TARGET_ESP32S3)
+#if defined(ARDUINO_USB_CDC_ON_BOOT) && ARDUINO_USB_CDC_ON_BOOT
+#define JC8048W535_AXS15231
+#else
+#define JC8048W550_ST7262
+#endif
 #else
 #define WAVESHARE_RP2350_LCD_2
 #endif
@@ -258,6 +272,67 @@ Arduino_GFX *gfx;
         27,
         jc8012p4a1c_newpanel_init,
         sizeof(jc8012p4a1c_newpanel_init) / sizeof(lcd_init_cmd_t));
+  }
+
+#endif
+
+#if defined(JC8048W535_AXS15231)
+
+  #define GFX_DEVICE JC8048W535_AXS15231
+  #define SCR_COLS 80
+  #define SCR_ROWS 32
+  #define GFX_OFS_X 0
+  #define GFX_OFS_Y 0
+  #define GFX_BL 1
+
+  void GFX_DEVICE_INIT()
+  {
+    Arduino_ESP32QSPI *qspi = new Arduino_ESP32QSPI(45, 47, 21, 48, 40, 39);
+    // Keep the controller native; rotate the canvas so it retains a 320x480
+    // framebuffer for flushing while exposing 480x320 drawing coordinates.
+    Arduino_AXS15231B *panel = new Arduino_AXS15231B(
+        qspi, GFX_NOT_DEFINED, 0, false, 320, 480);
+    gfx = new Arduino_Canvas(320, 480, panel, 0, 0, 1);
+  }
+
+#endif
+
+#if defined(JC8048W550_ST7262)
+
+  #define GFX_DEVICE JC8048W550_ST7262
+  #define SCR_COLS 133
+  #define SCR_ROWS 48
+  #define GFX_OFS_X 0
+  #define GFX_OFS_Y 0
+  #define GFX_BL 2
+
+  void GFX_DEVICE_INIT()
+  {
+    // JC8048W550 RGB565 data bus and timing from the verified vendor demo.
+    #if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR < 3
+    Arduino_ESP32RGBPanel *rgbPanel = new Arduino_ESP32RGBPanel(
+        GFX_NOT_DEFINED, GFX_NOT_DEFINED, GFX_NOT_DEFINED,
+        40, 41, 39, 42,
+        45, 48, 47, 21, 14,
+        5, 6, 7, 15, 16, 4,
+        8, 3, 46, 9, 1);
+    gfx = new Arduino_RPi_DPI_RGBPanel(
+        rgbPanel,
+        800, 0, 8, 4, 8,
+        480, 0, 8, 4, 8,
+        1, 16000000, true);
+    #else
+    Arduino_ESP32RGBPanel *rgbPanel = new Arduino_ESP32RGBPanel(
+        40, 41, 39, 42,                 // DE, VSYNC, HSYNC, PCLK
+        45, 48, 47, 21, 14,             // R0..R4
+        5, 6, 7, 15, 16, 4,              // G0..G5
+        8, 3, 46, 9, 1,                  // B0..B4
+        0, 8, 4, 8,                      // hsync polarity/front/pulse/back
+        0, 8, 4, 8,                      // vsync polarity/front/pulse/back
+        1, 16000000, false);             // falling PCLK, 16 MHz
+
+    gfx = new Arduino_RGB_Display(800, 480, rgbPanel, 0, true);
+    #endif
   }
 
 #endif

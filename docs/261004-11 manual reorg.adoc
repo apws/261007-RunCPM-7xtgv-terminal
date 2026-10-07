@@ -9,18 +9,18 @@ This is Petr's historical working outline, not a replacement for the
 current manuals. Wording, examples, personal observations and open ideas
 are retained; separator lines and ad-hoc indentation become headings
 and lists. The original filename was `261004-11 manual reorg.txt` in
-`docs/260912-23 7xtgv terminal manual/`.
+`guides/`.
 
 == Editorial cautions added at conversion
 
 * The upstream/CP/M 3 migration mentioned below is not proven complete.
   The recovered approximately 260126 baseline and cleaned integration
-  seams are documented in the link:260912-23%207xtgv%20terminal%20manual/technical-reference.adoc#runcpm-baseline-and-upstream-roadmap[Technical Reference].
+  seams are documented in the link:../guides/technical-reference.adoc#runcpm-baseline-and-upstream-roadmap[Technical Reference].
 * `7XF` is a CCP built-in; the original `7XF.COM` wording below is historical.
 * An 80-column terminal on a 52-column viewport needs *horizontal*
   panning; the original VERTICAL wording below is preserved, not endorsed.
 * Shortcut assignments, persistence scope and palette details must be
-  checked against the current link:260912-23%207xtgv%20terminal%20manual/reference-guide.adoc[Reference Guide]
+  checked against the current link:../guides/reference-guide.adoc[Reference Guide]
   and active INI. Coarse brightness controls were not removed merely
   because these notes call them obsolete. Keyword lists and other
   future ideas are not claims of implemented features.

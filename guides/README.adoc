@@ -18,7 +18,7 @@ the planned native 7xtgv terminal. The device's live
 |link:asciidoc%20technical%20writing%20cheatsheet.adoc[AsciiDoc Writing Examples] |How to author these guides: headings, tables, optional size roles, images and Chrome/PDF printing.
 |===
 
-The link:../FEATURES.adoc[feature ledger] records individual implementation
+The link:../docs/FEATURES.adoc[feature ledger] records individual implementation
 and test status; the timeline is a hand-maintained compact historical view.
 Implemented feature additions and behavior changes update both the ledger's
 source `++docs/features.tsv++` and the timeline. Dated reports
@@ -26,8 +26,17 @@ under `docs/` preserve experiments and hardware evidence;
 a historical report is not automatically the current device configuration.
 For running geometry and firmware identity, use `++VTINFO++`.
 
-The old manual URL remains here. Its former section anchors below link to
-their new owners.
+On 261007 these guides moved from `docs/260912-23 7xtgv terminal manual/`
+to root-level `guides/`, including their images. Old browser
+bookmarks need updating; former section anchors below still link to their owners.
+The Asciidoctor.js browser-extension helpers live at repository root:
+
+* link:../asciidoctorjs-crx-mixworx.css[asciidoctorjs-crx-mixworx.css]: manually
+  selected custom stylesheet.
+* link:../asciidoctorjs-crx-mixworx.js[asciidoctorjs-crx-mixworx.js]: fragment-scroll
+  helper, loaded in extension Options > JavaScript, with execution set to
+  "after the document has been rendered". It restores the requested anchor
+  position after the extension inserts the rendered document. User-tested on 261007.
 
 [[starting-the-pc-mirror]]
 xref:user-guide.adoc#starting-the-pc-mirror[Starting the PC mirror]

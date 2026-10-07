@@ -153,6 +153,8 @@ body { background: #fefdfd; color: rgba(0, 0, 0, 0.8); padding: 0; margin: 0; fo
 a:hover { cursor: pointer; }
 
 img, object, embed { /*mixworx*/ max-width: 70%; /*mixworx*/ height: auto; }
+/* Opt-in full content width for screenshots such as the repository introduction. */
+.imageblock.mx-fullwidth img { max-width: 100%; width: 100%; }
 
 object, embed { height: 100%; }
 

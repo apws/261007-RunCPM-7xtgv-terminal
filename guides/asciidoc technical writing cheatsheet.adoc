@@ -10,7 +10,7 @@
 :cpu-clock-example: 66 MHz
 
 // For Asciidoctor.js Live Preview 4.1.0, cross-document #fragments need
-// asciidoctorjs-anchor-scroll.js loaded in extension Options > JavaScript
+// root-level asciidoctorjs-crx-mixworx.js loaded in extension Options > JavaScript
 // with "after the document has been rendered". The extension injects HTML
 // after Chrome's initial fragment jump, so the source xref alone cannot scroll.
 
@@ -322,7 +322,7 @@ Changing the attribute definition updates every use.
 
 ==== Includes
 
-include::../260923-08 VTPAL INI sections.adoc[]
+include::../docs/260923-08 VTPAL INI sections.adoc[]
 
 AsciiDoc also supports including selected tagged regions from another file.
 
@@ -485,8 +485,9 @@ This helps prevent headings or compact blocks from being stranded awkwardly acro
 // This is a live specimen: inspect the source to see the role and cols syntax.
 // Select mixworx-golo-260929-liberation-v2.css to see mx-compact at 85%,
 // mx-dense at 70%; without that CSS the examples remain valid AsciiDoc.
-link:../mixworx-golo-260929-liberation-v2.css[Liberation CSS v2] keeps the ordinary
-table and source-block size at 100%. The examples below opt into smaller sizes.
+The historical `mixworx-golo-260929-liberation-v2.css` kept the ordinary
+table and source-block size at 100%. That version has been retired; use the
+current stylesheet linked below. The examples opt into smaller sizes.
 
 // V3 is a separate print-scaling experiment. Ordinary text stays at v2 size;
 // code-block text is smaller. Select A4/margins and any Scale in Chrome's

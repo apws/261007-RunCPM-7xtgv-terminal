@@ -89,7 +89,7 @@ Before changing the device INI, fetch its current A0 copy with
 fresh local mirror, then send it with overwrite approval. The helper archives
 the previous local copy and replaces it only after a successful fetch. Stop
 on fetch failure: an older local INI can overwrite unrelated on-device edits.
-See link:../260924-21%20live%20INI%20preservation%20and%20narrow%20transfer%20limitation.adoc[live INI and transfer-width notes].
+See link:../docs/260924-21%20live%20INI%20preservation%20and%20narrow%20transfer%20limitation.adoc[live INI and transfer-width notes].
 
 Guest text in the local `cpmcard/` working tree is maintained as CRLF with a final
 Ctrl-Z, ready for byte-preserving Send/Receive. No upload conversion is needed.
@@ -351,7 +351,7 @@ Bare `++CD++` reports both numeric DU and its named view, for example `++A7: /a/
 |`++ZOOM [1\|2\|3\|4]++` |Temporarily set 1x..4x glyph zoom without resizing CP/M; no argument means 1x. Source: A0 `++ZOOM.ASM++`.
 |`++VTINFO++` |Report display ID, exact firmware target/build, physical panel, current logical/visible view and resolved presets. Requires firmware with `++CSI >72v++` reply support.
 |`++VTZOOM++`, `++VTZOOM n++`, `++VTZOOM n COLSxROWS++`, `++VTZOOM DEFAULT++` |Inspect the view; temporarily load preset `++n++`; select explicit logical geometry; or restore the INI/HAL boot view. No form saves the INI. A full-screen application's installed dimensions should match before it starts.
-|`++VTPAL [0..9]++` |Select an editable text/UI palette; no argument selects 0. Uses private output `++CSI >69;n v++`, with lazy INI persistence. See the link:../260923-16%20palette%20presets%20manual%20and%20test%20notes.adoc[palette manual]. Requires the new firmware and helper.
+|`++VTPAL [0..9]++` |Select an editable text/UI palette; no argument selects 0. Uses private output `++CSI >69;n v++`, with lazy INI persistence. See the link:../docs/260923-16%20palette%20presets%20manual%20and%20test%20notes.adoc[palette manual]. Requires the new firmware and helper.
 |`++UNSUB++` |Deletes a stranded `++$$$.SUB++` queue in the current DU without switching drive or user. It is silent if none exists.
 |`++VTCPU++` / `++VTCPU8X++` |Measure the RunCPM interpreter with the terminal active and paused. `++8X++` uses the 8080/8085 common instruction subset.
 |`++VTDRV++` |Plain invocation read-tests and verifies a retained 32 KiB `++VTDRV.$$$++` fixture. `++VTDRV W++` recreates it, then reads/verifies; old `++RW++` remains an alias. `++VTDRV Q++` quietly reads without writing. `++VTDRV W Q++` (or `++Q W++`) pauses the terminal during both timed write and read passes. Quiet modes require matching firmware; options are case-insensitive whole tokens.
@@ -410,7 +410,7 @@ reports unknown support and does not prevent the raw read test.
 Detailed decoding covers SD CSD v1.0 (SDSC) and v2.0 (SDHC/SDXC). CSD v3.0
 (SDUC) is identified but not decoded or supported by this SdFat backend.
 These are SD layouts, not MMC/eMMC layouts. See
-link:../261003-11%20CARDMARK%20CSD%20decoding%20and%20CMD6%20query.adoc[register decoding notes].
+link:../docs/261003-11%20CARDMARK%20CSD%20decoding%20and%20CMD6%20query.adoc[register decoding notes].
 
 The native service reads reference data at requested 20 MHz and compares three
 trial reads per batch at the selected clock. It reports card CID/CSD, capacity,
@@ -424,7 +424,7 @@ Clock values are requested, not measured. A PASS demonstrates read agreement
 for the selected range, not write reliability or complete card qualification.
 Use a backed-up/spare card for experimental clocks. Raw throughput is not the
 same measurement as VTDRV's BDOS/file throughput. Detailed implementation and
-results: link:../261002-13%20Global%20SdFat%20SPI%20clock%20and%20CARDMARK%20preparation.adoc[CARDMARK checkpoint].
+results: link:../docs/261002-13%20Global%20SdFat%20SPI%20clock%20and%20CARDMARK%20preparation.adoc[CARDMARK checkpoint].
 
 === A7 visual tests and DEC graphics
 
@@ -447,7 +447,7 @@ this is not a complete VT100 conformance claim. Six control pictures (`b`,
 use approximate QL p/L glyphs while the PC mirror uses Unicode equivalents.
 Petr accepted the expanded W535 visual smoke test on 260924; RP2_2 retesting
 and exhaustive protocol/glyph checks remain separate work.
-See link:../260924-20%20DEC%20graphics%20review%20and%20expanded%20VTESTS.adoc[the complete inventory and test scope].
+See link:../docs/260924-20%20DEC%20graphics%20review%20and%20expanded%20VTESTS.adoc[the complete inventory and test scope].
 
 [[a6-graphics-and-timing-helpers]]
 === A6 graphics and timing helpers
@@ -649,8 +649,8 @@ per-display lowest usable visible level, not a common brightness percentage.
 The ramp traverses logical levels over the configured duration, so it is a
 stepped effect, not a calibrated linear-light fade. Dated visual tuning and
 deployment evidence remains in
-link:../260925-01%20RP2_2%20backlight%20minimum%20duty%203%20trial.adoc[RP2_2 notes]
-and link:../260925-14%20RP2_147%20backlight%20minimum%20and%20HAL%20boot%20warning.adoc[RP2_147 notes].
+link:../docs/260925-01%20RP2_2%20backlight%20minimum%20duty%203%20trial.adoc[RP2_2 notes]
+and link:../docs/260925-14%20RP2_147%20backlight%20minimum%20and%20HAL%20boot%20warning.adoc[RP2_147 notes].
 Normal PgUp/PgDn adjustments stay within 1..31; from OFF they first restore
 remembered brightness. Explicit brightness controls cancel an active ramp
 immediately. Transient ramp levels never overwrite the saved target.
@@ -710,7 +710,7 @@ Bank overrides are shared across displays too: an oversized override is reported
 and rejected on a smaller HAL, which retains its display geometry. Omitted display
 settings retain each HAL's defaults, even when multiple HALs share one profile ID.
 Brightness, palette selection and CRT ramp time remain global, not per-display.
-See link:../260924-13%20display%20profile%20selection%20and%20identity%20audit.adoc[selection, persistence and identity audit]
+See link:../docs/260924-13%20display%20profile%20selection%20and%20identity%20audit.adoc[selection, persistence and identity audit]
 for the complete source-grounded flow and limitations.
 
 [[additional-bank-settings]]
@@ -791,8 +791,8 @@ Indexed SGR 38/48 colors operate on the active plot canvas, not as arbitrary
 256-color text cells. Truecolor SGR sequences are consumed but not applied.
 
 For complete example palettes and the comparison program see
-link:../260923-16%20palette%20presets%20manual%20and%20test%20notes.adoc[palette configuration notes]
-and link:../260923-18%20VTPAL%20BASIC%20palette%20comparison.adoc[VTPAL.BAS comparisons].
+link:../docs/260923-16%20palette%20presets%20manual%20and%20test%20notes.adoc[palette configuration notes]
+and link:../docs/260923-18%20VTPAL%20BASIC%20palette%20comparison.adoc[VTPAL.BAS comparisons].
 The maintained BASIC source mirror is in A7; inspect a live card before
 asserting which copy is installed there.
 Current configured presets are 0 PAPER, 1 GREEN, 2 AMBER, 3 BW, 4 PLASMA,
@@ -823,7 +823,7 @@ UNZIP157 VTFILES.ZIP A:
 The destination enables extraction; without it the program only lists/checks.
 Use a disposable user area or nonconflicting names for initial tests.
 Automatic compression in the mirror is not implemented. See
-link:../260923-20%20CP-M%20UNZIP%20compatibility%20and%20download.adoc[the compatibility test and download record].
+link:../docs/260923-20%20CP-M%20UNZIP%20compatibility%20and%20download.adoc[the compatibility test and download record].
 
 [[source-references-and-implementation-boundaries]]
 === Source references and implementation boundaries

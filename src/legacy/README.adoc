@@ -1,0 +1,17 @@
+= Legacy experiments and bring-up tools
+:source-highlighter: highlight.js
+
+These historical projects were relocated here on 261007; the active firmware
+and SDL desktop implementation remain in `src/RunCPM_7xtgv-terminal/`.
+
+* `7xtgv-demo-code/` and `7xtgv-demo-print/`: early standalone graphics demos.
+* `RunCPM_7xtgv/`: early Arduino RunCPM integration and comparison reference.
+* `arduino-gfx-patches/`: historical vendor-library DSI workaround.
+* `jc8012p4a1c-display-test/`: standalone P4 display bring-up test.
+
+Historical documents retain the original paths. Each demo has real local copies
+of its palette and the `7xtgv-jc8012p4a1c-newpanel.h` and
+`7xtgv-jc8048w550-st7262.h` panel headers, without symlinks. The ST7262 header
+is retained as historical material and is not currently included by the demos.
+Relocation does not imply that these old projects have been rebuilt or
+qualified against today's toolchains.

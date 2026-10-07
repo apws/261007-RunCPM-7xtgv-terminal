@@ -153,6 +153,6 @@ A small tooling/documentation commit checkpoint was suggested.
 
 * `261004-2158 Explicit Arch setup and missing-tool notifications.adoc` is the
   preceding setup plan; its historical substance is preserved.
-* `260912-23 7xtgv terminal manual/build-guide.adoc` describes current usage.
-* `260912-23 7xtgv terminal manual/features_timeline.adoc` records behavior history.
+* `../guides/build-guide.adoc` describes current usage.
+* `../guides/features_timeline.adoc` records behavior history.
 * `features.tsv` is the canonical delivery registry; `FEATURES.adoc` is generated.

@@ -1,0 +1,184 @@
+= RunCPM 7xtgv-terminal
+:source-highlighter: highlight.js
+
+[cols="1a,1a",frame=none,grid=none,stripes=none]
+|===
+|Run a CP/M machine on a small MCU/TFT board -- or run the same terminal
+firmware in a desktop window. The Linux SDL emulator uses the real
+Arduino_GFX drawing code and the selected board's display configuration,
+not a separate imitation of its screen.
+
+Use the PC mirror for keyboard input and a complete view of the logical
+terminal; the TFT or SDL window shows the board-sized, zoomable and pannable
+display. Try CP/M applications, colors, graphics, history and profiles
+without needing the physical module on your desk.
+
+This is a working development and experimental tool for *7xtgv-native --
+Tiled GUI Video engine*: a fast, low-power, keyboard-driven cell engine with
+a GUI-like look and feel. Today's RunCPM/VT/ANSI terminal is its testbed,
+not the completed native engine.
+
+|
+[.mx-fullwidth]
+image::guides/images/desktop-xterm256.png[CP/M Mandelbrot graphics in the ES3_5 desktop emulator,width=100%]
+
+The ES3_5 board configuration running a CP/M xterm-256 Mandelbrot demo on desktop.
+|===
+
+The same board definitions drive hardware and desktop: display geometry,
+zoom/pan, palettes, profiles, rendering policy and backlight controls.
+SDL simulates backlight brightness; physical panel response, bus timing,
+CPU speed and electrical behavior are not reproduced exactly.
+Supported modules use RP2350, ESP32-S3, ESP32-P4 and ESP32-C6.
+
+== Build and run
+
+=== 1. Set up your Linux machine
+
+From the cloned repository directory, run setup as your normal user:
+
+[source,sh]
+----
+./src/RunCPM_7xtgv-terminal/tools/setup.sh
+----
+
+The script detects *Arch and derivatives* (including CachyOS and Omarchy),
+*Debian/Ubuntu*, or *Fedora*. It installs system prerequisites, Arduino CLI,
+pinned board cores/libraries and desktop C++/CMake/SDL2 tools.
+It asks before installation, uses sudo where needed, and offers USB serial
+group access separately. It does not build or flash anything.
+
+Use `./src/RunCPM_7xtgv-terminal/tools/setup.sh --dry-run` to preview it
+without installing. Arch-family use has been exercised; real fresh-machine
+Debian/Fedora installation remains to be verified. See the
+link:guides/build-guide.adoc[Clone, Build and Flash Guide] for cloning,
+prerequisites and troubleshooting. Windows/macOS launchers are not yet implemented.
+
+=== 2. Open your board's launcher folder
+
+All shortcuts live under
+link:src/RunCPM_7xtgv-terminal/tools/targets/[`src/RunCPM_7xtgv-terminal/tools/targets/`],
+in folders named `DISPLAY_ID -- target`:
+
+[cols="1,3",options="header"]
+|===
+|Display ID |Folder under the full path above
+|`EC6_147` |`EC6_147 -- esp32c6-lcd-1-47`
+|`EP4_10` |`EP4_10 -- jc8012p4a1c`
+|`ES3_35` |`ES3_35 -- jc8048w535`
+|`ES3_5` |`ES3_5 -- jc8048w550`
+|`RP2_147` |`RP2_147 -- rp2350-lcd-1-47-a`
+|`RP2_2` |`RP2_2 -- rp2350-touch-lcd-2`
+|===
+
+For example:
+
+[source,sh]
+----
+cd "src/RunCPM_7xtgv-terminal/tools/targets/EP4_10 -- jc8012p4a1c"
+----
+
+Execute a script normally in *Midnight Commander*; in *Double Commander*,
+use *Shift+Enter* to launch it with a terminal. Each script already selects
+its board. Short status messages appear in the terminal; detailed logs sit
+beside the scripts.
+
+[cols="1,3",options="header"]
+|===
+|Script |What it does
+|`desktop-rebuild.sh` |Builds that board's Linux desktop emulator. No hardware access.
+|`desktop-local.sh` |Launches the last desktop build with the repository's `cpmcard/` by default, plus its mirror.
+|`desktop-card.sh` |Launches the last desktop build with a mounted SD/USB card, plus its mirror. Prompts for the mount path if not supplied.
+|`rebuild.sh` |Builds and stages fresh firmware for the physical board. Does not flash.
+|`reflash.sh` |Uploads staged `new` firmware, falling back to `current` if no candidate exists, then opens the mirror. Does not rebuild.
+|`mirror.sh` |Opens the mirror for the connected physical board. No build or flash.
+|===
+
+=== 3. Try the desktop, or connect real hardware
+
+For a first desktop run, execute these separately in the selected board folder:
+
+[source,sh]
+----
+./desktop-rebuild.sh
+./desktop-local.sh
+----
+
+The SDL window is the emulated display; *type into the mirror*, not SDL.
+Use the same terminal commands and keyboard controls as on the physical
+board, including zoom, palettes and backlight. Closing the owning mirror
+or SDL window stops the desktop session.
+
+For a mounted card, run `./desktop-card.sh` and enter the mount path,
+or supply it explicitly, for example:
+
+[source,sh]
+----
+./desktop-card.sh --card-root "/run/media/$USER/RunCPM"
+----
+
+The path must be the mounted filesystem root containing `A/0`.
+Alternatively set `XTGV_DESKTOP_CARD_ROOT` before launching.
+Both desktop launchers use their selected card *read/write*, including
+INI and history updates. Do not run two writers against the same card;
+close the emulator before unmounting it.
+
+For physical hardware, use `rebuild.sh`, then `reflash.sh`.
+RP2350 boards need BOOTSEL mode; ESP32 normally uploads over its running
+serial connection. Missing-device prompts guide connection; target or
+ambiguous-device errors must be resolved, not bypassed.
+
+After changing source, rebuild before launching or reflashing: launchers
+do not silently rebuild. More options are in the
+link:src/RunCPM_7xtgv-terminal/desktop/README.adoc[desktop guide] and
+link:guides/build-guide.adoc[hardware build guide].
+
+== Guides and docs (AsciiDoc)
+
+For formatted local viewing in *Chrome or Chromium*, install
+https://chromewebstore.google.com/detail/asciidoctorjs-live-previe/iaalpfgpbocpdfblpnhhgllgbdbchmia[Asciidoctor.js Live Preview]
+from the Chrome Web Store. Enable *Allow access to file URLs* in the extension's
+Details page, then open a local `.adoc` file.
+The https://docs.asciidoctor.org/browser-extension/install/[official installation guide]
+also documents Edge support; Edge has not been tested here.
+
+For the project's appearance and working cross-document anchor jumps, select
+these root-level files in the extension options:
+
+* link:asciidoctorjs-crx-mixworx.css[asciidoctorjs-crx-mixworx.css]: custom stylesheet.
+* link:asciidoctorjs-crx-mixworx.js[asciidoctorjs-crx-mixworx.js]: custom JavaScript;
+  choose execution *after the document has been rendered*.
+
+Start with the maintained guides:
+
+* link:guides/user-guide.adoc[User Guide]: everyday keys, commands and examples.
+* link:guides/reference-guide.adoc[Reference Guide]: exact controls, settings and protocols.
+* link:guides/technical-reference.adoc[Technical Reference]: architecture, developer tests and feature tracking.
+* link:guides/build-guide.adoc[Clone, Build and Flash Guide]: setup and recovery details.
+* link:guides/README.adoc[Guide index] and link:docs/README.adoc[technical document index]:
+  further reading, plans and dated findings.
+
+== Repository layout
+
+[cols="1,3",options="header"]
+|===
+|Path |Contents
+|link:src/RunCPM_7xtgv-terminal/README.md[`src/RunCPM_7xtgv-terminal/`] |Active firmware, SDL desktop, board HALs and host tools
+|link:src/RunCPM_linux/README.md[`src/RunCPM_linux/`] |POSIX CP/M comparator used by developer tests; not the SDL terminal
+|link:src/legacy/README.adoc[`src/legacy/`] |Historical demos and display bring-up projects
+|`build/` |Generated build output; ignored by Git
+|link:cpmcard/README.adoc[`cpmcard/`] |Complete versioned working card, including settings/history and snapshots
+|link:guides/README.adoc[`guides/`] |Maintained user, reference, technical and build guides
+|link:docs/README.adoc[`docs/`] |Chronological plans/checkpoints, feature ledger, recovery notes and reference material
+|`backups/` |Local generated backups; ignored by Git
+|`private/`, `docs/private/` |Local-only material; ignored by Git and absent from a fresh clone
+|===
+
+== Thank you, Ari (OpenAI Codex CLI)
+
+All this work would have been impossible without my implementation and
+consulting colleague Ari. A big thank you! :-)
+footnote:[Ari is my name for the OpenAI Codex assistant. Perhaps thanking an AI
+colleague is a little unusual -- but the appreciation is genuine.]
+
+image::guides/images/codex-ari-september.png[Codex token activity during the September development sessions,width=900]

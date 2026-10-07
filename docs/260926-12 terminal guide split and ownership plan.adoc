@@ -9,14 +9,14 @@ link:260924-23%20uncommitted%20work%20and%20documentation%20checkpoint.adoc[the 
 
 == Purpose and file layout
 
-The current link:260912-23%207xtgv%20terminal%20manual/README.adoc[combined
+The current link:../guides/README.adoc[combined
 manual] is 685 lines and mixes first-use instructions, exact settings tables,
 protocol internals and dated hardware observations. Preserve its stable path
 as a short landing page, then create three sibling files:
 
 [cols="2,4",options="header"]
 |===
-|File under `docs/260912-23 7xtgv terminal manual/` |Reader and question answered
+|File under `guides/` |Reader and question answered
 |`README.adoc` |Entry page: which guide to open, current shipped scope, and links to the feature ledger and dated evidence. No duplicated command tables.
 |`user-guide.adoc` |A CP/M user asks: how do I start, use, transfer, adjust, and recover?
 |`reference-guide.adoc` |A user configuring an application asks: what exact keys, commands, fields, ranges and limitations exist?

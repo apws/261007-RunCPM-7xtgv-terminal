@@ -1,10 +1,10 @@
 # 7xtgv RunCPM terminal sketch
 
 This is the build/test entry point for the current RunCPM-based terminal.
-For operation, use the [User Guide](../../docs/260912-23%207xtgv%20terminal%20manual/user-guide.adoc);
-for exact commands and settings, the [Reference Guide](../../docs/260912-23%207xtgv%20terminal%20manual/reference-guide.adoc);
+For operation, use the [User Guide](../../guides/user-guide.adoc);
+for exact commands and settings, the [Reference Guide](../../guides/reference-guide.adoc);
 for core, HAL, CCP, protocol and licensing boundaries, the
-[Technical Reference](../../docs/260912-23%207xtgv%20terminal%20manual/technical-reference.adoc).
+[Technical Reference](../../guides/technical-reference.adoc).
 The device's live INI and firmware identity are not inferred from this README;
 run `VTINFO` on the attached device.
 
@@ -32,7 +32,7 @@ the existing mirror over PTY and an explicit host card directory.
 
 ## Build and flash boundary
 
-For a new machine, use the [Clone, Build and Flash Guide](../../docs/260912-23%207xtgv%20terminal%20manual/build-guide.adoc).
+For a new machine, use the [Clone, Build and Flash Guide](../../guides/build-guide.adoc).
 It separates firmware dependencies, native tests, desktop tools and guest COM
 assemblers, and records setup gaps rather than claiming clean-clone validation.
 

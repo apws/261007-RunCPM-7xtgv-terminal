@@ -7,14 +7,14 @@ This guide describes the *implemented* RunCPM terminal and the boundaries a
 maintainer must preserve. User-visible syntax lives in the
 link:reference-guide.adoc[Reference Guide]; first-use tasks live in the
 link:user-guide.adoc[User Guide]. The
-link:../260910-13%207xtgv%20v0.1%20native%20specification%20and%20implementation%20plan.adoc[native 7xtgv specification]
+link:../docs/260910-13%207xtgv%20v0.1%20native%20specification%20and%20implementation%20plan.adoc[native 7xtgv specification]
 is a separate proposal: editable fonts and native four-plane cells are not
-shipped terminal APIs. The link:../FEATURES.adoc[feature ledger] records
+shipped terminal APIs. The link:../docs/FEATURES.adoc[feature ledger] records
 feature and hardware-test status.
 The link:features_timeline.adoc[Features Timeline] gives a shorter history
 of delivered changes and command/file renames.
 
-The link:../261007-1426%20DONE%20Sinclair%20QL%20channels%20research%20and%20native%207xtgv%20sidenote.adoc[Sinclair QL channels sidenote]
+The link:../docs/261007-1426%20DONE%20Sinclair%20QL%20channels%20research%20and%20native%207xtgv%20sidenote.adoc[Sinclair QL channels sidenote]
 compares QDOS windows, VT scrolling and our native cell architecture.
 *Native 7xtgv is the primary project objective*; the implemented terminal is
 a compatibility/development vehicle, not the native specification itself.
@@ -22,30 +22,30 @@ The note includes Petr's request verbatim. Channel-inspired software surfaces
 remain an idea, not a delivered API or a change to the four-byte format.
 
 For the high-level reasoning behind the architecture, read
-link:../261007-1146%20DONE%20Design%20evolution%20and%20key%20milestones.adoc[Design evolution and key milestones].
+link:../docs/261007-1146%20DONE%20Design%20evolution%20and%20key%20milestones.adoc[Design evolution and key milestones].
 It follows the major changes in ownership, input, rendering, persistence,
 HAL/core boundaries, performance and desktop reuse, separating implemented
 decisions from open directions.
 
-Petr's link:../261004-11%20manual%20reorg.adoc[261004 practical manual-reorganization outline]
+Petr's link:../docs/261004-11%20manual%20reorg.adoc[261004 practical manual-reorganization outline]
 is now AsciiDoc in the main `docs/` folder, moved from the manual's raw TXT.
 It preserves the original usage notes and proposals, with separate editorial
 cautions for historical inaccuracies. The
-link:../261004-1647%20Manual%20task-first%20reorganization%20and%20reproducibility%20gates.adoc[first manual reorganization pass]
+link:../docs/261004-1647%20Manual%20task-first%20reorganization%20and%20reproducibility%20gates.adoc[first manual reorganization pass]
 records what was actually applied; the outline is not the current command
 reference and does not imply that catalog/profile moves were performed.
 
 Current follow-up plans:
 
-* link:../261007-1234%20PLAN%20Consolidate%20CP-M%20content%20into%20cpmcard.adoc[Retire cpmdrive in favour of the actual card layout]:
+* link:../docs/261007-1234%20PLAN%20Consolidate%20CP-M%20content%20into%20cpmcard.adoc[Retire cpmdrive in favour of the actual card layout]:
   content/hash inventory, source preservation and fresh-clone provisioning,
   shared tooling cutover, and explicit treatment of private/live files.
   Local migration is now implemented: see
-  link:../261007-1618%20DONE%20Canonical%20cpmcard%20and%20DU-only%20tooling%20cutover.adoc[DU-only cutover and seed checks].
+  link:../docs/261007-1618%20DONE%20Canonical%20cpmcard%20and%20DU-only%20tooling%20cutover.adoc[DU-only cutover and seed checks].
   `cpmcard` is primary; the old mirror is archived. Petr subsequently chose
   to version the complete card, including INI/BUF, databases, backups and
   host INI snapshots, without per-file exclusions. Commit/push is separate.
-* link:../261007-1234%20PLAN%20Guided%20physical%20board%20acceptance.adoc[Guided hardware acceptance]:
+* link:../docs/261007-1234%20PLAN%20Guided%20physical%20board%20acceptance.adoc[Guided hardware acceptance]:
   a proposed short scripted sequence with human PASS/FAIL/SKIP observations
   for physical display, backlight, input, storage and lifecycle behaviour.
   Desktop tests reuse drawing code/policies but do not emulate the electrical
@@ -55,7 +55,7 @@ Current follow-up plans:
 == RunCPM, z80pack, RomWBW and terminal compatibility checks
 
 The historical
-link:../261005-7xtgv-runcpm-z80pack-romwbw-terminal-notes.adoc[261005 RunCPM / z80pack / RomWBW terminal notes]
+link:../docs/261005-7xtgv-runcpm-z80pack-romwbw-terminal-notes.adoc[261005 RunCPM / z80pack / RomWBW terminal notes]
 records the architecture discussion and useful test proposals:
 
 * Separate the guest CPU/OS environment from the console transport and terminal
@@ -69,7 +69,7 @@ records the architecture discussion and useful test proposals:
   insert/delete lines and restoration of whole-screen scrolling.
 
 The follow-up
-link:../261007-1214%20DONE%20VTESTS%20legacy%20and%20scroll%20checks.adoc[VTESTS review and desktop checks]
+link:../docs/261007-1214%20DONE%20VTESTS%20legacy%20and%20scroll%20checks.adoc[VTESTS review and desktop checks]
 implements practical tests now maintained in `cpmcard/A/7/VTESTS.BAS`:
 
 * *3*: independent bold, underline, blink and reverse samples with selective
@@ -174,21 +174,21 @@ successful desktop emulation does not establish upstream or CP/M 3 parity.
 
 === Related audits, proposals and implementation records
 
-* *Provenance:* link:../260928-16%20RunCPM%20recovered%20baseline%20and%20upstream%20drift%20note.adoc[260928-16 recovered baseline and upstream drift];
-  link:../260928-20%20RunCPM%20source%20tree%20names%20and%20local%20comparison%20checkout.adoc[260928-20 source names and comparison checkout].
+* *Provenance:* link:../docs/260928-16%20RunCPM%20recovered%20baseline%20and%20upstream%20drift%20note.adoc[260928-16 recovered baseline and upstream drift];
+  link:../docs/260928-20%20RunCPM%20source%20tree%20names%20and%20local%20comparison%20checkout.adoc[260928-20 source names and comparison checkout].
 * *Earlier upstream comparison and independent patch candidates:*
-  link:../260911-19%20RunCPM%20upstream%20comparison%20and%20licensing%20plan.adoc[260911-19 comparison and licensing plan].
-* *Injection inventories:* link:../260925-20%20target-specific%20injection%20inventory%20and%20flat%20HAL%20plan.adoc[260925-20 flat-HAL inventory];
-  link:../260928-23%20RunCPM%20core%20delta%20and%20upstream%20seams.adoc[260928-23 three-way core audit and CP/M 3 collision map];
-  link:../260930-08%20RunCPM%20core%20delta%20raw%20doc,%20our%20injections.adoc[260930-08 Petr's raw injection review].
+  link:../docs/260911-19%20RunCPM%20upstream%20comparison%20and%20licensing%20plan.adoc[260911-19 comparison and licensing plan].
+* *Injection inventories:* link:../docs/260925-20%20target-specific%20injection%20inventory%20and%20flat%20HAL%20plan.adoc[260925-20 flat-HAL inventory];
+  link:../docs/260928-23%20RunCPM%20core%20delta%20and%20upstream%20seams.adoc[260928-23 three-way core audit and CP/M 3 collision map];
+  link:../docs/260930-08%20RunCPM%20core%20delta%20raw%20doc,%20our%20injections.adoc[260930-08 Petr's raw injection review].
 * *Two-stage cleanup then upstream-port proposal:*
-  link:../260930-13%20RunCPM%20cleanup,%20CCP%207XF%20and%20terminal-only%20build%20plan.adoc[260930-13 cleanup, CCP 7XF and terminal-only plan].
-* *Delivered separation:* link:../261001-0539%20recovered%20CCP%20and%207XF%20variant%20split.adoc[261001-0539 recovered CCP / 7XF split];
-  link:../261001-0657%20optional%20RunCPM%20core%20hooks%20and%20upstream%20integration%20boundary.adoc[261001-0657 optional hooks, CP/M 3 boundaries and submodule discussion];
-  link:../261001-1322%20HAL%20challenge%20and%20readable%20board%20consolidation.adoc[261001-1322 readable HAL consolidation].
+  link:../docs/260930-13%20RunCPM%20cleanup,%20CCP%207XF%20and%20terminal-only%20build%20plan.adoc[260930-13 cleanup, CCP 7XF and terminal-only plan].
+* *Delivered separation:* link:../docs/261001-0539%20recovered%20CCP%20and%207XF%20variant%20split.adoc[261001-0539 recovered CCP / 7XF split];
+  link:../docs/261001-0657%20optional%20RunCPM%20core%20hooks%20and%20upstream%20integration%20boundary.adoc[261001-0657 optional hooks, CP/M 3 boundaries and submodule discussion];
+  link:../docs/261001-1322%20HAL%20challenge%20and%20readable%20board%20consolidation.adoc[261001-1322 readable HAL consolidation].
 * *Final naming decision and implementation:*
-  link:../261001-2237%20VOL%20compatibility%20and%20XTGV%20injection%20naming%20review.adoc[261001-2237 VOL and naming review];
-  link:../261001-2317%20XTGV%20integration%20naming%20and%20positive%20build%20guards.adoc[261001-2317 implemented XTGV naming and positive guards].
+  link:../docs/261001-2237%20VOL%20compatibility%20and%20XTGV%20injection%20naming%20review.adoc[261001-2237 VOL and naming review];
+  link:../docs/261001-2317%20XTGV%20integration%20naming%20and%20positive%20build%20guards.adoc[261001-2317 implemented XTGV naming and positive guards].
 
 === Petr's request, verbatim (261007)
 
@@ -201,17 +201,17 @@ Ari, pls make important note into Technical reference guide about that finding o
 == Current findings and developer reading map
 
 The current desktop execution plan is
-link:../261006-0935%20PLAN%20Desktop%20runtime%20using%20existing%20board%20HALs.adoc[261006 PLAN: real-board HAL reuse and desktop runtime].
+link:../docs/261006-0935%20PLAN%20Desktop%20runtime%20using%20existing%20board%20HALs.adoc[261006 PLAN: real-board HAL reuse and desktop runtime].
 It supersedes the standalone SDL board and SDL keyboard proposals: select a
 real board, retain its INI/display policy, use the existing mirror and an
 output-only SDL presenter. Canonical CP/M names stay uppercase; desktop
-CARDMARK is unsupported. See link:../README.adoc[CHAT/PLAN/DONE navigation].
+CARDMARK is unsupported. See link:../docs/README.adoc[CHAT/PLAN/DONE navigation].
 
 The Linux desktop implementation now builds all six real-board selections:
 original Arduino sketch/abstraction/7XF, real GFX Canvas, output-only SDL,
 existing mirror over explicit PTY, host SD/File adapter and cooperative quit/reboot.
-See the link:../261006-1117%20DONE%20Linux%20desktop%20real-board%20SDL%20and%20mirror%20checkpoint.adoc[current checkpoint]
-and link:../../src/RunCPM_7xtgv-terminal/desktop/README.adoc[build/launch instructions].
+See the link:../docs/261006-1117%20DONE%20Linux%20desktop%20real-board%20SDL%20and%20mirror%20checkpoint.adoc[current checkpoint]
+and link:../src/RunCPM_7xtgv-terminal/desktop/README.adoc[build/launch instructions].
 Normal card-root runs can write INI/history and guest files. Desktop sessions
 are separate from hardware; REFLASH cannot invoke its uploader. Eight tests per
 board and EP4 UBSan pass; complete visual/fault-recovery, fresh-OS and other-OS
@@ -221,11 +221,11 @@ qualification remain pending. The obsolete W535 SD_MMC alternate was removed.
 |===
 |Topic |Current lesson and evidence
 |Recovered RunCPM baseline |September's work extends the recovered approximately 260126 generation, not upstream HEAD. Cleanup is delivered; a newer-core CP/M 2.2 port and experimental CP/M 3 qualification remain distinct future steps. See <<runcpm-baseline-and-upstream-roadmap,important provenance note and linked audits>>.
-|HAL/core seams |Readable board-local definitions and narrow XTGV hooks isolate product behavior. See link:../261001-1322%20HAL%20challenge%20and%20readable%20board%20consolidation.adoc[HAL consolidation].
-|Storage performance |Direct SdFat/SPI and buffered transfers matter independently of compiler optimization. Requested SPI clock is not measured SCK. See link:../261002-12%20SdFat%20buffer%20transfers%20and%20SPI%20clock%20audit.adoc[SPI audit].
-|RAM/history |Reducing all histories to 100 entries recovered RP2350 headroom; do not infer usable heap from a simplistic linker-size subtraction. See link:../261003-22%20RP2_2%20INI%20cache%20pressure%20and%20Os%20trial.adoc[RAM findings].
-|Single-core runtime |C6 uses time-sliced tasks and one shared SPI object, not a second application CPU. See link:../261004-1057%20EC6_147%20experimental%20HAL%20implementation.adoc[C6 ownership].
-|Build tuning |IRAM placement and whole-build optimization are separate; W535 no longer forces local O2. See link:../261004-1302%20Build%20performance%20options%20and%20uniform%20optimization.adoc[build options].
+|HAL/core seams |Readable board-local definitions and narrow XTGV hooks isolate product behavior. See link:../docs/261001-1322%20HAL%20challenge%20and%20readable%20board%20consolidation.adoc[HAL consolidation].
+|Storage performance |Direct SdFat/SPI and buffered transfers matter independently of compiler optimization. Requested SPI clock is not measured SCK. See link:../docs/261002-12%20SdFat%20buffer%20transfers%20and%20SPI%20clock%20audit.adoc[SPI audit].
+|RAM/history |Reducing all histories to 100 entries recovered RP2350 headroom; do not infer usable heap from a simplistic linker-size subtraction. See link:../docs/261003-22%20RP2_2%20INI%20cache%20pressure%20and%20Os%20trial.adoc[RAM findings].
+|Single-core runtime |C6 uses time-sliced tasks and one shared SPI object, not a second application CPU. See link:../docs/261004-1057%20EC6_147%20experimental%20HAL%20implementation.adoc[C6 ownership].
+|Build tuning |IRAM placement and whole-build optimization are separate; W535 no longer forces local O2. See link:../docs/261004-1302%20Build%20performance%20options%20and%20uniform%20optimization.adoc[build options].
 |Reproducibility |link:build-guide.adoc[Fresh-clone instructions] exist; the isolated all-target acceptance test is still outstanding.
 |===
 
@@ -257,14 +257,14 @@ original estimate and not a reverted correction.
 * On ESP32 the test executes the same HAL-attributed CPU1 `Z80run` dispatcher.
   Its short timing/printing wrapper does not need a separate `IRAM_ATTR`.
 
-See link:../261003-1445%20Corrected%20boot%20Z80%20clock%20estimate.adoc[261003-1445 correction record]
-and link:../../src/RunCPM_7xtgv-terminal/cpu_mhz_coorect.h[current corrected implementation].
+See link:../docs/261003-1445%20Corrected%20boot%20Z80%20clock%20estimate.adoc[261003-1445 correction record]
+and link:../src/RunCPM_7xtgv-terminal/cpu_mhz_coorect.h[current corrected implementation].
 This is a local, identifiable correction to the recovered-era integration;
 it does not imply a newer upstream core was imported.
 
 == ESP32-P4 memory and build settings
 
-The link:../261002-12%20SdFat%20buffer%20transfers%20and%20SPI%20clock%20audit.adoc[SdFat and SPI audit]
+The link:../docs/261002-12%20SdFat%20buffer%20transfers%20and%20SPI%20clock%20audit.adoc[SdFat and SPI audit]
 consolidates the RP2350/ESP32 buffer-transfer difference, measured P4 gains,
 requested-versus-actual clock caveats, divider tables and forced-read-only
 test-build boundary. It distinguishes source findings from hardware evidence.
@@ -274,10 +274,10 @@ architecture and separate flash/PSRAM buses. In-package PSRAM is not internal
 SRAM. CPU1 Z80run is placed in IRAM; execution of ordinary code from PSRAM
 is supported by the chip/SDK but not enabled in our build.
 
-The link:../261002-10%20P4%20memory%20caches%20and%20PSRAM%20execution.adoc[P4 memory reference]
+The link:../docs/261002-10%20P4%20memory%20caches%20and%20PSRAM%20execution.adoc[P4 memory reference]
 records current cache/bus settings, comparison with S3, the low/high SRAM
 split and limits of static free-memory calculations. The
-link:../261002-10%20P4%20whole-build%20Os%20O2%20O3%20comparison.adoc[Os/O2/O3 comparison]
+link:../docs/261002-10%20P4%20whole-build%20Os%20O2%20O3%20comparison.adoc[Os/O2/O3 comparison]
 lists ELF placement and full size statistics. Arduino's 6% globals summary
 omits a DRAM bank; it must not be interpreted as actual free internal heap.
 
@@ -287,12 +287,12 @@ omits a DRAM bank; it must not be interpreted as actual free internal heap.
 [cols="2,3",options="header"]
 |===
 |Owner |Source and responsibility
-|RunCPM core |link:../../src/RunCPM_7xtgv-terminal/RunCPM_7xtgv-terminal.ino[sketch], link:../../src/RunCPM_7xtgv-terminal/ccp.h[CCP], link:../../src/RunCPM_7xtgv-terminal/ccp_catalog.h[catalog], BDOS/CPU/disk headers at sketch root; guest execution and SD I/O.
-|Terminal runtime |link:../../src/RunCPM_7xtgv-terminal/src/terminal/terminal_runtime.cpp[terminal_runtime.cpp]; profile/input routing, rendering, mirror, saves and queues.
-|Forced COM return |link:../../src/RunCPM_7xtgv-terminal/forced_warm_return.h[forced_warm_return.h], `++ccp.h++`, `++cpm.h++`, `++cpu1.h++` through `++cpu4.h++`; cross-core request state, safe CPU return, blocking-console wake and SUBMIT cancellation. MBASIC and xterm-256 abort work on RP2_147; retaining partial plot pixels is built but awaits hardware test.
-|Terminal parser |link:../../src/RunCPM_7xtgv-terminal/src/terminal/terminal.cpp[terminal.cpp]; ANSI/VT52/DEC parsing, private CSI, cell state and keyboard escape decoding.
-|Configuration |link:../../src/RunCPM_7xtgv-terminal/src/terminal/history_profiles.cpp[history_profiles.cpp] and link:../../src/RunCPM_7xtgv-terminal/src/terminal/ini_text.h[ini_text.h]; defaults, parse, diagnostics and INI editing.
-|Board policy |link:../../src/RunCPM_7xtgv-terminal/src/terminal/display_policy.h[display_policy.h], `++hardware/arduino_7xtgv/*++`, `++runcpm-config.h++`; display identity/limits, storage, backlight, boot and board-specific wiring.
+|RunCPM core |link:../src/RunCPM_7xtgv-terminal/RunCPM_7xtgv-terminal.ino[sketch], link:../src/RunCPM_7xtgv-terminal/ccp.h[CCP], link:../src/RunCPM_7xtgv-terminal/ccp_catalog.h[catalog], BDOS/CPU/disk headers at sketch root; guest execution and SD I/O.
+|Terminal runtime |link:../src/RunCPM_7xtgv-terminal/src/terminal/terminal_runtime.cpp[terminal_runtime.cpp]; profile/input routing, rendering, mirror, saves and queues.
+|Forced COM return |link:../src/RunCPM_7xtgv-terminal/forced_warm_return.h[forced_warm_return.h], `++ccp.h++`, `++cpm.h++`, `++cpu1.h++` through `++cpu4.h++`; cross-core request state, safe CPU return, blocking-console wake and SUBMIT cancellation. MBASIC and xterm-256 abort work on RP2_147; retaining partial plot pixels is built but awaits hardware test.
+|Terminal parser |link:../src/RunCPM_7xtgv-terminal/src/terminal/terminal.cpp[terminal.cpp]; ANSI/VT52/DEC parsing, private CSI, cell state and keyboard escape decoding.
+|Configuration |link:../src/RunCPM_7xtgv-terminal/src/terminal/history_profiles.cpp[history_profiles.cpp] and link:../src/RunCPM_7xtgv-terminal/src/terminal/ini_text.h[ini_text.h]; defaults, parse, diagnostics and INI editing.
+|Board policy |link:../src/RunCPM_7xtgv-terminal/src/terminal/display_policy.h[display_policy.h], `++hardware/arduino_7xtgv/*++`, `++runcpm-config.h++`; display identity/limits, storage, backlight, boot and board-specific wiring.
 |Host |`++tools/terminal.py++`, `++tools/cpm-transfer/transfer.py++`, `++tools/reflash.py++`, `++tools/targets/*.json++`; serial mirror, transfer and target-specific upload.
 |===
 
@@ -332,8 +332,8 @@ their existing single-task ownership and queues remain required. Terminal
 INI/history saves are requests serviced by the RunCPM/storage owner, not a
 second task independently writing the card.
 
-See link:../261004-1057%20EC6_147%20experimental%20HAL%20implementation.adoc[C6 implementation and first hardware results]
-and link:../261004-0030%20ESP32-C6%20single-core%20integrated%20runtime%20feasibility.adoc[feasibility notes].
+See link:../docs/261004-1057%20EC6_147%20experimental%20HAL%20implementation.adoc[C6 implementation and first hardware results]
+and link:../docs/261004-0030%20ESP32-C6%20single-core%20integrated%20runtime%20feasibility.adoc[feasibility notes].
 
 Ctrl+Alt+C is a versioned host key event consumed before profile bindings,
 also in RAW mode. The terminal task only posts an atomic request; the RunCPM
@@ -347,11 +347,11 @@ session; the file may still require manual removal before a cold reset.
 This is not an application-safe file close: open guest files and unsaved
 editor data can be lost. A hung MCU, terminal task or storage call still
 requires physical recovery.
-The link:../260928-11%20forced%20COM%20warm%20return%20implementation%20checkpoint.adoc[implementation checkpoint]
+The link:../docs/260928-11%20forced%20COM%20warm%20return%20implementation%20checkpoint.adoc[implementation checkpoint]
 maps every source touch point and records what still needs a device test.
-The link:../260928-13%20forced%20COM%20return%20GCLS%20abort%20regression.adoc[GCLS abort follow-up]
+The link:../docs/260928-13%20forced%20COM%20return%20GCLS%20abort%20regression.adoc[GCLS abort follow-up]
 records the hardware-discovered parser cleanup defect and its first flashed
-fix. The link:../260928-18%20retained%20GCLS%20return%20and%20RP2_147%20optimization%20trials.adoc[retained-plot follow-up]
+fix. The link:../docs/260928-18%20retained%20GCLS%20return%20and%20RP2_147%20optimization%20trials.adoc[retained-plot follow-up]
 records the later image-preserving path and O2/O3 trial builds.
 
 [source,text]
@@ -400,7 +400,7 @@ functions; inherited RunCPM interfaces retain their original names.
 The optional seams are XTGV_ABORT_REQUESTED, XTGV_Z80RUN_ATTRIBUTES,
 XTGV_MODIFIED_FILE_CLOSED and XTGV_CONFIG_GUEST_IDLE. CPU polling remains
 absent without its hook and otherwise checks every 65,536 instructions.
-See link:../261001-2317%20XTGV%20integration%20naming%20and%20positive%20build%20guards.adoc[naming and composition checkpoint].
+See link:../docs/261001-2317%20XTGV%20integration%20naming%20and%20positive%20build%20guards.adoc[naming and composition checkpoint].
 
 Host target JSON supplies upload/port metadata and the *exact* target name.
 These are related but distinct selectors: a shared display ID intentionally
@@ -408,8 +408,8 @@ shares an INI section, while firmware upload identity must match the exact
 target. Any port must verify compiled bounds, defaults and resolved
 `++VTINFO++` together. Physical backlight tables and output live in each
 board; logical fading remains terminal behavior. See the
-link:../260924-13%20display%20profile%20selection%20and%20identity%20audit.adoc[identity audit]
-and link:../261001-1322%20HAL%20challenge%20and%20readable%20board%20consolidation.adoc[HAL design correction].
+link:../docs/260924-13%20display%20profile%20selection%20and%20identity%20audit.adoc[identity audit]
+and link:../docs/261001-1322%20HAL%20challenge%20and%20readable%20board%20consolidation.adoc[HAL design correction].
 This latest source consolidation is host-tested, not yet rebuilt for hardware.
 
 [[configuration-and-persistence]]
@@ -461,15 +461,20 @@ Profile/history and pan shortcuts also use private host-to-firmware controls
 (`++CSI >10..17v++`, `++>20..59v++`, `++>65..67v++`, `++>71;0/1v++`). Their
 user-facing meaning is in the key table; the source parser is authoritative
 for the byte dispatch. Transfer helpers use their own validated record stream;
-see link:../../src/RunCPM_7xtgv-terminal/tools/cpm-transfer/README.md[transfer protocol]
+see link:../src/RunCPM_7xtgv-terminal/tools/cpm-transfer/README.md[transfer protocol]
 and its tests before changing either end. Reconstructing the mirror and
 serializing an out-of-band event must never interleave inside one partial
 mirror update.
 
 == RunCPM and internal CCP fork boundary
 
+The early demos, RunCPM prototype and display bring-up tools moved to
+link:../src/legacy/README.adoc[`src/legacy/`] on 261007. Historical notes
+may still quote their original `src/` paths; the active terminal and desktop
+remain under `src/RunCPM_7xtgv-terminal/`.
+
 The terminal sketch incorporates RunCPM-derived CPU, BDOS, disk and internal
-CCP headers. The local older `++src/RunCPM_7xtgv/ccp.h++` is useful as a
+CCP headers. The local older `++src/legacy/RunCPM_7xtgv/ccp.h++` is useful as a
 comparison baseline, but this is not an unmodified upstream CCP. In the
 current sketch, `++ccp.h++` directly owns prompt mode and buffer size,
 dispatches `++7XF++`, `++LS++`, `++LL++`, `++CD++`, extends `++?++` and
@@ -491,8 +496,8 @@ may be separable earlier, but their compatibility must be checked against
 upstream behavior. External CP/M programs still execute in the TPA and do
 not inherit the C++ CCP internals. `++$$$.SUB++` is a CP/M record queue, not
 a process-return trampoline. See the dated
-link:../260926-12%20terminal%20guide%20split%20and%20ownership%20plan.adoc[split plan]
-and the link:../260926-23%20XC%20commander%20return%20path%20and%207XF%20output%20boundary.adoc[CCP handoff notes]
+link:../docs/260926-12%20terminal%20guide%20split%20and%20ownership%20plan.adoc[split plan]
+and the link:../docs/260926-23%20XC%20commander%20return%20path%20and%207XF%20output%20boundary.adoc[CCP handoff notes]
 for design context; do not treat proposed commander behavior as implemented.
 
 == Build, upload and test boundary
@@ -511,6 +516,58 @@ tests CP/M behavior but cannot validate TFT timing, SD bus, duty curves or
 hardware-specific rendering. Hardware acceptance is recorded separately in
 the feature ledger and dated reports.
 
+=== Host tests and direct mirror entry point
+
+Run the host-side checks from the main project directory:
+
+[source,sh]
+----
+cd src/RunCPM_7xtgv-terminal
+python3 -m unittest discover -s tests -p 'test_*.py' -v
+----
+
+These checks have their own prerequisites and are not proof of physical-board
+acceptance. For real-board desktop validation, see the
+link:../src/RunCPM_7xtgv-terminal/desktop/README.adoc[desktop tests and launch guide].
+
+For the PC keyboard and complete logical-screen mirror, the low-level entry
+point from the same project directory is:
+
+[source,sh]
+----
+python3 tools/terminal.py
+----
+
+Use the per-target `mirror.sh` shortcut for normal hardware sessions; ensure
+no other process owns the serial port before a direct launch. Press `Ctrl+]`,
+then `q`, to leave the hardware terminal without rebooting CP/M. Closing a
+desktop session's owning mirror instead stops its emulator.
+See the link:../src/RunCPM_7xtgv-terminal/README.md[main project documentation],
+link:../src/RunCPM_7xtgv-terminal/VALIDATION.md[validation record], and
+link:../cpmcard/README.adoc[CP/M user-area map] for details.
+
+== Feature registry
+
+link:../docs/features.tsv[`docs/features.tsv`] is the canonical ASCII feature
+store; link:../docs/FEATURES.adoc[`docs/FEATURES.adoc`] is its human ledger plus
+hand-written status and evidence notes. From the repository root, validate,
+query, or regenerate it with:
+
+[source,sh]
+----
+python3 src/feature_registry.py check
+python3 src/feature_registry.py report --format text \
+  --fields group,idea_date,state,title --sort group,idea_date,title
+python3 src/feature_registry.py report --format asciidoc \
+  --where group=INP --fields idea_date,title,state,qualifier,next_gate
+python3 src/feature_registry.py update-ledger
+----
+
+Miller can query the same file directly with `mlr --itsv`; it is optional and
+is not required for deterministic ledger generation. Edit the TSV, not the
+ledger's generated tables. The link:features_timeline.adoc[Features Timeline]
+is a separate curated history, not generated from the database.
+
 == Licensing and attribution inventory
 
 Licenses belong to *components*, not to the terminal as a single inherited
@@ -520,7 +577,7 @@ are:
 [cols="2,2,3",options="header"]
 |===
 |Component |Evidence |Boundary
-|RunCPM-derived CPU/BDOS/CCP and POSIX baseline |link:../../src/RunCPM_7xtgv-terminal/LICENSE.RunCPM[MIT notice]; link:../../src/RunCPM_linux/README.md[POSIX source baseline] |The MIT notice covers the identified RunCPM-derived parts; preserve it with those parts.
+|RunCPM-derived CPU/BDOS/CCP and POSIX baseline |link:../src/RunCPM_7xtgv-terminal/LICENSE.RunCPM[MIT notice]; link:../src/RunCPM_linux/README.md[POSIX source baseline] |The MIT notice covers the identified RunCPM-derived parts; preserve it with those parts.
 |7xtgv QL-font header |`++src/terminal/7xtgv-QL-font.h++` states `++Copyright 2026 Petr Antos, ALL RIGHTS RESERVED (will be opened at release)++` |Do not infer an open font license from RunCPM's MIT notice.
 |SdFat 2.3.0 |Locally installed `++SdFat/LICENSE.md++` contains an MIT notice |Build dependency named in `++sketch.yaml++`; the installed package is not a blanket repository license.
 |GFX Library for Arduino 1.6.4 |Locally installed `++license.txt++` has a BSD-style Adafruit notice |Check included source/subcomponents and reproduce applicable notices for an actual distribution.

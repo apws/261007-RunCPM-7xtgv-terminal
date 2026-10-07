@@ -1,276 +1,198 @@
 # Repository guidance
 
-- Keep replies compact; use bullets for status and test results.
-- If Petr's request or assumption conflicts with the current code, configuration,
-  or supported behavior, flag the specific mismatch immediately, before editing
-  or executing it. Explain briefly; do not silently reinterpret the request.
-- Prioritize low resource use over speed; use small checkpoints and ask Petr
-  for useful visual/hardware checks or optional web investigation. For RunCPM
-  ports, read `docs/260908-18 runcpm-port-addendum.adoc`; "flat HAL" means target headers,
-  not a broad refactor.
-- Keep Arduino HAL definitions complete and human-readable: one uniformly
-  sectioned header per board, ordinary functions, intentionally board-local
-  storage adapters. Do not recreate per-feature fragments or code-body macros.
-  See `docs/261001-1322 HAL challenge and readable board consolidation.adoc`.
-- Preserve the project layout: source under `src/`, generated output under
-  `build/`, documentation under `docs/`, and the CP/M mirror under `cpmcard/`.
-- Prefix CP/M test programs and fixtures with `VT`; keep the unified `VTESTS`
-  menu and its independently callable tests.
-- Preserve Z80 behavior when changing RunCPM. Measure before keeping emulator
-  optimizations, and record relevant results in `docs/`.
-- Before editing any RunCPM-derived core file (CCP, BDOS/BIOS, CPU, disk,
-  console, globals or common abstraction), tell Petr which file and seam need
-  changing and why; ask for direction before making that core edit. Do not
-  silently treat a terminal or board task as permission to extend the core.
-  First inspect the pinned recovered source and current Mockba upstream,
-  including CP/M 3 changes, and follow the upstream file's coding and naming
-  conventions where a portable change is intended. Keep 7xtgv-specific
-  behavior behind narrow, documented hooks when practical. The audit and
-  open questions are in `docs/260928-23 RunCPM core delta and upstream seams.adoc`.
-- Native `src/RunCPM_linux` does not run the 7xtgv terminal/parser/renderer.
-  Use its ordinary ANSI terminal for application-output comparisons, not as
-  proof that 7xtgv display behavior works; verify terminal fixes in the host
-  terminal tests and, when needed, on the real device.
-- For hardware work, check serial-port ownership first, avoid unnecessary
-  reboots, and release the port after testing. ESP32 flashing recreates
-  `/dev/ttyACM0`; restore the temporary user ACL afterward with approved sudo.
-  Use the shared tmux terminal for concurrent viewing—never open two serial
-  readers.
-- If a flash, transfer, or serial session becomes confused (stale protocol
-  text, disappearing/re-enumerating port, or no mirror), do not keep sending
-  diagnostic/recovery keystrokes into CP/M. Stop the tmux owner, perform one
-  simple supported target reset (DTR/RTS where available), or ask Petr for a
-  power-cycle when it is not. Wait for one stable serial node, then start one
-  clean mirror attachment. Do not loop across ports or launchers; a clean boot
-  is preferable to preserving a potentially contaminated session.
-- When Petr asks for device-side transfer, flashing, or direct CP/M testing,
-  that authorizes stopping the shared `7xtgv-cpm` tmux terminal. Stop it,
-  perform the work, and relaunch `kon.sh` or `kit.sh` without asking again.
-  A relaunch is complete only after the user-visible Konsole/Kitty attachment
-  is started; do not leave only a detached tmux serial bridge.
-  Briefly report that active CP/M program state was lost.
-- Petr's chat instruction `reflash` means upload the connected target's staged
-  `new` candidate, falling back to `current` if none exists, then restore the
-  user-visible mirror; do not treat it as build-only preparation. A literal
-  `reflash` typed inside CP/M is not a host instruction unless an explicit
-  future opt-in command-monitor is enabled.
-  This chat instruction authorizes the complete in-scope device and mirror
-  workflow without additional conversational permission questions: check port
-  ownership, stop the shared mirror, use the configured target uploader, handle
-  its reset and any required serial-port ACL, relaunch Konsole/Kitty, and verify
-  the booted build. Obtain any execution-environment approval still required
-  for privileged or outside-sandbox commands. `reflash` alone does not authorize
-  a rebuild, image promotion, target change, CP/M file overwrite, or unrelated
-  device tests.
-  For a registered RP2350 already in manual BOOTSEL, absence of its normal
-  serial port is expected. Match the BOOTSEL disk's unique chip ID to the
-  recorded target, check its RP2350 UF2 identity, mount it, stop the mirror
-  once, copy that target's staged `new` UF2, wait for the same chip ID to
-  reappear as serial, restore the port ACL if needed, and relaunch the visible
-  mirror. Treat this as one `reflash` workflow; ask only for required system
-  approval, an unrecognized/mismatched chip, or a real failure.
-  The opt-in monitor protocol is now reserved as guest output `CSI > 64 v`
-  (`ESC[>64v`), emitted by `A0:REFLASH.COM`; it must only invoke an explicitly
-  configured target-specific host uploader. The common host dispatcher is
-  `src/RunCPM_7xtgv-terminal/tools/reflash.py`; select its explicit
-  `XTGV_TARGET` in `tools/terminal.conf` rather than hard-coding an uploader.
-- Before **every** direct `tools/cpm-transfer/transfer.py` operation, first
-  stop the shared `7xtgv-cpm` tmux mirror unconditionally, then perform the
-  transfer, and always relaunch `tools/kon.sh` or `tools/kit.sh` afterwards.
-  Do not first attempt a transfer against the live port merely to discover its
-  lock owner.
-- Treat the physical USB-serial device as outside-sandbox state: the sandbox
-  may hide `/dev/ttyUSB*` and `/dev/ttyACM*` even while the device is healthy.
-  If a normal serial-node check or transfer says the configured port is
-  absent, repeat that narrowly scoped discovery/transfer with escalation
-  before diagnosing the cable or device. This does not itself require sudo.
-  Every device flash or direct serial operation must finish by relaunching the
-  user-visible `kon.sh`/`kit.sh` mirror, even if the upload itself succeeded.
-- Keep target firmware artifacts under `build/<project>/<target>/current` only
-  after a verified host build. Archive replaced stable artifacts alongside it
-  as `build/<project>/<target>/YYMMDD-HHMM <note>`; do not mass-rename
-  historical experiment folders merely to impose this newer chronology. A
-  deliberate host build first stages and verifies its own target artifact as
-  `new`, then uploads that candidate for hardware test while leaving `current`
-  untouched. Device-side `REFLASH` normally uploads `new`, falling back to
-  `current` only if no candidate exists. Promote a confirmed candidate with
-  `tools/reflash.py --promote-new`; recover explicitly with `--current` or by
-  promoting an archive with `--restore '<archive>'` (which quarantines `new`).
-  `/tmp` build paths are transient validation space, never the intended
-  deployed state. Never let one target reuse another target's build directory
-  or manually promote an ad-hoc Arduino build: use the target-aware reflash
-  path so HAL build properties are present.
-- Every target-aware firmware rebuild must inject a fresh `YYMMDD-HHMM` boot
-  stamp (as `tools/reflash.py` now does). Never treat the sketch's cached
-  `__DATE__`/`__TIME__` as proof of which image was flashed; check the staged
-  artifact and uploader log when diagnosing a device-side `REFLASH`.
-- Petr performs longer interactive/device tests.  After a relevant build,
-  provide a short exact test checklist and wait for his report instead of
-  consuming time driving the hardware test.  The shared tmux screen may be
-  inspected afterward; add an opt-in input/output recording hook when useful
-  for diagnosing a reported interaction.
-- Batch ordinary firmware edits by default: run small host tests when useful,
-  but do not compile, replace a target's `new` candidate, archive a candidate,
-  or touch hardware after each isolated change. Petr's explicit chat command
-  `rebuild` authorizes one target-aware host build/stage for all pending edits;
-  use `tools/reflash.py --build-only` so `rebuild` never flashes implicitly.
-  When `rebuild` also covers changed CP/M mirror files, deploy those files to
-  the device separately and report exactly which were updated; the firmware
-  reflash remains an independent user request. `reflash` uploads the already
-  staged candidate. State when a
-  change remains pending a rebuild. Build immediately only when Petr expressly
-  asks for it or a hardware test is needed to make safe progress.
-- Use the common `tools/reflash.py` target guard for all supported uploads,
-  including device-triggered REFLASH; do not bypass it with the old W535 script
-  or direct Arduino CLI. A reported target mismatch is a stop condition. Old or
-  nonresponding firmware needs explicit user confirmation of the physical target
-  before a one-shot `--allow-unidentified-target TARGET`; never silently retry
-  with that option or persist it in the mirror configuration. RP2350 BOOTSEL
-  remains a separate manual workflow until integrated into the guarded dispatcher.
-- Before sending automated commands through the shared CP/M terminal, select
-  terminal profile/history bank `#9`; use explicit `## RAW` on/off controls for
-  transfers or exact-byte tests. Keep the user's active application history in
-  banks `#0` through `#8` untouched.
-- For VTPUT/VTGET, first read the original selected profile via Alt+Space's
-  `CSI >14v` notice. Use #9 temporarily, then restore that profile and original
-  RAW state in cleanup, including failed transfers. Never leave #9 selected or
-  run the restored profile's `on_select` command/change DU as a side effect.
-  The shared transfer Link handles this for both mirror and CLI; restoration
-  failures must be reported, not silently treated as success.
-- Send agent-authored CP/M commands in uppercase. Petr normally types lowercase,
-  so uppercase history entries remain visibly attributable even if an automated
-  command lands outside reserved bank `#9`; do not discard them merely for being
-  agent-generated. Exception: inside `BBCLOWER`, use lowercase commands because
-  that deliberately patched interpreter does not accept the uppercase forms.
-- Before starting a nonessential web search or broad external research, tell the
-  user briefly what is needed and ask whether to search here or let them handle
-  it in ChatGPT/Lyra and bring the result back. Proceed immediately when the
-  user explicitly requests browsing or current external information.
-- For any complex, lengthy, or open-ended investigation—especially binary
-  reverse engineering, Ghidra/decompilation work, historical research, or
-  broad architecture/design analysis—tell Petr **before beginning** that
-  ChatGPT/Lyra is the preferred place to do that analysis, and ask him to
-  bring its findings here for repo-grounded verification and implementation.
-  Store any resulting chronological project document as AsciiDoc. Do not
-  substitute shallow local probes for that deeper
-  analysis unless Petr expressly asks to proceed here. If analysis must be
-  done here, remind him of `/model`: SOL for analysis/design, TERRA for
-  implementation, and LUNA for quick testing. Do not claim a billing or
-  infrastructure saving that is not established for his account.
-- Keep this file short. Put detailed history, inventories and experiments in
-  linked documentation under `docs/`.
-- Treat the local repository as the default documentation source of truth;
-  commit/push or direct GitHub editing is a separate publishing step and is
-  done when Petr requests it or the task explicitly includes it.
-- At a completed feature or a switch to unrelated work, flag outstanding
-  code/tests/documentation and suggest a small commit checkpoint. Do not let
-  reminders block brainstorming; commit and push remain separately authorized.
-- Preserve imported/original ChatGPT/Lyra plans as historical source documents.
-  A format-only migration to AsciiDoc must preserve their substance. Put later
-  repo-grounded discussion and signed implementation decisions in a new
-  chronological CHAT/PLAN AsciiDoc document that links or names its
-  source; do not rewrite the earlier plan unless Petr explicitly requests
-  consolidation.
-- Track non-trivial ideas and delivery state in canonical ASCII
-  `docs/features.tsv`. Never edit the marked generated tables in
-  `docs/FEATURES.adoc` directly; validate and regenerate them with
-  `python3 src/feature_registry.py check` and
-  `python3 src/feature_registry.py update-ledger` after changing the TSV. Leave
-  unknown milestone dates empty rather than inventing chronology.
-- For implemented feature additions, renames, and behavior changes, also update
-  `docs/260912-23 7xtgv terminal manual/features_timeline.adoc`. It is a
-  curated history, not generated from `docs/features.tsv`; keep both in sync.
-- Petr uses a Czech keyboard layout (`XTGV_BANK_KEYS` in `tools/terminal.conf`)
-  and XKB `shift:breaks_caps,caps:none`: Shift clears CapsLock. Do not rely on
-  CapsLock state or alter ordinary Czech punctuation/Shift input in terminal
-  profiles; diagnose such host-input issues outside the CP/M byte bridge first.
-- New chronological records use `YYMMDD-HHMM CHAT ...`, `PLAN ...`, or `DONE ...`
-  under `docs/`; see `docs/README.adoc`. Preserve old filenames. On resuming work,
-  read its current PLAN and latest DONE before using CHAT for rationale.
-  Current desktop plan: `docs/261006-0935 PLAN Desktop runtime using existing board HALs.adoc`.
-  Canonical
-  authored chronological documents use `.adoc`, a level-0 `= Title`, and the
-  `:source-highlighter: highlight.js` document attribute. Do not create new
-  date-prefixed Markdown or plain-text notes. Put referenced images under
-  `docs/images/` and prefix project-owned image filenames with `YYMMDD-HH `;
-  a chronological image record is an `.adoc` wrapper that references the
-  correspondingly dated image. The generated feature overview is `FEATURES.adoc`.
-  Keep stable readmes,
-  recovered material, vendor resources, and other non-chronological formats in
-  their existing names until a separately approved migration covers them.
-- Outside `cpmcard/`, treat files with uppercase `MIXWORX` in their filename as local/private:
-  keep them under the root `.gitignore` rule, and never force-add, commit, or
-  push them. Keep all CP/M FAND 1.0 test observations in the `MIXWORX`-tagged
-  log under `docs/260912-23 7xtgv terminal manual/`, not in separate test
-  reports under `docs/`.
-- Before an agent-triggered context compaction during active work, write a
-  dated AsciiDoc handoff in `docs/`: current implementation state, relevant
-  tests/hardware observations, pending work, and exact recovery/build details.
-  Treat it as durable project history, not merely a private chat summary.
-- Format human-facing project dates as `YYMMDD` (intentionally no century);
-  new chronological records add `-HHMM` and their CHAT/PLAN/DONE kind.
-- Treat `cpmcard/` as the primary working card, using actual RunCPM DU paths
-  (`A/0` through `A/F`), never descriptive-folder fallback. Petr explicitly
-  requests versioning the complete tree: no exclusions for A-P drives,
-  INI/BUF, databases, backups or host INI snapshots; keep the image for now.
-  No per-file seed manifest. Inspect runtime changes before commit/pull;
-  this does not authorize overwriting live/device settings or pushing.
-  Tests copy fixtures to disposable cards;
-  installing rebuilt guest binaries requires explicit `--install`. See
-  `docs/261007-1618 DONE Canonical cpmcard and DU-only tooling cutover.adoc`.
-  Deploy
-  one-way with `tools/cpm-transfer/transfer.py put`. Routine transfers need no
-  full read-back (`--verify`) or separate post-transfer serial/tmux/screen probes:
-  trust the transfer result and launch the visible mirror, still restoring the
-  original profile/RAW state and reporting errors. Petr will report problems.
-  In transfer context, `reload` means repeat the last clearly identified file
-  transfer/destination, not rebuild/reflash/reboot; ask if its target is unclear.
-  Verify further only on request or a concrete transfer failure. Never silently import device files;
-  use explicit `get` only when Petr requests it.
-- Store guest text in `cpmcard/` in CP/M format: CRLF line endings and a
-  trailing Ctrl-Z. Maintain this format when editing or generating text there;
-  ordinary send/receive transfers preserve bytes, without text conversion.
-  Never infer text from extension alone: tokenized BASIC, binaries, disk images,
-  native checksummed history and historical backups must remain byte-exact.
-  Host-only metadata/documentation/build machinery (JSON, README.md, Makefile)
-  retain their host format. Do not add 128-byte padding to authored local text.
-- Always save maintained MBASIC programs as ASCII with `SAVE "NAME",A`
-  (default extension `.BAS`), never ordinary tokenized `SAVE "NAME"`.
-  Load normally with `LOAD "NAME"`. Fetch Petr's current device sources when
-  requested before editing; do not substitute an older host test fixture.
-  Bytes after the first Ctrl-Z in fetched ASCII are CP/M record tail, not source.
-  BBC BASIC/BBCLOWER use `*SPOOL NAME.TXT`, `LIST`/`list`, `*SPOOL` to export,
-  then `NEW`/`new` and `*EXEC NAME.TXT` to import, not MBASIC's `,A` syntax.
-  Clean captured prompt/command lines before maintaining that listing as source;
-  preserve keyword case. See `docs/260924-17 BASIC ASCII sources and ink test labels.adoc`.
-- `tools/fetch-7xtgvtrm-ini.sh` is the explicit live-config import path. It
-  archives the preceding local mirror under the versioned
-  `cpmcard/.7xtgvtrm-ini-history/MMDDHHMM.INI`, then replaces the local
-  mirror after a successful `get`; those snapshots are host-side tooling data and
-  must never be deployed to CP/M.
-- Before editing INI for a requested device configuration update, always fetch
-  the current device A0:7XTGVTRM.INI first, then edit that fresh local mirror and
-  send it back only with transfer approval. This requested workflow authorizes
-  the preceding fetch; preserve Petr's unrelated on-device edits. If the fetch
-  fails, stop rather than deploying a stale local INI. Pass explicit --target
-  and --port to the fetch helper when the attached module differs from host defaults.
-- Never overwrite device-side `A0:7XTGVTRM.INI` or `A0:7XTGVTRM.BUF`
-  (terminal history) without Petr's explicit approval for that transfer,
-  even during a rebuild or bulk CP/M mirror deployment. Approval for one
-  file does not authorize overwriting the other.
-- Keep CP/M text source lines at 80 columns or fewer; the installed TE editor
-  rejects longer lines. Files already in `cpmcard/` need no upload conversion.
-  The CLI `--cpm-text` option is only for deliberate imports of external host
-  text; it is not the normal transfer path for the CP/M mirror.
-- Keep CP/M assembler dialects explicit. Project-owned Intel 8080 sources for
-  Digital Research `ASM` use `.ASM`; project-owned Z80-mnemonic sources for SLR
-  `Z80ASM` use `.Z80`. Never assemble a `.Z80` file with `ASM`. With bare CP/M
-  filenames, `ASM` defaults to `.ASM` and emits `.HEX`/`.PRN` for `LOAD`, while
-  SLR `Z80ASM` defaults to `.Z80` and directly emits `.COM`. Preserve historical
-  MAC/M80/vendor filenames and their existing build scripts rather than
-  renaming them merely by dialect.
-- For new CP/M assembly helpers, save every register whose value remains live
-  across BDOS/BIOS calls. Verify the local RunCPM implementation when possible:
-  `_Bdos()` in `src/RunCPM_7xtgv-terminal/cpm.h` explicitly resets `HL` on entry
-  and also changes `C`. Do not assume a call preserves a parsing pointer or
-  loop counter merely because a different CP/M implementation does.
+## Scope and working style
+
+- Keep replies compact; report concrete changes, checks and remaining limits.
+  Flag conflicts between a request and the implementation before acting.
+- Prefer small checkpoints and focused host tests. Agree the scope of lengthy
+  research or reverse engineering first; external analysis can be brought back
+  for repository-grounded verification. Do not prescribe named assistants,
+  model aliases or a particular developer's workstation configuration.
+- Native 7xtgv is the primary objective. The implemented 7xtgv-terminal,
+  RunCPM integration and SDL desktop are development/test vehicles; do not
+  present planned native capabilities as shipped terminal features.
+- Preserve unrelated work. Commit/push, hardware writes and card deployment
+  require their own authorization; a successful test does not grant it.
+  Suggest a commit checkpoint after a completed feature without blocking work.
+
+## Layout and current evidence
+
+- Active firmware and desktop: `src/RunCPM_7xtgv-terminal/`.
+  Historical demos and bring-up tools: `src/legacy/`.
+  Generated artifacts: `build/`. Maintained manuals: `guides/`.
+  Chronological research/plans/checkpoints: `docs/`. Working card: `cpmcard/`.
+- Unless qualified otherwise, `tools/` below means
+  `src/RunCPM_7xtgv-terminal/tools/`, not a repository-root directory.
+- Start with current guides and code. Search relevant dated documents newest
+  first, then follow their PLAN/DONE/CHAT links. Check older filename conventions:
+  a suffix is not always an HHMM timestamp. A newer proposal is not evidence of
+  implementation; distinguish source, built artifact and hardware acceptance.
+  Do not load the entire chronological archive for a narrow question.
+- For desktop work, use
+  `docs/261006-0935 PLAN Desktop runtime using existing board HALs.adoc`
+  together with subsequent DONE records, not that plan in isolation.
+- Keep detailed history in linked documents, not this file.
+
+## Architecture and validation
+
+- Preserve Z80 behavior; measure before retaining emulator optimizations.
+- Before editing RunCPM-derived CCP, BDOS/BIOS, CPU, disk, console, globals or
+  common abstraction, identify the file/seam and obtain direction. A terminal
+  or board request alone does not authorize core changes. Inspect the pinned
+  recovered baseline and relevant upstream changes, including CP/M 3, before
+  porting; do not claim upstream parity from successful CP/M 2.2 tests.
+  Follow upstream conventions for portable changes and keep project behavior
+  behind narrow searchable hooks. See `guides/technical-reference.adoc` and
+  `docs/260928-23 RunCPM core delta and upstream seams.adoc`.
+- Keep each Arduino board HAL complete and readable: one uniformly sectioned
+  header, ordinary functions and intentional board-local storage adapters.
+  Avoid per-feature fragments and code-body macros. For ports, also read
+  `docs/260908-18 runcpm-port-addendum.adoc` and
+  `docs/261001-1322 HAL challenge and readable board consolidation.adoc`.
+- `src/RunCPM_linux/` is a POSIX CP/M comparator used by guest-program tests;
+  it does not exercise the terminal parser/renderer. Terminal fixes need host
+  terminal tests and/or the real-board SDL desktop, with physical tests where
+  needed. Desktop success cannot establish electrical, SPI or panel timing.
+- Prefix CP/M tests/fixtures with `VT`; retain the unified `VTESTS` menu and
+  independently callable tests. Provide short human checklists for longer
+  interactive/physical checks rather than taking over a live session.
+
+## Builds, upload and desktop lifecycle
+
+- Batch firmware edits; run focused host tests, but do not rebuild/stage/flash
+  after every change. An explicit `rebuild` authorizes a target-aware build,
+  not an upload or guest-file deployment. State when rebuild is still pending.
+  Do not build firmware unless requested or needed for an authorized test.
+- Use `tools/targets/DISPLAY_ID -- target/` wrappers:
+  `rebuild.sh` builds only; `reflash.sh` uploads only; `mirror.sh` attaches.
+  They use shared Python tooling; preserve quiet status and adjacent logs.
+  Missing prerequisites should be reported; installation uses explicit
+  `tools/setup.sh`, not a hidden installer in rebuild/reflash.
+- The hardware `rebuild` path uses `tools/reflash.py --build-only`.
+  It stages verified output as `build/<project>/<target>/new` with a fresh
+  `YYMMDD-HHMM` stamp; compilation does not establish hardware acceptance.
+  Keep hardware-proven `current` untouched. Never reuse another target's
+  artifacts or promote an ad-hoc build. `/tmp` is transient test space.
+- A hardware `reflash` request uploads that target's staged `new`, falling
+  back to `current` only if no candidate exists, then restores the visible
+  mirror. It authorizes the necessary in-scope port/reset/mirror workflow,
+  not rebuilding, promotion, target changes or CP/M file replacement.
+  Verify the booted Build/VTINFO when accessible; report unverified boot.
+- Stable promotion/archive recovery is separate and explicit. For targets
+  supported by the low-level uploader, inspect `--promote-new`, `--current`
+  and `--restore` before use: these workflows can upload as well as change
+  artifact state. Do not assume those options support RP2350.
+  Preserve dated archives; do not mass-rename historical build directories.
+- ESP32 upload uses the target guard in `tools/reflash.py`; never bypass a
+  reported mismatch. Old/unresponsive firmware needs explicit physical-target
+  confirmation before one-shot `--allow-unidentified-target TARGET`.
+  Never persist that override or silently retry with it.
+- RP2350 BOOTSEL is integrated in `tools/target_reflash.py` through
+  `tools/bootsel_upload.py`; the low-level `reflash.py` is not its uploader.
+  Use the selected target's UF2 validation and physical chip/disk checks.
+  An eligible disk already present does not require Enter; missing devices
+  prompt interactively. Multiple/mismatched devices are not a reason to bypass
+  checks. ROM presence cannot identify the attached display board: verify the
+  intended module, using a known chip mapping or explicit confirmation when
+  uncertain. Reconnect the mirror to the same chip, not an arbitrary serial node.
+- Guest `A0:REFLASH.COM` emits `CSI >64v`; the mirror may handle it only
+  through an explicitly configured target-specific uploader. Ordinary guest
+  text is not a host command. Keep unsupported workflows unsupported.
+- Desktop shortcuts use `tools/target_desktop.py` and
+  `desktop/desktop.py`; never flash an MCU. Rebuild and launch are separate.
+  Guest input belongs to the mirror, SDL is output-only. Closing the owning
+  mirror or SDL requests session shutdown; guest REBOOT restarts the desktop.
+  Do not stop an active session or its card writer without task authorization.
+
+## Hardware access and transfers
+
+- Resolve the selected target/port; never assume `/dev/ttyACM0`.
+  Check ownership and use one serial reader. Use the shared tmux mirror for
+  concurrent viewing; never open a second reader to diagnose an occupied port.
+- A device transfer, flash or direct CP/M test authorizes temporarily stopping
+  the shared `7xtgv-cpm` mirror and restoring its visible attachment afterward.
+  Report application-state loss if a reset/upload caused it; a mere mirror
+  reconnect does not by itself mean CP/M restarted.
+- Before every direct `tools/cpm-transfer/transfer.py` operation, stop the
+  shared mirror unconditionally. Restore the visible Konsole/Kitty attachment
+  (`kon.sh`/`kit.sh`) or explicitly selected current-terminal mirror, including
+  after failure. A detached tmux session alone is not a visible GUI restoration.
+- Serial nodes may disappear/re-enumerate. Check permissions on the actual
+  returned node; use configured group access, or an approved temporary ACL
+  only when needed. Never grant privileges or change groups without approval.
+  If sandbox discovery reports a missing device, repeat narrowly with required
+  execution approval before diagnosing hardware failure.
+- If serial/protocol state becomes confused, stop sending diagnostic keys.
+  Stop the owner, use one supported reset or request a power-cycle, wait for
+  one stable device and attach once. Do not loop across ports or launchers.
+- Automated guest commands use profile/history bank #9; preserve banks #0-#8.
+  Use explicit RAW controls for exact-byte transfers. VTPUT/VTGET must capture
+  the original profile via `CSI >14v`, then restore profile and RAW state in
+  cleanup without executing `on_select` or changing DU. The transfer Link
+  implements this; report restoration failures.
+- Send agent-authored CP/M commands in uppercase for attribution, except
+  deliberate lowercase-only interpreters such as BBCLOWER. Preserve configured
+  keyboard layout, punctuation, modifiers and CapsLock behavior; do not impose
+  a workstation-specific layout or assume host key behavior is a firmware bug.
+
+## Working card and guest sources
+
+- `cpmcard/` is canonical, with RunCPM drive A-P/user 0-F directories
+  (e.g. `A/0`, `A/F`); no descriptive-folder fallback. The complete tree is
+  eligible for versioning, including INI/BUF, databases, backups, host snapshots
+  and the existing image. No per-file seed manifest or content exclusions.
+  Review runtime changes before commit/pull; inclusion policy does not authorize
+  publishing each new runtime change or overwriting physical-card data.
+  See `docs/261007-1645 DONE Version complete cpmcard without content exclusions.adoc`.
+- Tests copy fixtures to disposable cards. Installing rebuilt guest binaries
+  requires explicit `--install`. Deploy only authorized files with transfer
+  `put`; do not silently import device files. Transfer `reload` means repeat
+  the last identified transfer/destination, not build/reflash/reboot.
+  Routine successful transfers need no full read-back or extra serial probes;
+  verify further on request or concrete failure, and restore the visible mirror.
+- For a device INI edit, fetch the current A0:7XTGVTRM.INI first using
+  `tools/fetch-7xtgvtrm-ini.sh`, with explicit target/port when needed.
+  The requested device-edit workflow authorizes that fetch, not an unrequested
+  upload. Stop if fetch fails. Preserve unrelated settings.
+  Host snapshots under `cpmcard/.7xtgvtrm-ini-history/MMDDHHMM.INI` are versioned
+  tooling data and must never be deployed to CP/M.
+- Never overwrite device INI or BUF without explicit approval for that file;
+  approval for one is not approval for the other. A desktop/local-card-only
+  edit does not require fetching an unrelated physical device.
+- Maintained guest text uses CRLF and trailing Ctrl-Z, with source lines at
+  most 80 columns for TE. Do not infer text from extension: tokenized BASIC,
+  binaries, native history and backups must remain byte-exact. Host metadata
+  retains host formatting. No extra 128-byte padding or implicit transfer
+  conversion; `--cpm-text` is only for deliberate external text imports.
+- Save maintained MBASIC source with `SAVE "NAME",A`, not tokenized SAVE.
+  Respect requested device sources rather than substituting old fixtures;
+  bytes after first Ctrl-Z in ASCII are record tail. BBC BASIC/BBCLOWER export
+  via `*SPOOL` and LIST/list, then import via NEW/new and `*EXEC`.
+  See `docs/260924-17 BASIC ASCII sources and ink test labels.adoc`.
+- Use .ASM for project Intel 8080/DR ASM sources and .Z80 for SLR Z80ASM
+  sources; do not feed Z80 mnemonics to ASM. Preserve vendor dialects/names.
+  ASM produces HEX/PRN for LOAD; SLR Z80ASM normally produces COM.
+  Save registers needed across BDOS/BIOS calls; inspect the local implementation
+  rather than assuming preservation (`_Bdos()` modifies HL and C).
+
+## Documentation and privacy
+
+- Maintained guides describe current behavior; chronological records preserve
+  their dated evidence. Keep imported discussions/plans substantively intact;
+  record later decisions separately unless consolidation is requested.
+- Use AsciiDoc for new dated records: `YYMMDD-HHMM CHAT|PLAN|DONE Title.adoc`,
+  level-zero title and `:source-highlighter: highlight.js`. Format project
+  dates as YYMMDD; preserve old filenames. See `docs/README.adoc`.
+  Chronological images go in `docs/images/` with dated names; guide assets
+  belong alongside their guides. Render new/structurally changed documents.
+- Track nontrivial ideas/status in ASCII `docs/features.tsv`; never hand-edit
+  generated ledger tables. Run `python3 src/feature_registry.py check` and
+  `python3 src/feature_registry.py update-ledger`. Also update the curated
+  `guides/features_timeline.adoc` for implemented features/behavior changes.
+  Leave unknown milestone dates empty.
+- Preserve a concise dated AsciiDoc handoff before intentional context
+  compaction during active work: status, evidence, pending work and exact
+  recovery/build references.
+- Outside `cpmcard/`, uppercase MIXWORX filenames remain local/private under
+  .gitignore; never force-add or publish them. Keep FAND test observations in
+  the private MIXWORX-tagged log under `guides/`.

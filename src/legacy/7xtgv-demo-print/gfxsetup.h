@@ -10,7 +10,7 @@
 #include <Arduino_GFX_Library.h>
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_IDF_TARGET_ESP32P4)
-#include "../7xtgv-jc8012p4a1c-newpanel.h"
+#include "7xtgv-jc8012p4a1c-newpanel.h"
 #endif
 
 Arduino_DataBus *bus;
@@ -323,14 +323,13 @@ Arduino_GFX *gfx;
         1, 16000000, true);
     #else
     Arduino_ESP32RGBPanel *rgbPanel = new Arduino_ESP32RGBPanel(
-        40, 41, 39, 42,                 // DE, VSYNC, HSYNC, PCLK
-        45, 48, 47, 21, 14,             // R0..R4
-        5, 6, 7, 15, 16, 4,              // G0..G5
-        8, 3, 46, 9, 1,                  // B0..B4
-        0, 8, 4, 8,                      // hsync polarity/front/pulse/back
-        0, 8, 4, 8,                      // vsync polarity/front/pulse/back
-        1, 16000000, false);             // falling PCLK, 16 MHz
-
+        40, 41, 39, 42,
+        45, 48, 47, 21, 14,
+        5, 6, 7, 15, 16, 4,
+        8, 3, 46, 9, 1,
+        0, 8, 4, 8,
+        0, 8, 4, 8,
+        1, 16000000, false);
     gfx = new Arduino_RGB_Display(800, 480, rgbPanel, 0, true);
     #endif
   }

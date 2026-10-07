@@ -33,7 +33,7 @@ MCU firmware can exceed memory limits. No hardware build is implied here.
 === Desktop launch
 
 For the Arduino-compatible SDL desktop runtime, see
-link:../../src/RunCPM_7xtgv-terminal/desktop/README.adoc[desktop build and launch].
+link:../src/RunCPM_7xtgv-terminal/desktop/README.adoc[desktop build and launch].
 Each `tools/targets/DISPLAY_ID -- target/` folder now also has
 `desktop-rebuild.sh`, `desktop-local.sh` and `desktop-card.sh`.
 They emit short status and keep detailed same-named logs beside the scripts.
@@ -272,7 +272,7 @@ First-install/old ESP firmware may need the explicit one-shot option
 Missing serial permissions are reported; existing configured group membership
 can be entered without sudo via newgrp.
 
-See link:../261004-1848%20Isolated%20fresh%20builds%20and%20per-target%20reflash%20launchers.adoc[workflow implementation and test boundaries].
+See link:../docs/261004-1848%20Isolated%20fresh%20builds%20and%20per-target%20reflash%20launchers.adoc[workflow implementation and test boundaries].
 
 == Flashing and the desktop mirror
 
@@ -321,7 +321,7 @@ stamp, module identity, SD mount and CP/M prompt.
 Flashing firmware does not copy the cpmcard working tree to an SD card or install
 every COM file. Use the RunCPM FAT directory layout, e.g. drive A user 0 is
 `A/0`; repository descriptive folder names are not literal SD folder names.
-See link:../../cpmcard/README.adoc[CP/M card layout and seed] for the mapping and
+See link:../cpmcard/README.adoc[CP/M card layout and seed] for the mapping and
 link:reference-guide.adoc[transfer commands] for selective file deployment.
 Do not blindly copy historical archives or overwrite live INI/history files.
 An initial card needs appropriate CP/M contents; transfer via VTPUT/VTGET also

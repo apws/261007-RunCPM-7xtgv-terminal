@@ -23,7 +23,7 @@ keeping platform installation separate also permits offline builds.
 
 ```sh
 arduino-cli compile --profile jc8012p4a1c \
-  --output-dir ../../build/jc8012p4a1c-display-test .
+  --output-dir ../../../build/jc8012p4a1c-display-test .
 ```
 
 ## Connect and flash
@@ -40,7 +40,7 @@ upload resets the board into its ROM loader automatically:
 ```sh
 arduino-cli upload -p /dev/ttyUSB0 \
   -b 'esp32:esp32:esp32p4:CDCOnBoot=default,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,PSRAM=enabled' \
-  --input-dir ../../build/jc8012p4a1c-display-test
+  --input-dir ../../../build/jc8012p4a1c-display-test
 ```
 
 If automatic entry fails, hold **BOOT**, press and release **RESET**, then
