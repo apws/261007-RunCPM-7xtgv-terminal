@@ -1,0 +1,102 @@
+= Component licensing inventory and open decisions
+:source-highlighter: highlight.js
+
+== Scope
+
+Follow-up: the maintainer subsequently selected MIT for the original terminal,
+excluding the native specification. See
+link:261008-0030%20DONE%20MIT%20terminal%20license%20and%20third-party%20scope.adoc[261008 decision].
+The detailed inventory now lives in link:../THIRD_PARTY_NOTICES.md[third-party notices];
+the root `LICENSE.md` is the current scope statement. The observations below
+record the initial scan and preceding font-header correction.
+
+Requested: scan the repository for a root `LICENSE.md`, accounting for its
+separate parts and the existing Technical Reference discussion.
+
+* Created link:../LICENSE.md[component licensing inventory], explicitly not a
+  new license grant or a blanket MIT declaration.
+* Updated the guide's inventory and linked the root notice from the README.
+* Original-material licensing, font provenance, guest-package permissions and
+  complete binary distribution obligations remain open decisions.
+* The initial scan changed no license headers, software, card files or
+  historical records. The subsequent authorized header correction is below.
+  No commit/push or removal of imported packages is implied by this scan.
+
+== Method and evidence
+
+* Baseline: `a35df20`; 877 tracked paths, including 338 working-card files.
+  Inspected tracked-path listings, source copyright/license markers, README
+  provenance, dependency pins and the desktop link/source configuration.
+* Read link:../guides/technical-reference.adoc#_licensing_and_attribution_inventory[Technical Reference]
+  and link:260911-19%20RunCPM%20upstream%20comparison%20and%20licensing%20plan.adoc[earlier licensing plan].
+  The earlier plan's layout and SD_MMC examples are historical, not current design.
+* Confirmed MIT text in both tracked `LICENSE.RunCPM` copies; checked POSIX
+  source provenance and the font header as it stood before the correction below.
+* Found additional Apache-2.0 markers in the P4 initialization table, legacy
+  demo copies and the JD9365 C/header pair. No separate Apache license text
+  was found in the tracked inventory.
+* Found the root CSS's normalize.css 2.1.2 MIT marker and framework styling.
+  This is not sufficient to identify every imported CSS block's origin.
+* Inspected local `~/Arduino/libraries/SdFat/LICENSE.md` and
+  `GFX_Library_for_Arduino/license.txt`, the graphics source credits, installed
+  ESP32 3.1.0 core headers and Arduino-Pico 5.4.4 license/SDK/kernel notices.
+  These installed files are evidence, not files bundled in this repository.
+* Inspected local `/usr/share/licenses/sdl2-compat/` and Asciidoctor notices.
+  SDL2 API support on this host comes through a compatibility package;
+  a release manifest must identify the actual linked runtime.
+* Read card package READMEs and enumerated binaries/images; listed the INI ZIP
+  without extracting it. Did not execute guest programs, examine private
+  databases, unpack every disk image or reverse-engineer binary provenance.
+
+== Findings that were missing from the short guide table
+
+* Apache display code and CSS-derived components need explicit notice handling.
+* Desktop dependencies differ from firmware: real Arduino_GFX plus SDL, but
+  a local filesystem adapter rather than the actual SdFat implementation.
+* Arduino library/core terms require an exact artifact-level review; RunCPM's
+  permissive license alone does not settle combined firmware distribution.
+* The card includes imported applications and disk images, not just local
+  terminal tests. Their licensing cannot be inferred from the emulator or
+  the decision to version all files. The root inventory groups them by DU.
+* Publicly visible original source still needs an explicit license decision;
+  do not infer a license from availability or grant rights for others.
+
+== Maintainer correction after the scan
+
+The maintainer identified the font's reserved-rights/future-release wording
+as mistaken for this project and explicitly requested its removal. It was
+removed from all five tracked `7xtgv-QL-font.h` copies and the identical notice
+in both legacy `7xtgv_demo-cheers.h` headers. The plain copyright credit remains.
+Font and demo bytes below the first-line comment are unchanged.
+
+The restriction was intentional for VMEX/ASLIX only; those notices were not
+changed. Current inventory wording was updated. Earlier dated observations
+remain historical evidence, not current restrictions. Removing the wording
+does not itself choose a replacement license for original project material.
+
+== External primary references checked
+
+* https://choosealicense.com/no-permission/[GitHub: absence of a license].
+* https://www.apache.org/licenses/LICENSE-2.0[Apache License 2.0], especially redistribution section 4.
+* https://github.com/libsdl-org/SDL/blob/SDL2/LICENSE.txt[SDL2 license].
+* https://github.com/asciidoctor/asciidoctor/blob/main/LICENSE[Asciidoctor license].
+
+These references support the identified scope and obligations; they do not
+prove provenance or permissions for unrelated repository files. This is a
+technical inventory, not legal advice or a complete license-compliance audit.
+
+== Follow-up
+
+The root notice lists the release gates. Prioritize the original-license
+decision, exact font/asset provenance, already-published card packages and
+missing third-party notices. Recover exact versions and hashes before marking
+individual imports cleared. Any removal, relicensing or history rewrite
+requires a separate decision; none was performed here.
+
+== Documentation checks
+
+* README, Technical Reference and this checkpoint rendered with Asciidoctor.
+* Root Markdown inventory converted to HTML with Pandoc's GitHub-flavored
+  Markdown reader; all 12 local link targets exist.
+* Verified the rendered Technical Reference licensing anchor; whitespace
+  diff check passed. No firmware build or guest/hardware test was needed.

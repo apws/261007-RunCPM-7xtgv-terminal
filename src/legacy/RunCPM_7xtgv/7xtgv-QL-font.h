@@ -1,4 +1,4 @@
-//7xtgv specs - Copyright 2026 Petr Antos, ALL RIGHTS RESERVED (will be opened at release)
+// Copyright 2026 Petr Antos (@apws/@7alken)
 
 /* Reformatted from ql_font_6x10.h (bytes unchanged).
  * Cell: 6x10. '*' = 1, '.' = 0 in bitmap comments.

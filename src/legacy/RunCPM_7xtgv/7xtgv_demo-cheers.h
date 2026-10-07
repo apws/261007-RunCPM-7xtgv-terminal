@@ -1,4 +1,4 @@
-//7xtgv specs - Copyright 2026 Petr Antos, ALL RIGHTS RESERVED (will be opened at release)
+// Copyright 2026 Petr Antos (@apws/@7alken)
 
 //Arduino_GFX with board/display specific setup
 #include "7xtgv-gfxsetup.h"

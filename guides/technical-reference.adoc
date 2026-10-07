@@ -571,24 +571,40 @@ is a separate curated history, not generated from the database.
 == Licensing and attribution inventory
 
 Licenses belong to *components*, not to the terminal as a single inherited
-license. The checked-in and locally installed notices found for this build
-are:
+license. On 261008 the maintainer selected MIT for original 7xtgv-terminal
+material, covering hardware and desktop together. The root
+link:../LICENSE.md[license scope] defines coverage and excludes the native
+specification; link:../LICENSE-7XTGV-TERMINAL[the MIT license] supplies the terms.
+link:../THIRD_PARTY_NOTICES.md[Third-party notices] preserves the separate
+component inventory and unresolved import questions.
+See also link:../docs/261007-2344%20DONE%20Component%20licensing%20inventory%20and%20open%20decisions.adoc[261007 scan checkpoint].
+The subsequent decision is recorded in
+link:../docs/261008-0030%20DONE%20MIT%20terminal%20license%20and%20third-party%20scope.adoc[261008 MIT scope checkpoint].
+The checked-in and locally installed notices include:
 
 [cols="2,2,3",options="header"]
 |===
 |Component |Evidence |Boundary
 |RunCPM-derived CPU/BDOS/CCP and POSIX baseline |link:../src/RunCPM_7xtgv-terminal/LICENSE.RunCPM[MIT notice]; link:../src/RunCPM_linux/README.md[POSIX source baseline] |The MIT notice covers the identified RunCPM-derived parts; preserve it with those parts.
-|7xtgv QL-font header |`++src/terminal/7xtgv-QL-font.h++` states `++Copyright 2026 Petr Antos, ALL RIGHTS RESERVED (will be opened at release)++` |Do not infer an open font license from RunCPM's MIT notice.
+|7xtgv QL-font header |`++src/terminal/7xtgv-QL-font.h++` credits `++Copyright 2026 Petr Antos (@apws/@7alken)++`; original terminal assets are included in the 261008 MIT grant |Any third-party underlying glyph/artwork rights remain separate; the removed reserved-rights wording is not current policy.
+|Original terminal, desktop adapters, tools, tests and authored terminal documentation/assets |link:../LICENSE-7XTGV-TERMINAL[MIT], with scope in the root notice |Native specification/design documents are excluded; mixed files retain upstream rights.
+|P4 panel table and legacy JD9365 driver |Apache-2.0 markers in the active HAL table and legacy copies; JD9365 files credit Espressif, 2024; full license under `LICENSES/` |Recover exact upstream versions and applicable NOTICE files; preserve attribution/modification notices. A table-level marker does not license the entire HAL.
+|Root browser CSS |normalize.css 2.1.2 MIT marker and framework-derived styling |Reconstruct full stylesheet provenance and applicable notices; local CSS changes do not erase upstream rights.
 |SdFat 2.3.0 |Locally installed `++SdFat/LICENSE.md++` contains an MIT notice |Build dependency named in `++sketch.yaml++`; the installed package is not a blanket repository license.
 |GFX Library for Arduino 1.6.4 |Locally installed `++license.txt++` has a BSD-style Adafruit notice |Check included source/subcomponents and reproduce applicable notices for an actual distribution.
 |Arduino-Pico 5.4.4 and ESP32 Arduino core |Installed platform trees have their own license files and bundled dependencies |The top-level Arduino-Pico notice is LGPL-2.1 text; nested SDK/libraries carry additional notices. ESP32's complete dependency inventory was not audited here.
+|SDL desktop |SDL2 uses zlib terms; this workstation's installed SDL2 compatibility package also has a zlib notice |Inventory the actual linked runtime. Desktop compiles real Arduino_GFX sources but uses the local host-storage adapter instead of SdFat.
 |CP/M guest binaries, language packages and imported demos |The complete `++cpmcard/++` tree is versioned at Petr's request and includes independently sourced material |Treat provenance and redistribution rights item by item; this guide does not grant them.
 |===
 
-This is a source-file inventory, *not* legal advice or a claim that every
-bundled artifact is redistributable. No repository-wide license was found in
-this pass. Before publishing a firmware binary, source archive or CP/M card
-image, produce a versioned component/license manifest, check transitive
-library notices, resolve the font and guest-software terms, and preserve
-required attributions. Do not label the whole project “MIT” merely because
-RunCPM is MIT-licensed.
+This is a component inventory, *not* legal advice or a claim that every
+bundled artifact is redistributable. The MIT grant covers original terminal
+material, not the entire collection. The already-versioned card includes
+third-party applications and disk images; unresolved permissions concern
+current repository distribution too, not only a future release.
+
+For source, firmware, desktop binaries and card images, prepare separate
+versioned component manifests, check actual transitive dependencies and
+source/relinking obligations, resolve font and guest-software terms, and
+preserve required license texts and attributions. Do not label the whole
+collection “MIT” merely because RunCPM and the original terminal are MIT-licensed.

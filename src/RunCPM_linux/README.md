@@ -8,7 +8,7 @@ its disk timings do **not** predict microSD performance on the display boards.
 
 `main.c` and `abstraction_posix.h` began as the [official RunCPM POSIX files](https://github.com/MockbaTheBorg/RunCPM)
 at commit `79396be665d6ec263a2728b20b177f4149647ed8` (MIT; see
-[`LICENSE.RunCPM`](../RunCPM_7xtgv-terminal/LICENSE.RunCPM)). Local changes are
+[`LICENSE.RunCPM`](LICENSE.RunCPM)). Local changes are
 the one-time CCP banner, optional file
 operation tracing (`-DXTGV_POSIX_TRACE_FILES`), and the 7xtgv `VTDRV` timer on
 private guest I/O port `7Ah`. The POSIX filesystem implementation remains

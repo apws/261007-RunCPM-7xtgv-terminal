@@ -1,0 +1,67 @@
+= MIT terminal license and third-party scope
+:source-highlighter: highlight.js
+
+== Maintainer decision
+
+The maintainer requested MIT for the existing 7xtgv-terminal, with both
+hardware and desktop implementation covered. The full native engine is not
+implemented here; its specification in `docs/` remains a separate licensing
+decision. The preceding scan is
+link:261007-2344%20DONE%20Component%20licensing%20inventory%20and%20open%20decisions.adoc[261007 inventory].
+
+== Applied layout
+
+* link:../LICENSE.md[LICENSE.md]: short scope statement for original terminal
+  code, adapters, tools, authored helpers, terminal documentation and assets.
+  It explicitly excludes the native specification/design documents and
+  independently licensed material. Existing covered native-inspired code is
+  not retroactively excluded if reused in a later engine.
+* link:../LICENSE-7XTGV-TERMINAL[LICENSE-7XTGV-TERMINAL]: standard unmodified MIT
+  terms, with `Copyright (c) 2026 Petr Antos (@apws/@7alken)`.
+* link:../THIRD_PARTY_NOTICES.md[THIRD_PARTY_NOTICES.md]: the detailed inventory,
+  upstream credits, dependency boundaries and remaining imported-package work.
+* Existing `LICENSE.RunCPM` copies remain unchanged. An identical copy was
+  added beside the POSIX comparator and its README now links locally.
+* `LICENSES/` preserves the official Apache-2.0 text plus inspected Arduino_GFX
+  1.6.4, SdFat 2.3.0 and local SDL2-compat notices. This is not an exhaustive
+  notice/source bundle for all possible binaries.
+* Root README and Technical Reference now describe the MIT decision rather
+  than a pending original-terminal license choice.
+
+== Plain-language rationale
+
+MIT permits reuse, modification and redistribution, including commercial use,
+while requiring preservation of its copyright/license notice. It does not
+require downstream modifications to be published.
+
+Apache-2.0 is also permissive; a notable additional provision is its explicit
+grant of certain contributor-controlled patent rights, with a patent-litigation
+termination clause. MIT has no equivalent explicit patent clause. Neither
+license guarantees freedom from unrelated third-party patent claims, and MIT
+does not require anyone to obtain a patent. MIT was selected for the terminal;
+no Apache relicensing of original project code was performed.
+
+* https://opensource.org/license/mit[MIT text, Open Source Initiative].
+* https://www.apache.org/licenses/LICENSE-2.0[Apache-2.0 text, sections 3 and 4].
+
+== Boundaries
+
+* The new grant only covers rights the licensor can grant. Upstream material
+  retains its own terms; imported font/image provenance still needs verification.
+* Versioned guest applications and disk images are not relicensed. Their
+  package-by-package review remains necessary for current repository contents.
+* Native specification/HDL licensing is not selected, and VMEX/ASLIX notices
+  are not altered. No restrictive wording was reintroduced into font headers.
+* No software behavior, guest files, build configuration, firmware or hardware
+  was changed. Existing unrelated worktree changes were preserved.
+* Commit/push remains a separate request.
+
+== Validation
+
+* Markdown and AsciiDoc entry points rendered successfully; all 24 local
+  Markdown link targets exist.
+* Preserved notices match their inspected sources (at most a final newline
+  added); Apache text matches the official retrieval. Original RunCPM notices
+  are unchanged, and project MIT text differs only in its copyright credit.
+* Tracked diff whitespace check passed; verbatim upstream license formatting
+  is retained. No executable tests or firmware rebuild were needed.
