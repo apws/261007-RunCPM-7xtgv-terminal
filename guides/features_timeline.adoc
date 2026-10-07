@@ -103,7 +103,7 @@ pressure; the actual boot failure remains to be confirmed. RP2_2 gains an
 explicit Os build trial without changing history depth. See
 link:../docs/261003-22%20RP2_2%20INI%20cache%20pressure%20and%20Os%20trial.adoc[cache investigation].
 
-At `261003-20`, the manual gains a link:build-guide.adoc[Clone, Build and Flash Guide]
+At `261003-20`, the manual gains a link:build-guide.adoc[Build Guide]
 covering prerequisites, exact target names, baseline dependencies, staging,
 device permissions, SD/COM separation and recovery. README build commands
 are corrected to use the target-aware wrapper. ESP32 version pinning and

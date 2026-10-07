@@ -502,7 +502,7 @@ for design context; do not treat proposed commander behavior as implemented.
 
 == Build, upload and test boundary
 
-See the link:build-guide.adoc[Clone, Build and Flash Guide] for prerequisites,
+See the link:build-guide.adoc[Build Guide] for prerequisites,
 installation commands, working versions and unverified fresh-machine steps.
 
 `++tools/reflash.py --target TARGET --build-only++` stages a target-specific

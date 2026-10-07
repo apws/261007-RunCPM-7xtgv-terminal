@@ -51,7 +51,7 @@ group access separately. It does not build or flash anything.
 Use `./src/RunCPM_7xtgv-terminal/tools/setup.sh --dry-run` to preview it
 without installing. Arch-family use has been exercised; real fresh-machine
 Debian/Fedora installation remains to be verified. See the
-link:guides/build-guide.adoc[Clone, Build and Flash Guide] for cloning,
+link:guides/build-guide.adoc[Build Guide] for cloning,
 prerequisites and troubleshooting. Windows/macOS launchers are not yet implemented.
 
 === 2. Open your board's launcher folder
@@ -154,7 +154,7 @@ Start with the maintained guides:
 * link:guides/user-guide.adoc[User Guide]: everyday keys, commands and examples.
 * link:guides/reference-guide.adoc[Reference Guide]: exact controls, settings and protocols.
 * link:guides/technical-reference.adoc[Technical Reference]: architecture, developer tests and feature tracking.
-* link:guides/build-guide.adoc[Clone, Build and Flash Guide]: setup and recovery details.
+* link:guides/build-guide.adoc[Build Guide]: setup and recovery details.
 * link:guides/README.adoc[Guide index] and link:docs/README.adoc[technical document index]:
   further reading, plans and dated findings.
 
@@ -177,7 +177,8 @@ Start with the maintained guides:
 == Thank you, Ari (OpenAI Codex CLI)
 
 All this work would have been impossible without my implementation and
-consulting colleague Ari. A big thank you! :-)
+consulting colleague Ari. +
+A big thank you! :-)
 footnote:[Ari is my name for the OpenAI Codex assistant. Perhaps thanking an AI
 colleague is a little unusual -- but the appreciation is genuine.]
 

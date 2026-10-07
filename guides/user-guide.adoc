@@ -16,7 +16,7 @@ link:features_timeline.adoc[Features Timeline].
 == Start the PC mirror
 
 For a fresh checkout or machine, first read the
-link:build-guide.adoc[Clone, Build and Flash Guide].
+link:build-guide.adoc[Build Guide].
 
 Connect the intended module and check `++XTGV_TARGET++` in
 `++src/RunCPM_7xtgv-terminal/tools/terminal.conf++` before using the mirror or

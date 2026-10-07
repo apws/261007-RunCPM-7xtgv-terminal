@@ -59,3 +59,4 @@ This preserves context without requiring the whole history on every continuation
   Latest tuning: link:261006-1900%20DONE%20Optimization%20selectors%20and%20SDL%20backlight%20compensation.adoc[optimization options and SDL brightness].
 * Feature status: link:FEATURES.adoc[generated ledger], maintained via `features.tsv`.
 * Manuals: link:../guides/README.adoc[manual index].
+  Pending review: link:261007-2317%20PLAN%20Entire%20manuals%20current-state%20review.adoc[entire manuals current-state review checklist].

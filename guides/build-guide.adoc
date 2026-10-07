@@ -1,4 +1,4 @@
-= 7xtgv terminal Clone, Build and Flash Guide
+= RunCPM 7xtgv-terminal Build Guide
 :source-highlighter: highlight.js
 :toc:
 :toclevels: 2

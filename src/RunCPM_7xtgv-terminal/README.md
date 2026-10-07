@@ -32,7 +32,7 @@ the existing mirror over PTY and an explicit host card directory.
 
 ## Build and flash boundary
 
-For a new machine, use the [Clone, Build and Flash Guide](../../guides/build-guide.adoc).
+For a new machine, use the [Build Guide](../../guides/build-guide.adoc).
 It separates firmware dependencies, native tests, desktop tools and guest COM
 assemblers, and records setup gaps rather than claiming clean-clone validation.
 

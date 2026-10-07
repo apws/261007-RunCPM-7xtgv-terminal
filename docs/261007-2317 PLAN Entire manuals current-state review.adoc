@@ -1,0 +1,81 @@
+= Entire manuals current-state review
+:source-highlighter: highlight.js
+
+== Scope and current checkpoint
+
+The user requests simplest first steps at the beginning of the guides and a
+complete scan for outdated instructions and links after the repository moves.
+This is the review checklist, not a claim that the full review is complete.
+
+* The repository README already presents setup and the six target shortcuts first.
+* The manual named "Clone, Build and Flash Guide" is now *Build Guide* in its
+  title and link labels. Its filename remains `guides/build-guide.adoc`.
+* The full content review below is pending. No build, flash, card modification
+  or prerequisite installation is part of this documentation checkpoint.
+
+== Evidence and review order
+
+* Start with current source, launchers and configuration, then read relevant
+  dated records newest first. Follow PLAN/DONE links to distinguish proposals
+  from implemented and tested behavior; do not rewrite historical evidence.
+* Review Build Guide, User Guide, Reference Guide and Technical Reference in
+  that order; finish with the guide index, Features Timeline and cross-links
+  from the repository README and other maintained entry points.
+* Native 7xtgv remains the primary objective. Describe the current terminal,
+  RunCPM integration and desktop emulation as development/test vehicles, not
+  as a completed native engine.
+
+== Build Guide: shortest successful path first
+
+* Lead with clone, explicit `src/RunCPM_7xtgv-terminal/tools/setup.sh`, target
+  selection, desktop rebuild and desktop launch. Put advanced commands later.
+* Show full target-folder paths and display IDs. Group `desktop-rebuild.sh`,
+  `desktop-local.sh`, `desktop-card.sh`, `rebuild.sh`, `reflash.sh` and
+  `mirror.sh` together, explaining which build, launch, upload or only attach.
+* Explain MC execution and Double Commander Shift+Enter, quiet status output,
+  adjacent logs, missing-tool guidance and device-connection prompts.
+* Verify distro support and distinguish exercised setup paths from untested
+  fresh-machine installation. Keep clean-clone qualification gaps explicit.
+* Verify mounted-card selection, writable-card consequences, session ownership,
+  mirror input versus SDL output, and safe shutdown against current tooling.
+* Keep desktop optimization defaults distinct from measured hardware defaults;
+  retain target guards, BOOTSEL limits and separate build/upload/promotion.
+* Recheck the old review date, clone-layout examples, obsolete prerequisite-check
+  proposals and scattered launcher instructions rather than just relabeling them.
+
+== User and reference coverage
+
+* Start with practical launch/control recipes, then short task-based sections:
+  zoom/pan, palettes/backlight, profiles/history, commands and file transfer.
+* Verify keyboard-chord to internal-command tables, CP/M helper names and DU
+  examples against implementation. Prefer concise bullets, tables and examples.
+* Use canonical `cpmcard/` and DU paths, not retired descriptive `cpmdrive`
+  folders. Explain desktop versus device INI/BUF ownership and persistence.
+* Check all documented INI settings, defaults, scope and examples; distinguish
+  current configuration from older experimental values.
+* Remove obsolete current-support claims such as the abandoned W535 SD_MMC
+  fallback; retain its history only where relevant and clearly marked abandoned.
+* Keep desktop visual verification separate from physical SPI, panel, backlight
+  and electrical acceptance. Do not claim perfect physical equivalence.
+
+== Developer reference and link checks
+
+* Verify active versus legacy source locations, recovered RunCPM baseline,
+  searchable integration seams, desktop runtime and current test entry points.
+* Keep developer tests and feature-registry details in Technical Reference;
+  do not turn the beginner entry points back into developer inventories.
+* Check relocated `guides/`, `src/legacy/` and Kate tooling paths, root browser
+  CSS/JavaScript helpers, images, inter-document anchors and cross-references.
+* Preserve chronological records and private documents. Leave feature-registry
+  structure unchanged; this review is not a database redesign.
+
+== Acceptance and handoff
+
+* Render changed guides with Asciidoctor and inspect tables, blocks and headings.
+* Check local links, images and anchors, plus representative GitHub/browser
+  rendering where relevant. Custom extension CSS is not GitHub styling.
+* Validate documented commands with safe inspection/help/tests where possible;
+  do not run installers, flash hardware or write the working card just to
+  validate prose. Use disposable fixtures for any authorized runtime tests.
+* Record completed sections and remaining gaps in a later DONE checkpoint.
+  Commit/push and any broader implementation work remain separate requests.
