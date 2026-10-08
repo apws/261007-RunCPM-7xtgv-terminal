@@ -1,4 +1,5 @@
 = RP2_2 backlight minimum duty 3 trial
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Follow-up to link:260925-00%20RP2_2%20INI%20initialization%20stack%20repair.adoc[the boot repair and first curve trial].

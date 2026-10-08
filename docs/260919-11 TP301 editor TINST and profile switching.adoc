@@ -1,5 +1,6 @@
 [id="tp301-editor-tinst-and-profile-switching--260919"]
 = TP301 editor, TINST and profile switching — 260919
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 This records Petr's interactive TP301 investigation on 260919, the native RunCPM comparison, and the terminal change confirmed afterward on the device. It extends the earlier link:260911-14%20Turbo%20Pascal%203.01%20keyboard%20and%20terminal%20installation%20reference.adoc[TINST capability reference], the link:260918-22%20terminal%20insert-delete%20lines%20plan.adoc[ANSI insert/delete-line plan], the link:260918-23%20TP301%20input%20profiles%20and%20ANSI%20attribute%20marker%20notes.adoc[TP301 input-profile notes], and the link:260919-09%20TP301%20insert-line%20prefix%20diagnosis.adoc[focused prefix diagnosis]. The exact live TINST key table below is Petr's reported configuration, not a fresh read-back of `+A2:TINST.DTA+` or a list of Borland defaults.

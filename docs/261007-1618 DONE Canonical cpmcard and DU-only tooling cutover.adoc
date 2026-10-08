@@ -1,6 +1,8 @@
 = DONE: canonical cpmcard and DU-only tooling cutover
+:leveloffset: +2
 :source-highlighter: highlight.js
 :toc:
+:toclevels: 4
 
 [IMPORTANT]
 ====

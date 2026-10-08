@@ -1,4 +1,5 @@
 = Live INI preservation and narrow transfer limitation
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Petr resolved the reported W535 pan issue: his device-side 80x16 edit had been

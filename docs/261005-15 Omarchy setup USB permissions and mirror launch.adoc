@@ -1,4 +1,5 @@
 = Omarchy setup, USB permissions and standalone mirror launch
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Record of the 261005 working session with Petr and Ari, written on 261006.

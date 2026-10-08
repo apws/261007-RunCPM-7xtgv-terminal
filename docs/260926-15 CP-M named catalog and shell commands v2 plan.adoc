@@ -1,4 +1,5 @@
 = CP/M named catalog and shell commands v2: proposal
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Status:* plan only; no firmware, host-tool or CP/M file changes made for

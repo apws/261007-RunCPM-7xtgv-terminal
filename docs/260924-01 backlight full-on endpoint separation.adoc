@@ -1,4 +1,5 @@
 = Backlight full-on endpoint separation
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Observation and scope

@@ -1,4 +1,5 @@
 = VTPAL.BAS: paper and ink comparison
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Purpose and files

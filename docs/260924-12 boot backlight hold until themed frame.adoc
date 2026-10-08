@@ -1,4 +1,5 @@
 = Boot backlight hold until the themed frame is ready
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Request and finding

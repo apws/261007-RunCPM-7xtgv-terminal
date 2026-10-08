@@ -1,5 +1,6 @@
 [id="runcpm-optimization-notes-and-deferred-plan"]
 = RunCPM optimization notes and deferred plan
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Recorded 2026-09-07. Decision: retain the current implementation; collect useful application baseline timings before considering optimization. No emulator changes or additional profiling infrastructure are required now.

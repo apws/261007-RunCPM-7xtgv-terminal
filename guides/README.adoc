@@ -1,17 +1,23 @@
-= 7xtgv RunCPM terminal guides
+= RunCPM 7xtgv-terminal: Guide Index
+:leveloffset: +1
 :source-highlighter: highlight.js
 
 [#7xtgv-runcpm-terminal-manual]
-The current terminal is a RunCPM-based CP/M machine with a local TFT and a
-complete PC mirror. It implements a selected ANSI/VT100 and VT52 subset, not
-the planned native 7xtgv terminal. The device's live
-`++A0:7XTGVTRM.INI++` may differ from the repository copy.
+Run the current RunCPM-based CP/M terminal on an MCU/TFT board or in its
+Linux SDL desktop emulator. Both use the PC mirror for input and the complete
+logical screen. Start with the Build Guide for clone/setup, then the User Guide
+for everyday controls.
+
+This terminal implements a selected ANSI/VT100 and VT52 subset as a testbed
+for the primary *7xtgv-native* engine objective; the native engine is not yet
+implemented. The selected card's live `A0:7XTGVTRM.INI` and history may differ
+from the committed repository copy.
 
 [cols="1,3",options="header"]
 |===
 |Read |For
-|link:build-guide.adoc[Build Guide] |Fresh Linux setup, prerequisites, working versions, target selection, staging, upload and troubleshooting; clean-machine verification gaps.
-|link:user-guide.adoc[User Guide] |Starting the mirror, everyday keys, zoom/pan, file transfer, safe INI changes, recovery.
+|link:build-guide.adoc[Build Guide] |Clone, setup, first desktop run; hardware rebuild/reflash, card ownership, prerequisites and troubleshooting. Fresh-machine verification gaps remain explicit.
+|link:user-guide.adoc[User Guide] |Starting desktop or hardware sessions, everyday keys, zoom/pan, file transfer, safe INI changes, recovery.
 |link:reference-guide.adoc[Reference Guide] |Exact commands, keys, profiles, escape-sequence behavior and INI settings.
 |link:technical-reference-guide.adoc[Technical Reference Guide] |RunCPM/CCP fork, core and HAL ownership, protocols, persistence, build safety and licensing.
 |link:history-guide.adoc[History Guide] |Petr's account of where the project began and why; in preparation.
@@ -34,10 +40,13 @@ The Asciidoctor.js browser-extension helpers live at repository root:
 
 * link:../asciidoctorjs-crx-mixworx.css[asciidoctorjs-crx-mixworx.css]: manually
   selected custom stylesheet.
-* link:../asciidoctorjs-crx-mixworx.js[asciidoctorjs-crx-mixworx.js]: fragment-scroll
-  helper, loaded in extension Options > JavaScript, with execution set to
-  "after the document has been rendered". It restores the requested anchor
-  position after the extension inserts the rendered document. User-tested on 261007.
+* link:../asciidoctorjs-crx-mixworx.js[asciidoctorjs-crx-mixworx.js]: guide-title
+  and fragment-scroll helper, loaded in extension Options > JavaScript, with
+  execution set to "after the document has been rendered". It splits the
+  project's `Project: Guide` title onto two lines, then restores the requested
+  anchor position. Re-select the updated file in the extension options after
+  helper changes. GitHub retains the normal colon-separated title; it does not
+  run this local helper.
 
 [[starting-the-pc-mirror]]
 xref:user-guide.adoc#starting-the-pc-mirror[Starting the PC mirror]

@@ -1,4 +1,5 @@
 = RAM-backed INI and sequential autosave
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Measured cause and scope

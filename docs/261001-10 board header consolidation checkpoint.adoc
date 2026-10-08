@@ -1,4 +1,5 @@
 = Two-header board policy consolidation checkpoint
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Date:* 261001 +

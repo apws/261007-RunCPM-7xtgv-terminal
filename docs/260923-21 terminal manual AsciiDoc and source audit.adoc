@@ -1,4 +1,5 @@
 = Terminal manual AsciiDoc conversion and source audit
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Scope

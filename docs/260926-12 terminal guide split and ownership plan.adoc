@@ -1,4 +1,5 @@
 = Three-guide terminal documentation split and ownership plan
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Status:* proposed documentation migration; no guide files moved yet. +

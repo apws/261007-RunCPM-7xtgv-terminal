@@ -1,5 +1,6 @@
 [id="7xtgv-active-target-context"]
 = 7xtgv active target context
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Use this as the compact starting point for hardware work. Detailed history stays in the individual project READMEs and module resource folders.

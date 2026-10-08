@@ -1,5 +1,6 @@
 [id="runcpm-dual-core-arduino-port-plan"]
 = RunCPM dual-core Arduino port plan
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Saved 2026-09-08 from the planning discussion. Read the ++[++user addendum++]++(260908-18 runcpm-port-addendum.adoc) first: it narrows the refactoring scope and defines the resource-conscious working approach.

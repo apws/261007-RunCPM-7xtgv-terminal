@@ -1,5 +1,6 @@
 [id="7xtgv-generic-zoom-in-runtime-terminal-geometry-display-hal-identity-and-plot-scaling-plan"]
 = 7xtgv generic zoom-in, runtime terminal geometry, display HAL identity, and plot scaling plan
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Approved design / implementation plan* +

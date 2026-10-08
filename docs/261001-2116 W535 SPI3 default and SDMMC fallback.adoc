@@ -1,4 +1,5 @@
 = W535 SPI3 default and SDMMC fallback
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Date:* 261001 +

@@ -1,5 +1,7 @@
 = Conservative Embedded C++ Style
+:leveloffset: +2
 :toc:
+:toclevels: 4
 :sectnums:
 
 == Purpose

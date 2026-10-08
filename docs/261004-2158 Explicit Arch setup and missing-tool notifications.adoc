@@ -1,4 +1,5 @@
 = Explicit Arch setup and missing-tool notifications
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Agreed plan

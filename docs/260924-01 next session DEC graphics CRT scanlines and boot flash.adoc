@@ -1,4 +1,5 @@
 = Next session: DEC graphics, CRT scanlines and boot flash
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Petr's checkpoint

@@ -1,4 +1,5 @@
 = Component licensing inventory and open decisions
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Scope

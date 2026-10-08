@@ -1,4 +1,5 @@
-= 7xtgv terminal Reference Guide
+= RunCPM 7xtgv-terminal: Reference Guide
+:leveloffset: +1
 :source-highlighter: highlight.js
 :toc:
 :toclevels: 3
@@ -395,7 +396,8 @@ query/reply bytes are in the link:technical-reference-guide.adoc#private-protoco
 `CARDMARK [CSD] [sectors [MHz [start-sector]]]` requires matching firmware
 on our direct-SdFat/SPI targets: ES3_35, ES3_5, EP4_10, RP2_147, RP2_2 and
 experimental EC6_147.
-The optional legacy W535 SD_MMC build is excluded.
+Desktop reports this raw-card diagnostic as unsupported. The former W535
+SD_MMC alternate has been removed; all six current physical targets use SPI/SdFat.
 Defaults: 1024 sectors, the configured operating SPI request, and
 start sector 0. Sectors are 512 bytes; count range is 1..1048576 and requested
 clock range is 1..60 MHz. Example: `CARDMARK 4096 50`.
@@ -614,7 +616,7 @@ or that host shortcuts will reach the firmware.
 |Setting |Accepted value / effect
 |`mode` |`ansi` or `vt52`; bank `mode` may override it.
 |`console_bits` |`7` or `8`; compiled default is 7. Current device INIs may choose 8.
-|`sdfat_spi` |Integer 1--60, requested SPI MHz for direct-SdFat boards. Startup/config reads use 20 MHz; missing/unreadable/invalid setting falls back to 20. Applied at boot after config/history handles close. SD_MMC fallback ignores it. Not a measured clock or reliability guarantee; the global value follows the card between boards.
+|`sdfat_spi` |Integer 1--60, requested SPI MHz for direct-SdFat boards. Startup/config reads use 20 MHz; missing/unreadable/invalid setting falls back to 20. Applied at boot after config/history handles close. Has no physical SPI effect on desktop host storage. Not a measured clock or reliability guarantee; the global value follows the card between boards.
 |`mode_palette` |0 through 9; initial active palette, persisted after selection.
 |`cursor_blink_ms` |1 through 5000 milliseconds.
 |`backlight_level` |1 through 31; last non-off level. Legacy 32 is accepted as 31. Runtime off is not persisted as zero.

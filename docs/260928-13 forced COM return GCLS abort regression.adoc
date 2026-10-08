@@ -1,4 +1,5 @@
 = Forced COM return during GCLS: prompt-line regression
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Date:* 260928 +

@@ -1,4 +1,5 @@
 = Uncommitted work and documentation checkpoint
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Baseline, scope and recoverable chronology

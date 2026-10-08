@@ -1,5 +1,6 @@
 [id="terminal-runcpm-and-display-boundaries--260919"]
 = Terminal, RunCPM, and display boundaries — 260919
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Status: repo-grounded analysis with the bounded file moves applied. Terminal files live under `+sketch/src/terminal/+`, board headers under `+sketch/hardware/arduino_7xtgv/+`, and the root Arduino abstraction is renamed for this 7xtgv port. No native 7xtgv implementation is implied.

@@ -1,4 +1,5 @@
-= RunCPM 7xtgv-terminal Technical Reference Guide
+= RunCPM 7xtgv-terminal: Technical Reference Guide
+:leveloffset: +1
 :source-highlighter: highlight.js
 :toc:
 :toclevels: 2
@@ -571,22 +572,22 @@ is a separate curated history, not generated from the database.
 == Licensing and attribution inventory
 
 Licenses belong to *components*, not to the terminal as a single inherited
-license. On 261008 the maintainer selected MIT for original 7xtgv-terminal
-material, covering hardware and desktop together. The root
+license. Original 7xtgv-terminal material is MIT-licensed, covering hardware
+and desktop together. The root
 link:../LICENSING.adoc[license scope] defines coverage and excludes the native
 specification; link:../LICENSE[the MIT license] supplies the terms.
 link:../THIRD_PARTY_NOTICES.md[Third-party notices] preserves the separate
 component inventory and unresolved import questions.
-See also link:../docs/261007-2344%20DONE%20Component%20licensing%20inventory%20and%20open%20decisions.adoc[261007 scan checkpoint].
-The subsequent decision is recorded in
-link:../docs/261008-0030%20DONE%20MIT%20terminal%20license%20and%20third-party%20scope.adoc[261008 MIT scope checkpoint].
+Background evidence is in the
+link:../docs/261007-2344%20DONE%20Component%20licensing%20inventory%20and%20open%20decisions.adoc[component inventory]
+and link:../docs/261008-0030%20DONE%20MIT%20terminal%20license%20and%20third-party%20scope.adoc[MIT scope checkpoint].
 The checked-in and locally installed notices include:
 
 [cols="2,2,3",options="header"]
 |===
 |Component |Evidence |Boundary
 |RunCPM-derived CPU/BDOS/CCP and POSIX baseline |link:../src/RunCPM_7xtgv-terminal/LICENSE.RunCPM[MIT notice]; link:../src/RunCPM_linux/README.md[POSIX source baseline] |The MIT notice covers the identified RunCPM-derived parts; preserve it with those parts.
-|7xtgv QL-font header |`++src/terminal/7xtgv-QL-font.h++` credits `++Copyright 2026 Petr Antos (@apws/@7alken)++`; original terminal assets are included in the 261008 MIT grant |Any third-party underlying glyph/artwork rights remain separate; the removed reserved-rights wording is not current policy.
+|7xtgv QL-font header |`++src/terminal/7xtgv-QL-font.h++` credits `++Copyright 2026 Petr Antos (@apws/@7alken)++`; original terminal assets are included in the MIT grant |Any third-party underlying glyph/artwork rights remain separate; the removed reserved-rights wording is not current policy.
 |Original terminal, desktop adapters, tools, tests and authored terminal documentation/assets |link:../LICENSE[MIT], with scope in the root notice |Native specification/design documents are excluded; mixed files retain upstream rights.
 |P4 panel table and legacy JD9365 driver |Apache-2.0 markers in the active HAL table and legacy copies; JD9365 files credit Espressif, 2024; full license under `LICENSES/` |Recover exact upstream versions and applicable NOTICE files; preserve attribution/modification notices. A table-level marker does not license the entire HAL.
 |Root browser CSS |normalize.css 2.1.2 MIT marker and framework-derived styling |Reconstruct full stylesheet provenance and applicable notices; local CSS changes do not erase upstream rights.
@@ -603,10 +604,9 @@ material, not the entire collection. The already-versioned card includes
 third-party applications; unresolved permissions concern
 current repository distribution too, not only a future release.
 
-On 261008 the unrelated Sharp-specific `AB:` and GEEK2350/z80pack-related
-`AC:`/`AD:` collections were removed from the working card (54 files).
-They are no longer current inventory entries; old commits and the original
-scan still describe the previous tree. See
+The working card does not include the unrelated Sharp-specific `AB:` or
+GEEK2350/z80pack-related `AC:`/`AD:` collections. Earlier copies remain in
+Git history; they are not current inventory entries. See the
 link:../docs/261008-0115%20DONE%20Remove%20unrelated%20AB%20AC%20AD%20card%20packages.adoc[card cleanup checkpoint].
 
 For source, firmware, desktop binaries and card images, prepare separate

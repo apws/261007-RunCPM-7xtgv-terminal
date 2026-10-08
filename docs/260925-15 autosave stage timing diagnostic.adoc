@@ -1,4 +1,5 @@
 = Autosave stage timing diagnostic
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Petr authorized continuing the stall investigation and agreed to the timing

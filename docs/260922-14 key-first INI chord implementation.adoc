@@ -1,5 +1,6 @@
 [id="key-first-ini-chord-implementation"]
 = Key-first INI chord implementation
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Implemented and given its first hardware smoke test on 260922 from the signed link:260922-13%20key-first%20INI%20chord%20names%20signed%20implementation%20plan.adoc[key-first plan]. Deeper application testing is deliberately continuing before the candidate is promoted from `+new+` to `+current+`.

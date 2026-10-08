@@ -1,5 +1,6 @@
 [id="runcpm-console-keys"]
 = RunCPM console keys
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 This describes RunCPM's buffered line editor (`+BDOS+` function 10) and the 7xtgv Kitty/Konsole PC-key profile. It applies to the RunCPM command prompt and to programs using BDOS buffered input. Programs reading the console directly may define different keys.

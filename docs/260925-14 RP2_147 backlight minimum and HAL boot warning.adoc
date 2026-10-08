@@ -1,4 +1,5 @@
 = RP2_147 minimum duty17 and optional per-HAL boot warning
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Decision

@@ -1,4 +1,5 @@
 = DONE: ThinkPad integration and quiet desktop shortcuts
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Integration

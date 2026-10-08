@@ -1,5 +1,6 @@
 [id="main-row-digits-and-keypad-decimal--corrected-keyboard-plan"]
 = Main-row digits and keypad decimal — corrected keyboard plan
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 ____

@@ -1,5 +1,6 @@
 [id="jc8048w550-sd-spi-validation"]
 = JC8048W550 SD SPI validation
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Validated 2026-09-14 on the 5-inch JC8048W550 ESP32-S3 module with the current microSD card and the 800x480 RGB display running continuously.

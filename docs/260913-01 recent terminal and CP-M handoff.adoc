@@ -1,5 +1,6 @@
 [id="recent-terminal-and-cpm-handoff"]
 = Recent terminal and CP/M handoff
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Status: completed ESP32-S3 work, 13 September 2026.

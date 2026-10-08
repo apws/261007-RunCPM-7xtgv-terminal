@@ -1,6 +1,8 @@
 = VTESTS legacy, attribute and scrolling-region checks
+:leveloffset: +2
 :source-highlighter: highlight.js
 :toc:
+:toclevels: 4
 
 == Request and scope
 

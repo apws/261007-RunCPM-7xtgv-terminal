@@ -1,4 +1,5 @@
 = Connection prompts only when devices are absent
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Petr tested RP2_147 2001 and RP2_2 2003 build/upload workflows; a subsequent

@@ -1,4 +1,5 @@
 = RP2350-LCD-1.47-A: small HAL port checkpoint
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Scope and evidence

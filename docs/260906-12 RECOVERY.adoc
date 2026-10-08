@@ -1,5 +1,6 @@
 [id="7xtgv-recovery-workspace"]
 = 7xtgv recovery workspace
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 This directory contains two reconstructed Arduino sketches and the original recovery evidence. The evidence directory is intentionally excluded from the working projects and should be treated as read-only:

@@ -1,6 +1,8 @@
 = Global SdFat SPI clock and CARDMARK preparation
+:leveloffset: +2
 :source-highlighter: highlight.js
 :toc:
+:toclevels: 4
 
 == Approved scope
 

@@ -1,7 +1,8 @@
 = Sinclair QL channels and windows: inspiration for native 7xtgv
+:leveloffset: +2
 :source-highlighter: highlight.js
 :toc:
-:toclevels: 2
+:toclevels: 4
 
 Research sidenote, 261007. DONE means the *research note* is complete, not
 that a channel API or native window compositor has been implemented.

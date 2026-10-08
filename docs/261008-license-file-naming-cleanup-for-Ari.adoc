@@ -1,5 +1,7 @@
 = 261008 — Standardize repository license filenames
+:leveloffset: +2
 :toc:
+:toclevels: 4
 :sectnums:
 
 == Context

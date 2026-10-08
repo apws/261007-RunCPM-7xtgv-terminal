@@ -1,5 +1,6 @@
 [id="260919-13-7xtgv-keymap-personalities-and-control-notation"]
 = 260919-13 7xtgv keymap personalities and control notation
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 ____

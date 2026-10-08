@@ -1,4 +1,5 @@
 = CARDMARK across SdFat SPI boards
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Correction of initial scope

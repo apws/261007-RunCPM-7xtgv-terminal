@@ -1,4 +1,5 @@
 = RP2_2 target switch and rebuild
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Selection and scope

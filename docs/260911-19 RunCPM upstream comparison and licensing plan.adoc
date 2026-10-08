@@ -1,5 +1,6 @@
 [id="runcpm-upstream-comparison-and-licensing-plan"]
 = RunCPM upstream comparison and licensing plan
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Scope and method

@@ -1,4 +1,5 @@
 = Firmware target query and reflash safeguard
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Signed scope

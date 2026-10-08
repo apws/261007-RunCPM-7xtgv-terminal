@@ -1,6 +1,8 @@
 = SdFat buffer transfers, SPI clocks and safe testing
+:leveloffset: +2
 :source-highlighter: highlight.js
 :toc:
+:toclevels: 4
 
 == Scope and evidence
 

@@ -1,4 +1,5 @@
 = CP/M Extents, RomWBW `hd1k`, RunCPM, and a Virtual Tree Namespace
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Project:* 7xtgv / RunCPM / CP/M tooling +

@@ -1,5 +1,6 @@
 [id="runcpm-cpm-user-areas-pip-gn-and-internal-ccp-quirks"]
 = RunCPM CP/M user areas, PIP `+[Gn]+`, and internal CCP quirks
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Why this note exists

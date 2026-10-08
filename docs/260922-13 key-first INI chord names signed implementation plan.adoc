@@ -1,5 +1,6 @@
 [id="key-first-ini-chord-names--signed-implementation-plan"]
 = Key-first INI chord names — signed implementation plan
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Signed off by Petr on 260922. This supersedes the modifier-first spelling for ordinary `+[global]+` and `+[bankN]+` key bindings. Historical design documents remain unchanged as records of the syntax used when they were written.

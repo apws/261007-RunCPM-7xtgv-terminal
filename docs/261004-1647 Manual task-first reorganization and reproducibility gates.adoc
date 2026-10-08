@@ -1,6 +1,8 @@
 = Manual task-first reorganization and reproducibility gates
+:leveloffset: +2
 :source-highlighter: highlight.js
 :toc:
+:toclevels: 4
 
 == Source and scope
 

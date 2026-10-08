@@ -1,5 +1,6 @@
 [id="tp301-insert-line-prefix-diagnosis"]
 = TP301 insert-line prefix diagnosis
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Recorded 260919. This follows the signed link:260918-22%20terminal%20insert-delete%20lines%20plan.adoc[ANSI insert/delete-line plan].

@@ -1,6 +1,8 @@
 = EC6_147 experimental HAL implementation
+:leveloffset: +2
 :source-highlighter: highlight.js
 :toc:
+:toclevels: 4
 
 == Scope and current state
 

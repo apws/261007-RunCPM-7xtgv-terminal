@@ -1,4 +1,5 @@
 = MIT terminal license and third-party scope
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Maintainer decision

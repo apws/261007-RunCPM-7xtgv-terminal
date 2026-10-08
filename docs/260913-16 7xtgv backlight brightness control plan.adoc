@@ -1,5 +1,6 @@
 [id="7xtgv-backlight-brightness-control-plan"]
 = 7xtgv backlight brightness control plan
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Date: 2026-09-13 Status: implementation plan Scope: MCU/TFT 7xtgv terminal targets

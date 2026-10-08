@@ -1,6 +1,8 @@
 = P4 whole-build Os, O2 and O3 comparison
+:leveloffset: +2
 :source-highlighter: highlight.js
 :toc:
+:toclevels: 4
 
 == Controlled settings and build scope
 

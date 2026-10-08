@@ -1,5 +1,6 @@
 [id="260910--7xtgv-cpm-smart-terminal-inputapp-profile-plan"]
 = 260910 — 7xtgv CP/M smart-terminal input/app-profile plan
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Status: engineering summary for Codex after discussion/testing of RunCPM {plus} 7xtgv terminal on ESP32-S3.

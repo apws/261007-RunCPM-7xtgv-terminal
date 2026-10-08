@@ -1,4 +1,5 @@
 = Assign our 7xtgv terminal specials Ctrl+]:
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Historical keyboard-control note. The mappings and future-extension notes below are preserved from the source; consult the current terminal manual for current behavior.

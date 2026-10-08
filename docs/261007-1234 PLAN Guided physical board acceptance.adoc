@@ -1,6 +1,8 @@
 = PLAN: Guided physical board acceptance
+:leveloffset: +2
 :source-highlighter: highlight.js
 :toc:
+:toclevels: 4
 
 == Purpose and honest coverage
 

@@ -1,5 +1,6 @@
 [id="numkeys-aliases-and-configurable-key-events--260920-addendum"]
 = `+numkeys+` aliases and configurable key events — 260920 addendum
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 ____

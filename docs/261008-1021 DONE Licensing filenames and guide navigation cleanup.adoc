@@ -1,4 +1,5 @@
 = Licensing filenames and guide navigation cleanup
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Scope and decisions

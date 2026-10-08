@@ -1,5 +1,6 @@
 [id="ansi-insertdelete-lines-for-tp301"]
 = ANSI insert/delete lines for TP301
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Status: signed off by Petr on 260918; implemented in the shared terminal core. The `+jc8048w550+` candidate was staged as `+new+` and reflashed with boot stamp `+260918-2304+`; TP301 device testing is pending.

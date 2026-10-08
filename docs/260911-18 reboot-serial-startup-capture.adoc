@@ -1,5 +1,6 @@
 [id="reboot-serial-startup-capture"]
 = Reboot serial-startup capture
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 A controlled `+REBOOT.COM+` run on the JC8048W535 captured raw USB serial for seven seconds. The command cleared the terminal, displayed `+7xtgv reboot in 3 seconds...+`, and reset after the delay.

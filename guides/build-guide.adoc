@@ -1,436 +1,468 @@
-= RunCPM 7xtgv-terminal Build Guide
+= RunCPM 7xtgv-terminal: Build Guide
+:leveloffset: +1
 :source-highlighter: highlight.js
 :toc:
 :toclevels: 2
 
-== Scope and verification status
+Start on Linux with the desktop emulator; no physical board is needed.
+It runs the integrated RunCPM/terminal and real Arduino_GFX drawing code using
+your chosen board's display definition. The current terminal is a development
+testbed for *7xtgv-native*, not the completed native engine.
 
-This guide describes the current Linux workflow, reviewed on 261004.
-The firmware and tools run without Codex or any AI service. Arduino IDE is
-optional; our maintained build entry point uses Arduino CLI and Python.
+The scripts work without Codex or any AI service. Arduino IDE is optional.
+The workflow below follows the current setup and launcher tools; remaining
+fresh-machine and hardware qualification limits are listed separately.
 
-Existing-machine builds and device uploads have been exercised. The complete
-installation below has *not yet been tested in a fresh machine/container*.
-Do not confuse a successful local build with a proven clean-clone setup.
-Native Windows support for these host scripts is not established: even the
-build wrapper imports POSIX serial helpers. macOS/WSL are not validated paths.
+[[quick-start]]
+== First desktop run
 
-== Native desktop shortcuts
+=== 1. Clone
 
-=== Optimization on all targets
-
-In any target folder, `./rebuild.sh -O2` builds firmware using
-the selected optimization; `./desktop-rebuild.sh -O2` builds its
-native desktop counterpart. Choices are `O0`, `Og`, `O1`, `O2`, `O3`, `Os`
-and `default`. No setting is persisted: omission uses the hardware profile's
-current default, or desktop `-O2` with debug symbols. The longer
-`--optimization O2` form also works. Reflash/launch use existing binaries
-and reject this build-only option. `-O2` is the recommended desktop starting
-point; preserve measured hardware defaults rather than assuming O3 is faster.
-Source overrides do not rebuild precompiled SDK archives; low-optimization
-MCU firmware can exceed memory limits. No hardware build is implied here.
-
-=== Desktop launch
-
-For the Arduino-compatible SDL desktop runtime, see
-link:../src/RunCPM_7xtgv-terminal/desktop/README.adoc[desktop build and launch].
-Each `tools/targets/DISPLAY_ID -- target/` folder now also has
-`desktop-rebuild.sh`, `desktop-local.sh` and `desktop-card.sh`.
-They emit short status and keep detailed same-named logs beside the scripts.
-Launch uses the last native build, never firmware upload. Normal runs may write
-INI/history and guest files to the selected card directory.
-
-`tools/setup.sh --dry-run` previews normal setup, including CMake/make/C++/SDL2
-packages for the detected Arch/Debian/Fedora family and Arduino dependencies.
-Remove `--dry-run` to request installation; desktop prerequisites are included
-by default. The former `--with-desktop` flag remains a compatibility alias.
-The shared mirror prefers Konsole, then Kitty, then the current terminal;
-desktop PTYs use isolated sessions and cannot invoke hardware reflash.
-
-== Clone the repository
+You need Git and repository access before running its setup script.
+From the directory where you keep projects:
 
 [source,sh]
 ----
-git clone https://github.com/apws/260906-7xtgv.git
-cd 260906-7xtgv
-git status --short
-git log -1 --oneline
+git clone https://github.com/apws/261007-RunCPM-7xtgv-terminal.git
+cd 261007-RunCPM-7xtgv-terminal
 ----
 
-Use an empty destination name if that directory already exists; do not overwrite
-an existing checkout. Record the commit when comparing builds. A clone contains
-only committed/pushed content, not Petr's uncommitted working tree or device files.
+* Use a new destination if that directory already exists; do not overwrite a checkout.
+* A clone includes committed `cpmcard/` files, not another machine's
+  uncommitted settings or physical SD card.
+* RunCPM-derived sources are already included. Do not clone upstream RunCPM
+  over them; no RunCPM submodule step is needed.
+* Generated binaries are not included: build before the first launch.
 
-* `src/RunCPM_7xtgv-terminal/`: integrated firmware, board HALs and host tools.
-* `cpmcard/`: complete versioned working card, including settings/history and snapshots; not an automatic SD installer.
-* `docs/`: manual and development evidence.
-* `build/`, `private/`, `docs/private/`, backups and local comparison material:
-  ignored/local content, not supplied by cloning.
+=== 2. Run explicit setup
 
-The firmware uses the RunCPM-derived sources already in this repository.
-Do not replace them by independently cloning current upstream RunCPM; that
-would be a separate port. There is no RunCPM submodule setup step.
+From the repository root, as your *normal user*, not through sudo:
 
-== Prerequisites
+[source,sh]
+----
+./src/RunCPM_7xtgv-terminal/tools/setup.sh --dry-run
+./src/RunCPM_7xtgv-terminal/tools/setup.sh
+----
 
-[cols="1,2,3",options="header"]
+The first command only previews; the second asks before installing.
+
+* Detects Arch-family distributions, Debian/Ubuntu or Fedora.
+* Installs system tools, desktop C++/CMake/SDL2 support, Arduino CLI,
+  and pinned cores/libraries for all six boards. There is no desktop-only setup mode.
+* Uses sudo for system packages, but installs Arduino components as your user.
+  If sudo is absent, have an administrator install/configure it first.
+* Does not upgrade the whole system, build, flash or populate a card.
+* Offers USB serial-group access separately; desktop-only use does not need it.
+* Konsole and Kitty are optional and are not installed by setup. With neither,
+  the mirror uses your current terminal through tmux.
+
+Arch-family use has been exercised. Debian/Fedora package selection has offline
+tests, but real fresh-machine installation remains unverified. The complete
+clean-clone gate is still pending; see <<clean-clone-acceptance>>.
+Windows, macOS and WSL are not validated launcher paths.
+
+=== 3. Open a board folder
+
+The full launcher parent path, relative to the repository root, is
+`src/RunCPM_7xtgv-terminal/tools/targets/`.
+Choose a display ID, even for desktop use:
+
+[cols="1,1,3",options="header"]
 |===
-|Task |Requirement |Notes
-|Clone |Git, network access |Authentication if repository access requires it.
-|Build wrapper |Python 3, Linux/POSIX |Uses Python standard-library modules; no project pip environment is needed for the basic wrapper/mirror.
-|Firmware compiler |Arduino CLI |Available through PATH, ARDUINO_CLI, or executable `$HOME/.local/bin/arduino-cli`.
-|ESP32 boards |Arduino-ESP32 3.1.0 |Working local baseline; version/index pinned in sketch profiles.
-|RP2350 boards |Arduino-Pico 5.4.4 |Version and package index pinned in sketch.yaml.
-|Firmware libraries |GFX Library for Arduino 1.6.4; SdFat 2.3.0 |Pinned in each sketch profile.
-|Native tests |g++ with C++17; Python 3 |Separate from the Arduino cross-compiler; sanitizer support for relevant tests.
-|Normal PC mirror |tmux and Konsole, or Kitty |A desktop session is required for the GUI launchers; a direct terminal.py invocation is possible.
-|Flash/transfer |USB data cable, serial permissions |Board-package upload tools; RP2350 BOOTSEL is a separate UF2 workflow.
-|Permission helper |setfacl, optionally sudo |Launcher can request a temporary user ACL; not required when ordinary device-group access works.
-|Rebuild CP/M helpers |Assembler appropriate to that helper |Not required to compile firmware or use existing COM files.
-|Render manuals |AsciiDoc renderer |Optional; no documentation renderer is needed to build firmware.
+|Vendor |Display ID |Folder under that path
+|WAVESHARE |`EC6_147` |`++EC6_147 -- esp32c6-lcd-1-47++`
+|GUITION |`EP4_10` |`++EP4_10 -- jc8012p4a1c++`
+|GUITION |`ES3_35` |`++ES3_35 -- jc8048w535++`
+|GUITION |`ES3_5` |`++ES3_5 -- jc8048w550++`
+|WAVESHARE |`RP2_147` |`++RP2_147 -- rp2350-lcd-1-47-a++`
+|WAVESHARE |`RP2_2` |`++RP2_2 -- rp2350-touch-lcd-2++`
 |===
 
-Local Arduino CLI observed during this review: `1.5.2-rc.1`, commit
-`fef6e48df`. This records the working installation, not a tested minimum version.
-An alternative CLI release should be verified rather than assumed equivalent.
-The Arduino board packages provide their cross-compilers and SDK components;
-a separate hand-installed ESP-IDF or Pico SDK is not the normal build path.
-Allow network access for package downloads and several GB of working space;
-no measured minimum disk/RAM requirement has yet been established.
-
-=== Install tools and packages
-
-Install Git, Python 3 and optional desktop/test tools through your Linux
-distribution. Names commonly include `git`, `python3`, `g++`, `tmux`,
-`konsole` or `kitty`, and `acl`; exact names vary by distribution.
-
-Obtain Arduino CLI using the https://docs.arduino.cc/arduino-cli/installation/[official installation instructions].
-Put the executable on PATH, or set `ARDUINO_CLI` to its executable path.
-Do not run builds as root. Check availability:
+For example, from the repository root:
 
 [source,sh]
 ----
-git --version
-python3 --version
-arduino-cli version
-arduino-cli config dump
-arduino-cli core list
+cd "src/RunCPM_7xtgv-terminal/tools/targets/EP4_10 -- jc8012p4a1c"
 ----
 
-For a new CLI installation without a config file, run `arduino-cli config init`.
-Do not force-overwrite an existing configuration. Add the relevant package
-index if it is not already listed. Install only the MCU families you need:
+Each shortcut already selects its board; no `terminal.conf` edit is needed
+to choose the target for these shortcuts.
 
-[source,sh]
-----
-# ESP32-S3, ESP32-P4 and ESP32-C6:
-arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
-arduino-cli core update-index
-arduino-cli core install esp32:esp32@3.1.0
-
-# RP2350:
-arduino-cli config add board_manager.additional_urls https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
-arduino-cli core update-index
-arduino-cli core install rp2040:rp2040@5.4.4
-----
-
-Package URLs come from the https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html[Espressif installation guide]
-and https://arduino-pico.readthedocs.io/en/latest/install.html[Arduino-Pico installation guide].
-Use the project baseline versions above, not an unreviewed latest-core upgrade.
-The ESP32 SDK bundle observed locally is `idf-release_v5.3-083aad99-v2`.
-
-Arduino CLI profile builds resolve the library versions declared in sketch.yaml;
-the first build may download those dependencies. Library installation errors
-must be resolved before compiling, not bypassed with unrelated latest versions.
-If manually inspecting/installing matching libraries, the CLI commands are:
-
-[source,sh]
-----
-arduino-cli lib update-index
-arduino-cli lib install "GFX Library for Arduino@1.6.4" "SdFat@2.3.0"
-----
-
-Profile-managed dependencies may use an isolated installation; a global
-`lib install` is not proof of what a profile build selected. Check build output.
-
-== Select and build the exact target
-
-[cols="1,2,2",options="header"]
+[cols="1,3",options="header"]
 |===
-|Module ID |Target/profile argument |Module
-|ES3_35 |jc8048w535 |ESP32-S3 3.5-inch
-|ES3_5 |jc8048w550 |ESP32-S3 5-inch
-|EP4_10 |jc8012p4a1c |ESP32-P4 10-inch
-|RP2_147 |rp2350-lcd-1-47-a |RP2350 1.47-inch
-|RP2_2 |rp2350-touch-lcd-2 |RP2350 2-inch
-|EC6_147 |esp32c6-lcd-1-47 |Experimental single-core ESP32-C6 1.47-inch
+|Script |Action
+|`desktop-rebuild.sh` |Build this board's Linux desktop executable; no MCU access.
+|`desktop-local.sh` |Launch its last desktop build with repository `cpmcard/` and a mirror.
+|`desktop-card.sh` |Launch its last desktop build with an explicitly selected mounted SD/USB card and a mirror.
+|`rebuild.sh` |Build and stage fresh firmware for the physical board; no upload.
+|`reflash.sh` |Upload staged firmware and restore the mirror; no build.
+|`mirror.sh` |Attach to the physical board; no build or upload.
 |===
 
-From the clone root, for example:
+In *Midnight Commander*, execute the script normally. In *Double Commander*,
+use *Shift+Enter* to launch with a terminal. Keep folder spaces quoted in shell paths.
+
+=== 4. Build, then launch
+
+From the chosen board folder, execute these separately:
 
 [source,sh]
 ----
-cd src/RunCPM_7xtgv-terminal
-python3 tools/reflash.py --target jc8012p4a1c --build-only
+./desktop-rebuild.sh
+./desktop-local.sh
 ----
 
-Replace the target with the table entry for your board. No device connection
-is required for `--build-only`. The wrapper reads tools/targets/*.json and
-sketch.yaml, preserves platform flags, adds our target/product/SPI flags and
-a fresh YYMMDD-HHMM stamp, and stages a successfully compiled image in:
+* Wait for the build to finish successfully before launching.
+* The SDL window is the board-sized display; *type into the mirror*.
+  The mirror shows the complete logical terminal, even when the panel is panned.
+* `VTINFO` at the CP/M prompt reports the running module, build and geometry.
+* After changing source, rebuild again. Launch never silently recompiles.
 
-[source,text]
-----
-build/RunCPM_7xtgv-terminal/TARGET/new/
-----
+IMPORTANT: A normal desktop run is *read/write*. Guest applications and
+INI/history autosaves can modify versioned files in `cpmcard/`.
+For experiments, use a prepared copy via `--card-root`; see <<card-selection>>.
 
-That path is relative to the repository root. `current/` is left intact;
-promotion of a hardware-accepted candidate is a separate operation.
-Do not use the old bare `arduino-cli compile --profile ...` recipe: it omits
-target metadata supplied by the wrapper and is not the supported shortcut.
-Do not mix binaries from different target folders.
+For everyday controls and examples, continue with the
+link:user-guide.adoc[User Guide]. For automation and headless tests, use the
+link:../src/RunCPM_7xtgv-terminal/desktop/README.adoc[developer desktop guide].
 
-== Explicit Linux setup
+[[card-selection]]
+== Select the card and close the desktop safely
 
-From the sketch directory:
+=== Local working card or disposable copy
+
+`desktop-local.sh` defaults to repository `cpmcard/`, independent of the shell's
+current directory. `XTGV_CARD_ROOT` overrides that default; an explicit
+`--card-root PATH` takes precedence. For a separately prepared copy:
 
 [source,sh]
 ----
-./tools/setup.sh --dry-run
-./tools/setup.sh
+./desktop-local.sh --card-root /absolute/path/to/my-cpm-test-card
 ----
 
-Setup asks before installation. System packages use sudo with the selected package manager; Arduino
-CLI, pinned cores and libraries are installed as your user. Do not run the script
-with sudo. It does not upgrade the system, build, flash, or install a desktop. USB serial-group membership is offered separately
-with its own confirmation; `--yes` does not approve this account change.
-With the device connected, rerun `./tools/setup.sh --serial-only` to check
-and configure access without repeating dependency installation. Existing
-membership is left unchanged; log out and back in to activate it for all apps.
-Existing Arduino CLI is reused; when absent, a
-checksummed 1.5.0 executable is installed under `~/.local/bin`.
-`XTGV_ARDUINO_CONFIG` is honored when supplied.
+The directory must already contain `A/0`. The
+link:../cpmcard/README.adoc[card guide] describes an export helper which copies
+the complete working card to a new destination. Stop writers before copying.
+No launch copies, synchronizes or normalizes card content automatically.
+Use uppercase guest filenames on case-sensitive host filesystems.
 
-Rebuild/reflash report missing required tools and suggest setup, never install
-automatically. `setup.sh` detects the OS from `/etc/os-release`: exact `ID` first, then
-ordered `ID_LIKE` families. Arch uses pacman, Debian/Ubuntu uses apt-get,
-and Fedora uses dnf. Unsupported families stop before installation.
-Options are `--dry-run`, `--yes` and `--serial-only`.
-Debian refreshes package indexes with apt-get update before installation.
-The installer never performs a full system upgrade. Debian/Fedora are offline-tested
-with fake installers; real installation remains to be checked on those systems.
-macOS/Windows adapters remain future work. USB group changes require the separate setup confirmation and sudo.
+=== Mounted SD/USB card
 
-Offline tests use fake installers and isolated temporary files. They are not
-proof of a real fresh Arch installation. `fresh-build.sh` remains the separate
-dependency-isolated download/build test; it does not install OS prerequisites.
-
-== Separate rebuild and reflash commands
-
-From the sketch directory:
+From the board folder, run `./desktop-card.sh` and enter the mount path,
+or pass it explicitly:
 
 [source,sh]
 ----
-cd "tools/targets/EC6_147 -- esp32c6-lcd-1-47"
+./desktop-card.sh --card-root "/run/media/$USER/RunCPM"
+----
+
+That is an example mount path, not an automatically detected reader.
+Selection order is `--card-root`, then `XTGV_DESKTOP_CARD_ROOT`, then an
+interactive prompt. The path must be an actual mounted filesystem root
+containing `A/0`; an ordinary directory or stale unmounted path is rejected.
+Without an interactive terminal, supply the path explicitly.
+
+=== Session ownership and shutdown
+
+* Do not run two writers against the same card tree. Local and physical cards
+  are independent copies; there is no automatic synchronization.
+* Close the owning mirror or SDL window, or use guest `EXIT`, to stop the
+  desktop session. Wait for shutdown before unmounting/removing the card.
+* Guest `REBOOT` restarts the desktop process and mirror; `REFLASH` cannot
+  invoke a hardware uploader from a desktop session.
+* Desktop mirrors use isolated sessions, separate from hardware `7xtgv-cpm`.
+* SDL requests always-on-top but can be minimized. Clicking it or using
+  Alt+Tab can take keyboard focus: reselect the mirror to type.
+* SDL backlight is a compensated brightness simulation. It does not establish
+  physical luminance, MCU speed, SPI bandwidth, panel timing or electrical behavior.
+
+Before pulling updates into a used checkout, close its desktop session and
+inspect `git status --short`. Preserve wanted local card changes; do not reset
+them merely to make Git accept a pull.
+
+[[hardware-workflow]]
+== Build and flash physical hardware
+
+Choose the folder for the *connected physical module*. From that folder:
+
+[source,sh]
+----
 ./rebuild.sh
 ./reflash.sh
 ----
 
-Each of the six targets has a `DISPLAY_ID -- TARGET` folder containing
-`rebuild.sh` and `reflash.sh`. Rebuild creates/stages a fresh `new` candidate
-without device or mirror access. Reflash uploads the existing `new` candidate
-(falling back to `current`), without compiling, then restores the visible mirror.
-Neither command promotes the candidate or edits terminal.conf.
-Use the wrapper for your physical board, not the one for a previously attached
-module. Upload restarts CP/M and loses active application state.
+* Rebuild needs no device. It stages a fresh candidate under that target's `new/`.
+* Reflash uploads existing `new/`, falling back to `current/` only if `new/`
+  is absent. An old `new/` is still old firmware: check the embedded build stamp.
+* Upload stops the shared hardware mirror, restarts CP/M and loses running
+  application state. The workflow attempts to restore the visible mirror afterward.
+* Neither command promotes the candidate to `current/` or changes `terminal.conf`.
+* Confirm boot `Build`, module identity, storage and the CP/M prompt; use
+  `VTINFO` if needed. Upload success alone is not a hardware test.
 
-* `--port /dev/serial/by-id/...`: explicit port when discovery is ambiguous.
-* `--dry-run`: show workflow without building or touching the device.
-* Default output is concise step/status lines. Full details are saved beside
-  the launcher as `rebuild.log` or `reflash.log` (replaced each run).
-  Normal output is module, build/upload progress and completion, embedded
-  stamp and mirror launch. Paths stay in the log, with BUILD/FLASH separators.
-  Failures show one short reason, not a CLI transcript; a blocked target check
-  explicitly reports that flashing was not performed.
-* `--verbose`: show live compiler/uploader output instead.
-* `--mirror terminal`: use the shared tmux terminal without a desktop GUI.
+=== Connection prompts and target guards
 
-For RP2350, an eligible BOOTSEL disk already connected skips the prompt.
-If none is connected, a red warning names the module and asks you to connect it
-in BOOTSEL mode, then press Enter. No long target-name retyping.
-The tool verifies RP2350 and the UF2 target/family. An optional
-`--chip-id HEX16` further restricts disk selection; ROM alone cannot identify
-the display variant.
-More than one candidate is rejected without a chip selector.
-For C6, uploader reset may leave a blank screen: physical RESET restored the
-tested module. Do not add recovery bypass merely to fix a wrong target.
-Missing ESP serial connections similarly prompt in red and wait for Enter,
-without BOOTSEL wording. Ambiguous ports and mismatched firmware remain errors.
+[cols="1,3",options="header"]
+|===
+|Family |What to do
+|ESP32 |Normally upload over the running serial connection. If no serial device is found, the script asks you to connect the named module and press Enter.
+|RP2350 |Connect in BOOTSEL mode. One eligible BOOTSEL disk already present skips the prompt; otherwise the script asks you to connect it in BOOTSEL and press Enter.
+|===
 
-First-install/old ESP firmware may need the explicit one-shot option
-`--allow-unidentified-target TARGET`; normal launchers never add it themselves.
-Missing serial permissions are reported; existing configured group membership
-can be entered without sudo via newgrp.
+* ESP32 firmware identity mismatches block upload. Resolve board/target
+  selection; never bypass a known mismatch.
+* Only intentional first installation or recovery of unidentified ESP firmware
+  uses `--allow-unidentified-target TARGET`, with the exact long target ID.
+  Normal launchers do not supply it automatically.
+* RP2350 checks the chip family and staged UF2 target. The ROM cannot identify
+  which display is attached: verify the physical module yourself.
+  More than one eligible disk needs an explicit `--chip-id HEX16` selector.
+* EC6_147 does not normally need BOOTSEL. If upload reset leaves its panel
+  blank, press hardware RESET; this recovery note is also in the upload log.
 
-See link:../docs/261004-1848%20Isolated%20fresh%20builds%20and%20per-target%20reflash%20launchers.adoc[workflow implementation and test boundaries].
+For ambiguous serial selection, specify the actual device, for example
+`./reflash.sh --port /dev/serial/by-id/YOUR-DEVICE`.
+Do not assume `/dev/ttyUSB0` identifies the board: some target defaults
+use generic port names. Never open two readers on the same serial port.
 
-== Flashing and the desktop mirror
+=== Mirror without reflashing
 
-Existing latest images are in `build/RunCPM_7xtgv-terminal/TARGET/new/`.
-Upload-only falls back to `current/` when no new candidate exists.
-The launcher prints the embedded stamp when identifiable; exact image paths
-are recorded in the adjacent log.
-Archived top-level legacy build folders were moved into ignored
-`private/261004-1907 legacy build folders/`; active target artifacts are intact.
-
-Build and flash are deliberately separate. For an already running, identifiable
-ESP32 target, stop the shared mirror, then upload the staged candidate:
+From the same board folder:
 
 [source,sh]
 ----
-# Close the mirror normally, or stop its shared session if it exists:
-tmux kill-session -t 7xtgv-cpm
-# Example only: verify the board and its actual port first.
-python3 tools/reflash.py --target jc8012p4a1c --port /dev/ttyUSB0
-./tools/kon.sh --port /dev/ttyUSB0
+./mirror.sh
 ----
 
-The uploader checks firmware target identity. A reported mismatch is a stop
-condition. A blank board/older firmware without the identity protocol needs
-an explicitly checked, one-shot recovery workflow; do not disable the guard
-permanently. Flashing restarts CP/M and loses active application state.
-For RP2350 use its target shell launcher, which handles the guarded BOOTSEL
-copy; the bare ESP32 upload command above is not an RP2350 recipe.
-See link:technical-reference-guide.adoc[build/upload boundaries].
+This attaches without rebuilding, uploading or deliberately resetting CP/M.
+Unlike reflash's missing-device prompt, mirror-only discovery can stop with
+an error: connect the module or specify `--port DEVICE`, then retry.
+The shared hardware session is `7xtgv-cpm`; do not reuse a stale session
+from a different board. Ending a hardware mirror does not itself stop CP/M;
+ending the owning *desktop* mirror stops that emulator.
 
-Review tools/terminal.conf before using the launcher, especially XTGV_TARGET,
-XTGV_PORT and the optional device-triggered reflash command. They reflect a
-host selection, not automatic physical-board detection. Keyboard defaults
-also reflect Petr's Czech layout and may need adaptation.
+=== USB permissions
 
-Serial port names can change after reconnect. Check `arduino-cli board list`
-and `/dev/serial/by-id/` rather than assuming ttyUSB0. Use your distribution's
-serial-device group (often dialout or uucp), with a fresh login after membership
-changes, or a narrowly scoped temporary ACL. Such an ACL can disappear when
-USB recreates the device node. Never open two serial readers simultaneously.
-Restore one visible mirror after uploading/transferring and confirm the build
-stamp, module identity, SD mount and CP/M prompt.
+From the repository root, with the device connected:
 
-== SD card and CP/M tools are separate
+[source,sh]
+----
+./src/RunCPM_7xtgv-terminal/tools/setup.sh --serial-only
+----
 
-Flashing firmware does not copy the cpmcard working tree to an SD card or install
-every COM file. Use the RunCPM FAT directory layout, e.g. drive A user 0 is
-`A/0`; repository descriptive folder names are not literal SD folder names.
-See link:../cpmcard/README.adoc[CP/M card layout and seed] for the mapping and
-link:reference-guide.adoc[transfer commands] for selective file deployment.
-Do not blindly copy historical archives or overwrite live INI/history files.
-An initial card needs appropriate CP/M contents; transfer via VTPUT/VTGET also
-requires those helpers already installed, so it is not a blank-card bootstrap.
+This skips dependency installation and offers device-group access separately.
+Use a fresh login after group changes so all applications see the membership.
+The mirror can enter already-configured group membership through `newgrp`,
+or request a temporary user ACL when needed. An ACL may disappear
+when USB recreates the device node. None of this is needed for desktop PTYs.
 
-Firmware compilation does not require assembling REBOOT, CARDMARK, VTCPU or
-other guest tools. When their sources change, rebuild them separately using
-the documented dialect/tool: Intel 8080 ASM/LOAD and Z80 assemblers are not
-interchangeable. A host assembler is not currently installed by our build wrapper.
+=== Firmware is not the card
 
-== Troubleshooting and expected effort
+Flashing does not install CP/M programs or copy `cpmcard/` onto an SD card.
+Use RunCPM's FAT layout: drive A/user 0 is `A/0`; user directories are
+hexadecimal `0`--`F`, under drives `A`--`P`. See the
+link:../cpmcard/README.adoc[working-card guide] before preparing a card.
+Do not overwrite a working card's INI/history with an older repository copy.
+
+VTPUT/VTGET transfer requires the helpers already on the card; it is not a
+blank-card bootstrap. Building firmware does not require reassembling guest
+COM files. Changed guest sources have separate build/install steps and assembler
+dialects; see the link:reference-guide.adoc[Reference Guide].
+
+== Quiet output, logs and optional switches
+
+* Rebuild/reflash and desktop shortcuts show concise steps. Full compiler,
+  uploader, image/card paths and section delimiters are in same-named `.log`
+  files beside those scripts, replaced each run. Save a log before rerunning
+  if you need earlier evidence. `mirror.sh` does not create a matching log.
+* Failures report a short reason. If upload was blocked, the existing firmware
+  remains; a newly opened mirror is not proof that new firmware was flashed.
+* Rebuild/reflash and desktop shortcuts accept `--dry-run` for a read-only
+  workflow preview. Desktop launch previews still validate the chosen card path.
+  `mirror.sh` has no dry-run option; use `--help` without opening a connection.
+* Hardware `--verbose` exposes live compiler/uploader output. Desktop shortcuts
+  stay quiet; use their log or the developer CLI for diagnostics.
+* Reflash, mirror and desktop launch accept `--mirror terminal`,
+  `--mirror konsole` or `--mirror kitty`. Automatic selection prefers Konsole,
+  then Kitty when a GUI session is available, otherwise the current terminal.
+* Missing tools are reported, not installed behind your back. Run explicit setup
+  for dependencies; investigate source errors separately.
+
+[[optimization]]
+== Optional optimization selection
+
+Defaults are the starting point: desktop uses `-O2` with debug symbols;
+hardware retains each profile's measured/default setting.
+To experiment, from a board folder:
+
+[source,sh]
+----
+./desktop-rebuild.sh -O2
+# Separate hardware build, only if wanted:
+./rebuild.sh -Os
+----
+
+* Accepted levels: `-O0`, `-Og`, `-O1`, `-O2`, `-O3`, `-Os`.
+  The longer forms `--optimization O2` and `--optimization default` also work.
+* Selection applies only to that build invocation. Omission restores defaults;
+  reflash and launch use the existing artifact and reject optimization options.
+* Hardware overrides affect compiled sources, not precompiled SDK archives.
+  Unoptimized/debug firmware can exceed MCU memory; O3 is not always faster.
+* Benchmark correctness and speed before adopting a hardware override.
+
+== Prerequisites and manual setup details
+
+Use `setup.sh` first. This inventory is for diagnosing missing components or
+preparing a machine manually, not an extra sequence after setup.
+
+[cols="1,2,3",options="header"]
+|===
+|Use |Requirements |Source/check
+|Common host tools |Linux, bash, Git, Python 3; use Python 3.10+ for desktop |No project pip environment needed by basic build/mirror tools.
+|Desktop compiler |C++17 compiler, CMake 3.19+, build tool (setup installs make), pthreads |SDL2 development headers/library or compatible SDL2 package.
+|Desktop drawing |GFX Library for Arduino 1.6.4 |Default `$HOME/Arduino/libraries/GFX_Library_for_Arduino`; override build with `--gfx /path/to/library` if your sketchbook differs.
+|Firmware compiler |Arduino CLI |`ARDUINO_CLI`, PATH, or `$HOME/.local/bin/arduino-cli`; board packages provide cross-compilers/SDKs.
+|ESP32 firmware |Arduino-ESP32 3.1.0 |All four ESP32 profiles pin this version and package index in `sketch.yaml`.
+|RP2350 firmware |Arduino-Pico 5.4.4 |Both RP2350 profiles pin this version and package index.
+|Firmware libraries |GFX Library for Arduino 1.6.4; SdFat 2.3.0 |Pinned in each profile; global installation alone does not prove profile resolution.
+|Mirror |tmux and an interactive terminal |Konsole/Kitty optional; desktop display additionally needs a graphical session.
+|Hardware upload |USB data cable, serial permissions; board-package tools |RP2350 also uses findmnt/udisksctl for BOOTSEL discovery/mounting.
+|Guest/helper development |Appropriate 8080/Z80 assembler or BASIC environment |Not needed to use supplied COM files or compile firmware.
+|Manual rendering |AsciiDoc renderer or browser extension |Optional; see repository README for browser viewing.
+|===
+
+Native desktop builds do not use MCU cores, SdFat hardware drivers or USB
+upload tools, even though combined setup installs them. They compile the real
+GFX library plus the project's host storage adapter.
+
+=== Setup behavior and versions
+
+* `setup.sh` uses `/etc/os-release`: exact `ID`, then ordered `ID_LIKE` families.
+  Arch uses pacman; Debian/Ubuntu uses apt-get; Fedora uses dnf.
+  Unsupported families stop before installation.
+* Debian refreshes package indexes; no branch performs a full system upgrade.
+* Existing Arduino CLI is reused. If absent, setup downloads checksummed
+  CLI 1.5.0 for Linux x86_64 or aarch64 into `$HOME/.local/bin`.
+* The 261004 working-machine observation was CLI `1.5.2-rc.1`
+  (`fef6e48df`), not a tested minimum or a reason to require a prerelease.
+* `XTGV_ARDUINO_CONFIG` selects an explicit Arduino configuration file.
+  A custom sketchbook may require desktop `--gfx` as above.
+* `--yes` approves dependency setup, not USB group changes. With it, run
+  `--serial-only` separately if hardware access is needed.
+* `--with-desktop` remains a compatibility alias: desktop packages are now
+  included by default.
+
+Allow network access and several GB of working space. There is no measured
+minimum disk/RAM requirement or universal first-build time estimate.
+The first profile build may download isolated dependencies even after setup.
+Use pinned versions before diagnosing a newer core's API/ABI differences.
+
+For manual installation, the exact package list, indexes and commands are in
+link:../src/RunCPM_7xtgv-terminal/tools/setup.sh[setup.sh]; versions/board
+options are in link:../src/RunCPM_7xtgv-terminal/sketch.yaml[sketch.yaml].
+Do not force-overwrite an existing Arduino configuration.
+Useful read-only checks are `arduino-cli version`, `arduino-cli config dump`,
+`arduino-cli core list` and `arduino-cli lib list`.
+No separate hand-installed ESP-IDF or Pico SDK is part of the normal build path.
+
+[[artifacts-and-low-level-build]]
+== Artifacts and low-level build entry points
+
+All paths below are relative to the repository root:
+
+[cols="2,3",options="header"]
+|===
+|Path |Meaning
+|`build/RunCPM_7xtgv-terminal/TARGET/new/` |Successfully staged MCU candidate; `.ino.bin` for ESP32, `.ino.uf2` for RP2350.
+|`build/RunCPM_7xtgv-terminal/TARGET/current/` |Separately promoted hardware-accepted image, if one exists.
+|`build/RunCPM_7xtgv-terminal/desktop/TARGET/xtgv_desktop` |Native executable for that board; never an MCU upload image.
+|===
+
+Here `TARGET` is the long ID after `--` in the folder table, without spaces.
+Successful rebuild leaves hardware `current/` untouched. Promotion and archive
+recovery are separate developer operations; some low-level recovery options
+also upload, so do not treat them as harmless file management.
+
+The hardware shortcut wraps this command, from the repository root:
+
+[source,sh]
+----
+python3 src/RunCPM_7xtgv-terminal/tools/reflash.py --target jc8012p4a1c --build-only
+----
+
+The wrapper reads `tools/targets/*.json` and `sketch.yaml`, preserves platform
+flags and supplies target/product/SPI flags plus a fresh `YYMMDD-HHMM` stamp.
+A bare `arduino-cli compile --profile ...` omits wrapper-supplied metadata and
+is not the supported build recipe. Do not replace the bundled product fork
+with upstream HEAD, mix target binaries, or build as root.
+
+For upload, prefer the target `reflash.sh`: it manages the mirror and RP2350
+BOOTSEL path. Bare `tools/reflash.py` upload is not an RP2350 recipe.
+Developer tests and direct mirror entry points are in the
+link:technical-reference-guide.adoc#_build_upload_and_test_boundary[Technical Reference Guide].
+
+== Troubleshooting
 
 [cols="2,3",options="header"]
 |===
 |Symptom |Check/remedy
-|Cannot find arduino-cli |PATH or ARDUINO_CLI; the wrapper also checks the user-local bin directory.
-|Cannot resolve Arduino build flags |Read the following CLI diagnostic: absent core/profile dependencies or incompatible board options commonly stop this step.
-|Unknown board/core or missing library |Package index, network access and exact profile versions; installation is normally sufficient.
-|Download/TLS error |Network/proxy/CA certificates and free disk space; do not edit HAL code to compensate.
-|Missing API or compilation fails with a newer core |Use the core version pinned in the profile before investigating; isolated installation/build still needs validation.
-|Permission denied or missing serial port |Correct device node, USB data cable, permissions and no competing reader. Building alone does not need serial access.
-|Target mismatch |Stop and select the right physical board and target; never bypass a known mismatch.
-|No staged image |Build this target first; ignored build artifacts do not arrive in a clone.
-|SD failure / CPU halted |Card format/layout, connection and power; flashing does not populate the card.
-|Mirror launcher missing |Install its desktop terminal and tmux, or use terminal.py directly in a compatible terminal.
+|No executable / no staged firmware |Run the matching desktop or hardware rebuild first; clone does not contain build artifacts.
+|Old build still running |Rebuild is separate from launch/reflash. Check embedded stamp and running `VTINFO`; a blocked upload did not install the candidate.
+|Missing compiler, CMake, SDL2 or Arduino CLI |Run explicit setup; check PATH/`ARDUINO_CLI`. For GFX, verify version/path or use build `--gfx`.
+|Core/library download failure |Check network/proxy/CA certificates and disk space; keep pinned versions. Do not change HAL code to fix a download.
+|Mounted-card path rejected |Use the mount root containing `A/0`; mount the card first. For an ordinary directory use `desktop-local.sh --card-root PATH`.
+|SDL ignores typing |Focus the mirror. SDL is output-only even when its title bar or Alt+Tab gives it focus.
+|SDL too large / too dark |Resize the window or choose another board; resizing does not alter logical geometry. Use terminal backlight controls, not mirror colors.
+|Missing serial device / permission denied |Check cable, actual port, permissions and competing readers. Use setup's `--serial-only` for group access.
+|Wrong board or multiple candidates |Resolve selection explicitly. Do not bypass a firmware mismatch or guess among BOOTSEL disks.
+|No graphical mirror launcher |Use `--mirror terminal` with tmux installed. Desktop SDL still needs a graphical session.
+|SD failure / CPU halted |Check physical card format/layout, connection and power. Upload does not provision guest files.
+|Mirror not restored after upload |Check device re-enumeration/reset, then use this board's `mirror.sh` with the correct port.
 |===
 
-Once installed, normal rebuilding is one command. A first setup requires
-package downloads and host/USB configuration, but normally not source porting.
-No universal time estimate is claimed: download speed, caches and host CPU
-dominate. The isolated dependency script below is not a distro installer or
-a complete device/permissions doctor.
+[[clean-clone-acceptance]]
+== Remaining fresh-machine acceptance
 
-== Tests and remaining reproducibility work
+Existing-machine builds, offline installer tests and desktop rendering do
+*not* complete this gate. Still required:
 
-From the sketch directory:
+. Record a published commit and Linux/Python/CLI versions in a disposable clone.
+. Test declared setup on the real distro with empty Arduino data/download/user
+  directories and build caches, without private ZIPs or modified local libraries.
+. Build all six hardware targets and desktop selections; retain dependency
+  logs, effective flags, sizes and remediation steps.
+. Confirm target identity and new stamp in artifacts; record download/disk needs.
+. Separately check GUI/mirror lifecycle, USB permissions, physical upload and
+  initial card preparation. Compiler-only success cannot establish those.
 
-[source,sh]
-----
-python3 -m unittest discover -s tests -p 'test_*.py' -v
-----
+Offline launcher tests use fake installers/temporary fixtures. Native tests
+are described in the Technical Reference Guide; skipped dependency tests are
+not completed qualification. Physical panel/backlight/SPI/electrical acceptance
+remains separate from desktop checks.
 
-Some tests compile native C++, some expect installed Arduino packages or other
-tools. Use the project README for focused C++ tests. A skipped dependency test
-is not a successful firmware/device qualification. Host tests cannot establish
-SD electrical reliability, panel timing, backlight behavior or USB power margin.
+=== Dependency-isolation helper
 
-Remaining work, not performed by documenting this guide:
-
-* Verify the explicitly pinned ESP32 platform/index resolves in a clean install.
-* Reproduce installation and builds with a fresh Arduino data/cache directory.
-* Check all six targets without private/vendor ZIPs or undeclared local patches.
-* Record supported CLI/Python/host versions and actual download/storage needs.
-* Validate mirror, permissions, upload and initial SD preparation from that clone.
-* Consider a small prerequisite checker; separately assess Windows/macOS support.
-
-Commit/push is a separate step: publishing this guide does not publish ignored
-binaries, device configuration, or uncommitted source changes.
-
-=== Clean-clone acceptance gate
-
-This gate is essential and still *not passed*. Documentation and existing
-machine builds do not substitute for it.
-
-. Choose a published commit and a disposable checkout on a separate machine
-  or isolated environment; record Linux, Python and Arduino CLI versions.
-. Use empty Arduino data/download/user directories and an empty build cache.
-  Do not borrow the developer's packages, vendor ZIPs or modified libraries.
-. Install only the declared package indexes, baseline cores and pinned libraries.
-. Build each target through `tools/reflash.py --build-only`; save dependency
-  resolution logs, effective flags, image sizes and failure/remediation notes.
-. Confirm artifacts contain the correct target and new build stamp.
-. Separately verify USB permissions, first upload, mirror launch and a minimally
-  populated SD card. A compiler-only environment cannot prove those steps.
-
-The wrapper now passes `XTGV_ARDUINO_CONFIG` to dependency resolution and
-compilation (and upload). ESP32 profiles now pin their platform/index.
-These mechanisms still need a real isolated build before claiming reproducibility.
-Do not run builds as root.
-
-=== Local dependency-isolation script
-
-From the sketch directory:
+For an intentional download/build test, from the repository root:
 
 [source,sh]
 ----
-# Current non-ignored working files; not proof of published-clone completeness:
-./tools/fresh-build.sh --snapshot --target esp32c6-lcd-1-47
+# Published checkout and all hardware targets; substitute the desired commit:
+./src/RunCPM_7xtgv-terminal/tools/fresh-build.sh --target all --ref COMMIT
 
-# Published GitHub checkout with downloaded tools/dependencies:
-./tools/fresh-build.sh --target all --ref COMMIT
+# Alternative: current non-ignored working files, NOT published-clone proof:
+./src/RunCPM_7xtgv-terminal/tools/fresh-build.sh --snapshot --target esp32c6-lcd-1-47
 ----
 
-The script downloads a checksummed Arduino CLI release, installs baseline
-cores/libraries into empty temporary directories, then uses the normal
-build-only wrapper. Property resolution and compilation use the same explicit
-config. Logs and artifacts are retained outside the working checkout.
-`--use-cli PATH` reuses only that executable, not its packages/cache;
-`--source URL_OR_PATH` changes the clone source. See `--help`.
+* Downloads checksummed Arduino CLI, installs baseline cores/libraries in empty
+  temporary directories and runs the normal hardware build-only wrapper.
+* Uses one explicit `XTGV_ARDUINO_CONFIG` for property resolution and compilation.
+* `--use-cli PATH` reuses only the executable, not its installed packages/cache;
+  `--source URL_OR_PATH` changes clone source. See `--help` for all options.
+* Logs/artifacts remain in a new temporary directory. No flash, sudo, device
+  access or automatic removal of that directory.
+* Requires Linux, bash/coreutils, Git, Python, curl, tar, CA certificates and
+  network access already present. It does not install missing OS tools, build
+  SDL desktop or simulate an entirely fresh operating system.
 
-It still requires Linux, bash/coreutils, Git, Python, curl, tar, certificates
-and network access. It does not simulate missing OS packages or install
-desktop/USB tools. A VM/container/second-machine check remains necessary.
-New uncommitted targets cannot exist in a GitHub clone until published.
-
-== Launch the mirror separately
-
-Each `tools/targets/<module> -- <target>/` directory has `mirror.sh` alongside
-`rebuild.sh` and `reflash.sh`. Run `./mirror.sh` to attach the terminal without
-building, uploading, resetting, or stopping an existing shared session.
-It uses the same automatic Konsole/Kitty/current-terminal selection as reflash.
-Use `--port DEVICE` or `--mirror konsole|kitty|terminal` when needed.
+A separate machine/VM/container check is still needed. Record test evidence,
+not just the existence of this helper, before claiming reproducibility.

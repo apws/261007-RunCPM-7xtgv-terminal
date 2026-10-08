@@ -1,5 +1,6 @@
 [id="czech-sharp-mz-800-cpm-bios-source-reference"]
 = Czech Sharp MZ-800 CP/M BIOS source reference
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 The primary source located for this investigation is the scanned Czech _Komentované zdrojové texty CP/M_: https://sam.speccy.cz/olddocs/cp-m_koment-zdroj.pdf[PDF&#44; 240 pages]. Its `+BIOS8MZ.MAC+` listing starts on PDF page 200 (book page 190) and is headed `+BIOS FOR CP/M V2.26-31 BIOS MZ-800+`. The listing credits Pavel Zemčík (keyboard/display, 1987), Tomáš Krejča (floppy disks, 1988), and Miroslav Beneš (keyboard/display revision, 1988). This is source for *one specific MZ-800 CP/M BIOS*, not proof of the firmware or console protocol used by every MZ-821 installation. A contemporary https://www.idealine.info/sharpmz/download/allesfuersharp2_85.pdf[Sharp MZ-821 brochure] describes optional P-CP/M support, but does not identify this particular BIOS build.

@@ -1,4 +1,5 @@
 = Headless Arduino desktop build and real GFX proof
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Decision and delivered checkpoint

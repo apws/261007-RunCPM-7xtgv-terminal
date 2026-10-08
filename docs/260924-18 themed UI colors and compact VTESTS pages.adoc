@@ -1,4 +1,5 @@
 = Themed UI colors and compact VTESTS pages
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Petr requested matching special colors for the new dark themes, a 40% darker

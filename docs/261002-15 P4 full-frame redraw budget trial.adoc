@@ -1,4 +1,5 @@
 = P4 full-frame redraw budget trial
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Report and evidence

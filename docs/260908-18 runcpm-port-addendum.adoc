@@ -1,5 +1,6 @@
 [id="petrs-addendum-scope-and-economical-collaboration"]
 = Petr's addendum: scope and economical collaboration
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Recorded 2026-09-08. This addendum takes precedence over broader interpretations of the ++[++port plan++]++(260909-07 runcpm-multiplatform-plan.adoc).

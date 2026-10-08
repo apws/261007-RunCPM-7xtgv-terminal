@@ -1,4 +1,5 @@
 = VTPUT/VTGET mirror integration and redraw reduction
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Decision and corrected hardware finding

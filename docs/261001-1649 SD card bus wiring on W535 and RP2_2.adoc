@@ -1,4 +1,5 @@
 = SD card bus wiring on W535 and RP2_2
+:leveloffset: +2
 :source-highlighter: highlight.js
 :imagesdir: images
 

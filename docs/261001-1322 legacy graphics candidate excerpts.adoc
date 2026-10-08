@@ -1,4 +1,5 @@
 = Legacy graphics candidate excerpts before HAL consolidation
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Date:* 261001

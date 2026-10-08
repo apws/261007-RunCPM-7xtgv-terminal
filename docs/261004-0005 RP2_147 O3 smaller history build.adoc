@@ -1,4 +1,5 @@
 = RP2_147 O3 smaller history build
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Petr requested a fresh RP2_147 whole-build O3 candidate after testing the

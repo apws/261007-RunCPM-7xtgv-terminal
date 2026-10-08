@@ -1,5 +1,5 @@
 
-= AsciiDoc technical writing cheat sheet
+= RunCPM 7xtgv-terminal: AsciiDoc Writing Guide
 //:leveloffset: +1
 :toclevels: 3
 :toc:

@@ -1,5 +1,6 @@
 [id="7xtgv-windows-sdl2-desktop-emulator-plan"]
 = 7xtgv Windows SDL2 desktop emulator plan
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Date: 2026-09-14

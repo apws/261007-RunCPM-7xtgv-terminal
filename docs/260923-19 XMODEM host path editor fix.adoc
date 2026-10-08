@@ -1,4 +1,5 @@
 = XMODEM host path editor: shared Send and Receive fix
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Cause

@@ -1,7 +1,8 @@
 = Manual reorganization: Petr's practical usage outline
+:leveloffset: +2
 :source-highlighter: highlight.js
 :toc:
-:toclevels: 2
+:toclevels: 4
 
 *Original notes:* 261004. *AsciiDoc conversion and relocation:* 261007.
 

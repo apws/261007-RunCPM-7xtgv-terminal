@@ -1,4 +1,5 @@
 = Separate target rebuild and reflash commands
+:leveloffset: +2
 :source-highlighter: rouge
 
 == Layout and behavior

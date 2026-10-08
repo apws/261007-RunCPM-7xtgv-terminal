@@ -1,0 +1,129 @@
+= Repository rename and two-line guide titles
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Repository identity
+
+At the maintainer's explicit request, renamed the existing GitHub repository
+from `apws/260906-7xtgv` to `apws/261007-RunCPM-7xtgv-terminal`.
+
+* Verified before/after repository ID: `R_kgDOUQdxVA`.
+* Private visibility and default branch `main` are unchanged.
+* Verified remote `main` still points to
+  `581f32d6042d8437cb1a3899821cad2e2217456d` after the rename.
+* No history rewrite, fresh repository creation, commit or push.
+* Updated this checkout's `origin` to the new HTTPS URL. The local directory
+  remains `/home/falken/_/drv/v/260906-7xtgv`; existing build locations and
+  running sessions were not moved or restarted.
+* Updated the Build Guide's clone URL/default destination, `fresh-build.sh`
+  default clone source and third-party notice's issue-tracker URL.
+  Original historical documents and the verbatim licensing request retain
+  their then-current repository name.
+
+Other existing checkouts can keep their directory names. To update their remote:
+
+[source,sh]
+----
+git remote set-url origin https://github.com/apws/261007-RunCPM-7xtgv-terminal.git
+----
+
+== Two-line guide title test
+
+A plain source newline after the document title becomes an author line, not
+the requested second title line. A normal colon-separated subtitle remains
+on one line in HTML. The tested form is:
+
+[source,asciidoc]
+----
+= RunCPM 7xtgv-terminal pass:[<br>] Build Guide
+----
+
+This produces one HTML `h1` with an explicit break, and a plain one-line
+browser-tab title. No CSS modification or second level-zero heading is needed.
+Applied to all eight tracked public documents under `guides/`: the five main
+guides, index, Features Timeline Guide and AsciiDoc Writing Guide. Private
+MIXWORX notes and sample headings inside the writing guide were not rewritten.
+
+Validation: rendered the isolated sample and visually inspected it in headless
+Chromium; rendered all eight titles in Asciidoctor's secure mode, checking the
+break, plain tab title and absence of an accidental author. Actual GitHub and
+Asciidoctor.js-extension presentation remains a user-facing check; the unchanged
+writing-guide body still has its previously recorded example/include issues.
+
+== Current-state prose
+
+Removed visible guide dates later than 261007 and rewrote affected Build Guide
+and licensing/card-inventory sentences as current-state descriptions. Dated
+document paths remain in links, with undated descriptive labels. Historical
+chronology belongs in the Features Timeline and dated records, not repeated
+recent-change announcements in everyday instructions. No license scope changed.
+
+All eight rendered guide bodies passed the later-date check. The focused
+offline workflow suite passed all 23 tests after the fresh-build URL change;
+shell syntax, local links/anchors and diff whitespace checks also passed.
+No real installer, firmware build/upload or working-card write was performed.
+
+This is a follow-on to the
+link:261008-1149%20DONE%20Manual%20review%20first%20steps%20and%20build%20workflow.adoc[first manual-review pass].
+The remaining full key/command/INI audit and physical acceptance are still
+pending; the title cleanup does not complete them. Local documentation edits
+remain uncommitted alongside the preserved unrelated working-tree changes.
+
+== Browser-extension correction after the first title test
+
+The user's Chromium screenshot showed literal `<br>` in the title. Reproduced
+with the converter bundled in installed Asciidoctor.js Live Preview 4.1.0:
+the inline passthrough title is escaped there, unlike the earlier Ruby renderer
+test. The first test did not establish extension compatibility.
+
+Replaced the eight public guide titles with standard colon-separated titles:
+
+[source,asciidoc]
+----
+= RunCPM 7xtgv-terminal: Build Guide
+----
+
+The existing root `asciidoctorjs-crx-mixworx.js` helper now splits only the
+displayed project-title prefix into text / real DOM line break / guide name.
+It runs after rendering, before the existing fragment-scroll restoration.
+It uses text nodes, not HTML parsing, leaves the browser-tab title unchanged,
+and is safe to run repeatedly. CSS is unchanged. GitHub receives the normal
+colon-separated title and does not depend on this local helper.
+
+Re-select the updated JS file in extension Options > JavaScript, with execution
+set to "after the document has been rendered", then refresh the guide. The
+extension stores uploaded script content rather than continuously reading the file.
+
+Checks: all eight title headers passed through the installed extension's actual
+converter. Chromium tests with the project CSS passed nine DOM/layout assertions:
+two-line header, exact text, visibly separated lines, repeated execution, unchanged
+tab title, post-layout anchor restoration, unrelated title preservation,
+non-AsciiDoc exclusion and bare-content-title fallback. Screenshot inspected.
+The test supplies an AsciiDoc pathname to the helper around real converter output;
+it does not alter the user's browser configuration. Local link/anchor and JS syntax
+checks pass. GitHub's live rendering has not been visually tested in this pass.
+
+== Subsequent stylesheet and heading-density acceptance
+
+* Public guides use `:leveloffset: +1`, except the writing cheatsheet. Local
+  private guide notes received the same presentation setting and remain private.
+* All 224 local AsciiDoc files under `docs/` use `:leveloffset: +2`.
+  The 28 documents with TOCs use `:toclevels: 4`; conversion checks confirmed
+  nonempty TOCs. No historical prose or quoted examples were rewritten.
+* Heading font sizes no longer grow at wider screen breakpoints. Print scaling
+  still scales the entire document; the deliberate h2/h3 page breaks remain.
+* All content heading levels are bold. Removed the old negative horizontal
+  offset from title/heading bars so their edges align with full-width tables.
+* Images now have a 100% maximum width rather than 70%; natural-size images
+  are not forcibly enlarged. The `mx-fullwidth` role still opts into stretching.
+* Added print keep-together/keep-with-next rules for headings. A scaled Chromium
+  print background-fragment quirk was reported; the exact cause and elimination
+  at every scale were not established. Printed bold headings were visually checked.
+* The user confirmed extension operation in Edge on Linux as well as Chromium.
+  User-generated PDF trials remain local/private, not publication artifacts.
+
+The existing `mx-compact`, `mx-dense`, `small`, `big`, alignment and
+`mx-keep-together` roles remain available. Deferred CSS review findings include
+heading self-link colours and harmless old compatibility/duplicate rules;
+no general redesign was undertaken. This formatting pass does not complete
+the remaining guide content review or fresh-machine/hardware qualification.

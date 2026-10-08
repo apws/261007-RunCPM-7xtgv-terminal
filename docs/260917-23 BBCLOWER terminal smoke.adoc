@@ -1,5 +1,6 @@
 [id="bbclower-terminal-smoke--260917"]
 = BBCLOWER terminal smoke — 260917
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 This was a short live test on the ES3++_++5 device and its Konsole mirror after the legacy ANSI/VT52 work. No firmware, A1 files, or `+.TOK+` data changed. The test started at `+A0>+` and ended at `+A0>+` with reserved profile ++#++9 selected.

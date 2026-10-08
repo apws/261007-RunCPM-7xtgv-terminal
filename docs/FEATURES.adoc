@@ -1,4 +1,5 @@
 = 7xtgv feature ledger
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Latest scoped review: 260924 23h against `+1be7630+` plus the working tree.
@@ -334,17 +335,19 @@ the link:260913-01%20recent%20terminal%20and%20CP-M%20handoff.adoc[260913 handof
 link:260914-12%20terminal%20maintenance%20and%20JC8048W550%20handoff.adoc[260914 target handoff],
 dated smoke reports and validation notes are evidence for the implementation
 rows above.
-* link:code%20changes%20monitoring%20-%20howto/code%20changes%20monitoring%20-%20howto.txt[Code-change monitoring how-to],
-link:260911-22%20%21%21%21%20PERF%20COST%20%21%21%21%207xtgv-codex-model-assignment-cheatsheet.adoc[model-assignment guidance],
+* link:260911-22%20%21%21%21%20PERF%20COST%20%21%21%21%207xtgv-codex-model-assignment-cheatsheet.adoc[Historical model-assignment guidance]
 and the link:260922-11%20host%20SAK%20NTFS%20recovery%20and%20Codex%20CWD%20incident%20report.adoc[host incident report]
-are development-process references.
+are development-process references. The code-change monitoring how-to was
+moved to private material and is not a public-checkout dependency.
 * Recovery dumps, screenshots and PDFs remain immutable supporting artifacts;
 the corresponding AsciiDoc record is the searchable source of status.
 
-Historical compatibility sources are retained even when a later review
-supersedes decisions: link:260916_7xtgv_terminal_legacy_compatibility.adoc[the original 260916 note]
-and link:260917%207xtgv%20terminal%20I/O%20profiles%20%20ANSI%2BVT100%2C%20VT52%2C%20ADM-3A%20and%20WordStar%20input.adoc[its later expanded copy]
-lead to the signed 260917 review rather than directly authorizing code.
+The retained link:260916_7xtgv_terminal_legacy_compatibility.adoc[original 260916 compatibility note]
+is historical input, not current implementation authority. Use the
+link:260917-10%20terminal%20legacy%20compatibility%20implementation%20review.adoc[signed 260917 review]
+and link:260917-18%20terminal%20legacy%20compatibility%20implementation%20checkpoint.adoc[implementation checkpoint]
+for the subsequent decisions and evidence; the formerly linked expanded
+I/O-profiles copy is not present in this checkout.
 
 Private MIXWORX FAND logs, recovered raw font/mapping dumps, module-vendor text
 files, screenshots and generated PDFs are intentionally not made normative

@@ -1,4 +1,5 @@
 = Launcher error summaries and adjacent logs
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Petr's actual C6 run built 261004-1925 successfully, then the identity check

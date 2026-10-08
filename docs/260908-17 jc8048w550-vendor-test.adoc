@@ -1,5 +1,6 @@
 [id="jc8048w550-vendor-baseline--2026-09-08"]
 = JC8048W550 vendor baseline — 2026-09-08
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 * Entire supplied ZIP extracted untouched to `+/tmp/jc8048-original+`; all vendor demos and libraries copied under `+build/jc8048-vendor-original/1-Demo+`.

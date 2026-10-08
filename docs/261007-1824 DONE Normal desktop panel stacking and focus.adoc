@@ -1,4 +1,5 @@
 = DONE: Normal desktop panel stacking and focus
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Petr requested ordinary window switching after the always-on-top,

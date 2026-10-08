@@ -1,4 +1,5 @@
 = HAL challenge: readable, complete board definitions
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Date:* 261001 +

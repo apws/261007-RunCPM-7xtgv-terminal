@@ -99,7 +99,7 @@ This catalog preference *does not remove* RunCPM's `INFO.TXT` convention.
 The supplied `A7:CINF.BAS` asks for one line of text and creates/replaces
 `INFO.TXT` in the current drive/user area; empty input cancels. It does not
 load an existing description for editing and does not maintain `.7XF` files.
-See the link:../docs/260912-23%207xtgv%20terminal%20manual/reference-guide.adoc[Reference Guide]
+See the link:../guides/reference-guide.adoc[Reference Guide]
 for exact catalog layout and command syntax.
 
 == Working configuration and text files

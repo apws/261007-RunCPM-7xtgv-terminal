@@ -1,5 +1,6 @@
 [id="esp32-s3-runcpm-and-terminal-integration"]
 = ESP32-S3 RunCPM and terminal integration
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 The JC8048W535 profile uses two explicitly pinned application tasks:

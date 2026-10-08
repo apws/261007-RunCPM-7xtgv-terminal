@@ -1,5 +1,6 @@
 [id="260921-00--fand-10-on-sharp-mz-821-likely-lamač--lec-cpm-console-lineage"]
 = 260921-00 — FAND 1.0 on SHARP MZ-821: likely Lamač / LEC CP/M console lineage
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Context

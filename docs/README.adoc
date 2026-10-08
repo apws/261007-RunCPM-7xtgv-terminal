@@ -1,4 +1,5 @@
 = Technical document navigation and naming
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 `docs/` contains chronological technical records; maintained manuals live in

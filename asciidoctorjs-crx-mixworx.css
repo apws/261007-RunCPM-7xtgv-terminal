@@ -152,7 +152,7 @@ body { background: #fefdfd; color: rgba(0, 0, 0, 0.8); padding: 0; margin: 0; fo
 
 a:hover { cursor: pointer; }
 
-img, object, embed { /*mixworx*/ max-width: 70%; /*mixworx*/ height: auto; }
+img, object, embed { /*mixworx*/ max-width: 100%; /*mixworx*/ height: auto; }
 /* Opt-in full content width for screenshots such as the repository introduction. */
 .imageblock.mx-fullwidth img { max-width: 100%; width: 100%; }
 
@@ -315,11 +315,8 @@ blockquote, blockquote p { line-height: 1.5; color: #999999; }
 
 
 
-@media only screen and (min-width: 768px) { h1, h2, h3, #toctitle, .sidebarblock > .content > .title, h4, h5, h6 { line-height: 1.25; }
-  h1 { font-size: 2.75em; }
-  h2 { font-size: 2.3125em; }
-  h3, #toctitle, .sidebarblock > .content > .title { font-size: 1.6875em; }
-  h4 { font-size: 1.4375em; } }
+/* Heading sizes stay the same on narrow/wide screens and in print.
+ * Browser zoom and print scaling still scale the whole document. */
 
 
 
@@ -432,7 +429,7 @@ p a > code:hover { color: #1a0f00; }
 
 
 
-@media only screen and (min-width: 768px) { #toctitle { font-size: 1.375em; }
+@media only screen and (min-width: 768px) {
   body.toc2 { padding-left: 15em; padding-right: 0; }
   #toc.toc2 { margin-top: 0 !important; background: #f2f2f4; position: fixed; width: 15em; left: 0; top: 0; border-right: 1px solid #dddddd; border-top-width: 0 !important; border-bottom-width: 0 !important; z-index: 1000; padding: 1.25em 1em; height: 100%; overflow: auto; }
   #toc.toc2 #toctitle { margin-top: 0; margin-bottom: 0.8rem; font-size: 1.2em; }
@@ -443,7 +440,6 @@ p a > code:hover { color: #1a0f00; }
   body.toc2.toc-right #toc.toc2 { border-right-width: 0; border-left: 1px solid #dddddd; left: auto; right: 0; } }
 @media only screen and (min-width: 1280px) { body.toc2 { padding-left: 20em; padding-right: 0; }
   #toc.toc2 { width: 20em; }
-  #toc.toc2 #toctitle { font-size: 1.375em; }
   #toc.toc2 > ul { font-size: 0.95em; }
   #toc.toc2 ul ul { padding-left: 1.25em; }
   body.toc2.toc-right { padding-left: 0; padding-right: 20em; } }
@@ -748,9 +744,9 @@ b.conum * { color: inherit !important; }
 
 .sect1 { padding-bottom: 0 !important; margin-bottom: 2.5em; }
 
-#header h1 { font-weight: bold; position: relative; left: -0.0625em; /*mixworx*/ color: white; /*mixworx*/ }
-#content h2, #content h3, #content #toctitle, #content .sidebarblock > .content > .title, #content h4, #content h5, #content #toctitle { position: relative; left: -0.0625em; }
-#content h2, #content h3 { font-weight: bold; }
+#header h1 { font-weight: bold; position: relative; /*mixworx*/ color: white; /*mixworx*/ }
+#content h2, #content h3, #content #toctitle, #content .sidebarblock > .content > .title, #content h4, #content h5, #content #toctitle { position: relative; }
+#content h2, #content h3, #content h4, #content h5, #content h6 { font-weight: bold; }
 
 .paragraph.lead > p, #preamble > .sectionbody > .paragraph:first-of-type p { color: black; }
 
@@ -831,6 +827,14 @@ table.tableblock.mx-dense { font-size: var(--mixworx-dense-size); }
     }
     p { page-break-inside: avoid; }
     div#content { margin-top: 0px; }
+    /* Keep the coloured heading box on one page, together with what follows.
+     * Otherwise a scaled page boundary may leave a thin background fragment. */
+    h1, h2, h3, h4, h5, h6 {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        break-after: avoid;
+        page-break-after: avoid;
+    }
     h2, h3 { margin-top: 0px; page-break-before: always; }
     /* Keep short blocks intact; Chrome may split a block taller than a page. */
     table.tableblock,

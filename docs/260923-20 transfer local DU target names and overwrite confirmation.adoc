@@ -1,4 +1,5 @@
 = Transfer dialog: local DU, separate target, and overwrite confirmation
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Correction after Petr's hardware test

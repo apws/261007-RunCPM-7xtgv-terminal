@@ -1,4 +1,5 @@
 = W535 backlight minimum calibration
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Petr reports W535's first lit level is too bright with the inherited 51/255 duty

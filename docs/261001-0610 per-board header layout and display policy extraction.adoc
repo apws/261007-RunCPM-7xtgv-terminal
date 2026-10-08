@@ -1,4 +1,5 @@
 = Per-board header layout and display policy extraction
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Date:* 261001 +

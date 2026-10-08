@@ -1,7 +1,8 @@
 = RunCPM core delta raw notes: our injections
+:leveloffset: +2
 :source-highlighter: highlight.js
 :toc:
-:toclevels: 2
+:toclevels: 4
 
 NOTE: Petr's historical inventory from 260930, reformatted on 261007.
 Original observations, questions, spellings and historical names are retained;

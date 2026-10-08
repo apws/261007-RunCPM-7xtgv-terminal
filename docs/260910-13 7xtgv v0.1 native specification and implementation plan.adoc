@@ -1,4 +1,5 @@
 = 7xtgv v0.1 native specification and implementation plan
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 We are formalizing the native `+7xtgv+` display architecture in repository `+apws/260906-7xtgv+`.

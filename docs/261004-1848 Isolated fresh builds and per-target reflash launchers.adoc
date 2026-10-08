@@ -1,6 +1,8 @@
 = Isolated fresh builds and per-target reflash launchers
+:leveloffset: +2
 :source-highlighter: highlight.js
 :toc:
+:toclevels: 4
 
 == Request and scope
 

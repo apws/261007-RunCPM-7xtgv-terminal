@@ -1,4 +1,5 @@
 = DONE: Optimization selectors and SDL backlight compensation
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Changes

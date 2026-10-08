@@ -1,4 +1,5 @@
 = Terminal persistence extraction and short module identity intent
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Date:* 261001 +

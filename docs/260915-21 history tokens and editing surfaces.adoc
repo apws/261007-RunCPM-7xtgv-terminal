@@ -1,5 +1,6 @@
 [id="history-tokens-and-editing-surfaces--260915"]
 = History tokens and editing surfaces — 260915
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 This note follows `+260915-19 BBC BASIC and app history handoff.adoc+`. Petr is entering BBC BASIC keywords/functions in profile ++#++5 on A1. The original 100-entry bank is circular, so the earliest `+abc+`-range entries have already been overwritten. A device snapshot can export only the currently retained entries, not those lost entries. Preserve their order, case and duplicates; do not claim the snapshot is a canonical BBC BASIC vocabulary.

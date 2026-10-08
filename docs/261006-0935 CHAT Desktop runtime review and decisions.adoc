@@ -1,7 +1,8 @@
 = CHAT: Desktop runtime review and decisions
+:leveloffset: +2
 :source-highlighter: highlight.js
 :toc:
-:toclevels: 2
+:toclevels: 4
 :prewrap:
 
 == Scope and reading order

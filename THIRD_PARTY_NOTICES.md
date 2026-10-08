@@ -59,7 +59,7 @@ not apply to them.
 
 If you hold rights to included material and believe its inclusion or attribution
 is inappropriate, please contact the maintainer through the repository's
-[issue tracker](https://github.com/apws/260906-7xtgv/issues). We will review the
+[issue tracker](https://github.com/apws/261007-RunCPM-7xtgv-terminal/issues). We will review the
 concern promptly and correct attribution or remove the material as appropriate.
 
 ### Current inventory

@@ -1,3 +1,5 @@
+:leveloffset: +2
+
 == VTPAL INI sections
 :source-highlighter: highlight.js
 

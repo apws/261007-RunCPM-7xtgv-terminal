@@ -1,5 +1,6 @@
 [id="7xtgv-signed-zoom-in-implementation-plan"]
 = 7xtgv signed zoom-in implementation plan
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Status:* signed plan; Phase A{plus}B implementation in progress +

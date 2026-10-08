@@ -1,4 +1,5 @@
 = CRT boot ramp and per-module backlight tables
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Approval and baseline

@@ -1,4 +1,5 @@
 = Entire manuals current-state review
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Scope and current checkpoint
@@ -10,11 +11,43 @@ This is the review checklist, not a claim that the full review is complete.
 * The repository README already presents setup and the six target shortcuts first.
 * The manual named "Clone, Build and Flash Guide" is now *Build Guide* in its
   title and link labels. Its filename remains `guides/build-guide.adoc`.
-* The full content review below is pending. No build, flash, card modification
-  or prerequisite installation is part of this documentation checkpoint.
+* The full content review below is in progress. No build, flash, working-card
+  modification or prerequisite installation is part of this documentation review.
 * On 261008 the Technical Reference Guide filename/title was standardized and
   `guides/history-guide.adoc` was added as a draft for Petr's writing. These
   navigation changes do not complete the manual review or hardware retesting.
+
+=== 261008 first review checkpoint
+
+See link:261008-1149%20DONE%20Manual%20review%20first%20steps%20and%20build%20workflow.adoc[completed first pass and evidence].
+
+* Build Guide reorganized and checked against current setup/launcher sources:
+  clone, setup, all six target folders/shortcuts and desktop launch now lead.
+  Card ownership, hardware safeguards, logs, defaults and qualification gaps follow.
+* User Guide launch/INI-ownership sections now distinguish desktop and hardware.
+  Its complete key/command/recipe audit is still pending.
+* Guide index and README entry details aligned; stale card-guide link repaired.
+  Folder names retain literal double hyphens when rendered/copied.
+* Corrected two Reference Guide statements implying the removed W535 SD_MMC
+  route was still available. Other reference tables are not yet fully re-audited.
+* Resolved the two missing feature-ledger links mentioned below without restoring
+  private material; generated feature tables and statuses are unchanged.
+* A broader render check exposed existing problems in the AsciiDoc writing
+  cheatsheet: example headings/includes are interpreted as document content,
+  including unresolved example includes. Give this guide its own cleanup pass.
+* The repository is now named `apws/261007-RunCPM-7xtgv-terminal`, retaining
+  history and private visibility. Public guide titles share the tested two-line
+  project/guide format. See
+  link:261008-1243%20DONE%20Repository%20rename%20and%20two-line%20guide%20titles.adoc[rename and title checkpoint].
+* Maintained guide prose should describe the current state, not accumulate
+  recent dated implementation announcements. Dates later than 261007 have
+  been removed from visible guide prose; dated evidence filenames remain valid
+  link targets. Keep chronology in dated records and the Features Timeline.
+
+Next: full User Guide recipes and keyboard mappings, then Reference Guide INI
+defaults/settings and Technical Reference Guide implementation boundaries.
+Features Timeline content reconciliation and fresh-machine/hardware acceptance
+remain separate unfinished work. Link-check success is not a content audit.
 
 == Evidence and review order
 

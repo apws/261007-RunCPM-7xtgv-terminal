@@ -1,5 +1,6 @@
 [id="7xtgv-codex-model--effort-assignment-cheatsheet"]
 = 7xtgv Codex Model / Effort Assignment Cheatsheet
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Goal

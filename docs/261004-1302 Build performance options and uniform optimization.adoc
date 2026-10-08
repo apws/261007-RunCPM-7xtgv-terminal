@@ -1,6 +1,8 @@
 = Build performance options and uniform optimization
+:leveloffset: +2
 :source-highlighter: highlight.js
 :toc:
+:toclevels: 4
 
 == Scope and decision
 

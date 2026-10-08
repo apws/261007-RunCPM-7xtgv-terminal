@@ -1,5 +1,6 @@
 [id="7xtgv-terminal-io-profiles-ansivt100-vt52-adm-3a-and-wordstar-input"]
 = 7xtgv terminal I/O profiles: ANSI/VT100, VT52, ADM-3A and WordStar input
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Date:* 2026-09-16/17 +

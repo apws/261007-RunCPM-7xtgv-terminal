@@ -1,5 +1,6 @@
 [id="display-platform-and-cpu-comparison"]
 = Display platform and CPU comparison
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 The four tested targets do not share one processor family. The display controller and the CPU that runs Arduino code are separate concerns: the display demos use the same 7xtgv software idea, but their board support and RunCPM porting requirements differ.

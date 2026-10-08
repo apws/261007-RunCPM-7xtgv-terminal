@@ -1,5 +1,6 @@
 [id="es3_5-legacy-terminal-device-smoke-and-dir-fix"]
 = ES3++_++5 legacy terminal device smoke and DIR fix
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Date: 260917. Scope: short tests on the attached 5-inch ESP32-S3 device and its Konsole mirror, after staging the legacy-compatibility firmware. The expanded `+A0:7XTGVTRM.INI+` was uploaded with full read-back verification; its active settings remained identical to the device copy, while omitted per-bank defaults were added only as whole-line comments.

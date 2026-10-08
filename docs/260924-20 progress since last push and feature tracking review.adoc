@@ -1,4 +1,5 @@
 = Progress since last push and feature tracking review
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Baseline and scope

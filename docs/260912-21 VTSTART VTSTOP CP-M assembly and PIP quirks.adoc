@@ -1,5 +1,6 @@
 [id="vtstart--vtstop-cpm-assembly-and-pip-quirks"]
 = VTSTART / VTSTOP: CP/M assembly and PIP quirks
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Situation

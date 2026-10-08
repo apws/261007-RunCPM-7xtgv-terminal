@@ -1,4 +1,5 @@
 = BASIC ASCII sources and ink test labels
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Decision and scope

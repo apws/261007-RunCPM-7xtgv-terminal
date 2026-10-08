@@ -1,7 +1,8 @@
 = Arduino-compatible SDL desktop emulator: analysis and implementation plan
+:leveloffset: +2
 :source-highlighter: highlight.js
 :toc:
-:toclevels: 2
+:toclevels: 4
 
 == Decision and scope
 

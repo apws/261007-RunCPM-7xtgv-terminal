@@ -1,4 +1,5 @@
 = Compact boot banner and terminal identity
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Requested presentation

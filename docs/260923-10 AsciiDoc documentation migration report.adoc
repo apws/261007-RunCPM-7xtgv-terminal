@@ -1,4 +1,5 @@
 = AsciiDoc documentation migration report
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Result

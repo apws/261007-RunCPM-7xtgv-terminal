@@ -1,4 +1,5 @@
 = GCLS pending cursor-line cleanup
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Report and cause

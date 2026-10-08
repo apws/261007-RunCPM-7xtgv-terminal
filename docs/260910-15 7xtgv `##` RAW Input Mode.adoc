@@ -1,5 +1,6 @@
 [id="add--rawbypass-mode"]
 = Add `+##+` RAW/bypass mode
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Implementation status (2026-09-10): implemented in the terminal runtime and host transfer helper; host/unit tests and RP2350/ESP32-S3 builds pass. The ESP32-S3 target was flashed and verified with the mirrored TFT path: toggle-in showed `+[## RAW / #9]+`, RAW `+DIR+` executed, explicit off restored `+#9+`, and Up did not recall the RAW command. Physical keyboard chords and comparative `+vtput/vtget+` timing remain to be checked.

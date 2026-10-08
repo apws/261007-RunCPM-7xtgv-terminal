@@ -1,4 +1,5 @@
 = RP2_2 readable HAL build and BOOTSEL check
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Date:* 261001 +

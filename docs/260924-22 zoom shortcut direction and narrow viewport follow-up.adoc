@@ -1,4 +1,5 @@
 = Zoom shortcut direction and narrow viewport follow-up
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Implemented host-only shortcut change

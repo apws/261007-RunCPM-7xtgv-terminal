@@ -1,5 +1,6 @@
 [id="260918-23-tp301-input-profiles-and-ansi-attribute-marker-notes"]
 = 260918-23 TP301 input profiles and ANSI attribute marker notes
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 ____

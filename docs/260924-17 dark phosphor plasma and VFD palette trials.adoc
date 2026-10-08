@@ -1,4 +1,5 @@
 = Dark phosphor, plasma and VFD palette trials
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Petr requested three copies of the current amber palette 2, followed by a

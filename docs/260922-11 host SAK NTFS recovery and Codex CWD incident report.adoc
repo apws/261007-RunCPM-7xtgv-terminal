@@ -1,5 +1,6 @@
 [id="host-sak-ntfs-recovery-and-codex-cwd-incident-report"]
 = Host SAK, NTFS recovery and Codex CWD incident report
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Recorded 260922 by Petr and Ari after the host and project were recovered. This report preserves the evidence relevant to 7xtgv development without treating the host incident as a terminal-firmware defect.

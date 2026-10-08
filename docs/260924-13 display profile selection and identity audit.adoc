@@ -1,4 +1,5 @@
 = Display-profile selection, persistence and target identity audit
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Scope and decision

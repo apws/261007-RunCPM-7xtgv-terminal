@@ -1,4 +1,5 @@
 = Transient view zoom, viewport navigation and guest display controls plan
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Status:* implemented and host-tested; firmware/device acceptance pending +

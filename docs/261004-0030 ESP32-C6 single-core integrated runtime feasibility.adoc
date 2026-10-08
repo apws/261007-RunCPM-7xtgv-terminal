@@ -1,6 +1,8 @@
 = ESP32-C6 single-core integrated runtime feasibility
+:leveloffset: +2
 :source-highlighter: highlight.js
 :toc:
+:toclevels: 4
 
 == Conclusion and scope
 

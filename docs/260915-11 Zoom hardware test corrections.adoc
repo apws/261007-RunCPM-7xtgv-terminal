@@ -1,5 +1,6 @@
 [id="zoom-hardware-test-corrections"]
 = Zoom hardware-test corrections
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 This note records the 5-inch ES3++_++5 test feedback after the signed plan in `+260915-01 7xtgv signed zoom-in implementation plan.adoc+`. The earlier plan remains the design history.

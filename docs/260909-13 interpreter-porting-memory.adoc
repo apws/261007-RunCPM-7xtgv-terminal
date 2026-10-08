@@ -1,5 +1,6 @@
 [id="interpreter-porting-and-internal-sram-policy"]
 = Interpreter porting and internal-SRAM policy
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 This note records the memory-placement model for RunCPM and for a future VMEX port to ESP32-S3 and other Espressif MCUs. RunCPM is a useful prototype because its Z80 interpreter, native operating-system services, guest memory and terminal form the same broad classes of workload expected in VMEX.

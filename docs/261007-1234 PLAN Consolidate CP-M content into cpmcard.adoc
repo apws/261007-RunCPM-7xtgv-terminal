@@ -1,6 +1,8 @@
 = PLAN: Consolidate CP/M content into cpmcard
+:leveloffset: +2
 :source-highlighter: highlight.js
 :toc:
+:toclevels: 4
 
 261007 follow-up: the local cutover is now recorded in
 link:261007-1618%20DONE%20Canonical%20cpmcard%20and%20DU-only%20tooling%20cutover.adoc[the DONE checkpoint].

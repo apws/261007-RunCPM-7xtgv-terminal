@@ -5,7 +5,7 @@ set -euo pipefail
 xtgv_tools=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 xtgv_repo=$(cd -- "$xtgv_tools/../../.." && pwd)
 xtgv_target=esp32c6-lcd-1-47
-xtgv_source=https://github.com/apws/260906-7xtgv.git
+xtgv_source=https://github.com/apws/261007-RunCPM-7xtgv-terminal.git
 xtgv_ref=
 xtgv_snapshot=0
 xtgv_cli_version=1.5.0

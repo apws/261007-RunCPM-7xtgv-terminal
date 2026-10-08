@@ -1,5 +1,6 @@
 [id="turbo-pascal-301-keyboard-and-terminal-installation-reference"]
 = Turbo Pascal 3.01 keyboard and terminal installation reference
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 This is the first reference for the installed CP/M-80 Turbo Pascal 3.01 package in `+cpmdrive/A2 - Turbo Pascal+`. It is derived from its own `+TINST.MSG+`, so it describes the command slots that *this exact installer* can define. It is not yet a record of the definition installed on the device; that needs a careful interactive `+TINST+` session after MBASIC is retested.

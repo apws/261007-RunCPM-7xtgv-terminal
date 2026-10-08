@@ -1,5 +1,6 @@
 [id="jc8012p4a1c-runcpm-port-notes"]
 = JC8012P4A1C RunCPM port notes
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 The 10.1-inch JC8012P4A1C is an ESP32-P4 target, while the working terminal and RunCPM build currently targets RP2350. First validate the panel with the small standalone Arduino display test.

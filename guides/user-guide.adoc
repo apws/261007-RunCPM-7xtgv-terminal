@@ -1,10 +1,12 @@
-= 7xtgv terminal User Guide
+= RunCPM 7xtgv-terminal: User Guide
+:leveloffset: +1
 :source-highlighter: highlight.js
 :toc:
 :toclevels: 2
 
-This is the everyday path for the current RunCPM terminal. The TFT shows a
-viewport of the logical CP/M screen; the PC mirror shows that complete screen.
+This is the everyday path for the current RunCPM terminal, on hardware or
+the Linux desktop emulator. The TFT or SDL window shows a viewport of the
+logical CP/M screen; the PC mirror shows that complete screen and takes input.
 The selected CP/M drive/user area is where device commands read and write.
 The VTPUT/VTGET panel's *DU* instead chooses a folder in the host
 `++cpmcard++` working card. Zoom changes cell size, while pan changes which part of
@@ -13,40 +15,61 @@ For when these behaviors and commands were added, see the
 link:features_timeline.adoc[Features Timeline].
 
 [[starting-the-pc-mirror]]
-== Start the PC mirror
+== Start a desktop or hardware session
 
 For a fresh checkout or machine, first read the
 link:build-guide.adoc[Build Guide].
 
-Connect the intended module and check `++XTGV_TARGET++` in
-`++src/RunCPM_7xtgv-terminal/tools/terminal.conf++` before using the mirror or
-requesting a flash. This is a host selection, not automatic device detection.
-From the repository root, launch one of:
+Open your board's folder under
+`src/RunCPM_7xtgv-terminal/tools/targets/`. For example, from the repository root:
 
 [source,sh]
 ----
-./src/RunCPM_7xtgv-terminal/tools/kon.sh
-./src/RunCPM_7xtgv-terminal/tools/kit.sh
+cd "src/RunCPM_7xtgv-terminal/tools/targets/EP4_10 -- jc8012p4a1c"
 ----
 
-Both attach to the shared `++7xtgv-cpm++` tmux session. Let it own USB serial;
-do not also open a second serial terminal. Wait for the CP/M prompt. A brief
-mirror redraw after USB reconnect is normal. `++Ctrl+] q++` exits the host
-bridge. The exact host variables and port precedence are in the
-link:reference-guide.adoc[Reference Guide].
+[cols="1,3",options="header"]
+|===
+|Use |Launch from the board folder
+|Desktop, local card |`./desktop-local.sh` uses the last desktop build and repository `cpmcard/`.
+|Desktop, mounted card |`./desktop-card.sh` asks for the mounted filesystem root containing `A/0`, or takes `--card-root PATH`.
+|Physical board |Connect the matching module and run `./mirror.sh`; this does not build or flash it.
+|===
+
+* Build the desktop first with `./desktop-rebuild.sh` if no executable exists
+  or source has changed. Hardware rebuild/reflash are separate commands.
+* In Double Commander, use Shift+Enter to launch with a terminal; in Midnight
+  Commander, execute normally. The shortcut already selects its board.
+* On desktop, *type into the mirror*, not the output-only SDL window.
+  Close either owning window, or use guest `EXIT`, to stop the emulator.
+* Both desktop card modes are read/write, including INI/history autosaves.
+  Do not run two writers on one card, and close before unmounting it.
+* Hardware uses the shared `7xtgv-cpm` session; desktop uses its own isolated
+  session. Never open a second serial reader alongside the hardware mirror.
+* `Ctrl+]`, then `q`, exits the host bridge. With a desktop owning mirror,
+  ending the session also stops its emulator; hardware CP/M keeps running.
+
+Wait for the CP/M prompt. A brief mirror redraw after USB reconnect is normal.
+Automatic mirror selection prefers Konsole, then Kitty, then the current
+terminal; `--mirror terminal` selects the latter explicitly.
+The older direct `kon.sh`/`kit.sh` entry points still use host target/port
+configuration; details are in the link:reference-guide.adoc[Reference Guide].
 
 == First contact: power, boot and configuration
 
 * Power the module from a suitable supply; large panels can overload a USB hub.
 * A successful boot reaches `A0>` or a configured 7XF named prompt.
 * `Build` identifies the firmware; `Module` identifies the panel and view.
-* `Storage` shows the requested Arduino SPI clock, not a measured clock.
+* Hardware `Storage` shows the requested Arduino SPI clock, not a measured clock.
+  Desktop instead reports its host-filesystem adapter and `Backend: desktop`.
 * C6 additionally reports internal heap; two FreeRTOS tasks share one CPU.
 * A red diagnostic or `CPU halted` is not a normal successful startup.
 
 `A0:7XTGVTRM.INI` holds global settings, display settings and ten application
 profiles. `A0:7XTGVTRM.BUF` holds their histories; do not edit BUF as text.
 The card can move between modules: each display has its own INI section.
+On desktop, these are the files inside the selected card root. It uses the
+same display ID as the emulated board, not a separate SDL configuration section.
 
 == Profiles, history and application controls
 
@@ -162,6 +185,8 @@ Palette selection is saved lazily; `SYNC` requests pending persistence.
 Backlight affects the panel, not PC mirror colors. The last non-off level
 persists. EC6_147 is capped at 50% duty following vendor thermal advice;
 the same level number need not mean equal brightness on different panels.
+SDL simulates this control with a shared brightness compensation; it is not
+a measurement or exact reproduction of the physical panel's light output.
 
 == Terminal modes and demonstration recipes
 
@@ -213,10 +238,10 @@ The direct plot is on the panel, not a pixel image in the PC mirror.
 |VTDRV |Read/verify its existing 32 KiB test fixture.
 |VTDRV W |Create/write the fixture, then read/verify; writes the current DU.
 |VTDRV W Q |Quiet timed write/read passes; matching firmware required.
-|CARDMARK 4096 40 CSD |Native raw reads and decoded card registers; no test-file writes.
+|CARDMARK 4096 40 CSD |Hardware-only raw reads and decoded card registers; no test-file writes. Unsupported on desktop.
 |SYNC |Request pending history/config saves.
-|REBOOT |Restart the complete module, not merely CP/M warm boot.
-|REFLASH |Request the configured host uploader; cannot build firmware itself.
+|REBOOT |Restart the complete module, or desktop process/mirror; not merely CP/M warm boot.
+|REFLASH |Hardware: request the configured host uploader; cannot build firmware itself. Desktop cannot invoke it.
 |===
 
 CARDMARK clocks are requests, not measured SCK. Read agreement is not write
@@ -240,9 +265,17 @@ character-set conversion occurs. Use an 80-column *logical* terminal; a
 narrow physical viewport over 80 logical columns is fine. If a helper stalls
 or a transfer fails while it is still running, reset/reach a clean CCP prompt
 before retrying. Exact options and failure behavior are in
-link:reference-guide.adoc#vtput--vtget-from-the-mirror[the transfer reference].
+link:reference-guide.adoc#vtput\--vtget-from-the-mirror[the transfer reference].
 
-== Edit the device INI safely
+== Edit the selected card's INI safely
+
+For a *desktop local card*, close the emulator first, back up and edit
+`cpmcard/A/0/7XTGVTRM.INI` (or that file under your selected card root), then
+relaunch. Do not fetch from an unrelated physical board over your local settings.
+The same rule applies to a mounted card being used directly by desktop.
+
+For a *physical module*, use its live card file, not an assumed matching
+repository copy. The fetch/edit/send workflow below applies to this case.
 
 You can also edit the file directly from CP/M using the configured Turbo
 Pascal editor: choose the TURBO profile, open `A0:7XTGVTRM.INI`, save,
@@ -276,9 +309,11 @@ in link:reference-guide.adoc#configuration-reference[the INI reference].
 
 == When something looks wrong
 
-* No mirror or wrong board: recheck `++XTGV_TARGET++`, serial port and cable;
+* No hardware mirror or wrong board: recheck the selected target folder, serial port and cable;
   stop a stale shared session before relaunching. Changing the host target
   does not identify the attached hardware automatically.
+* SDL receives focus but not typing: select the mirror. Always-on-top does
+  not prevent the SDL window from taking focus through a click or Alt+Tab.
 * RP2350 firmware recovery: enter BOOTSEL manually for a requested flash.
   Do not copy another target's UF2. Flashing is a separate operation from
   CP/M file transfer.

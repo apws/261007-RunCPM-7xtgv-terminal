@@ -1,4 +1,5 @@
 = Explicit RunCPM and terminal build modes checkpoint
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Date:* 261001 +

@@ -1,4 +1,5 @@
 = Corrected boot Z80 clock estimate
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Requested restoration

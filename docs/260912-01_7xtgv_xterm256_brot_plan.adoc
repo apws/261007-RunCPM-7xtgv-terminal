@@ -1,5 +1,6 @@
 [id="7xtgv-minimal-xterm-256--cpm-mandelbrot-compatibility-plan"]
 = 7xtgv minimal xterm-256 / CP/M Mandelbrot compatibility plan
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Date: 2026-09-11

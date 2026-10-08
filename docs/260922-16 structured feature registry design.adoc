@@ -1,5 +1,6 @@
 [id="structured-feature-registry-design"]
 = Structured feature registry design
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Status: signed and implemented on 260922. The canonical ASCII TSV contains 116 migrated feature records; its validator, selectable reports and generated Markdown ledger passed host tests. Miller 6.21 TSV and custom-pipe proofs also passed locally.

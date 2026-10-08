@@ -1,4 +1,5 @@
 = Preserve Arduino build flags and recover W535 USB
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Petr approved fixing the build tooling, rebuilding W535 and reflashing it after

@@ -1,5 +1,6 @@
 [id="260918-13--terminal-profiles-dec-graphics-and-native-7xtgv-design-notes"]
 = 260918-13 — Terminal profiles, DEC graphics, and native 7xtgv design notes
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 These notes collect conclusions from the 2026-09-18 design discussion around the current RunCPM/terminal profiles, historical terminal behavior, DEC Special Graphics, and how those ideas should relate to the already-defined native 7xtgv architecture.

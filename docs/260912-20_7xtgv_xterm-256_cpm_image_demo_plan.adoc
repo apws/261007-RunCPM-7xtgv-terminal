@@ -1,5 +1,6 @@
 [id="7xtgv-xterm-256-cpm-image-demo-plan"]
 = 7xtgv xterm-256 CP/M Image Demo Plan
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Project:* 7xtgv terminal / RunCPM compatibility layer +

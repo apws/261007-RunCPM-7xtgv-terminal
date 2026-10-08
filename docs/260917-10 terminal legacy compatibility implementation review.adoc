@@ -1,5 +1,6 @@
 [id="terminal-legacy-compatibility-signed-implementation-plan"]
 = Terminal legacy compatibility: signed implementation plan
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Date:* 260917

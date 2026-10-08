@@ -1,4 +1,5 @@
 = CARDMARK output and running hint
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Petr requested a presentation-only update to the native CARDMARK backend:

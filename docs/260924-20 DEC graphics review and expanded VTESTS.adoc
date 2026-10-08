@@ -1,4 +1,5 @@
 = DEC graphics review and expanded VTESTS
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Decision and evidence boundary

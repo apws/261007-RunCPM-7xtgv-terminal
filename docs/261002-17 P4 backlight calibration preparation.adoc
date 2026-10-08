@@ -1,4 +1,5 @@
 = P4 backlight calibration preparation
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Device configuration and keyboard finding

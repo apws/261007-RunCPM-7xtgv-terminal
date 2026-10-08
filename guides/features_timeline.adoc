@@ -1,4 +1,5 @@
-= Features timeline
+= RunCPM 7xtgv-terminal: Features Timeline Guide
+:leveloffset: +1
 :source-highlighter: highlight.js
 :toc:
 :toclevels: 2

@@ -1,4 +1,5 @@
 = Target build optimization audit and single-core ESP terminal boundary
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Decision and scope

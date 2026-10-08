@@ -1,4 +1,5 @@
 = RP2_147 visual checks, backlight caution and delayed save stalls
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Hardware observations on 260925-1156

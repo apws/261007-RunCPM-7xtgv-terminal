@@ -1,6 +1,8 @@
 = ESP32-P4 memory, caches and PSRAM execution
+:leveloffset: +2
 :source-highlighter: highlight.js
 :toc:
+:toclevels: 4
 
 == Scope and sources
 

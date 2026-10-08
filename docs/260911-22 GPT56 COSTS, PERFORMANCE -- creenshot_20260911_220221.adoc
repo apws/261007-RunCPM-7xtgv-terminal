@@ -1,4 +1,5 @@
 = GPT56 COSTS, PERFORMANCE -- creenshot_20260911_220221
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Historical screenshot accompanying the model cost/performance discussion. Its contents describe the situation when captured.

@@ -1,4 +1,5 @@
 = Two-dimensional stepped viewport panning
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Decision

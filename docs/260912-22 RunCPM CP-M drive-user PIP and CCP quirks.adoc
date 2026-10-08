@@ -1,5 +1,6 @@
 [id="runcpm-cpm-driveuser-pip-and-internal-ccp-quirks"]
 = RunCPM CP/M drive/user, PIP, and internal-CCP quirks
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Purpose

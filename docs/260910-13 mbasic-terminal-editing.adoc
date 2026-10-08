@@ -1,5 +1,6 @@
 [id="mbasic-terminal-editing"]
 = MBASIC terminal editing
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 The MBASIC used on the CP/M card is Microsoft BASIC-80 Rev. 5.30. It reads console characters itself; it does *not* use RunCPM's BDOS buffered line editor. Consequently the useful `+#0 CP/M+` cursor mappings (`+^A+`, `+^F+`, `+^B+`, `+^W+`, and so on) do not apply to MBASIC.

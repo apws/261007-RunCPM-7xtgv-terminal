@@ -1,4 +1,5 @@
 = Original mixworx 7xtgv / TILED-GUI-VIDEO-256 concept
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Historical context

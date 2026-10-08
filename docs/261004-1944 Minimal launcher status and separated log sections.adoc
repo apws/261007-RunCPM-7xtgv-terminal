@@ -1,4 +1,5 @@
 = Minimal launcher status and separated log sections
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Petr's screenshot marks the desired normal output: Module; build start/OK;

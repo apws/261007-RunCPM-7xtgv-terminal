@@ -1,4 +1,5 @@
-= RunCPM 7xtgv-terminal History Guide
+= RunCPM 7xtgv-terminal: History Guide
+:leveloffset: +1
 :source-highlighter: highlight.js
 :toc:
 :toclevels: 2

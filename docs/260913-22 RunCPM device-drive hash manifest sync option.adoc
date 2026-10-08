@@ -1,5 +1,6 @@
 [id="runcpm-device-drive-hash-manifest-sync-option"]
 = RunCPM device-drive hash manifest sync option
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Status: design note only. Nothing described here is implemented or enabled.

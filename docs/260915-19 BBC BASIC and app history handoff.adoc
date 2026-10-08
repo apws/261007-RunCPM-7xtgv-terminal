@@ -1,5 +1,6 @@
 [id="bbc-basic-and-application-history-check--260915"]
 = BBC BASIC and application-history check — 260915
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 `+A1:BBCLOWER.COM+` was rebuilt from the untouched `+BBCBASIC.COM+`. The patch generator now handles the separate exact `+EDITLIST+` immediate-command table. The binary changed by eight bytes compared with the previous `+BBCLOWER.COM+`: `+EDITLIST+` became `+editlist+`. The A1 upload completed and Petr confirmed that lowercase `+edit 10+` works.

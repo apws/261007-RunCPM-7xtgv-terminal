@@ -1,5 +1,6 @@
 [id="7xtgv-smart-terminal-new-historyinput-additions-and-ddt-plan"]
 = 7xtgv smart-terminal: new history/input additions and DDT plan
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Date:* 2026-09-11 +

@@ -1,5 +1,6 @@
 [id="terminal-legacy-compatibility-implementation-checkpoint"]
 = Terminal legacy compatibility: implementation checkpoint
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Date:* 260917. This records implementation of the signed plan in `+docs/260917-10 terminal legacy compatibility implementation review.adoc+`. The source document is unchanged. This is a host-tested source checkpoint, not a claim of hardware or FAND acceptance.

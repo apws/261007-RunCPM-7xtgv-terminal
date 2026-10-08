@@ -1,4 +1,5 @@
 = RP2350 Enter confirmation before flash
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Petr reports RP2_147's target launcher built/staged 261004-1954, mounted chip

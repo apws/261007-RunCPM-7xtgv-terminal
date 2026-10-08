@@ -1,5 +1,6 @@
 [id="esp32-s3-headless-runcpm-validation"]
 = ESP32-S3 headless RunCPM validation
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Validated 2026-09-08 on the 3.5-inch JC8048W535 / JC3248W535EN module.

@@ -1,5 +1,6 @@
 [id="7xtgv-ansi-xterm-256-gcls-and-mandelbrot-plot-plan"]
 = 7xtgv ANSI xterm-256 GCLS and Mandelbrot plot plan
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Implementation revision (260916): GCLS now only arms plotting; it does not clear the TFT. Extended `+x,y+` coordinates are absolute physical panel pixels, independent of gutter, pan, and terminal zoom. The white-canvas steps below record the original plan, not the current implementation.

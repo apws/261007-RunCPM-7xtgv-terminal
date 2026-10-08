@@ -1,5 +1,6 @@
 [id="terminal-application-profiles"]
 = Terminal application profiles
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 ____

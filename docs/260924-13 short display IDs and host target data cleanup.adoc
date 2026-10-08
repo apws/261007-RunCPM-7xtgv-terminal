@@ -1,4 +1,5 @@
 = Short display IDs and shared host target data
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Naming roles and Petr's convention

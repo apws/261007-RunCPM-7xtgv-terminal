@@ -1,4 +1,5 @@
 = RunCPM VOL and a small CP/M area catalog
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Status:* built-in `LS` and `CD` implemented in source with host tests;

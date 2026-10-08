@@ -1,4 +1,5 @@
 = 7XTGV, RunCPM, z80pack/GEEK2350, and RomWBW Terminal Architecture
+:leveloffset: +2
 Petr / Lyra technical notes
 :toc:
 :toclevels: 4

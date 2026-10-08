@@ -1,4 +1,5 @@
 = DONE: Restore SDL always-on-top
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Petr preferred the earlier stacking behavior on CachyOS/KDE and requested

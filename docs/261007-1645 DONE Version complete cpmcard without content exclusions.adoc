@@ -1,4 +1,5 @@
 = DONE: version the complete cpmcard without content exclusions
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 == Petr's decision

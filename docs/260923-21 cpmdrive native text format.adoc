@@ -1,4 +1,5 @@
 = CP/M mirror native text format
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Petr requested content inspection and conversion of Linux-format text in

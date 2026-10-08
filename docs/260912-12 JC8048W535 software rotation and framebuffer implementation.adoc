@@ -1,5 +1,6 @@
 [id="jc8048w535-software-rotation-and-framebuffer-implementation"]
 = JC8048W535 software rotation and framebuffer implementation
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Date: 2026-09-12

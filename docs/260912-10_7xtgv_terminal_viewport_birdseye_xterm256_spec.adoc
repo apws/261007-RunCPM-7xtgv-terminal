@@ -1,5 +1,6 @@
 [id="7xtgv-terminal-viewport-birds-eye-zoom-out-taskbar-and-xterm-256-plot-mode"]
 = 7xtgv terminal viewport, bird's-eye zoom-out, taskbar, and xterm-256 plot mode
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Working specification / implementation plan* +

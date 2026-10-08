@@ -1,5 +1,6 @@
 [id="terminal-extension-plans"]
 = Terminal extension plans
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Roadmap for the 7xtgv terminal layer. Items identified as compatibility targets are intended final capabilities; optional profiles remain subjects for later investigation.

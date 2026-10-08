@@ -1,4 +1,5 @@
 = W535 shared-card rebuild checkpoint
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Petr connected W535 and confirmed that its microSD came from W550, containing

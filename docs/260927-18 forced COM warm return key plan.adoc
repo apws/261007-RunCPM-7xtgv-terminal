@@ -1,4 +1,5 @@
 = Forced COM warm-return key plan
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Status:* design only; no key binding or firmware behavior implemented +

@@ -1,4 +1,5 @@
 = Palette indexing and editable presets
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Date: 260923. Signed off by Petr: implement ink indexing and palette presets

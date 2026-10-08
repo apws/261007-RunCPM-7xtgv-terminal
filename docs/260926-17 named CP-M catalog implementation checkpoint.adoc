@@ -1,4 +1,5 @@
 = Named CP/M catalog implementation checkpoint
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 *Date:* 260926 +

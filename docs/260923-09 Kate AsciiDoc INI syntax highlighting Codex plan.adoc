@@ -1,5 +1,7 @@
 = Kate: AsciiDoc `[source,ini]` nested syntax highlighting — Codex implementation plan
+:leveloffset: +2
 :toc:
+:toclevels: 4
 :sectnums:
 :source-highlighter: highlight.js
 

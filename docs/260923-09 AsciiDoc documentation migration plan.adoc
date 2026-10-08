@@ -1,6 +1,8 @@
 = AsciiDoc documentation migration plan
+:leveloffset: +2
 :source-highlighter: highlight.js
 :toc:
+:toclevels: 4
 :sectnums:
 
 == Status and decision

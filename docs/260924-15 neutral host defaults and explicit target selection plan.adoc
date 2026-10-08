@@ -1,4 +1,5 @@
 = Neutral host defaults and explicit target selection
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Status: proposed small follow-up, documentation only. Petr requested a note/plan,

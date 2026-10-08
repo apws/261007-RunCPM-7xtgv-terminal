@@ -1,4 +1,5 @@
 = DONE: Repository guidance review
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Reviewed root `AGENTS.md` against the current launchers, target guard,

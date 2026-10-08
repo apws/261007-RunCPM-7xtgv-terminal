@@ -1,5 +1,6 @@
 [id="terminal-maintenance-and-jc8048w550-handoff"]
 = Terminal maintenance and JC8048W550 handoff
+:leveloffset: +2
 :source-highlighter: highlight.js
 
 Status: 14 September 2026. The currently connected/tested target remains the 3.5-inch JC8048W535 ESP32-S3. Do not infer that the 5-inch W550 is ready to flash.

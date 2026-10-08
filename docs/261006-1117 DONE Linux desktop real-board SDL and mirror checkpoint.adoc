@@ -1,7 +1,8 @@
 = DONE: Linux desktop real-board SDL and mirror checkpoint
+:leveloffset: +2
 :source-highlighter: highlight.js
 :toc:
-:toclevels: 2
+:toclevels: 4
 
 == Scope and resume point
 

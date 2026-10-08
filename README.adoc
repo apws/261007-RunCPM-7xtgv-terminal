@@ -58,17 +58,17 @@ prerequisites and troubleshooting. Windows/macOS launchers are not yet implement
 
 All shortcuts live under
 link:src/RunCPM_7xtgv-terminal/tools/targets/[`src/RunCPM_7xtgv-terminal/tools/targets/`],
-in folders named `DISPLAY_ID -- target`:
+in folders named `++DISPLAY_ID -- target++`:
 
 [cols="1,1,3",options="header"]
 |===
 |Vendor |Display ID |Folder under the full path above
-|WAVESHARE |`EC6_147` |`EC6_147 -- esp32c6-lcd-1-47`
-|GUITION |`EP4_10` |`EP4_10 -- jc8012p4a1c`
-|GUITION |`ES3_35` |`ES3_35 -- jc8048w535`
-|GUITION |`ES3_5` |`ES3_5 -- jc8048w550`
-|WAVESHARE |`RP2_147` |`RP2_147 -- rp2350-lcd-1-47-a`
-|WAVESHARE |`RP2_2` |`RP2_2 -- rp2350-touch-lcd-2`
+|WAVESHARE |`EC6_147` |`++EC6_147 -- esp32c6-lcd-1-47++`
+|GUITION |`EP4_10` |`++EP4_10 -- jc8012p4a1c++`
+|GUITION |`ES3_35` |`++ES3_35 -- jc8048w535++`
+|GUITION |`ES3_5` |`++ES3_5 -- jc8048w550++`
+|WAVESHARE |`RP2_147` |`++RP2_147 -- rp2350-lcd-1-47-a++`
+|WAVESHARE |`RP2_2` |`++RP2_2 -- rp2350-touch-lcd-2++`
 |===
 
 For example:
@@ -80,8 +80,8 @@ cd "src/RunCPM_7xtgv-terminal/tools/targets/EP4_10 -- jc8012p4a1c"
 
 Execute a script normally in *Midnight Commander*; in *Double Commander*,
 use *Shift+Enter* to launch it with a terminal. Each script already selects
-its board. Short status messages appear in the terminal; detailed logs sit
-beside the scripts.
+its board. Build/upload and desktop shortcuts show short status messages
+with detailed logs beside the scripts; `mirror.sh` attaches directly.
 
 [cols="1,3",options="header"]
 |===
@@ -147,7 +147,10 @@ these root-level files in the extension options:
 
 * link:asciidoctorjs-crx-mixworx.css[asciidoctorjs-crx-mixworx.css]: custom stylesheet.
 * link:asciidoctorjs-crx-mixworx.js[asciidoctorjs-crx-mixworx.js]: custom JavaScript;
-  choose execution *after the document has been rendered*.
+  choose execution *after the document has been rendered*. Splits guide titles
+  into two lines locally and restores anchor jumps. Re-select this file in the
+  extension options when updating the helper; GitHub keeps the normal
+  colon-separated title.
 
 Start with the maintained guides:
 
