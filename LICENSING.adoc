@@ -6,7 +6,6 @@ for both MCU/display hardware and the desktop emulator.*
 
 Copyright (c) 2026 Petr Antos (@apws/@7alken).
 The complete terms are in link:LICENSE[LICENSE].
-This scope was selected by the maintainer on 261008.
 
 == What the project's MIT license covers
 
