@@ -7,13 +7,13 @@ Follow-up: the maintainer subsequently selected MIT for the original terminal,
 excluding the native specification. See
 link:261008-0030%20DONE%20MIT%20terminal%20license%20and%20third-party%20scope.adoc[261008 decision].
 The detailed inventory now lives in link:../THIRD_PARTY_NOTICES.md[third-party notices];
-the root `LICENSE.md` is the current scope statement. The observations below
+the root `LICENSING.adoc` is the current scope statement. The observations below
 record the initial scan and preceding font-header correction.
 
-Requested: scan the repository for a root `LICENSE.md`, accounting for its
-separate parts and the existing Technical Reference discussion.
+Requested: scan the repository for a root `LICENSING.adoc`, accounting for its
+separate parts and the existing Technical Reference Guide discussion.
 
-* Created link:../LICENSE.md[component licensing inventory], explicitly not a
+* Created link:../LICENSING.adoc[component licensing inventory], explicitly not a
   new license grant or a blanket MIT declaration.
 * Updated the guide's inventory and linked the root notice from the README.
 * Original-material licensing, font provenance, guest-package permissions and
@@ -27,7 +27,7 @@ separate parts and the existing Technical Reference discussion.
 * Baseline: `a35df20`; 877 tracked paths, including 338 working-card files.
   Inspected tracked-path listings, source copyright/license markers, README
   provenance, dependency pins and the desktop link/source configuration.
-* Read link:../guides/technical-reference.adoc#_licensing_and_attribution_inventory[Technical Reference]
+* Read link:../guides/technical-reference-guide.adoc#_licensing_and_attribution_inventory[Technical Reference Guide]
   and link:260911-19%20RunCPM%20upstream%20comparison%20and%20licensing%20plan.adoc[earlier licensing plan].
   The earlier plan's layout and SD_MMC examples are historical, not current design.
 * Confirmed MIT text in both tracked `LICENSE.RunCPM` copies; checked POSIX
@@ -95,8 +95,8 @@ requires a separate decision; none was performed here.
 
 == Documentation checks
 
-* README, Technical Reference and this checkpoint rendered with Asciidoctor.
+* README, Technical Reference Guide and this checkpoint rendered with Asciidoctor.
 * Root Markdown inventory converted to HTML with Pandoc's GitHub-flavored
   Markdown reader; all 12 local link targets exist.
-* Verified the rendered Technical Reference licensing anchor; whitespace
+* Verified the rendered Technical Reference Guide licensing anchor; whitespace
   diff check passed. No firmware build or guest/hardware test was needed.

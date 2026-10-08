@@ -12,13 +12,16 @@ This is the review checklist, not a claim that the full review is complete.
   title and link labels. Its filename remains `guides/build-guide.adoc`.
 * The full content review below is pending. No build, flash, card modification
   or prerequisite installation is part of this documentation checkpoint.
+* On 261008 the Technical Reference Guide filename/title was standardized and
+  `guides/history-guide.adoc` was added as a draft for Petr's writing. These
+  navigation changes do not complete the manual review or hardware retesting.
 
 == Evidence and review order
 
 * Start with current source, launchers and configuration, then read relevant
   dated records newest first. Follow PLAN/DONE links to distinguish proposals
   from implemented and tested behavior; do not rewrite historical evidence.
-* Review Build Guide, User Guide, Reference Guide and Technical Reference in
+* Review Build Guide, User Guide, Reference Guide and Technical Reference Guide in
   that order; finish with the guide index, Features Timeline and cross-links
   from the repository README and other maintained entry points.
 * Native 7xtgv remains the primary objective. Describe the current terminal,
@@ -62,10 +65,15 @@ This is the review checklist, not a claim that the full review is complete.
 
 * Verify active versus legacy source locations, recovered RunCPM baseline,
   searchable integration seams, desktop runtime and current test entry points.
-* Keep developer tests and feature-registry details in Technical Reference;
+* Keep developer tests and feature-registry details in Technical Reference Guide;
   do not turn the beginner entry points back into developer inventories.
 * Check relocated `guides/`, `src/legacy/` and Kate tooling paths, root browser
   CSS/JavaScript helpers, images, inter-document anchors and cross-references.
+* The 261008 naming check found two pre-existing missing targets in the
+  feature ledger's hand-maintained notes: `code changes monitoring - howto/`
+  and the older `260917 7xtgv terminal I/O profiles ...` document. Resolve their
+  public references during review; do not restore private material just to
+  satisfy an old link.
 * Preserve chronological records and private documents. Leave feature-registry
   structure unchanged; this review is not a database redesign.
 

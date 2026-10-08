@@ -293,4 +293,4 @@ in link:reference-guide.adoc#configuration-reference[the INI reference].
   the original profile and RAW state.
 
 For source-level diagnosis and flash safeguards, use the
-link:technical-reference.adoc[Technical Reference].
+link:technical-reference-guide.adoc[Technical Reference Guide].

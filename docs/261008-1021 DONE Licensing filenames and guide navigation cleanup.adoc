@@ -1,0 +1,65 @@
+= Licensing filenames and guide navigation cleanup
+:source-highlighter: highlight.js
+
+== Scope and decisions
+
+Applied link:261008-license-file-naming-cleanup-for-Ari.adoc[the maintainer's naming-cleanup request]
+with the agreed AsciiDoc choice for the explanatory licensing document:
+
+* `LICENSE-7XTGV-TERMINAL` became root `LICENSE`, preserving the complete MIT
+  text and the `Petr Antos (@apws/@7alken)` copyright line byte-for-byte.
+* Root `LICENSE.md` became `LICENSING.adoc`, with formatting and link changes
+  only. Original terminal MIT coverage, native-specification exclusion and
+  third-party boundaries remain unchanged.
+* `THIRD_PARTY_NOTICES.md`, `LICENSES/` and the separate RunCPM notices retain
+  their names and terms. Only affected navigation links were updated.
+* `guides/technical-reference.adoc` became
+  `guides/technical-reference-guide.adoc`, titled
+  _RunCPM 7xtgv-terminal Technical Reference Guide_. Existing section anchors
+  are retained; references and displayed guide names were updated.
+* Added `guides/history-guide.adoc` as an explicitly unfinished outline for
+  Petr's own account of the beginnings and motivations. No personal narrative
+  was invented. Guide indexes and root README link to it.
+* Updated feature-registry paths and regenerated its ledger, without changing
+  the schema or feature acceptance states.
+
+== History and publication boundary
+
+The maintainer wants to retain the existing commit history, including earlier
+card layouts, rather than publish a new history-free snapshot. The discussed
+repository name is `261007-RunCPM-7xtgv-terminal`; a repository rename does not
+erase commits or earlier content. This task does not perform that remote
+rename, change visibility, rewrite history or push anything.
+
+Historical documents retain their substantive dated findings; navigation and
+guide names were adjusted to keep them useful in the current tree. The
+original naming request is retained verbatim, including its proposed `.md`
+extension; this checkpoint records the choice of `.adoc` instead.
+
+== Still pending
+
+* link:261007-2317%20PLAN%20Entire%20manuals%20current-state%20review.adoc[Complete manual content review]: simplest first steps, current commands/settings and obsolete instructions.
+* link:261007-1234%20PLAN%20Guided%20physical%20board%20acceptance.adoc[Hardware acceptance/retesting]: not established by desktop or documentation checks.
+* Petr's History Guide narrative.
+* Repository rename/publication timing; no settings changed in this pass.
+
+No firmware, emulator behavior, working card content or license permissions
+were changed. A local documentation commit is requested by the naming note;
+push remains separate.
+
+== Checks
+
+* Root `LICENSE` matches the former MIT file byte-for-byte. A text conversion
+  comparison confirms that `LICENSING.adoc` changes formatting/link syntax,
+  not the scope wording. All dependency/RunCPM license texts are unchanged.
+* The feature registry still contains 198 records; validation and all 11
+  registry tests passed after ledger regeneration.
+* Rendered 21 changed/new AsciiDoc documents. Checked 574 local document/image
+  targets: two pre-existing feature-ledger links are missing and recorded in
+  the manual-review plan; no newly broken target was found.
+* All six distinct referenced section anchors in the renamed Technical
+  Reference Guide exist in its rendered HTML.
+* Remaining old root filenames in the supplied naming request or this
+  before/after checkpoint are intentional historical descriptions. References
+  to dependency-local `SdFat/LICENSE.md` were not renamed.
+* Diff whitespace checks passed. No build or hardware test was performed.

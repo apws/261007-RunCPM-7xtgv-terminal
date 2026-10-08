@@ -301,7 +301,7 @@ an explicitly checked, one-shot recovery workflow; do not disable the guard
 permanently. Flashing restarts CP/M and loses active application state.
 For RP2350 use its target shell launcher, which handles the guarded BOOTSEL
 copy; the bare ESP32 upload command above is not an RP2350 recipe.
-See link:technical-reference.adoc[build/upload boundaries].
+See link:technical-reference-guide.adoc[build/upload boundaries].
 
 Review tools/terminal.conf before using the launcher, especially XTGV_TARGET,
 XTGV_PORT and the optional device-triggered reflash command. They reflect a

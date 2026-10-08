@@ -15,7 +15,7 @@ and lists. The original filename was `261004-11 manual reorg.txt` in
 
 * The upstream/CP/M 3 migration mentioned below is not proven complete.
   The recovered approximately 260126 baseline and cleaned integration
-  seams are documented in the link:../guides/technical-reference.adoc#runcpm-baseline-and-upstream-roadmap[Technical Reference].
+  seams are documented in the link:../guides/technical-reference-guide.adoc#runcpm-baseline-and-upstream-roadmap[Technical Reference Guide].
 * `7XF` is a CCP built-in; the original `7XF.COM` wording below is historical.
 * An 80-column terminal on a 52-column viewport needs *horizontal*
   panning; the original VERTICAL wording below is preserved, not endorsed.

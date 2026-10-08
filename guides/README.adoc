@@ -13,7 +13,8 @@ the planned native 7xtgv terminal. The device's live
 |link:build-guide.adoc[Build Guide] |Fresh Linux setup, prerequisites, working versions, target selection, staging, upload and troubleshooting; clean-machine verification gaps.
 |link:user-guide.adoc[User Guide] |Starting the mirror, everyday keys, zoom/pan, file transfer, safe INI changes, recovery.
 |link:reference-guide.adoc[Reference Guide] |Exact commands, keys, profiles, escape-sequence behavior and INI settings.
-|link:technical-reference.adoc[Technical Reference] |RunCPM/CCP fork, core and HAL ownership, protocols, persistence, build safety and licensing.
+|link:technical-reference-guide.adoc[Technical Reference Guide] |RunCPM/CCP fork, core and HAL ownership, protocols, persistence, build safety and licensing.
+|link:history-guide.adoc[History Guide] |Petr's account of where the project began and why; in preparation.
 |link:features_timeline.adoc[Features Timeline] |When implemented features, CP/M helpers, catalog files and command names entered or changed.
 |link:asciidoc%20technical%20writing%20cheatsheet.adoc[AsciiDoc Writing Examples] |How to author these guides: headings, tables, optional size roles, images and Chrome/PDF printing.
 |===
@@ -102,4 +103,4 @@ xref:reference-guide.adoc#palette-slots-and-ansi-color-mapping[Palette and ANSI 
 xref:reference-guide.adoc#zip-transfer-and-extraction[ZIP transfer]
 
 [[source-references-and-implementation-boundaries]]
-xref:technical-reference.adoc#source-references-and-implementation-boundaries[Source and implementation boundaries]
+xref:technical-reference-guide.adoc#source-references-and-implementation-boundaries[Source and implementation boundaries]

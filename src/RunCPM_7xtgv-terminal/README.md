@@ -4,7 +4,7 @@ This is the build/test entry point for the current RunCPM-based terminal.
 For operation, use the [User Guide](../../guides/user-guide.adoc);
 for exact commands and settings, the [Reference Guide](../../guides/reference-guide.adoc);
 for core, HAL, CCP, protocol and licensing boundaries, the
-[Technical Reference](../../guides/technical-reference.adoc).
+[Technical Reference Guide](../../guides/technical-reference-guide.adoc).
 The device's live INI and firmware identity are not inferred from this README;
 run `VTINFO` on the attached device.
 
@@ -50,7 +50,7 @@ uploader checks the running firmware's compiled target when that query is
 supported and blocks a mismatch. Old unidentified firmware requires an
 explicit one-shot recovery allowance, not a persistent bypass. RP2350
 modules require manual BOOTSEL/UF2 copy on a separately authorized flash.
-The Technical Reference describes the identity guard and staging model.
+The Technical Reference Guide describes the identity guard and staging model.
 The local `sketch.yaml` and target metadata specify dependencies and the
 upload method. Libraries and the RP2350 core are version-pinned; ESP32
 currently uses the installed core (working baseline 3.1.0). Dated port

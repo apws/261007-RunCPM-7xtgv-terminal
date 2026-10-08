@@ -1,0 +1,61 @@
+= 261008 — Standardize repository license filenames
+:toc:
+:sectnums:
+
+== Context
+
+Repository: `apws/260906-7xtgv` (currently private).
+
+The existing licensing decision is intentional and must not change:
+
+* Original *RunCPM 7xtgv-terminal* project material is MIT-licensed, subject to the explicitly documented scope.
+* The future *7xtgv-native* implementation has no license selected yet.
+* Native specifications/design documents are outside the terminal MIT grant, as described in the scope document.
+* Third-party code, guest CP/M software, assets, and dependencies retain their own rights and notices.
+
+This task concerns *filenames and documentation links only*, not a change of license or permissions.
+
+== Requested changes
+
+Rename the two current root files as follows:
+
+[cols="1,1,2",options="header"]
+|===
+|Current name |New name |Purpose
+|`LICENSE-7XTGV-TERMINAL` |`LICENSE` |Unmodified, standard MIT license text
+|`LICENSE.md` |`LICENSING.md` |Project-specific explanation of scope, exclusions, and third-party boundaries
+|===
+
+Keep the existing root `THIRD_PARTY_NOTICES.md` and `LICENSES/` directory, as well as the RunCPM-specific upstream licenses, unchanged.
+
+== Implementation notes for Ari
+
+. Perform file renames using Git, preserving their contents rather than rewriting the MIT license text.
+. In the new `LICENSING.md`, update its link to the MIT terms from `LICENSE-7XTGV-TERMINAL` to `LICENSE`.
+. Update `README.adoc` licensing links: scope should point to `LICENSING.md`, and the MIT text to `LICENSE`.
+. Search the *entire tracked tree* for references to `LICENSE-7XTGV-TERMINAL` and to the root `LICENSE.md`, and update links or path strings where these names refer to the two renamed root files. Do not blindly rewrite third-party files or unrelated `LICENSE.md` files in subdirectories.
+. Check AsciiDoc/Markdown relative links and any scripts or tooling that explicitly depend on these filenames.
+. Verify the `LICENSE` contents remain the unchanged MIT text, including Petr Antos's copyright notice.
+. Verify that `LICENSING.md` still expressly excludes the native design specifications from the terminal's MIT grant and preserves the third-party caveats. Do *not* extend or narrow any licensing rights as part of this naming task.
+. Review Git diff for accidental changes and commit the cleanup with a narrowly scoped message, e.g. `Use conventional LICENSE and LICENSING.md filenames`.
+
+== Expected root-level layout
+
+[source,text]
+----
+LICENSE                  # Standard MIT license text
+LICENSING.md             # Licensing scope and exclusions
+THIRD_PARTY_NOTICES.md  # Third-party inventory and review notes
+LICENSES/                # Dependency license copies
+----
+
+== Acceptance checks
+
+* Root `LICENSE` exists and has the exact former `LICENSE-7XTGV-TERMINAL` content.
+* Root `LICENSING.md` exists and contains the former `LICENSE.md` material with updated references.
+* Old root filenames no longer exist in the current working tree.
+* README and other links resolve to the new locations.
+* No semantic licensing change was introduced.
+* Repository visibility remains *private*; do not publish or change visibility as part of this task.
+
+NOTE: Conventional naming may improve license discovery by GitHub and other tools, but automatic detection is not guaranteed. Because this repository has mixed licensing scopes, retain the prominent explanatory link to `LICENSING.md`.

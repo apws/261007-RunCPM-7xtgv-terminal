@@ -11,12 +11,12 @@ link:261007-2344%20DONE%20Component%20licensing%20inventory%20and%20open%20decis
 
 == Applied layout
 
-* link:../LICENSE.md[LICENSE.md]: short scope statement for original terminal
+* link:../LICENSING.adoc[LICENSING.adoc]: short scope statement for original terminal
   code, adapters, tools, authored helpers, terminal documentation and assets.
   It explicitly excludes the native specification/design documents and
   independently licensed material. Existing covered native-inspired code is
   not retroactively excluded if reused in a later engine.
-* link:../LICENSE-7XTGV-TERMINAL[LICENSE-7XTGV-TERMINAL]: standard unmodified MIT
+* link:../LICENSE[LICENSE]: standard unmodified MIT
   terms, with `Copyright (c) 2026 Petr Antos (@apws/@7alken)`.
 * link:../THIRD_PARTY_NOTICES.md[THIRD_PARTY_NOTICES.md]: the detailed inventory,
   upstream credits, dependency boundaries and remaining imported-package work.
@@ -25,7 +25,7 @@ link:261007-2344%20DONE%20Component%20licensing%20inventory%20and%20open%20decis
 * `LICENSES/` preserves the official Apache-2.0 text plus inspected Arduino_GFX
   1.6.4, SdFat 2.3.0 and local SDL2-compat notices. This is not an exhaustive
   notice/source bundle for all possible binaries.
-* Root README and Technical Reference now describe the MIT decision rather
+* Root README and Technical Reference Guide now describe the MIT decision rather
   than a pending original-terminal license choice.
 
 == Plain-language rationale

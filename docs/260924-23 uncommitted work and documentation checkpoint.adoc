@@ -158,13 +158,13 @@ sensible defaults; no parser or HAL internals required to get started.
 |Reference Guide |Authoritative implemented commands, key chords, INI fields,
 defaults/ranges, palette/ANSI mappings, compatibility and current limitations.
 The present combined manual is the starting point, not a second duplicate.
-|Technical Reference |Architecture/data flow, HAL boundaries, rendering and
+|Technical Reference Guide |Architecture/data flow, HAL boundaries, rendering and
 buffers, host/device protocol, current VT adaptations, build/test boundaries.
 Future native 7xtgv is explicitly marked planned and linked to its own specs.
 |===
 
 Each fact should have one authoritative home. The User Guide links to exact
-Reference entries; the Technical Reference explains why/how rather than
+Reference entries; the Technical Reference Guide explains why/how rather than
 copying user tables. Keep dated design/test reports as evidence, not mandatory
 reading for ordinary use. Link proposed native behavior separately from shipped
 VT behavior. A small entry-page index and stable section anchors are enough;

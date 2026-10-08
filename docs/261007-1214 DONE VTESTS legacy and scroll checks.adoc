@@ -6,7 +6,7 @@
 
 Petr asked to reference
 link:261005-7xtgv-runcpm-z80pack-romwbw-terminal-notes.adoc[the RunCPM / z80pack / RomWBW terminal discussion]
-in the Technical Reference and implement its practical scrolling tests. He also
+in the Technical Reference Guide and implement its practical scrolling tests. He also
 asked to review the weak VT52 page and confusing blink/reverse/DEC examples,
 using the new quiet desktop emulator for real testing.
 

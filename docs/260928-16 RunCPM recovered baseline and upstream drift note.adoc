@@ -73,7 +73,7 @@ upstream by textual merge. Upstreamable fixes should be isolated and tested
 independently; product-specific terminal and CCP features need not become
 upstream PRs. The existing
 link:260925-20%20target-specific%20injection%20inventory%20and%20flat%20HAL%20plan.adoc[flat HAL inventory]
-and Technical Reference describe current local boundaries, not a completed
+and Technical Reference Guide describe current local boundaries, not a completed
 upstream integration.
 
 Petr plans to clone this repository from its beginning and inspect these

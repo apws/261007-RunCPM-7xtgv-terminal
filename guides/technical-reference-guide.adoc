@@ -1,4 +1,4 @@
-= 7xtgv terminal Technical Reference
+= RunCPM 7xtgv-terminal Technical Reference Guide
 :source-highlighter: highlight.js
 :toc:
 :toclevels: 2
@@ -573,8 +573,8 @@ is a separate curated history, not generated from the database.
 Licenses belong to *components*, not to the terminal as a single inherited
 license. On 261008 the maintainer selected MIT for original 7xtgv-terminal
 material, covering hardware and desktop together. The root
-link:../LICENSE.md[license scope] defines coverage and excludes the native
-specification; link:../LICENSE-7XTGV-TERMINAL[the MIT license] supplies the terms.
+link:../LICENSING.adoc[license scope] defines coverage and excludes the native
+specification; link:../LICENSE[the MIT license] supplies the terms.
 link:../THIRD_PARTY_NOTICES.md[Third-party notices] preserves the separate
 component inventory and unresolved import questions.
 See also link:../docs/261007-2344%20DONE%20Component%20licensing%20inventory%20and%20open%20decisions.adoc[261007 scan checkpoint].
@@ -587,7 +587,7 @@ The checked-in and locally installed notices include:
 |Component |Evidence |Boundary
 |RunCPM-derived CPU/BDOS/CCP and POSIX baseline |link:../src/RunCPM_7xtgv-terminal/LICENSE.RunCPM[MIT notice]; link:../src/RunCPM_linux/README.md[POSIX source baseline] |The MIT notice covers the identified RunCPM-derived parts; preserve it with those parts.
 |7xtgv QL-font header |`++src/terminal/7xtgv-QL-font.h++` credits `++Copyright 2026 Petr Antos (@apws/@7alken)++`; original terminal assets are included in the 261008 MIT grant |Any third-party underlying glyph/artwork rights remain separate; the removed reserved-rights wording is not current policy.
-|Original terminal, desktop adapters, tools, tests and authored terminal documentation/assets |link:../LICENSE-7XTGV-TERMINAL[MIT], with scope in the root notice |Native specification/design documents are excluded; mixed files retain upstream rights.
+|Original terminal, desktop adapters, tools, tests and authored terminal documentation/assets |link:../LICENSE[MIT], with scope in the root notice |Native specification/design documents are excluded; mixed files retain upstream rights.
 |P4 panel table and legacy JD9365 driver |Apache-2.0 markers in the active HAL table and legacy copies; JD9365 files credit Espressif, 2024; full license under `LICENSES/` |Recover exact upstream versions and applicable NOTICE files; preserve attribution/modification notices. A table-level marker does not license the entire HAL.
 |Root browser CSS |normalize.css 2.1.2 MIT marker and framework-derived styling |Reconstruct full stylesheet provenance and applicable notices; local CSS changes do not erase upstream rights.
 |SdFat 2.3.0 |Locally installed `++SdFat/LICENSE.md++` contains an MIT notice |Build dependency named in `++sketch.yaml++`; the installed package is not a blanket repository license.

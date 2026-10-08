@@ -4,7 +4,7 @@
 *Status:* proposed documentation migration; no guide files moved yet. +
 *Date:* 260926 +
 *Source:* Petr's request for a simple User Guide, exact Reference Guide and
-code-facing Technical Reference; the earlier direction in
+code-facing Technical Reference Guide; the earlier direction in
 link:260924-23%20uncommitted%20work%20and%20documentation%20checkpoint.adoc[the documentation checkpoint].
 
 == Purpose and file layout
@@ -20,7 +20,7 @@ as a short landing page, then create three sibling files:
 |`README.adoc` |Entry page: which guide to open, current shipped scope, and links to the feature ledger and dated evidence. No duplicated command tables.
 |`user-guide.adoc` |A CP/M user asks: how do I start, use, transfer, adjust, and recover?
 |`reference-guide.adoc` |A user configuring an application asks: what exact keys, commands, fields, ranges and limitations exist?
-|`technical-reference.adoc` |A maintainer asks: how do the firmware, HAL, host mirror, storage and private protocols work?
+|`technical-reference-guide.adoc` |A maintainer asks: how do the firmware, HAL, host mirror, storage and private protocols work?
 |===
 
 The root repository README remains a repository entry point; the sketch README
@@ -80,10 +80,10 @@ Own complete user-visible syntax and semantics:
 
 This guide is comprehensive rather than introductory. It records the shipped
 behavior and known limitations, but detailed memory ownership and source-level
-reasoning belong in the Technical Reference. For each command or setting,
+reasoning belong in the Technical Reference Guide. For each command or setting,
 state whether a change is temporary, lazy-persisted or boot-only.
 
-=== Technical Reference: implementation and protocol contract
+=== Technical Reference Guide: implementation and protocol contract
 
 Own the explanations needed to change code safely:
 
@@ -122,7 +122,7 @@ reports; this guide states the current mechanism and points to that evidence.
 |CP/M commands and user areas; visual tests; ZIP |Reference |User Guide gets selected worked examples; dated test inventories stay linked evidence.
 |xterm256 graphics |Reference |User Guide gets a short `GCLS` example; Technical owns pixel pipeline and protocol.
 |Configuration, diagnostics, geometry, palette |Reference |User Guide gets safe edit procedure; Technical owns parser/cache/HAL and exact internal mapping rationale.
-|Source references, build/upload safeguard |Technical Reference |User Guide gets target-selection and recovery warnings; Reference lists user-visible commands/variables.
+|Source references, build/upload safeguard |Technical Reference Guide |User Guide gets target-selection and recovery warnings; Reference lists user-visible commands/variables.
 |===
 
 The present `VTINFO` report is placed beneath the A6 helper section although
@@ -148,7 +148,7 @@ before asserting its exact settings.
 . Move exact tables into the Reference and replace the old combined text with
   links, not copies. Preserve the existing manual URL and explicit section
   anchors with short compatibility links where needed.
-. Build the Technical Reference from current source and the sketch README;
+. Build the Technical Reference Guide from current source and the sketch README;
   remove duplicated internals from the other two guides.
 . Audit every moved command/setting against source and current target metadata;
   label known hardware-test scope and unresolved behavior rather than guessing.

@@ -22,7 +22,7 @@ They are not intended parts of the shared terminal working card.
 
 * Updated the current third-party inventory to remove the obsolete package
   rows, Altair-image entry and Sharp NC/NU references from the active queue.
-* Updated root licensing wording, Technical Reference and card README.
+* Updated root licensing wording, Technical Reference Guide and card README.
 * Earlier dated audit records retain their historical observations. The
   notices explain why they differ from the current inventory.
 * No tooling dependency on these installed packages was found in the focused

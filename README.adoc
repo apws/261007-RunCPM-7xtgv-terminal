@@ -153,7 +153,8 @@ Start with the maintained guides:
 
 * link:guides/user-guide.adoc[User Guide]: everyday keys, commands and examples.
 * link:guides/reference-guide.adoc[Reference Guide]: exact controls, settings and protocols.
-* link:guides/technical-reference.adoc[Technical Reference]: architecture, developer tests and feature tracking.
+* link:guides/technical-reference-guide.adoc[Technical Reference Guide]: architecture, developer tests and feature tracking.
+* link:guides/history-guide.adoc[History Guide]: the project's beginnings and motivations; in preparation.
 * link:guides/build-guide.adoc[Build Guide]: setup and recovery details.
 * link:guides/README.adoc[Guide index] and link:docs/README.adoc[technical document index]:
   further reading, plans and dated findings.
@@ -177,8 +178,8 @@ Start with the maintained guides:
 == Licensing
 
 The original *7xtgv-terminal software is MIT-licensed*, for hardware and
-desktop alike. See link:LICENSE.md[license scope] and
-link:LICENSE-7XTGV-TERMINAL[the MIT license]. The native 7xtgv specification
+desktop alike. See link:LICENSING.adoc[license scope] and
+link:LICENSE[the MIT license]. The native 7xtgv specification
 in `docs/` is outside this grant. Independently licensed components and
 imported CP/M packages retain their own terms; see
 link:THIRD_PARTY_NOTICES.md[third-party notices and remaining review items].

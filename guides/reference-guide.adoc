@@ -6,7 +6,7 @@
 This is the exact user-visible behavior of the current 7xtgv RunCPM terminal,
 not the proposed native 7xtgv interface. For tasks start with the
 link:user-guide.adoc[User Guide]; for code and private protocols use the
-link:technical-reference.adoc[Technical Reference]. Settings in the live
+link:technical-reference-guide.adoc[Technical Reference Guide]. Settings in the live
 device INI may differ from compiled defaults and from the local copy.
 The link:features_timeline.adoc[Features Timeline] tracks command and file
 name changes; syntax below is the current reference.
@@ -76,7 +76,7 @@ Both directions ask for *DU* first, e.g. `++a6:++` maps to `++cpmcard/A/6++`, th
 VTGET tags each hex row with its record number to reject stale mirrored rows.
 The updated host also accepts the old clear-per-record format; old host clients
 do not understand the new tagged format. The framing implementation is in the
-link:technical-reference.adoc#private-protocol-boundaries[Technical Reference].
+link:technical-reference-guide.adoc#private-protocol-boundaries[Technical Reference Guide].
 
 Use an 80-column *logical terminal* for transfers. At 40 logical columns,
 VTGET's 69-character tagged rows wrap and the download can stall. A 26- or
@@ -134,7 +134,7 @@ strings. Supplied host keymaps deliver them; desktop shortcuts may intercept the
 
 Exact generated key-event payloads/modifiers are maintained in
 `tools/7xtgv-cpm.keytab` and `tools/kitty-cpm.conf`; see also the
-link:technical-reference.adoc#private-protocol-boundaries[protocol reference].
+link:technical-reference-guide.adoc#private-protocol-boundaries[protocol reference].
 Intended LAlt use does not imply Konsole can distinguish both Alt keys.
 
 === ASCII prefix fallbacks
@@ -199,7 +199,7 @@ lines, mouse, UTF-8 guest input, automatic pan or binary console transport.
 Unsupported CSI commands are ignored as units; string controls are consumed
 without display. Bytes above 127 do not directly index the 6x10 font. The
 private 7xtgv query/control protocol is catalogued in the
-link:technical-reference.adoc#private-protocol-boundaries[Technical Reference].
+link:technical-reference-guide.adoc#private-protocol-boundaries[Technical Reference Guide].
 
 The PC key tables provide the more natural shortcuts:
 
@@ -260,7 +260,7 @@ The histories live in `++A0:7XTGVTRM.BUF++` and are saved after a quiet
 period or by `++SYNC++`. Boot can recover from verified alternate generations.
 Do not edit these checksummed files as ordinary text; preserve backups and
 use checksum-aware tooling for repairs. The transaction and core ownership
-are described in the link:technical-reference.adoc#configuration-and-persistence[Technical Reference].
+are described in the link:technical-reference-guide.adoc#configuration-and-persistence[Technical Reference Guide].
 
 Profile selection remains active until changed during the running session, but the RunCPM CCP prompt (`++A0>++`, `++AF>++`, `++A>++`, and similar) silently uses effective bank `++#0++` so shell commands do not pollute an application history. The selected bank is restored when the application prompt returns. This is not an INI-persisted bank selection. Active-line and cursor colors follow the selected palette unless explicitly overridden by the profile. The built-in PAPER defaults are pale green and mid-green, not fixed colors in every theme.
 
@@ -387,7 +387,7 @@ Resolved presets:
 select matching logical geometry before launching a full-screen application.
 The A0 ASCII sources are `++VTINFO.ASM++` and `++VTZOOM.ASM++`; assemble each
 with `++ASM++` then `++LOAD++` if its `++.COM++` is missing. The private
-query/reply bytes are in the link:technical-reference.adoc#private-protocol-boundaries[Technical Reference].
+query/reply bytes are in the link:technical-reference-guide.adoc#private-protocol-boundaries[Technical Reference Guide].
 
 [[a7-visual-tests-and-dec-graphics]]
 === CARDMARK raw SD read diagnostic
@@ -436,7 +436,7 @@ item 3, VT52 movement/erase checks in item 5, a steady DEC frame in item 7,
 and five scrolling-region checks in item 9. Item 9 requires *80x24 logical
 geometry*, independently of the panel's visible viewport. Updated source
 must be deployed separately; the physical card may still hold an older menu.
-See link:technical-reference.adoc#terminal-compatibility-test-notes[test scope].
+See link:technical-reference-guide.adoc#terminal-compatibility-test-notes[test scope].
 `VTPAL.BAS` is also maintained/deployed in A7, not the older A6 test location.
 
 VTESTS item 4 has two 40x16 pages: a continuous frame with junctions, patterns,
@@ -569,7 +569,7 @@ rewrite boot `++view_zoom++`. Other settings and other display sections remain
 user-authored. The host transfer tool's deliberate `++--cpm-text++` option
 writes CR/LF plus Ctrl{plus}Z. Do not edit checksummed history files from
 CP/M. The INI cache and save transaction are described in the
-link:technical-reference.adoc#configuration-and-persistence[Technical Reference].
+link:technical-reference-guide.adoc#configuration-and-persistence[Technical Reference Guide].
 
 [[ini-diagnostics-and-syntax-limits]]
 === INI diagnostics and syntax limits
@@ -829,4 +829,4 @@ link:../docs/260923-20%20CP-M%20UNZIP%20compatibility%20and%20download.adoc[the 
 === Source references and implementation boundaries
 
 Source, protocol, upload safety and licensing are maintained in the
-link:technical-reference.adoc[Technical Reference].
+link:technical-reference-guide.adoc[Technical Reference Guide].

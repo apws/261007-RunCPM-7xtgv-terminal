@@ -1,0 +1,24 @@
+= RunCPM 7xtgv-terminal History Guide
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+
+_In preparation: Petr's personal account of where this project began and why._
+
+== Where it began
+
+// Petr: your story goes here.
+
+== Why this project
+
+// Petr: motivations, ideas and influences.
+
+== How it evolved
+
+// Petr: the journey from early experiments to the present terminal and beyond.
+
+== Related technical history
+
+* link:../docs/261007-1146%20DONE%20Design%20evolution%20and%20key%20milestones.adoc[Design evolution and key milestones]: recorded architectural decisions and evidence.
+* link:features_timeline.adoc[Features Timeline]: implementation checkpoints and command/file changes.
+* link:technical-reference-guide.adoc[Technical Reference Guide]: current implementation and developer boundaries.

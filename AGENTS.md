@@ -42,7 +42,7 @@
   recovered baseline and relevant upstream changes, including CP/M 3, before
   porting; do not claim upstream parity from successful CP/M 2.2 tests.
   Follow upstream conventions for portable changes and keep project behavior
-  behind narrow searchable hooks. See `guides/technical-reference.adoc` and
+  behind narrow searchable hooks. See `guides/technical-reference-guide.adoc` and
   `docs/260928-23 RunCPM core delta and upstream seams.adoc`.
 - Keep each Arduino board HAL complete and readable: one uniformly sectioned
   header, ordinary functions and intentional board-local storage adapters.

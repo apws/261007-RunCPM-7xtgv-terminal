@@ -2,7 +2,7 @@
 
 Inventory scanned on 261007; original-terminal MIT decision and removal of
 unrelated AB:/AC:/AD: packages recorded on 261008.
-See [LICENSE.md](LICENSE.md) for the scope of the project's own MIT grant.
+See [LICENSING.adoc](LICENSING.adoc) for the scope of the project's own MIT grant.
 Third-party code and assets retain their existing terms. These notices neither
 relicense them nor certify every imported package for redistribution.
 
@@ -19,7 +19,7 @@ notice. The native specification is excluded from the terminal grant.
 | EP4_10 panel initialization table | Apache-2.0 marker beside the adapted table in [jc8012p4a1c.h](src/RunCPM_7xtgv-terminal/hardware/arduino_7xtgv/boards/jc8012p4a1c.h); also in both legacy demos' `7xtgv-jc8012p4a1c-newpanel.h` | Comment attributes the table to Espressif's NewPanel example. Recover the exact source/version and applicable notices; do not infer that the entire mixed HAL is Apache-2.0. |
 | Legacy JD9365 driver | [Driver source](src/legacy/jc8012p4a1c-display-test/src/esp_lcd_jd9365.c) and adjacent header: Apache-2.0, copyright 2024 Espressif Systems (Shanghai) CO LTD | Preserve credits and modification notices. The [full Apache license](LICENSES/Apache-2.0.txt) is included; exact upstream version and any applicable NOTICE still need verification. |
 | Root browser stylesheet | [CSS](asciidoctorjs-crx-mixworx.css) explicitly marks normalize.css v2.1.2 as MIT; also contains framework-derived styling and local modifications | Full upstream stylesheet provenance and notices still need reconstruction. Asciidoctor itself has an [MIT notice](https://github.com/asciidoctor/asciidoctor/blob/main/LICENSE), but that alone does not prove the origin/license of every CSS block. |
-| Original tools, browser JS helper, guest helpers, tests and adapters | Original terminal material is now MIT under [LICENSE-7XTGV-TERMINAL](LICENSE-7XTGV-TERMINAL) | Adapted third-party snippets retain their terms; an API name such as Arduino, SdFat or SDL is not provenance evidence. |
+| Original tools, browser JS helper, guest helpers, tests and adapters | Original terminal material is now MIT under [LICENSE](LICENSE) | Adapted third-party snippets retain their terms; an API name such as Arduino, SdFat or SDL is not provenance evidence. |
 | Font, palette and local demo data | Original terminal assets are covered by the project's MIT grant | The grant covers only rights held by the licensor. Confirm any underlying imported glyph/image provenance; the name "QL" alone establishes neither origin nor permission. |
 | Guides, dated documents, diagrams, screenshots, PDFs and demo imagery | Mixed authored material, quotations/references and captured/imported content | A software license does not automatically clear these assets. Record ownership, source and permission separately where needed. Screenshots and historical documents may contain third-party material. |
 
@@ -113,7 +113,7 @@ does not rewrite history, relicense them or resolve their historical permissions
 5. Review required attribution/source/relinking materials before distribution;
    get qualified legal review for unresolved licensing questions if needed.
 
-See the [Technical Reference](guides/technical-reference.adoc#_licensing_and_attribution_inventory)
+See the [Technical Reference Guide](guides/technical-reference-guide.adoc#_licensing_and_attribution_inventory)
 and [261007 scan checkpoint](docs/261007-2344%20DONE%20Component%20licensing%20inventory%20and%20open%20decisions.adoc).
 
 ## Preserved license texts

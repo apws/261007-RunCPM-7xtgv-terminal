@@ -11,7 +11,8 @@ current implementation instructions.
 * link:261007-1426%20DONE%20Sinclair%20QL%20channels%20research%20and%20native%207xtgv%20sidenote.adoc[Sinclair QL channels and native 7xtgv]: historical excursion, terminal comparison and possible software-channel inspiration; explicitly preserves native 7xtgv as the primary objective.
 * link:261007-1146%20DONE%20Design%20evolution%20and%20key%20milestones.adoc[Design evolution and key milestones]: major architectural decisions, their motivation, evidence and remaining boundaries.
 * link:261004-11%20manual%20reorg.adoc[Petr's practical manual outline]: historical user-task notes, converted from the manual folder's raw TXT; not a replacement for the current guides.
-* link:../guides/technical-reference.adoc[Technical Reference]: current developer boundaries and baseline/integration notes.
+* link:../guides/technical-reference-guide.adoc[Technical Reference Guide]: current developer boundaries and baseline/integration notes.
+* link:../guides/history-guide.adoc[History Guide]: reserved for Petr's personal account of the project's origins and motivation; in preparation.
 
 == New chronological records (agreed 261006)
 
