@@ -1,5 +1,6 @@
 = RunCPM 7xtgv-terminal
 :source-highlighter: highlight.js
+:leveloffset: +2
 
 [cols="1a,1a",frame=none,grid=none,stripes=none]
 |===
@@ -51,7 +52,7 @@ group access separately. It does not build or flash anything.
 Use `./src/RunCPM_7xtgv-terminal/tools/setup.sh --dry-run` to preview it
 without installing. Arch-family use has been exercised; real fresh-machine
 Debian/Fedora installation remains to be verified. See the
-link:guides/build-guide.adoc[Build Guide] for cloning,
+link:guides/01-BG-build-guide.adoc[Build Guide] for cloning,
 prerequisites and troubleshooting. Windows/macOS launchers are not yet implemented.
 
 === 2. Open your board's launcher folder
@@ -131,7 +132,7 @@ ambiguous-device errors must be resolved, not bypassed.
 After changing source, rebuild before launching or reflashing: launchers
 do not silently rebuild. More options are in the
 link:src/RunCPM_7xtgv-terminal/desktop/README.adoc[desktop guide] and
-link:guides/build-guide.adoc[hardware build guide].
+link:guides/01-BG-build-guide.adoc[hardware build guide].
 
 == Guides and docs (AsciiDoc)
 
@@ -154,11 +155,12 @@ these root-level files in the extension options:
 
 Start with the maintained guides:
 
-* link:guides/user-guide.adoc[User Guide]: everyday keys, commands and examples.
-* link:guides/reference-guide.adoc[Reference Guide]: exact controls, settings and protocols.
-* link:guides/technical-reference-guide.adoc[Technical Reference Guide]: architecture, developer tests and feature tracking.
-* link:guides/history-guide.adoc[History Guide]: the project's beginnings and motivations; in preparation.
-* link:guides/build-guide.adoc[Build Guide]: setup and recovery details.
+* link:guides/01-BG-build-guide.adoc[Build Guide]: setup and recovery details.
+* link:guides/02-UG-user-guide.adoc[User Guide]: everyday keys, commands and examples.
+* link:guides/03-RG-reference-guide.adoc[Reference Guide]: exact controls, settings and protocols.
+* link:guides/04-TRG-technical-reference-guide.adoc[Technical Reference Guide]: architecture, developer tests and feature tracking.
+* link:guides/05-TG-tooling-guide.adoc[Tooling Guide]: host launch paths, mirror ownership, builds and transfers.
+* link:guides/06-HG-history-guide.adoc[History Guide]: the project's beginnings and motivations; in preparation.
 * link:guides/README.adoc[Guide index] and link:docs/README.adoc[technical document index]:
   further reading, plans and dated findings.
 

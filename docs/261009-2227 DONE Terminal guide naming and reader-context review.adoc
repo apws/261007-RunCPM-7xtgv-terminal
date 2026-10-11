@@ -1,0 +1,62 @@
+= Terminal guide naming and reader-context review
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Scope
+
+Petr requested consistent `7xtgv-terminal` naming across the guides, reserving
+standalone `7xtgv` for the native specification and the named working-card area.
+He also requested questions before reformulating passages that rely on the
+development conversation. This continues
+link:261007-2317%20PLAN%20Entire%20manuals%20current-state%20review.adoc[the manuals review]
+and follows
+link:261009-2144%20DONE%20Keyboard%20presets%20and%20override%20order%20review.adoc[the keyboard-preset explanation].
+
+== Naming completed
+
+* The Reference Guide heading is now
+  link:../guides/03-RG-reference-guide.adoc#7xtgv-terminal-cpm-commands-and-user-areas[7xtgv-terminal CP/M commands and user areas].
+  Its guide-index and timeline links use the renamed anchor.
+* Terminal protocol, fork and asset descriptions use `7xtgv-terminal`.
+  Writing-cheatsheet examples use the same project name. The private FAND log
+  received only three terminal-name substitutions; its dated observations,
+  installation locations and uncertainty remain intact.
+* Native-specification terminology, literal source paths, dated filenames and
+  `7xtgv(C1)` remain accurate. The P4 timeline identifies its initialization
+  source as the earlier display demo rather than an ambiguous product name.
+* `7xtgv-cpm` remains only where it names an actual hardware tmux session or
+  Konsole keymap file. Verified against `tools/cpm-session.sh`, `tools/kon.sh`,
+  `tools/7xtgv-cpm.profile` and related tooling. Renaming these operational
+  identifiers is outside this documentation change.
+
+== Reader-context passages awaiting choice
+
+A focused question proposes replacing three conversation-dependent passages
+with standalone technical facts/instructions, leaving development history in
+the linked dated records:
+
+* RG: the earlier numbered application defaults, now removed.
+* RG: the TE example's statement about not changing the working INI and choosing
+  a future cleanup.
+* TRG: the account of Petr's initial concern about CP/M 3 and the recovered core.
+
+No reformulation of those passages has been applied pending the answer.
+Explicitly requested verbatim quotations remain preserved. This is a focused
+reader-context scan, not a completed editorial rewrite of every guide.
+
+== Validation and preservation
+
+* All root-level guide sources render successfully. Warnings are the existing
+  intentional section-level offsets; the writing cheatsheet renders cleanly.
+* The renamed RG heading/anchor and both guide references resolve. All 26 RG
+  tables have consistent columns and its internal fragments resolve.
+  Changed guides introduce no missing local link targets.
+* All 301 working-card file hashes match the pre-edit inventory, including
+  INI/history and snapshot files. No running session was controlled.
+* Recovery copies and card inventory:
+  `/tmp/xtgv-guide-names-before/`. Rendered HTML:
+  `/tmp/xtgv-guide-names-render/`.
+
+Only guide text and documentation navigation/registry references change.
+Existing work is preserved. No tool/source renaming, build, card edit, hardware
+write, commit or push; private guide material remains private.

@@ -1,0 +1,76 @@
+= User Guide recipes and readability review
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Scope and checkpoint
+
+The preceding documentation, renamed-repository references and CSS/JS work
+was committed and pushed as `7dcdf5a`. This follow-on reviews practical guide
+content and implements the user's request for shorter, topic-separated prose.
+It does not finish the entire manuals review or hardware acceptance.
+
+== User Guide changes
+
+* Separated mirror, panel viewport, guest DU and host transfer DU in the introduction.
+* Split profiles/history into selection, everyday shortcuts, emergency return,
+  recall and RAW input. Expanded shortcut pairs to repeat their modifiers.
+* Clarified the transient selection label and CCP-only `on_select` command;
+  direct number selection exits RAW, while previous/next browsing does not.
+* Replaced the geometry paragraph with a command table and application-size checklist.
+  Select a profile before setting geometry because it can apply its own override.
+* Split palette/emphasis from backlight; noted first adjustment from OFF restores
+  the remembered level and SDL brightness is not physical light-output calibration.
+* Made the MBASIC recipe use the card's actual MBASIC area and explicit 80x24
+  geometry; linked menu choices to attributes, DEC graphics, VT52 and full-row scrolling.
+* Explained that the Mandelbrot scripts use fixed pixel positions and may clip
+  on smaller panels; EP4_10 desktop is a spacious first demonstration.
+* Reworked transfer and INI editing into short steps, examples and safeguards.
+  Desktop direct file edits require closing the emulator; device fetch/edit/send
+  remains a separate workflow with explicit write approval.
+
+== Reference Guide changes
+
+History persistence, effective CCP bank versus selected profile, RAW input,
+INI selection overrides, MBASIC adapters and BBC BASIC retyping now have short
+subsections and single-level bullets. Existing parent anchors were preserved.
+This is not yet a full Reference Guide default/command/escape-sequence audit.
+
+== Evidence and validation
+
+Read-only implementation checks covered:
+
+* `tools/terminal.py`, Konsole keytab and Kitty mappings: bridge fallbacks,
+  transfer panel, zoom/backlight and application-control chords.
+* `terminal_runtime.cpp`: profile selection, temporary labels, RAW, effective
+  history bank, geometry changes and emergency-return dispatch.
+* `history_profiles.h`, `line_history.h`, backlight helpers and persistence tests:
+  profile ownership, 100-entry histories and remembered brightness.
+* `ccp7xf.h` and `ccp.h`: prompt options and retained INFO.TXT-based VOL behaviour.
+* Read-only card inspection: A7 MBASIC/VTESTS/VTPAL, A6 catalogs and BROT scripts.
+
+Focused offline tests passed: 35 mirror/helper tests, 9 configuration-writer
+tests, 4 canonical-card-path tests and 1 backlight-shortcut test (49 total).
+The standalone VTDRV script is not a unittest-discovery suite; its guest
+assembler/runtime test was not executed in this documentation pass.
+
+Guide rendering/link checks passed with only expected section-order warnings
+from the requested level offsets. Chromium visual inspection covered the
+updated User Guide introduction, first task and launcher table using the
+actual CSS. No installer, firmware build/flash, physical-device interaction,
+guest deployment or working-card mutation was performed.
+
+== Remaining review work
+
+* Full Reference Guide INI/defaults and remaining command/escape tables.
+* Technical Reference Guide source ownership and readability. An existing
+  CCP integration paragraph still attributes 7XF/catalog changes to `ccp.h`
+  and says VOL reads DIR.7XF; reconcile it with the current `ccp7xf.h` split
+  and retained INFO.TXT VOL implementation during that pass.
+* Features Timeline reconciliation and writing-cheatsheet example/include cleanup.
+* Fresh-machine and physical-board acceptance remain independent checks.
+* Continue short topic-based prose throughout the other guides, not a mechanical
+  conversion of every sentence into a bullet.
+
+Unrelated local card state, private PDFs and the deleted Windows placeholder
+remain outside these edits. Concurrent README/licensing edits were observed
+after the checkpoint push and were left untouched.

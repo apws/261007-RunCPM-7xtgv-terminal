@@ -1,0 +1,54 @@
+= Numbered guide chapters and renamed navigation
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Authorization and controlling example
+
+Petr approved applying the separate
+link:261010-1218%20PLAN%20Reference%20Guide%20stable%20parts%20example.adoc[RG structure example]
+to BG, UG, RG and TRG, with top-level numbering also in TG. He independently
+renamed the six guides to ordered `01-BG-` through `06-HG-` filenames, and
+authorized keeping or reverting that rename. Keep the readable ordering and
+repair navigation in the same documentation pass.
+
+This continues the
+link:261007-2317%20PLAN%20Entire%20manuals%20current-state%20review.adoc[manuals review].
+The earlier
+link:261010-1223%20DONE%20Separate%20Reference%20Guide%20structure%20example.adoc[example checkpoint]
+describes the separate draft before approval; its no-guide-edits boundary
+applied to that earlier task.
+
+== Structure and boundaries
+
+* BG: four chapters, preserving the compact first-desktop-run recipe.
+* UG: four chapters for first contact, everyday use, files/settings and checks.
+* RG: the five reviewed parts, with diagnostics and demonstrations in Appendix A.
+* TRG: four chapters for architecture, interfaces/persistence, platforms and
+  development/verification; detailed design/provenance in Appendix A. Keep
+  the running RunCPM baseline warning near the front and the requested verbatim
+  quotation intact.
+* TG: number its existing five chapters. HG remains an authoring outline.
+
+Numbers are explicit title text only at the main level; disable automatic
+section numbering. Existing topic anchors remain stable, including formerly
+generated anchors made explicit before changing titles or moving sections.
+The existing stylesheet's main-heading print breaks should now follow these
+larger chapters. Do not change CSS or the title/fragment helper.
+
+Repair current navigation and direct link targets in dated records. Preserve
+historical prose and quotations; a repaired link does not rewrite the dated
+account. Update registry guide paths at their source and regenerate the ledger.
+Do not leave duplicate guide files or introduce a redirect scheme.
+
+== Acceptance
+
+Render all five guides and inspect their TOCs with the existing stylesheet.
+Check main heading counts, topic-anchor retention, duplicate IDs, local file
+links and section fragments. Compare moved source text and code blocks against
+the pre-edit copies. Record known existing warnings or unrelated missing links
+separately from introduced failures.
+
+Preserve all working-card bytes, existing source/build changes and running
+sessions. No build, guest execution, card deployment, flash, commit or push.
+This pass establishes the organization, not a renewed technical/hardware audit
+or a permanent multi-level numeric reference contract.

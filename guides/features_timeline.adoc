@@ -4,12 +4,12 @@
 :toc:
 :toclevels: 2
 
-This is a compact history of the *implemented* 7xtgv RunCPM terminal through
-`++261004++`. Each `++YYMMDD-HH++` is a source commit or dated implementation
+This is a compact history of the *implemented* RunCPM 7xtgv-terminal.
+Each dated checkpoint is a source commit or implementation
 checkpoint, not necessarily the minute a feature first worked on hardware.
 Later rows can refine earlier behavior. The
 link:../docs/FEATURES.adoc[feature ledger] tracks individual feature states and
-test limits; the link:reference-guide.adoc[Reference Guide] describes current
+test limits; the link:03-RG-reference-guide.adoc[Reference Guide] describes current
 commands. Plans, imported CP/M packages, and the future native 7xtgv format
 are not presented here as shipped features. This page is curated, not generated
 from `++docs/features.tsv++`; update both when an implemented feature is added,
@@ -17,15 +17,69 @@ renamed, or changes behavior.
 
 == Terminal and RunCPM foundations
 
-Latest test checkpoint, `261007-1214`:
+Application settings now belong to complete INI bank sections. All slots share
+neutral fallbacks, so renumbering does not inherit another application's adapter,
+commands or prompt tracking. The working INI explicitly assigns `ccp_bank=0`;
+72 missing application key bindings are now in their respective sections.
+See link:../docs/261009-2026%20DONE%20INI-owned%20application%20profiles.adoc[slot independence and real TE desktop regression].
+
+Retained history now uses 80-character records including `>`: 79 characters
+of text per entry in every bank, with marker space accounted for during load.
+Longer active input keeps its separate capacity; old longer entries are clipped
+when loaded. See
+link:../docs/261009-1843%20DONE%2080-character%20history%20records.adoc[boundary fix and host verification].
+The subsequent normal EP4_10 desktop rebuild passed CTest, integrated v1/v2
+history boundary/save/reload checks, browsing/startup and eight VTESTS scenarios:
+link:../docs/261009-1854%20DONE%20EP4_10%20rebuild%20and%20history%20regression%20retest.adoc[rebuild and retest evidence].
+
+Submitted filtered recalls now follow ordinary history storage again, including
+completed tokens inside numbered/prefixed lines. Exact adjacent duplicates and
+empty/single-character input remain excluded. Terminal/runtime and real
+SDL/MBASIC save/reload tests pass; separate keyword lists remain future work.
+See link:../docs/261009-0251%20DONE%20Filtered%20recall%20returns%20to%20normal%20history.adoc[history behavior and keyword boundary].
+
+Global exit/clear INI settings now use `escape_alt` and `backspace_alt`, matching
+the existing host shortcuts. Historical dual-Alt names remain aliases; no
+AltGr modifier is required. See
+link:../docs/261009-0218%20DONE%20Clear%20names%20for%20global%20exit%20and%20clear%20shortcuts.adoc[parser and runtime checks].
+
+Integrated desktop browsing has checked named prompts, eleven working-card
+aliases, LS/LL alongside DIR/LDIR, remembered drive selection and the existing
+AUTOEXEC.TXT option for starting with 7XF. See
+link:../docs/261009-0035%20DONE%207XF%20desktop%20browsing%20and%20startup%20checkpoint.adoc[browsing and startup checkpoint].
+
+Current 7XF listings sort files by extension/name and display lowercase
+`name.ext`, without renaming host files. Descriptions stay on the same row;
+`LS ..` / `LL ..` lists the current
+drive's areas, while `/` lists drives. See
+link:../docs/261008-2212%20DONE%207XF%20sorted%20compact%20listings%20and%20parent-drive%20view.adoc[catalog listing checks].
+Current-area headings omit the repeated path and start the description at
+column 2. Area overviews omit empty/catalog-only areas (including host dotfile
+placeholders), while direct access and aliases remain available.
+Both short and long area overviews retain the whole-drive heading; only LL
+includes individual area descriptions. Root drive lists retain descriptions.
+
+Current working-card organization: `mbasic(B1)`, `bbcbasic(B2)` and `tp(B4)`
+hold language packages; `comal(B3)` is reserved with placeholder files.
+`fand(B5)` and `dbase(B6)` hold imported databases;
+`7xtgv(C1)` owns our guest sources and visual tests, `xterm256(C2)` the
+Mandelbrot demos, and `bench(C3)` the benchmarks. Shared commands remain in
+`cpm(A0)`; `cpmdev(A1)` combines historical assembler and CCP/BDOS dependencies.
+Older checkpoints below retain their then-current DU names. See
+link:../cpmcard/README.adoc[current card layout] and
+link:../docs/261008-2120%20DONE%20Working%20card%20areas%20and%20canonical%20guest%20sources.adoc[reorganization and test evidence].
+
+The `261007-1214` test checkpoint:
 link:../docs/261007-1214%20DONE%20VTESTS%20legacy%20and%20scroll%20checks.adoc[VTESTS review]
 isolates blink/reverse attributes, expands VT52 movement/erase checks and adds
 five DECSTBM/DECOM scrolling stages. Real MBASIC runs through the quiet SDL
 firmware on disposable cards; production renderer checks cover both blink
 phases and reverse pixels. This improves tests, not the terminal protocol;
-updated BASIC was subsequently copied to local `cpmcard/A/7` on Petr's request
+updated BASIC was subsequently copied to the then-current local `cpmcard/A/7` on Petr's request
 at `261007-1234`, but not to the physical card. See the
 link:../docs/261007-1234%20PLAN%20Consolidate%20CP-M%20content%20into%20cpmcard.adoc[card-root migration plan].
+Its current canonical location is `7xtgv(C1)`; the old location below is
+historical evidence, not an instruction to create another source copy.
 
 [cols="1,4,2",options="header"]
 |===
@@ -104,7 +158,7 @@ pressure; the actual boot failure remains to be confirmed. RP2_2 gains an
 explicit Os build trial without changing history depth. See
 link:../docs/261003-22%20RP2_2%20INI%20cache%20pressure%20and%20Os%20trial.adoc[cache investigation].
 
-At `261003-20`, the manual gains a link:build-guide.adoc[Build Guide]
+At `261003-20`, the manual gains a link:01-BG-build-guide.adoc[Build Guide]
 covering prerequisites, exact target names, baseline dependencies, staging,
 device permissions, SD/COM separation and recovery. README build commands
 are corrected to use the target-aware wrapper. ESP32 version pinning and
@@ -300,7 +354,7 @@ is accepted; no numeric throughput result was supplied.
 == P4 HAL preparation
 
 `++261002-09++`: added the JC8012P4A1C NewPanel board header and build target
-(`EP4_10`), reusing our working 7xtgv demo's DSI initialization. Initial
+(`EP4_10`), reusing the earlier display demo's DSI initialization. Initial
 storage is direct SdFat/SPI at 12 MHz. Native HAL/identity checks pass;
 combined firmware build and hardware validation remain pending. No RunCPM
 core changes. See link:../docs/261002-09%20P4%20NewPanel%20HAL%20first%20checkpoint.adoc[P4 checkpoint].
@@ -609,9 +663,33 @@ itself prove its `++.COM++` is installed on the live device.
 |===
 
 For the exact *current* syntax and limitations, use the
-link:reference-guide.adoc#7xtgv-cpm-commands-and-user-areas[command reference].
+link:03-RG-reference-guide.adoc#7xtgv-terminal-cpm-commands-and-user-areas[command reference].
 The physical SD card, local `++cpmcard++` and its committed snapshot can differ; this timeline
 does not certify that every listed binary is currently installed on the card.
+
+== Numbered manual chapters and ordered guide filenames (261010)
+
+BG, UG and TRG now group their topics into four numbered main chapters.
+RG uses five numbered parts plus a diagnostics/demonstrations appendix;
+TRG's detailed design and provenance records also have an appendix.
+TG numbers its existing five chapters. Lower-level topics remain unnumbered,
+and existing section anchors are retained.
+
+The six guide filenames use the ordered `01-BG-` through `06-HG-` prefixes.
+Repository links follow the new names; old external file bookmarks need
+updating. See the link:README.adoc[guide index] for the chapter map and
+link:../docs/261010-1254%20PLAN%20Numbered%20guide%20chapters%20and%20renamed%20navigation.adoc[approved structure].
+This is a documentation change; terminal behavior and working-card files
+are unchanged.
+
+== Host mirror naming
+
+`++261010++`: renamed the standard hardware tmux session and Konsole
+profile/keymap identifiers to `++7xtgv-terminal++`. The launcher helper retains
+the filename `++cpm-session.sh++`, and isolated desktop sessions retain
+`++7xtgv-desktop-<PID>++`. The
+link:05-TG-tooling-guide.adoc[Tooling Guide and SVG structure map] describe the paths.
+This host-tooling change does not rebuild firmware or modify guest files.
 
 == Desktop prerequisites in normal setup (261007)
 
@@ -658,3 +736,208 @@ Minimization, normal focus/Alt+Tab, native initial size, Hyprland decorations an
 mirror-close shutdown are unchanged. This is not a no-focus mode; keyboard input
 still belongs to the mirror. Syntax-checked; desktop rebuild/relaunch and visual
 acceptance remain pending.
+
+== First Windows desktop compilation proof (261010)
+
+EP4_10 now cross-compiles to Windows x64 SDL/headless executables using the
+same sketch, board and terminal sources. Five portable C++ test executables
+also build. The initial Windows backend accepts scripted fixture input; the
+interactive MSYS mirror and Windows launchers remain pending. Linux retains
+its PTY and passes all 12 EP4_10 regression tests. Native Windows execution
+and keyboard/storage acceptance have not been established. See
+link:../docs/261010-1354%20DONE%20First%20EP4%20Windows%20cross-build.adoc[build evidence and remaining Windows gate].
+
+== Windows setup and rebuild entry points (261010)
+
+Explicit MSYS2 setup and six thin Windows target rebuild launchers now accompany
+the compilation proof. They share target metadata and the desktop CMake sources;
+setup fetches checked GFX 1.6.4, and rebuild installs nothing. Six offline
+tooling checks pass. Native Windows setup/build execution and the interactive
+mirror remain unqualified. See
+link:../docs/261010-1406%20DONE%20Windows%20setup%20and%20rebuild%20entry%20points.adoc[setup and launcher evidence].
+
+Windows bootstrap discovery also covers common installation roots on D: and
+other drive letters, with an explicit root override and no global Windows PATH
+requirement. Native CMD validation remains pending; see
+link:../docs/261010-1449%20DONE%20Discover%20MSYS2%20across%20Windows%20drives.adoc[MSYS2 location handling].
+
+Petr subsequently confirmed prerequisite setup and a successful EP4_10 native
+MSYS2 rebuild on Windows 10 LTSC in VirtualBox, using an explicit D-drive MSYS2
+root. Native guest execution remains pending. See
+link:../docs/261010-1512%20DONE%20Native%20Windows%20EP4%20rebuild%20confirmed.adoc[native build checkpoint].
+
+The first direct native launch exposed a missing compiler runtime DLL. Windows
+rebuild now scans executable imports recursively and stages UCRT64 dependencies
+beside the executables, without relying on global PATH. Eight offline tests and
+an actual cross-built PE dependency scan pass; native startup remains pending.
+See link:../docs/261010-1521%20DONE%20Stage%20Windows%20runtime%20DLL%20dependencies.adoc[runtime DLL staging].
+
+Petr subsequently confirmed native `--describe` startup with the correct
+EP4_10 identity and geometry. The DLL loader issue no longer blocks that
+invocation; SDL and guest execution still await their separate check. See
+link:../docs/261010-1530%20DONE%20Native%20Windows%20executable%20startup%20confirmed.adoc[startup evidence and disposable SDL check].
+
+The subsequent ten-second disposable-card test displayed booted RunCPM in the
+native EP4_10 SDL window and completed with exit code zero on Windows 10 LTSC
+in VirtualBox (build 261010-1527). This establishes boot/presentation and timed
+shutdown; interactive mirror and broader guest/storage acceptance remain open.
+See link:../docs/261010-1540%20DONE%20Native%20Windows%20SDL%20RunCPM%20boot%20confirmed.adoc[native SDL runtime evidence].
+
+ES3_5 subsequently passed native Windows boot/timed shutdown (build 261010-1551)
+and became the primary Windows test target. An authenticated loopback transport
+with a separate owner-stop channel is now implemented; Linux keeps its ordinary
+PTY path. The new binary/guest/reconnect/shutdown proof passes on Linux EP4_10
+and ES3_5, and ES3_5 cross-compiles for Windows. Native MSYS qualification is
+pending through the new `desktop-proof.cmd`. Petr selected the live W: share
+for the next rebuild and disposable storage proof; logs remain in shared build
+output. See link:../docs/261010-1615%20DONE%20Windows%20loopback%20proof%20prepared%20for%20shared-drive%20test.adoc[connection proof and shared-drive checkpoint].
+
+Native EP4_10 and ES3_5 subsequently passed the complete MSYS connection proof
+on W:, including binary transfer, portable storage tests, guest commands,
+reconnect and all six shutdown/history-save cases. Both smoke tests passed;
+ES3_35 also built and passed smoke. Shared logs and report artifacts were
+verified directly from Linux. Interactive mirror/Mintty integration is next;
+see link:../docs/261010-1626%20DONE%20Native%20Windows%20shared-drive%20connection%20proofs%20pass.adoc[native proof acceptance].
+
+All six targets now pass native Windows rebuild, smoke and full connection/
+storage proofs on the shared W: checkout, including both RP2350 selections.
+Logs, guest artifacts and report ZIPs were verified. ES3_5 remains the primary
+interactive-port target; shared mirror/Mintty integration is still pending.
+See link:../docs/261010-1646%20DONE%20All%20six%20Windows%20targets%20pass%20shared-drive%20proofs.adoc[six-target acceptance matrix].
+
+The shared mirror now has an explicit desktop loopback adapter, with a Mintty
+owner and source-folder test/local/card launchers. Eight Linux real-mirror
+checks pass for close/reboot, busy guest shutdown, terminal loss and exact binary
+VTPUT/VTGET; card locks coordinate new Linux/Windows writers. Native Mintty and
+physical-key acceptance remain pending on ES3_5. See
+link:../docs/261010-1738%20DONE%20Windows%20interactive%20mirror%20ready%20for%20native%20test.adoc[interactive mirror checkpoint and native test steps].
+
+Native Mintty/SDL boot is confirmed on an ASCII test-card path. A Czech path
+exposed a native startup conversion failure; the desktop now uses Unicode
+Windows startup and explicit UTF-8 filesystem boundaries. Native rebuild and
+acceptance remain pending. A disposable SDL/software/headless timing probe
+will investigate the separately reported eight-second screen refresh. See
+link:../docs/261010-1750%20DONE%20Windows%20Unicode%20startup%20fix%20and%20display%20timing%20probe.adoc[Unicode and display-performance checkpoint].
+
+The Windows desktop now requests 1-ms timer resolution for each running session.
+A coarse-timer baseline remains in the display probe: the ES3_5 three-cell loop
+budget combined with a 15.6-ms sleep predicts the reported eight-second repaint.
+Native timing and performance acceptance are still pending; Linux and board
+rendering budgets are unchanged.
+
+Native timing confirms roughly 15-ms standard sleeps even after the timer-resolution
+request, with or without SDL. Windows desktop delays now use a high-resolution
+waitable timer per thread; native speed acceptance is pending. Czech card paths
+and six mirror lifecycle cases pass. A shared mirror correction treats MSYS
+terminal-read hangup as EOF; native terminal-close and transfer retesting remains.
+See link:../docs/261010-1950%20DONE%20Windows%20delay%20measurement%20and%20terminal%20close%20correction.adoc[measured delay and correction checkpoint].
+
+Native ES3_5 build 261010-1952 confirms the delay correction: average waits fall
+from 15.1 ms to 1.7 ms, and boot-to-prompt from 1.23 s to 0.31 s. All eight
+real-mirror cases pass on Windows, including terminal disappearance and the
+512-byte binary transfer round trip with Czech card paths. Visible redraw and
+physical key/application acceptance remain separate checks. See
+link:../docs/261010-1957%20DONE%20Native%20Windows%20timing%20and%20mirror%20acceptance.adoc[native timing and mirror acceptance].
+
+Mintty Alt+PgUp/PgDn now select history banks through the same controls as
+Konsole/Kitty. A card-free Mintty keyboard probe records physical bank, zoom and
+backlight chords; bank/zoom routes pass, fine-backlight input remains unresolved.
+A separate rendering diagnostic and mirror receive timestamps support the
+requested desktop performance investigation without changing board policies.
+See link:../docs/261010-2014%20DONE%20Mintty%20bank%20shortcuts%20and%20desktop%20rendering%20profile.adoc[keyboard and profiling checkpoint].
+
+Linux/Windows desktop rendering now completes all dirty visible cells per frame
+at the INI refresh rate, including simulations of direct panels. Queued terminal
+and mirror work no longer sleeps between batches; idle/deadline waits still yield
+CPU. Physical-board budgets remain unchanged. Linux regressions pass and ES3_5's
+controlled repaint drops from about 601 ms to 2.4 ms; native Windows rebuilding
+and acceptance remain pending. See
+link:../docs/261010-2032%20DONE%20Desktop%20complete-frame%20scheduling.adoc[desktop scheduling checkpoint].
+
+Native Windows redraw/scroll is now user-confirmed fast; fine backlight controls
+work. Slow guest storage remains under investigation. A disposable-card comparison
+launcher measures build-share versus local-TEMP directory and output timings,
+without rebuilding or accessing the working card. Windows Alt+Esc interception
+is documented with the existing Pause then x fallback. See
+link:../docs/261010-2134%20DONE%20Windows%20storage%20comparison%20prepared.adoc[storage comparison checkpoint].
+
+Native storage comparison confirms that card location is a major VM bottleneck:
+median DIR plus marker takes 1.4143 s on W: versus 0.1216 s on local D:, with the
+same executable and shared logs. No production storage behavior changed. See
+link:../docs/261010-2136%20DONE%20Native%20Windows%20storage%20location%20comparison.adoc[native storage evidence].
+
+A local Windows staging launcher now copies one built target, its required mirror
+helpers and a complete card into a fresh dated directory under D:\~tmp\260906-7xtgv.
+Root launchers avoid navigating between source and build directories; earlier
+local cards and the source card are preserved. ES3_5 snapshot assembly is verified
+at 13 MiB; native local launch remains pending. See
+link:../docs/261010-2144%20DONE%20Local%20Windows%20target%20runtime%20snapshot.adoc[local runtime snapshot].
+
+Local Windows runtime snapshot launch and VTDRV verification now pass, with a
+substantial residual speed gap. Both current builds use -O2. A standalone native
+filesystem probe now separates adapter/native open, metadata, seek, I/O and close
+costs, including retained-handle comparisons. Linux execution and Windows cross
+compilation pass; native Windows profiling is pending. See
+link:../docs/261010-2252%20DONE%20Native%20filesystem%20operation%20probe%20prepared.adoc[filesystem operation probe].
+
+The native Windows filesystem probe now passes and reproduces the local slowdown
+without emulator/SDL: repeated-open adapter writes take 1293 ms versus 3.029 ms
+with a retained handle. Native opening dominates writes; path canonicalization
+also adds measurable read overhead. This establishes an optimization candidate;
+production storage remains unchanged. See
+link:../docs/261010-2259%20DONE%20Windows%20native%20file-open%20bottleneck%20measured.adoc[native operation evidence].
+
+Desktop storage now reuses at most eight idle native backing descriptors. Logical
+opens receive fresh buffers, closes flush writes, and identity/mutation/lifecycle
+checks protect reuse. Linux storage/integration/mirror tests and Windows cross-build
+pass; native Windows optimized-path timing remains pending. Physical SdFat and
+RunCPM callers are unchanged. See
+link:../docs/261010-2330%20DONE%20Desktop%20retained%20file%20handles%20design%20and%20validation.adoc[detailed retained-handle design and validation].
+
+At `261011-0024`, native Windows retained-handle correctness and all probe
+readbacks pass. Actual adapter record writes improve from 1293 to 214 ms
+(6.04 times); reads remain about 101 ms. New full-desktop rebuild/proofs and
+a fresh local snapshot are the next acceptance step. See
+link:../docs/261011-0024%20DONE%20Native%20Windows%20retained%20handles%20correctness%20and%20timing.adoc[native retained-handle results].
+
+At `261011-0049`, the updated Windows ES3_5 executable passes all six portable
+tests, connection/persistence proof and eight real-mirror cases. Local D: guest
+VTDRV verifies data at 94.74 KiB/s write (about 4--5 times the earlier local runs)
+and 158.44 KiB/s read (unchanged). See
+link:../docs/261011-0049%20DONE%20Windows%20ES3_5%20storage%20integration%20and%20local%20VTDRV.adoc[ES3_5 integration and local guest acceptance].
+
+At `261011-0124`, desktop SDL windows become fixed-size with launcher-selected
+integer scale 1..9. Alt+Q joins all supplied mirror profiles; Windows numeric
+controls preserve modifiers and gain a Konsole parity test. The three Windows
+rebuild/local/card launchers gain progress and adjacent transcripts. Host tests
+and Windows cross-build pass; native keys/window/log acceptance remains pending.
+See link:../docs/261011-0124%20DONE%20Fixed%20SDL%20scale%20shared%20exit%20aliases%20and%20Windows%20launcher%20logs.adoc[desktop window, keyboard and launcher checkpoint].
+
+At `261011-1545`, Petr confirms Alt+Q, fixed SDL windows and integer scaling
+across all six Windows desktop variants. Alt+Q becomes the primary documented
+exit shortcut. The Windows helper gains modified numpad brightness/OFF decoding
+and separate top-row/numpad probes; physical recheck is pending. History recall
+now tries the full prefix including spaces before the inline-word fallback.
+Sanitized terminal/runtime and host helper tests pass; executable rebuild and
+interactive history acceptance remain pending. See
+link:../docs/261011-1545%20DONE%20Spaced%20history%20filters%20and%20Windows%20numeric%20key%20reports.adoc[spaced history and numeric-key checkpoint].
+
+At `261011-1558`, filtered history inserts stored bytes without adding spaces;
+existing stored/surrounding whitespace is preserved. A fresh Windows capture
+identifies the NumLock navigation path with Shift removed, and explicit keypad
+aliases are added for numeric brightness/OFF. Host tests pass; native alias
+acceptance and plain-key positional parity remain open. See
+link:../docs/261011-1558%20DONE%20Exact%20history%20insertion%20and%20numpad%20navigation%20aliases.adoc[exact insertion and numpad correction].
+
+At `261011-1617`, Windows launch/probe tooling gains a native helper scoped to
+one Mintty message thread. Physical Czech number-row and keypad decimal events
+reach the existing INI/default mapping; numeric brightness/OFF shortcuts are
+handled before text conversion. Ordinary punctuation, paste and AltGr retain
+their text path. Portable mapping tests, 29 tooling tests and the helper
+cross-build pass; actual Mintty delivery awaits native acceptance. See
+link:../docs/261011-1617%20DONE%20Focused%20Mintty%20physical-key%20helper%20prepared.adoc[helper design and focused native test].
+
+At `261011-1626`, all six Windows target folders are reduced to rebuild, local
+and card launchers. Diagnostic backends remain accessible through `windows.cmd`;
+future runtime snapshots expose only local/card. All 29 Windows tooling tests
+pass. See link:../docs/261011-1626%20DONE%20Three%20Windows%20target%20launchers.adoc[launcher cleanup].

@@ -1,0 +1,317 @@
+= RunCPM 7xtgv-terminal: Reference Guide — structure example
+:leveloffset: +1
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 3
+:sectnums!:
+
+This is a separate *structure example*, not a replacement Reference Guide.
+It demonstrates five broad parts and one appendix using the existing guide's
+material. Descriptions below indicate what each section would contain; follow
+the links for the current complete reference.
+
+Only the five major parts have explicit numbers. Their labels and order are
+provisional; lower headings remain unnumbered. Each part has its own semantic
+anchor, independent of its displayed number. The current guide has not changed.
+
+The proposed front matter would retain the guide's scope, notation and
+the xref:../guides/03-RG-reference-guide.adoc#_find_details_by_task[Find details by task]
+table. That navigation would precede the numbered parts.
+
+[[rg-example-operation]]
+== 1. Terminal operation
+
+This part defines the controls available while using the terminal and its PC
+mirror. It describes their effects across applications. Installation and build
+procedures remain in the Build Guide; host-tool structure remains in the
+Tooling Guide.
+
+[[rg-example-mirror]]
+=== Sessions and the PC mirror
+
+Hardware versus desktop mirror behavior, attachment and shutdown, host bridge
+commands, reconnect behavior and the meaning of host configuration settings.
+Full first-launch instructions would be linked rather than repeated here.
+
+Current material:
+xref:../guides/03-RG-reference-guide.adoc#starting-the-pc-mirror[Starting the PC mirror].
+
+[[rg-example-terminal-controls]]
+=== Terminal controls and keyboard shortcuts
+
+The global chord table, profile-selection keys, reserved terminal controls,
+viewport and zoom controls, brightness, ASCII prefix fallbacks and emergency
+return. Application-specific key translation belongs in Part 2; definitions
+used to configure keys belong in Part 4.
+
+Current material:
+xref:../guides/03-RG-reference-guide.adoc#global-terminal-keys[Global terminal keys],
+including physical chords, reserved controls and ASCII prefix fallbacks.
+
+[[rg-example-applications]]
+== 2. Applications and input
+
+This part defines how the terminal interacts with an application: selecting a
+profile, translating input, tracking a line and recalling history. It provides
+the behavioral reference needed to use and configure an application profile.
+
+[[rg-example-profiles]]
+=== Application profiles and selection
+
+The ten configurable slots, profile identity, selection commands, `on_select`,
+explicit CCP assignment and the distinction between the selected profile and
+the effective history bank. Numeric slots do not identify an application.
+
+Current material:
+xref:../guides/03-RG-reference-guide.adoc#application-profiles[Application profiles]
+and the selected-profile/effective-bank explanation under
+xref:../guides/03-RG-reference-guide.adoc#histories-banks-and-the-active-line[Histories, banks and the active line].
+
+[[rg-example-history]]
+=== History and the active line
+
+Stored-line limits, recall, filtering, cursor position, logging rules,
+active-line behavior, history files and the user-visible save/reload contract.
+Storage layout, checksums and transaction implementation would be described in
+TRG rather than expanded here.
+
+Current material:
+xref:../guides/03-RG-reference-guide.adoc#histories-banks-and-the-active-line[Histories, banks and the active line],
+including its persistence subsection.
+
+[[rg-example-adapters]]
+=== Application editing and input adapters
+
+The observable behavior of MBASIC's two adapters and BBC BASIC prompt tracking
+and retyping. Which keys an adapter consumes, what commands it sends and the
+guest conditions it requires remain part of this reference.
+
+Current material:
+xref:../guides/03-RG-reference-guide.adoc#editing-details[Editing details]
+and the adapter-routing rules in
+xref:../guides/03-RG-reference-guide.adoc#profile-loading-and-key-priority[Loading order and key priority].
+
+[[rg-example-raw]]
+=== RAW input
+
+What RAW bypasses, which terminal controls remain available and how RAW differs
+from `input=custom`. The explanation would live here, with links from the
+configuration and transfer sections.
+
+Current material: RAW input under
+xref:../guides/03-RG-reference-guide.adoc#histories-banks-and-the-active-line[Histories, banks and the active line],
+plus the RAW distinctions in
+xref:../guides/03-RG-reference-guide.adoc#keyboard-overrides-in-7xtgvtrmini[Keyboard overrides].
+
+[[rg-example-cpm]]
+== 3. CP/M commands and files
+
+This part defines the shell, named drive/user areas, installed commands and
+file operations. The command reference remains available regardless of the
+prompt style selected for 7XF.
+
+[[rg-example-shell]]
+=== The 7XF shell and drive/user areas
+
+Prompt styles, listing and selection commands, sizes and descriptions,
+catalog files and the current project-area inventory. Catalog data and command
+syntax are presented together because they describe the same shell environment.
+
+Current material:
+xref:../guides/03-RG-reference-guide.adoc#7xtgv-terminal-cpm-commands-and-user-areas[7xtgv-terminal CP/M commands and user areas],
+through Project files by DU.
+
+[[rg-example-guest-commands]]
+=== Shared commands
+
+The complete shared-command index, syntax, arguments, target support and
+observable effects. Detailed diagnostic procedures would be in Appendix A,
+linked from the relevant command entry.
+
+Current material:
+xref:../guides/03-RG-reference-guide.adoc#shared-a0-commands[Shared A0 commands],
+including the VTINFO report and VTZOOM application-size caveat.
+
+[[rg-example-startup]]
+=== Startup and batch commands
+
+Boot handling, `AUTOEXEC.TXT`, `SUBMIT` and interrupted or pending submit work.
+This keeps automatic shell activity alongside the commands it executes.
+
+Current material:
+xref:../guides/03-RG-reference-guide.adoc#boot-autoexec-and-pending-submit-work[Boot, AUTOEXEC and pending SUBMIT work].
+
+[[rg-example-transfers]]
+=== File transfer and extraction
+
+The VTPUT/VTGET panel's fields, local versus device DU, overwrite decisions,
+byte preservation, state restoration, supported logical width, recovery and
+ZIP extraction syntax. Wire framing and record-tag implementation would remain
+in TRG.
+
+Current material:
+xref:../guides/03-RG-reference-guide.adoc#vtput\--vtget-from-the-mirror[VTPUT / VTGET from the mirror]
+and xref:../guides/03-RG-reference-guide.adoc#zip-transfer-and-extraction[ZIP transfer and extraction].
+
+[[rg-example-configuration]]
+== 4. Configuration
+
+This part is the complete setting reference: sections, accepted values,
+defaults, precedence, diagnostics and reload behavior. Runtime use is linked
+to Parts 1 and 2; output interpretation is linked to Part 5.
+
+[[rg-example-ini]]
+=== INI structure, syntax and reload
+
+Where `7XTGVTRM.INI` is read, section scopes, syntax limits, duplicate/invalid
+definitions, diagnostics and the user-visible reload/save rules. The internal
+stages of parsing and publishing a configuration would be documented in TRG.
+
+Current material:
+xref:../guides/03-RG-reference-guide.adoc#configuration-reference[Configuration reference],
+xref:../guides/03-RG-reference-guide.adoc#ini-diagnostics-and-syntax-limits[INI diagnostics and syntax limits]
+and Reloading and persistence under
+xref:../guides/03-RG-reference-guide.adoc#keyboard-overrides-in-7xtgvtrmini[Keyboard overrides].
+
+[[rg-example-key-settings]]
+=== Key bindings, presets and overrides
+
+Accepted key names, modifier order, binding forms, encoded bytes, host-delivery
+limits, exact preset maps and explicit-bank/global/preset precedence. Output
+mode, input preset and adapter settings are distinguished here. The TE/FAND/
+Turbo comparisons illustrate the rules rather than describe a pending cleanup.
+
+Current material:
+xref:../guides/03-RG-reference-guide.adoc#keyboard-overrides-in-7xtgvtrmini[Keyboard overrides],
+xref:../guides/03-RG-reference-guide.adoc#input-preset-mappings[Exact preset coverage]
+and xref:../guides/03-RG-reference-guide.adoc#working-profile-preset-comparison[Presets versus the tested working profiles].
+
+[[rg-example-global-settings]]
+=== Global settings
+
+The global setting table, accepted values and fallback defaults, including
+console width in bits, output mode, shared controls and storage-clock requests.
+
+Current material:
+xref:../guides/03-RG-reference-guide.adoc#global-settings[Global settings].
+
+[[rg-example-display-settings]]
+=== Display and profile settings
+
+Display-specific geometry and boot zoom, per-bank geometry and colors,
+application commands, prompt/history settings and adapter options. These are
+the setting definitions for behavior described elsewhere in the guide.
+
+Current material:
+xref:../guides/03-RG-reference-guide.adoc#display-and-per-bank-geometry[Display and per-bank geometry]
+and xref:../guides/03-RG-reference-guide.adoc#additional-bank-settings[Additional bank settings].
+
+[[rg-example-palette-settings]]
+=== Palettes and colors
+
+Palette-slot definitions, RGB syntax, inheritance/fallback rules and configured
+palette selection. The ANSI-to-ink/paper conversion and SGR behavior belong in
+Part 5, with links between both sections.
+
+Current material: configuration portions of
+xref:../guides/03-RG-reference-guide.adoc#palette-slots-and-ansi-color-mapping[Palette slots and ANSI color mapping].
+
+[[rg-example-interfaces]]
+== 5. Terminal interfaces
+
+This part defines the implemented output languages and interfaces available to
+guest programs and terminal clients. Compatibility limits are included with
+the interface they qualify. The native 7xtgv specification remains a separate
+design document.
+
+[[rg-example-output]]
+=== Output modes and supported sequences
+
+ANSI/VT100-style and VT52 mode selection; controls, cursor movement, erase,
+scrolling, state, queries, character sets and implemented limitations. The
+supported DEC graphics mapping belongs here; its visual test recipe belongs in
+Appendix A.
+
+Current material:
+xref:../guides/03-RG-reference-guide.adoc#output-interpretation-modes[Output interpretation modes]
+and xref:../guides/03-RG-reference-guide.adoc#implemented-escape-sequence-subset[Implemented escape-sequence subset],
+plus compatibility details from the DEC graphics test section.
+
+[[rg-example-attributes]]
+=== Text attributes and color interpretation
+
+SGR meanings, normal/emphasis ink mapping, the four-paper background policy,
+resets and unsupported color forms. Setting the actual RGB values remains in
+Part 4.
+
+Current material: interpretation portions of
+xref:../guides/03-RG-reference-guide.adoc#palette-slots-and-ansi-color-mapping[Palette slots and ANSI color mapping].
+
+[[rg-example-control-interface]]
+=== Terminal control and query interfaces
+
+A concise map of externally available terminal controls and queries, their
+effects and their complete specifications in TRG. The map distinguishes guest
+output controls from host-input key events; it does not imply that every
+reserved input event is a guest API.
+
+Current material: relevant entries in
+xref:../guides/03-RG-reference-guide.adoc#global-terminal-keys[Global terminal keys]
+and xref:../guides/03-RG-reference-guide.adoc#shared-a0-commands[Shared A0 commands],
+with xref:../guides/04-TRG-technical-reference-guide.adoc#private-protocol-boundaries[Private protocol boundaries]
+as the existing detailed reference. This map would be curated, not copied as a
+new duplicate protocol specification.
+
+[[rg-example-graphics-interface]]
+=== Graphics extension: xterm256 plotting
+
+The implemented plotting interface, coordinate system, sample zoom, clipping,
+surface lifetime and reset behavior. This is a terminal extension, distinct
+from the proposed native graphics engine. Running the bundled plotting demos
+belongs in Appendix A.
+
+Current material: interface portions of
+xref:../guides/03-RG-reference-guide.adoc#xterm256-graphics[xterm256 graphics].
+
+[[rg-example-appendix-tests]]
+== Appendix A. Diagnostics, tests and demonstrations
+
+This appendix groups optional tests and examples so that they do not define the
+main organization of the reference. Exact command syntax remains in Part 3,
+and interface guarantees remain in Part 5.
+
+[[rg-example-diagnostics]]
+=== Diagnostics and benchmarks
+
+Detailed CARDMARK procedures, report interpretation, target limitations and
+measurement caveats; the roles of VTCPU, VTDRV and VTTERM. Results and hardware
+qualification remain in dated evidence rather than becoming guide guarantees.
+
+Current material:
+xref:../guides/03-RG-reference-guide.adoc#cardmark-raw-sd-read-diagnostic[CARDMARK raw SD read diagnostic]
+and the diagnostic entries in
+xref:../guides/03-RG-reference-guide.adoc#shared-a0-commands[Shared A0 commands].
+
+[[rg-example-visual-tests]]
+=== Visual terminal and palette tests
+
+Where the VTESTS and VTPAL examples are maintained, how to start them and what
+the visual comparisons demonstrate. Output support and known approximations
+are linked to Part 5 rather than defined by a test program.
+
+Current material:
+xref:../guides/03-RG-reference-guide.adoc#a7-visual-tests-and-dec-graphics[Visual tests in 7xtgv(C1) and DEC graphics]
+and the VTPAL example notes under
+xref:../guides/03-RG-reference-guide.adoc#palette-slots-and-ansi-color-mapping[Palette slots and ANSI color mapping].
+
+[[rg-example-plot-demos]]
+=== Plotting demonstrations and helper examples
+
+Bundled xterm256 demonstrations, their submit scripts and the GCLS/helper
+examples. Source/build notes link to the developer reference. These examples
+illustrate the graphics extension without making it a top-level product part.
+
+Current material:
+xref:../guides/03-RG-reference-guide.adoc#a6-graphics-and-timing-helpers[Graphics and timing helpers in xterm256(C2)]
+and demonstration portions of
+xref:../guides/03-RG-reference-guide.adoc#xterm256-graphics[xterm256 graphics].

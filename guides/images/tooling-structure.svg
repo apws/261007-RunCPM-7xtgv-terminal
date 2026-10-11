@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1490" viewBox="0 0 1200 1490" role="img" aria-labelledby="title desc">
+<title id="title">7xtgv-terminal host tooling structure</title>
+<desc id="desc">Hardware mirror and desktop launch paths converge on Konsole, Kitty or the current terminal, then cpm-session.sh and terminal.py. Hardware uses the 7xtgv-terminal tmux session and USB serial; desktop uses isolated 7xtgv-desktop PID sessions and a PTY. Separate maintenance operations build, upload and transfer files.</desc>
+<defs><marker id="launch" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#3263a3"/></marker><marker id="data" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#19766a"/></marker></defs>
+<style>text{font-family:DejaVu Sans,sans-serif;fill:#20334d}.title{font-size:32px;font-weight:700}.head{font-size:23px;font-weight:700}.body{font-size:20px}.small{font-size:18px}.mono{font-family:DejaVu Sans Mono,monospace;font-size:19px}.launch{fill:none;stroke:#3263a3;stroke-width:2.5;marker-end:url(#launch)}.data{fill:none;stroke:#19766a;stroke-width:2.5;marker-start:url(#data);marker-end:url(#data)}</style>
+<rect width="1200" height="1490" fill="#f7f9fc"/>
+<text x="40" y="52" class="title" text-anchor="start">7xtgv-terminal · host tooling</text>
+<text x="40" y="87" class="body" text-anchor="start">Launchers, shared mirror helpers, transport ownership and maintenance</text>
+<rect x="40" y="120" width="1120" height="96" rx="12" fill="#e9eff8" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="60" y="152" class="head" text-anchor="start">Shared setup and target selection</text>
+<text x="60" y="181" class="body" text-anchor="start">setup.sh  ·  terminal.conf  ·  target_config.py  ·  targets/&lt;target&gt;.json</text>
+<text x="60" y="207" class="body" text-anchor="start">Dependencies, target metadata, serial selection and host launch defaults</text>
+<path d="M310 216 V261" class="launch"/>
+<path d="M890 216 V261" class="launch"/>
+<rect x="40" y="265" width="540" height="90" rx="12" fill="#edf3ff" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="60" y="297" class="head" text-anchor="start">Hardware: selected board folder</text>
+<text x="60" y="326" class="mono" text-anchor="start">mirror.sh</text>
+<rect x="620" y="265" width="540" height="90" rx="12" fill="#e8f5f1" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="640" y="297" class="head" text-anchor="start">Desktop: selected board folder</text>
+<text x="640" y="326" class="mono" text-anchor="start">desktop-local.sh  /  desktop-card.sh</text>
+<path d="M310 355 V391" class="launch"/>
+<path d="M890 355 V391" class="launch"/>
+<rect x="40" y="395" width="540" height="105" rx="12" fill="#edf3ff" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="60" y="427" class="head" text-anchor="start">target_mirror.py</text>
+<text x="60" y="456" class="body" text-anchor="start">Resolve serial endpoint; select visible mirror.</text>
+<text x="60" y="482" class="body" text-anchor="start">No firmware build or upload.</text>
+<rect x="620" y="395" width="540" height="105" rx="12" fill="#e8f5f1" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="640" y="427" class="head" text-anchor="start">target_desktop.py → desktop.py</text>
+<text x="640" y="456" class="body" text-anchor="start">Start xtgv_desktop; obtain PTY; select mirror.</text>
+<text x="640" y="482" class="body" text-anchor="start">Uses target_mirror.mirror_command().</text>
+<path d="M310 500 V546" class="launch"/>
+<path d="M890 500 V546" class="launch"/>
+<rect x="40" y="550" width="1120" height="230" rx="12" fill="#f0edfa" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="60" y="585" class="head" text-anchor="start">Shared mirror selection: one of three launchers</text>
+<rect x="64" y="610" width="334" height="100" rx="12" fill="#fff" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="84" y="642" class="head" text-anchor="start">Konsole: kon.sh</text>
+<text x="84" y="671" class="small" text-anchor="start">7xtgv-terminal.profile</text>
+<text x="84" y="697" class="small" text-anchor="start">7xtgv-terminal.keytab</text>
+<rect x="432" y="610" width="334" height="100" rx="12" fill="#fff" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="452" y="642" class="head" text-anchor="start">Kitty: kit.sh</text>
+<text x="452" y="671" class="small" text-anchor="start">kitty.conf</text>
+<text x="452" y="697" class="small" text-anchor="start">Keyboard-event mappings</text>
+<rect x="800" y="610" width="334" height="100" rx="12" fill="#fff" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="820" y="642" class="head" text-anchor="start">Current terminal</text>
+<text x="820" y="671" class="small" text-anchor="start">cpm-session.sh</text>
+<text x="820" y="697" class="small" text-anchor="start">Uses the caller’s terminal</text>
+<text x="60" y="750" class="small" text-anchor="start">Konsole profile/keymap identifier: 7xtgv-terminal. All three paths use the session helper.</text>
+<path d="M600 780 V820" class="launch"/>
+<rect x="40" y="825" width="1120" height="105" rx="12" fill="#f0edfa" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="60" y="857" class="head" text-anchor="start">cpm-session.sh  ·  create or attach to tmux</text>
+<text x="60" y="886" class="body" text-anchor="start">Hardware session: 7xtgv-terminal</text>
+<text x="60" y="912" class="body" text-anchor="start">Desktop override: XTGV_SESSION=7xtgv-desktop-&lt;PID&gt;</text>
+<path d="M600 930 V971" class="launch"/>
+<rect x="40" y="975" width="1120" height="85" rx="12" fill="#e7f4f1" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="60" y="1007" class="head" text-anchor="start">terminal.py  ·  PC screen, keyboard bridge and transfer panel</text>
+<text x="60" y="1036" class="body" text-anchor="start">One connection to the selected CP/M endpoint.</text>
+<path d="M310 1060 V1112" class="data"/>
+<path d="M890 1060 V1112" class="data"/>
+<rect x="40" y="1117" width="540" height="92" rx="12" fill="#edf3ff" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="60" y="1149" class="head" text-anchor="start">USB serial ↔ MCU</text>
+<text x="60" y="1178" class="small" text-anchor="start">RunCPM + terminal + TFT; MCU card storage.</text>
+<rect x="620" y="1117" width="540" height="92" rx="12" fill="#e8f5f1" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="640" y="1149" class="head" text-anchor="start">PTY ↔ xtgv_desktop</text>
+<text x="640" y="1178" class="small" text-anchor="start">RunCPM + terminal + SDL; selected host card.</text>
+<text x="40" y="1254" class="head" text-anchor="start">Separate maintenance entry points</text>
+<rect x="40" y="1275" width="350" height="142" rx="12" fill="#fff" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="60" y="1307" class="head" text-anchor="start">MCU build / upload</text>
+<text x="60" y="1336" class="small" text-anchor="start">rebuild.sh → build/stage</text>
+<text x="60" y="1362" class="small" text-anchor="start">reflash.sh → stop mirror,</text>
+<text x="60" y="1388" class="small" text-anchor="start">upload, restore mirror</text>
+<rect x="425" y="1275" width="350" height="142" rx="12" fill="#fff" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="445" y="1307" class="head" text-anchor="start">Desktop build</text>
+<text x="445" y="1336" class="small" text-anchor="start">desktop-rebuild.sh</text>
+<text x="445" y="1362" class="small" text-anchor="start">→ desktop.py build</text>
+<text x="445" y="1388" class="small" text-anchor="start">→ CMake / host executable</text>
+<rect x="810" y="1275" width="350" height="142" rx="12" fill="#fff" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="830" y="1307" class="head" text-anchor="start">Guest transfers</text>
+<text x="830" y="1336" class="small" text-anchor="start">VTPUT/VTGET: existing bridge</text>
+<text x="830" y="1362" class="small" text-anchor="start">Direct transfer: own connection</text>
+<text x="830" y="1388" class="small" text-anchor="start">INI fetch: stop / fetch / restore</text>
+<text x="40" y="1463" class="small" text-anchor="start">Paths are relative to src/RunCPM_7xtgv-terminal/. Blue = launch; green = byte transport.</text>
+</svg>

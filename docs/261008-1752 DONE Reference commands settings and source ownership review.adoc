@@ -1,0 +1,67 @@
+= Reference commands, settings and source ownership review
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Scope
+
+Continuation of the
+link:261007-2317%20PLAN%20Entire%20manuals%20current-state%20review.adoc[manual review],
+following the
+link:261008-1648%20DONE%20User%20Guide%20recipes%20and%20readability%20review.adoc[practical-guide pass].
+Documentation only: no firmware builds, uploads, working-card edits or CSS changes.
+
+== Reference Guide
+
+* Lead hardware mirror startup with the selected board's `mirror.sh`;
+  distinguish desktop launchers from the shared hardware serial session.
+* Split transfer details into folder/filename selection, approval, byte/profile
+  recovery and protocol-width topics. Preserve overwrite and restoration rules.
+* Consolidate physical shortcuts into one mapping table, retaining Czech digit,
+  AltGr, RAW and forced-return cautions as separate short notes.
+* Separate 7XF prompt styles, LS/CD syntax, size accounting and catalog formats.
+  Remove obsolete AC/AD package-inventory rows; those DU folders contain no files.
+* Correct Brot scripts: no implicit CLS; PS pads eight lines; fixed pixel origins
+  can clip on small panels. Correct REBOOT's reconnect/desktop lifecycle wording.
+* Repair the A7 visual-test anchor, previously attached to CARDMARK.
+* Add an INI scope table, global defaults and board boot-zoom/flush fallbacks.
+  Explain the 128-entry sparse key pool separately from fixed bank key slots.
+* Split control-byte notation into examples/table; preserve literal backslashes
+  through AsciiDoc rendering with passthrough where needed.
+
+== Technical Reference Guide
+
+* Move the source ownership map to the beginning, including desktop and quiet
+  target tooling, before historical architecture discussions.
+* Correct CCP ownership: recovered `ccp.h`, extended `ccp7xf.h`, helper
+  `ccp_catalog.h`, compile-time `XTGV_CCP_7XF` selection.
+* Both CCP variants use INFO.TXT for VOL. The three 7XF catalog files belong
+  to the product extension; the implemented split is not merely a proposal.
+* Update canonical/versioned cpmcard status and split runtime/viewport rules
+  into short bullets. Remove an obsolete blanket not-yet-built HAL statement;
+  physical acceptance still requires target-specific evidence.
+
+== Evidence and checks
+
+* Read current profile parser/default structures, board constants/selection,
+  sketch CCP selection, CCP/catalog sources, launcher/reconnect paths and
+  maintained Brot scripts. Existing source-linked checks guided the wording;
+  this is not a fresh full protocol-conformance audit.
+* Focused Python suites: `test_config_settings.py` (9) and `test_helper.py` (35)
+  pass. These use host/disposable fixtures, not the working card.
+* Rendered maintained entry documents and checked local links and anchors.
+  No missing targets/anchors; only known section-order warnings caused by
+  intentional level offsets. The writing cheatsheet remains excluded pending
+  its separate malformed-example/include repair.
+* Chromium screenshot of the transfer sections with the repository CSS verifies
+  pale-blue subheadings, readable one-level bullets and aligned content width.
+  Exact rendered control-byte examples were also asserted, not just inspected
+  in source. This is representative screen QA, not a new PDF-pagination sweep.
+* `git diff --check` passes.
+
+== Remaining review
+
+* Complete the Reference escape/private-control and remaining settings audit.
+* Continue Technical Reference persistence, protocol and test-entry review.
+* Reconcile the Features Timeline and repair the writing cheatsheet.
+* Fresh-machine setup qualification and physical board retesting remain open.
+* Preserve unrelated working-tree edits. Commit/push is a separate checkpoint.

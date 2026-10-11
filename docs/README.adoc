@@ -9,11 +9,21 @@ current implementation instructions.
 
 == High-level reading
 
+* link:261010-1406%20DONE%20Windows%20setup%20and%20rebuild%20entry%20points.adoc[Windows setup and rebuild entry points]: from-scratch MSYS2 instructions, explicit setup and six target rebuild launchers; offline-tested, native Windows run and interactive launch pending.
+
+* link:261010-1354%20DONE%20First%20EP4%20Windows%20cross-build.adoc[First EP4 Windows cross-build]: SDL/headless EXEs and portable tests compile; Linux regression passes; native Windows execution and interactive mirror remain pending.
+
+* link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[MSYS2 Windows desktop build and launch plan]: native MinGW executable, shared MSYS mirror, unchanged Linux PTY behavior, staged native Windows acceptance; implementation pending.
+
+* link:261010-1327%20DONE%20Windows%20desktop%20portability%20review.adoc[Windows desktop portability review]: reusable runtime/storage, missing transport and host lifecycle, launcher-only tools-win targets; analysis without implementation.
+
+* link:261010-1259%20DONE%20Numbered%20guide%20chapters%20and%20preserved%20navigation.adoc[Numbered guide chapters and preserved navigation]: applied BG/UG/RG/TRG organization and TG numbering; ordered guide filenames and existing topic anchors retained.
+
 * link:261007-1426%20DONE%20Sinclair%20QL%20channels%20research%20and%20native%207xtgv%20sidenote.adoc[Sinclair QL channels and native 7xtgv]: historical excursion, terminal comparison and possible software-channel inspiration; explicitly preserves native 7xtgv as the primary objective.
 * link:261007-1146%20DONE%20Design%20evolution%20and%20key%20milestones.adoc[Design evolution and key milestones]: major architectural decisions, their motivation, evidence and remaining boundaries.
 * link:261004-11%20manual%20reorg.adoc[Petr's practical manual outline]: historical user-task notes, converted from the manual folder's raw TXT; not a replacement for the current guides.
-* link:../guides/technical-reference-guide.adoc[Technical Reference Guide]: current developer boundaries and baseline/integration notes.
-* link:../guides/history-guide.adoc[History Guide]: reserved for Petr's personal account of the project's origins and motivation; in preparation.
+* link:../guides/04-TRG-technical-reference-guide.adoc[Technical Reference Guide]: current developer boundaries and baseline/integration notes.
+* link:../guides/06-HG-history-guide.adoc[History Guide]: reserved for Petr's personal account of the project's origins and motivation; in preparation.
 
 == New chronological records (agreed 261006)
 
@@ -39,6 +49,40 @@ to create a plan.
 
 == Resume ongoing work
 
+* Separate RG organization example:
+  link:261010-1218%20PLAN%20Reference%20Guide%20stable%20parts%20example.adoc[five-part Reference Guide outline with source mappings].
+  Review only; existing guides unchanged. Evidence:
+  link:261010-1223%20DONE%20Separate%20Reference%20Guide%20structure%20example.adoc[rendered example and preservation checks].
+
+* Latest host-tooling naming/map:
+  link:261010-1028%20DONE%20Host%20mirror%20identifiers%20and%20SVG%20tooling%20map.adoc[renamed mirror identifiers and SVG tooling guide].
+  Hardware session and Konsole profile/keymap use `7xtgv-terminal`;
+  `cpm-session.sh` and desktop session names retained. Offline checks pass;
+  existing sessions and installed profiles preserved.
+
+* Latest guide naming/review:
+  link:261009-2227%20DONE%20Terminal%20guide%20naming%20and%20reader-context%20review.adoc[terminal naming and reader-context passages].
+  Guide terminology and CP/M-section links aligned; actual tool identifiers
+  retained. Three conversation-dependent passages await an editorial choice.
+
+* Latest profile correction:
+  link:261009-2026%20DONE%20INI-owned%20application%20profiles.adoc[INI-owned application profiles and movable slots].
+  Removed application defaults tied to bank numbers; explicit CCP assignment,
+  local INI migration and real TE desktop checks.
+  Follow-up: link:261009-2144%20DONE%20Keyboard%20presets%20and%20override%20order%20review.adoc[exact presets, override order and TE/FAND/TINST comparisons].
+
+* Latest desktop rebuild/retest:
+  link:261009-1854%20DONE%20EP4_10%20rebuild%20and%20history%20regression%20retest.adoc[EP4_10 build 261009-1850 and passing integrated checks].
+  Includes concurrent working-card activity and the remaining acceptance gates.
+* History-length follow-up:
+  link:261009-1843%20DONE%2080-character%20history%20records.adoc[80-character records including the marker].
+  Source correction and host boundary tests; active-line capacity is preserved.
+  EP4_10 desktop rebuild/retest is recorded above; other targets and hardware
+  rebuilds remain pending.
+* Latest manuals/history pickup:
+  link:261009-0917%20DONE%20Manuals%20review%20and%20morning%20pickup.adoc[overnight corrections, test evidence and remaining work].
+  Includes the current named-card map and a separately reproduced maximum-length
+  history reload edge case; installed binaries and hardware remain separate.
 * Card content migration:
   link:261007-1234%20PLAN%20Consolidate%20CP-M%20content%20into%20cpmcard.adoc[cpmdrive to cpmcard plan and inventory].
   Local cutover: link:261007-1618%20DONE%20Canonical%20cpmcard%20and%20DU-only%20tooling%20cutover.adoc[DU-only tooling].

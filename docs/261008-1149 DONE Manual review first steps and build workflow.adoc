@@ -10,7 +10,7 @@ not completion of the entire review. The active baseline was commit `581f32d`.
 
 == Changes
 
-* link:../guides/build-guide.adoc[Build Guide] now starts with clone, explicit
+* link:../guides/01-BG-build-guide.adoc[Build Guide] now starts with clone, explicit
   setup, display-ID-first target folders and desktop rebuild/launch. All six
   shortcuts are together; manual dependency details and optimization come later.
 * Cross-checked behavior against `setup.sh`, `setup_serial.py`, `fresh-build.sh`,
@@ -26,7 +26,7 @@ not completion of the entire review. The active baseline was commit `581f32d`.
 * Separated combined setup from native build requirements: setup installs both
   MCU and desktop dependencies; desktop compilation itself needs no MCU core
   or USB uploader. Custom GFX sketchbook location is covered.
-* link:../guides/user-guide.adoc[User Guide] now opens with per-board desktop
+* link:../guides/02-UG-user-guide.adoc[User Guide] now opens with per-board desktop
   and hardware launchers. Added desktop card ownership, shutdown/focus and
   INI-edit distinctions; CARDMARK/REFLASH are not presented as desktop features.
 * Fixed the User Guide's transfer link: AsciiDoc was turning its double hyphen

@@ -13,7 +13,13 @@
   present planned native capabilities as shipped terminal features.
 - Preserve unrelated work. Commit/push, hardware writes and card deployment
   require their own authorization; a successful test does not grant it.
-  Suggest a commit checkpoint after a completed feature without blocking work.
+  Proactively flag useful commit checkpoints after a coherent fix or small
+  group of related changes, before unrelated work accumulates. Favor practical
+  review and rollback boundaries, not activity counts or a requirement that
+  every board/platform be fully tested. An intermediate checkpoint is valid:
+  state what was checked and what remains pending (host, desktop, Windows or
+  physical hardware). Suggest the checkpoint without blocking ongoing work;
+  committing and pushing still require their own authorization.
 
 ## Layout and current evidence
 
@@ -42,7 +48,7 @@
   recovered baseline and relevant upstream changes, including CP/M 3, before
   porting; do not claim upstream parity from successful CP/M 2.2 tests.
   Follow upstream conventions for portable changes and keep project behavior
-  behind narrow searchable hooks. See `guides/technical-reference-guide.adoc` and
+  behind narrow searchable hooks. See `guides/04-TRG-technical-reference-guide.adoc` and
   `docs/260928-23 RunCPM core delta and upstream seams.adoc`.
 - Keep each Arduino board HAL complete and readable: one uniformly sectioned
   header, ordinary functions and intentional board-local storage adapters.
@@ -110,7 +116,7 @@
   Check ownership and use one serial reader. Use the shared tmux mirror for
   concurrent viewing; never open a second reader to diagnose an occupied port.
 - A device transfer, flash or direct CP/M test authorizes temporarily stopping
-  the shared `7xtgv-cpm` mirror and restoring its visible attachment afterward.
+  the shared `7xtgv-terminal` mirror and restoring its visible attachment afterward.
   Report application-state loss if a reset/upload caused it; a mere mirror
   reconnect does not by itself mean CP/M restarted.
 - Before every direct `tools/cpm-transfer/transfer.py` operation, stop the
@@ -140,11 +146,22 @@
 - `cpmcard/` is canonical, with RunCPM drive A-P/user 0-F directories
   (e.g. `A/0`, `A/F`); no descriptive-folder fallback. The complete tree is
   eligible for versioning, including INI/BUF, databases, backups, host snapshots
-  and the existing image. No per-file seed manifest or content exclusions.
+  and the existing image, except directories named `private` at any depth.
+  No per-file seed manifest or other content exclusions.
   Review runtime changes before commit/pull; inclusion policy does not authorize
   publishing each new runtime change or overwriting physical-card data.
   See `docs/261007-1645 DONE Version complete cpmcard without content exclusions.adoc`.
-- Tests copy fixtures to disposable cards. Installing rebuilt guest binaries
+- Tests copy fixtures to disposable cards. Guest builds use canonical sources
+  in `cpmcard/C/1` (`7xtgv(C1)`), assembler tools in
+  `A/1` (`cpmdev(A1)`), and shared installed commands in `cpm(A0)`.
+  Languages: `mbasic(B1)`, `bbcbasic(B2)`, `tp(B4)`; `comal(B3)` remains
+  reserved with placeholders. Databases: `fand(B5)`, `dbase(B6)`.
+  Demos: `xterm256(C2)`; benchmarks: `bench(C3)`. B0/C0 have no shared
+  commands, but may contain catalog-only placeholders. Use `name(DU)` for
+  concrete working-card locations in maintained prose; preserve raw syntax
+  in commands and historical locations in dated evidence.
+  See `cpmcard/README.adoc`; do not recreate retired host source duplicates.
+  Installing rebuilt guest binaries
   requires explicit `--install`. Deploy only authorized files with transfer
   `put`; do not silently import device files. Transfer `reload` means repeat
   the last identified transfer/destination, not build/reflash/reboot.
@@ -177,6 +194,9 @@
 
 ## Documentation and privacy
 
+- Directories named `private` at any depth, including `cpmcard/private`, remain
+  local and ignored. Never force-add them; this is the explicit exception to
+  complete-card versioning. Ignoring them does not authorize deleting files.
 - Maintained guides describe current behavior; chronological records preserve
   their dated evidence. Keep imported discussions/plans substantively intact;
   record later decisions separately unless consolidation is requested.

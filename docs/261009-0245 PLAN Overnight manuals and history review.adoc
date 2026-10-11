@@ -1,0 +1,60 @@
+= Overnight manuals and history review
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Scope and stopping point
+
+.Petr's original overnight request — verbatim
+[%collapsible]
+====
+[source,text,options="wrap"]
+----
+okay, I scanned through RG and TRG quite carefully and it looks mostly good; you can continue for another say 2hrs max with deep reviews and corrections without any my interation, here is 02:30am, so time for bed... but you may continue and prepare even docs to pickup (we have also full context windows, so if for you helps to persist most important things at this stage, to start even fresh session tomorrow, do so in docs too, offer even tips, use you latests experience with 7XF shell, document this also - we still have some minor mistakes related to now NEW cpmcard layout and necessity to mention always "name(du)" instead of raw "du" when it is specific to cpmcard content, prepare pls alone as much as you can
+
+also for our terminal-history, we left some "keywords" related behavior, even will be good to return to storing even filtered recalls as new items of history ... now filtered recall is not stored as new - this small fix will be good (this really occured when I tested to abuse history for keywords, which needs another feature and even more keywords lists per bank/profile, selectable - somewhere in docs it is noted
+
+so prepare pls these things, and good night, Ari :-)
+----
+====
+
+Petr authorized an unattended review lasting at most two hours, starting
+around 02:40 Prague time. Stop by 04:40. Continue the
+link:261007-2317%20PLAN%20Entire%20manuals%20current-state%20review.adoc[manuals review],
+not a new redesign. No commit, push, hardware writes, mounted-card changes,
+or interruption of the user's running sessions is authorized here.
+
+* Review current guides against source and the reorganized working card.
+* Use `name(DU)` for concrete card locations; retain literal DU syntax in
+  commands, protocol examples and explanations of CP/M itself.
+* Restore submitted filtered recalls to ordinary history storage.
+* Keep future keyword/completion lists separate from history; document their
+  design boundary without implementing a new completion subsystem.
+* Leave a DONE/pickup record with tests, unresolved items and build state.
+
+== Initial checkpoint
+
+`line_history.h` no longer suppresses submission after filtered recall or
+token completion within a prefix. Existing adjacent exact-duplicate and
+minimum-length rules remain. Terminal and runtime host suites pass with
+new generation/count/content tests. Integrated persistence testing and guide
+updates are next. This is source work, not an installed firmware update.
+
+The tree already contains extensive uncommitted card reorganization, guide,
+catalog, shortcut and user INI/history changes. Preserve them; do not infer
+that every dirty file belongs to this review.
+
+Current card: `cpm(A0)`, `cpmdev(A1)`, `mbasic(B1)`, `bbcbasic(B2)`,
+`comal(B3)` (placeholder), `tp(B4)`, `fand(B5)`, `dbase(B6)`,
+`7xtgv(C1)`, `xterm256(C2)`, `bench(C3)`. User-zero areas on B/C have no
+shared commands; catalog-only placeholders need not be physically empty.
+
+== Evidence to retain
+
+* Earlier 7XF SDL/PTY browsing: `/tmp/xtgv-browsing-261009/`.
+* Reusable browsing scenario: `desktop/tests/catalog_browsing.py`.
+* Temporary EP4_10 build: `/tmp/xtgv-7xf-listing-build-lIGqtO`.
+* Current history host executables: `/tmp/xtgv-history-terminal-tests` and
+  `/tmp/xtgv-history-runtime-tests`.
+* Keyword design context: the 260915 history/tokens, 260919 TP301/editor,
+  and 260923 profile-only/keyword-shortcut records. None establishes a
+  delivered multi-list keyword engine.

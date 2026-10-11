@@ -1,5 +1,6 @@
 = RunCPM 7xtgv-terminal — licensing
 :source-highlighter: highlight.js
+:leveloffset: +2
 
 *The original 7xtgv-terminal software is licensed under the MIT License,
 for both MCU/display hardware and the desktop emulator.*

@@ -1,0 +1,468 @@
+= RunCPM 7xtgv-terminal: User Guide
+:leveloffset: +1
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 3
+:sectnums!:
+
+Use this guide for everyday work on a physical module or its Linux desktop emulator.
+
+* *Mirror:* keyboard input and the complete logical CP/M screen.
+* *TFT or SDL window:* the board-sized viewport; zoom changes cell size,
+  while pan moves the viewport. Neither moves CP/M files.
+* *CP/M drive/user (DU):* where guest commands read and write files.
+* *Transfer panel's local DU:* a folder in the host `cpmcard/`, not a command
+  to change the guest's current area.
+
+For when these behaviors and commands were added, see the
+link:features_timeline.adoc[Features Timeline].
+
+[[ug-getting-started]]
+== 1. Getting started
+
+[[starting-the-pc-mirror]]
+=== Start a desktop or hardware session
+
+For a fresh checkout or machine, first read the
+link:01-BG-build-guide.adoc[Build Guide].
+
+Open your board's folder under
+`src/RunCPM_7xtgv-terminal/tools/targets/`. For example, from the repository root:
+
+[source,sh]
+----
+cd "src/RunCPM_7xtgv-terminal/tools/targets/EP4_10 -- jc8012p4a1c"
+----
+
+[cols="1,3",options="header"]
+|===
+|Use |Launch from the board folder
+|Desktop, local card |`./desktop-local.sh` uses the last desktop build and repository `cpmcard/`.
+|Desktop, mounted card |`./desktop-card.sh` asks for the mounted filesystem root containing `A/0`, or takes `--card-root PATH`.
+|Physical board |Connect the matching module and run `./mirror.sh`; this does not build or flash it.
+|===
+
+* Build the desktop first with `./desktop-rebuild.sh` if no executable exists
+  or source has changed. Hardware rebuild/reflash are separate commands.
+* In Double Commander, use Shift+Enter to launch with a terminal; in Midnight
+  Commander, execute normally. The shortcut already selects its board.
+* On desktop, *type into the mirror*, not the output-only SDL window.
+  Close either owning window, or use guest `EXIT`, to stop the emulator.
+* Both desktop card modes are read/write, including INI/history autosaves.
+  Do not run two writers on one card, and close before unmounting it.
+* Hardware uses the shared 7xtgv-terminal mirror session (`7xtgv-terminal`);
+  desktop uses its own isolated session. Never open a second serial reader
+  alongside the hardware mirror.
+* `Ctrl+]`, then `q`, exits the host bridge. With a desktop owning mirror,
+  ending the session also stops its emulator; hardware CP/M keeps running.
+
+Wait for the CP/M prompt. A brief mirror redraw after USB reconnect is normal.
+
+* Automatic mirror selection prefers Konsole, then Kitty, then the current
+  terminal; `--mirror terminal` selects the latter explicitly.
+* The shortcut tables below assume the supplied Konsole/Kitty mappings.
+  An arbitrary current terminal or desktop window manager may intercept keys.
+* The older direct `kon.sh`/`kit.sh` entry points use host target/port
+  configuration; details are in the link:03-RG-reference-guide.adoc[Reference Guide].
+
+[[_first_contact_power_boot_and_configuration]]
+=== First contact: power, boot and configuration
+
+* Power the module from a suitable supply; large panels can overload a USB hub.
+* A successful boot reaches `A0>` or a configured 7XF named prompt.
+* `Build` identifies the firmware; `Module` identifies the panel and view.
+* Hardware `Storage` shows the requested Arduino SPI clock, not a measured clock.
+  Desktop instead reports its host-filesystem adapter and `Backend: desktop`.
+* C6 additionally reports internal heap; two FreeRTOS tasks share one CPU.
+* A red diagnostic or `CPU halted` is not a normal successful startup.
+
+[[_know_which_configuration_is_active]]
+==== Know which configuration is active
+
+* `A0:7XTGVTRM.INI` holds global settings, display settings and ten application profiles.
+* `A0:7XTGVTRM.BUF` holds their histories; do not edit BUF as text.
+* The card can move between modules: each display has its own INI section.
+* Desktop reads these files inside the selected card root. It uses the emulated
+  board's display ID, not a separate SDL configuration section.
+
+[[ug-everyday-use]]
+== 2. Everyday use
+
+[[_profiles_history_and_application_controls]]
+=== Profiles, history and application controls
+
+[[_choose_the_application_profile]]
+==== Choose the application profile
+
+* `++Alt+0++` through `++Alt+9++` select a profile; `++Alt+Space++` shows its name.
+* `++Alt+PgUp++` / `++Alt+PgDn++` browse previous / next profiles.
+* Wait for the temporary name label to disappear before typing into the application.
+* Selection may send the INI `on_select` command *at a live CCP prompt only*.
+  It may change the DU; selecting a profile is not necessarily launching an app.
+* Inside an application, selection changes controls without sending `on_select`.
+* If keys seem wrong, check the selected name and choose the intended profile.
+
+[[_everyday_terminal_shortcuts]]
+==== Everyday terminal shortcuts
+
+[cols="2,3",options="header"]
+|===
+|PC key |Everyday effect
+|`++Ctrl+Shift+PgDn++` / `++Ctrl+Shift+PgUp++` |Zoom in / out temporarily.
+|`++Ctrl+Shift+arrows++` |Pan the TFT viewport by axis.
+|`++Ctrl+Shift+Home++` / `++Ctrl+Shift+End++` |Scan all viewports backward / forward.
+|`++Ctrl+Shift+X++` |Open the transfer panel at an idle CCP prompt.
+|`++Ctrl+Alt+C++` |Force a running external COM back to CCP if it ignores Ctrl+C; cancel the remaining SUBMIT batch.
+|===
+
+The link:03-RG-reference-guide.adoc#global-terminal-keys[complete key table]
+includes backlight, modes, exits, history deletion and host-layout notes.
+Normal zoom and pan do not edit the INI or resize the logical CP/M screen.
+
+[[_emergency_return_is_not_a_normal_application_exit]]
+===== Emergency return is not a normal application exit
+
+* `++Ctrl+Alt+C++` cancels the external COM and remaining SUBMIT commands.
+* It is inert at CCP or inside an internal CCP command; ordinary Ctrl+C is unchanged.
+* This is an *unclean* return: unsaved application data and final writes may be lost.
+* It cannot recover a wedged device or SD driver. Prefer the application's own exit.
+
+[[_recall_and_edit_history]]
+==== Recall and edit history
+
+[cols="2,3",options="header"]
+|===
+|Try |What happens
+|Up / Down |Recall history in line-oriented profiles; type a prefix to filter.
+|Alt+Up / Alt+Down |Recall history where the profile gives plain arrows to its editor.
+|Ctrl+Shift+Backspace |Delete the currently recalled unwanted entry.
+|Alt+Backspace |Configured clear action: typically CLS at CCP, app-specific elsewhere.
+|Alt+Q (also Alt+Esc in Konsole/Kitty) |Configured application exit: for example SYSTEM in MBASIC, QUIT in BBC BASIC.
+|===
+
+* Application settings come from each complete `[bankN]` INI section. To reorder
+  profiles, move the whole section and change its number. Slots share neutral
+  fallbacks; names do not activate hidden application settings. If moving the
+  CP/M profile, update `[global] ccp_bank` too.
+* Each of ten profiles keeps up to 100 history entries.
+* History retains the first 79 characters per entry (80 with the saved `>`
+  marker). Longer active input is still supported; older longer history entries
+  are shortened when loaded and remain shortened on the next save.
+* At a recognized CCP prompt, the INI's `ccp_bank` handles shell commands even
+  while another profile is selected; the working card assigns bank 0. Without
+  that setting, automatic routing is disabled.
+* Return saves the line you submit, including filtered recalls and completed
+  numbered lines. Browsing without submitting does not save another entry.
+* Empty/single-character lines and exact adjacent repeats are not appended.
+  Reusing an older command makes it recent again; spaces remain significant.
+* Separate editable keyword lists are a plan, not a delivered feature.
+
+[[_temporarily_bypass_profile_input]]
+==== Temporarily bypass profile input
+
+* `++Alt+Shift+3++` toggles `++## RAW++` direct-input mode.
+* Use it when an application needs input without the normal profile/history handling.
+* Toggle it back for ordinary command work. Direct `++Alt+0++` through
+  `++Alt+9++` selection also leaves RAW mode; profile browsing does not.
+
+[[_explore_cpm_with_the_7xf_shell]]
+=== Explore CP/M with the 7XF shell
+
+`7XF` is an internal CCP command, not a COM file or a separate filesystem.
+Names come from catalogs; CP/M still uses flat drive/user areas.
+
+[source,text]
+----
+7XF
+LS /
+LL /A
+CD /B/MBASIC
+LS
+LL MBASIC.*
+DIR MBASIC.*
+LDIR MBASIC.*
+CD /A/CPM
+CD /B
+----
+
+* `LS` lists short sizes/names; `LL` or `LS -L` adds details.
+* File lists sort by extension, then name; displayed filenames use lowercase
+  `name.ext`. Files on the card are not renamed.
+* `LS ..` / `LL ..` lists the current drive's areas; `LS /` lists all drives.
+  Both show the whole-drive heading. `LS ..` omits individual area descriptions;
+  `LL ..` includes them. Root `LS /` and `LL /` retain drive descriptions.
+  Empty/catalog-only areas are hidden from area overviews, not deleted or
+  made inaccessible. The current-area file heading shows just its description
+  from column 2, without repeating the prompt's path.
+* Descriptions stay beside their rows. A wider logical terminal shows more
+  text; small widths clip descriptions rather than adding a second line.
+* `CD /C/xterm256` selects `xterm256(C2)`; aliases depend on your card.
+* `7XF DD` returns to decimal `A0>`; `7XF DH` uses hexadecimal users.
+* `7XF D` shows only the drive; `7XF DN` selects the named prompt.
+* `VOL` remains the original INFO.TXT command; it does not use 7XF catalogs.
+* `DIR` and `LDIR` still work from named prompts: traditional CP/M listings,
+  without 7XF descriptions or its extension sorting. `LDIR` adds sizes.
+* `/` is a catalog overview, not a real root directory. `CD /B` returns to
+  the remembered B area; it does not enter a hierarchical folder.
+* `7XF` selects the named prompt only; catalog commands already work from `A0>`.
+  For named prompts on boot, a card-root `AUTOEXEC.TXT` can contain `7XF`.
+  This is separate from INI; do not overwrite an existing startup command.
+* An INI profile can use `on_select=cd /b/mbasic\r` as a named-area shortcut
+  when selected at a live CCP prompt. It is not a boot command and is not
+  injected into a running application. Names, banks and bindings are user choices.
+
+Missing aliases do not mean files disappeared. Use the ordinary DU, e.g.
+`C2:`, or inspect the actual catalog. Our repository and your card can differ.
+
+[[_check_or_change_terminal_size]]
+=== Check or change terminal size
+
+Run these commands at the CP/M prompt:
+
+[cols="2,3",options="header"]
+|===
+|Command |Effect
+|`VTINFO` |Show display ID, target, build, panel pixels, logical size, viewport and presets.
+|`VTZOOM` |Show the current view.
+|`VTZOOM 2` |Temporarily load preset 2, including its logical terminal size.
+|`VTZOOM 2 80x24` |Use an 80x24 logical screen at 2x zoom without saving it.
+|`VTZOOM DEFAULT` |Restore the INI/HAL boot view.
+|===
+
+[[_match_the_application_before_launching_it]]
+==== Match the application before launching it
+
+* Ordinary keyboard zoom changes physical scale, not the logical screen size.
+* A full-screen app installed for 80x24 expects that logical geometry;
+  panning cannot correct a mismatch in its cursor positioning.
+* Select the application profile first, then set the intended geometry before
+  launching the app. Profile selection can also apply per-profile geometry.
+* On a small panel, an 80x24 terminal occupies several panned views; the mirror
+  still shows all 80x24 cells.
+
+See the link:03-RG-reference-guide.adoc#display-and-per-bank-geometry[geometry rules].
+
+[[_colors_emphasis_and_brightness]]
+=== Colors, emphasis and brightness
+
+[[_palette_and_text_emphasis]]
+==== Palette and text emphasis
+
+* Try `VTPAL 0` through `VTPAL 5`: PAPER, green CRT, amber CRT, white CRT,
+  red plasma and cyan VFD. INI edits can redefine these presets.
+* Palette selection is saved lazily; `SYNC` requests pending persistence.
+
+* On light paper, emphasis can be darker; on dark paper it can be brighter.
+* ANSI colors map to the terminal's own ink/paper roles; this is not full ANSI.
+* CLS clears cells without resetting text attributes.
+* If Turbo leaves CCP emphasized, configure TINST's *terminal reset* string
+  as `ESC [ 0 m`. Initialization and exit reset are different settings.
+
+[[_panel_backlight]]
+==== Panel backlight
+
+[cols="2,3",options="header"]
+|===
+|Key |Backlight
+|LAlt+Ctrl+Shift+PgUp / PgDn |Raise / lower through the module's tuned levels.
+|LAlt+Ctrl+Shift+0 |OFF; raise brightness to restore it.
+|Ctrl+Shift+1 through 9 |Still-supported coarse presets; fine stepping is preferable.
+|===
+
+* Backlight affects the panel, not PC mirror colours; the last non-off level persists.
+* From OFF, the first step in either direction restores that remembered level.
+* EC6_147 is capped at 50% duty following vendor thermal advice.
+* Equal level numbers need not mean equal brightness on different panels.
+* SDL uses a shared brightness compensation, not an exact physical light-output model.
+
+[[_terminal_modes_and_demonstration_recipes]]
+=== Select the terminal output mode
+
+* ANSI/VT100 is the usual output mode.
+* `VT52` / `VT100`, or LAlt+Ctrl+Shift+2 / LAlt+Ctrl+Shift+1,
+  select the implemented output interpretations.
+* RAW input, zoom, profiles and graphics are separate controls.
+* ADM3a and the full native 7xtgv chip specification remain future work.
+
+[[ug-files-and-settings]]
+== 3. Files and settings
+
+[[_transfer_one_file]]
+=== Transfer one file
+
+. Leave CP/M idle at its prompt in the *guest/device* DU you want.
+. Open the panel with `++Ctrl+Shift+X++`.
+. Choose `++S++` (host to CP/M) or `++R++` (CP/M to host).
+. Select the *local* DU folder, source name and target name.
+. Review the direction and destination before confirming a write with `++Y++`.
+
+[[_two_concrete_examples]]
+==== Two concrete examples
+
+* *Send VTESTS:* select the intended test DU on the device, choose `++S++`, local
+  `++C1:++` (`7xtgv(C1)`), source `++VTESTS.BAS++`, target `++VTESTS.BAS++`.
+* *Receive into a different local area:* leave the device at `++A0>++`,
+  choose `++R++`, then local `++A3:++` and the file names.
+* The panel never switches the guest/device DU; its local DU is a host folder.
+
+[[_safeguards_and_recovery]]
+==== Safeguards and recovery
+
+* Sending always asks before writing the device target; receiving asks before
+  replacing an existing local file. Enter alone does not approve replacement.
+* Bytes, including CP/M record padding, are preserved; there is no newline
+  or character-set conversion.
+* Use an 80-column *logical* terminal. A narrower panned viewport is fine.
+* After a stalled helper, return to a clean CCP prompt or reset before retrying.
+* On desktop, the selected card already is a host folder. For direct host-file
+  copies or edits, close the emulator first rather than racing its card access.
+
+Exact options and failure behaviour are in
+link:03-RG-reference-guide.adoc#vtput\--vtget-from-the-mirror[the transfer reference].
+
+[[_edit_the_selected_cards_ini_safely]]
+=== Edit the selected card's INI safely
+
+[[_desktop_or_directly_mounted_card]]
+==== Desktop or directly mounted card
+
+. Close the emulator before editing its card files.
+. Back up `cpmcard/A/0/7XTGVTRM.INI`, or that path under your selected card root.
+. Edit only the intended settings, save, then relaunch.
+
+Do not fetch from an unrelated physical board over your local settings.
+These steps also apply to a mounted card used directly by desktop.
+
+[[_physical_module_fetch_edit_send_reboot]]
+==== Physical module: fetch, edit, send, reboot
+
+. Fetch its *live* A0 file using `tools/fetch-7xtgvtrm-ini.sh` from the sketch
+  directory; specify target/port if needed.
+. The helper archives the previous local copy and replaces it only after a
+  successful fetch. Stop if fetching fails: the repository copy may be older.
+. Edit the fetched file, preserving unrelated settings.
+. Send it back to device A0 with explicit overwrite approval.
+. Reboot to apply settings loaded only at startup.
+
+[[_alternative_edit_inside_cpm]]
+==== Alternative: edit inside CP/M
+
+* Choose the TURBO profile and open `A0:7XTGVTRM.INI` in its configured editor.
+* Verify the file's area, save, exit and reboot; do not interrupt a save.
+* Avoid editing a similarly named copy in another DU. TE is unsuitable for
+  some long INI files.
+
+[[_example_settings_fragment]]
+==== Example settings fragment
+
+[source,ini]
+----
+[global]
+sdfat_spi=20
+
+[display:EC6_147]
+view_zoom=1
+zoom1_terminal=80x24
+zoom2_terminal=80x24
+----
+
+* This is a *fragment*, not a replacement INI; retain the other settings and profiles.
+* View fields describe boot presets; ordinary keyboard zoom does not rewrite them.
+* The full grammar, diagnostics and persistence rules are in
+  link:03-RG-reference-guide.adoc#configuration-reference[the INI reference].
+
+[[ug-troubleshooting]]
+== 4. Troubleshooting and checks
+
+Use the recovery checklist first. The diagnostic commands and optional
+demonstrations below help check the current module and terminal behavior.
+
+[[_when_something_looks_wrong]]
+=== When something looks wrong
+
+* No hardware mirror or wrong board: recheck the selected target folder, serial port and cable;
+  stop a stale shared session before relaunching. Changing the host target
+  does not identify the attached hardware automatically.
+* SDL receives focus but not typing: select the mirror. Always-on-top does
+  not prevent the SDL window from taking focus through a click or Alt+Tab.
+* RP2350 firmware recovery: enter BOOTSEL manually for a requested flash.
+  Do not copy another target's UF2. Flashing is a separate operation from
+  CP/M file transfer.
+* `++LOADED WITH ERRORS++`: inspect boot diagnostics and
+  `++A0:7XTGVTRM.ERR++`; use the
+  link:03-RG-reference-guide.adoc#ini-diagnostics-and-syntax-limits[INI diagnostics]
+  before editing the live file.
+* Distorted full-screen app: compare `++VTINFO++` logical size with the
+  application's installed size. Physical zoom alone will not fix a mismatch.
+* Transfer panel/helper stuck: return to a clean CCP prompt or reset, restore
+  an 80-column logical terminal, and retry. The transfer normally restores
+  the original profile and RAW state.
+
+For source-level diagnosis and flash safeguards, use the
+link:04-TRG-technical-reference-guide.adoc[Technical Reference Guide].
+
+[[_inspect_and_compare_the_module]]
+=== Inspect and compare the module
+
+[cols="2,3",options="header"]
+|===
+|Command |Use
+|VTINFO |Module, build, logical screen, viewport and zoom presets.
+|VTCPU |Compare emulator speed with terminal active and quiet.
+|VTDRV |Read/verify its existing 32 KiB test fixture.
+|VTDRV W |Create/write the fixture, then read/verify; writes the current DU.
+|VTDRV W Q |Quiet timed write/read passes; matching firmware required.
+|CARDMARK 4096 40 CSD |Hardware-only raw reads and decoded card registers; no test-file writes. Unsupported on desktop.
+|SYNC |Request pending history/config saves.
+|REBOOT |Restart the complete module, or desktop process/mirror; not merely CP/M warm boot.
+|REFLASH |Hardware: request the configured host uploader; cannot build firmware itself. Desktop cannot invoke it.
+|===
+
+CARDMARK clocks are requests, not measured SCK. Read agreement is not write
+qualification; use a backed-up/spare card for experimental clocks.
+
+[[_try_the_mbasic_terminal_tests]]
+=== Try the MBASIC terminal tests
+
+Select the MBASIC profile first, then select `7xtgv(C1)` below. The full
+language package lives in `mbasic(B1)`; our terminal tests live in `7xtgv(C1)`.
+Use 80x24 logical geometry for the scroll-region checks:
+
+[source,text]
+----
+C1:
+VTZOOM 1 80x24
+MBASIC
+LOAD "VTESTS"
+RUN
+----
+
+* In the menu, try `3` for attributes, `4` for DEC graphics, `5` for VT52,
+  or `9` for scrolling regions. Follow the on-screen prompts; `Q` returns to CP/M.
+* Scroll regions span complete logical rows, not arbitrary rectangular windows.
+* Also try `LOAD "VTPAL"`, then `RUN`, from the BASIC prompt.
+* Alt+Q (also Alt+Esc in Konsole/Kitty) uses the configured SYSTEM exit.
+* Save maintained BASIC with `SAVE "NAME",A` for ASCII; ordinary SAVE
+  can create tokenized data.
+* Back at CCP, `VTZOOM DEFAULT` restores the boot view.
+
+[[_try_the_xterm256_plot]]
+=== Try the xterm256 plot
+
+Use `7XF`, then `CD /C/xterm256`, or select `xterm256(C2)` by DU:
+
+[source,text]
+----
+C2:
+CLS
+SUBMIT BROT_BS
+----
+
+* `SUBMIT BROT_PS` is the alternate renderer; both scripts initialize the plot.
+* The card's scripts choose fixed pixel positions. A small panel may clip the
+  image; use EP4_10 desktop for a spacious first demonstration.
+* Ctrl+Alt+C can abort a running COM and cancel the remaining script.
+* Completion or forced return ends graphics mode, retaining the image until
+  later text/repaint replaces it.
+* The pixel plot appears on the TFT/SDL panel, not as a pixel image in the mirror.
+

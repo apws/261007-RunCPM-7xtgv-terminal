@@ -2,7 +2,8 @@
 :leveloffset: +1
 :source-highlighter: highlight.js
 :toc:
-:toclevels: 2
+:toclevels: 3
+:sectnums!:
 
 Start on Linux with the desktop emulator; no physical board is needed.
 It runs the integrated RunCPM/terminal and real Arduino_GFX drawing code using
@@ -14,9 +15,10 @@ The workflow below follows the current setup and launcher tools; remaining
 fresh-machine and hardware qualification limits are listed separately.
 
 [[quick-start]]
-== First desktop run
+== 1. Getting started
 
-=== 1. Clone
+[[_1_clone]]
+=== Clone
 
 You need Git and repository access before running its setup script.
 From the directory where you keep projects:
@@ -34,7 +36,8 @@ cd 261007-RunCPM-7xtgv-terminal
   over them; no RunCPM submodule step is needed.
 * Generated binaries are not included: build before the first launch.
 
-=== 2. Run explicit setup
+[[_2_run_explicit_setup]]
+=== Run explicit setup
 
 From the repository root, as your *normal user*, not through sudo:
 
@@ -59,9 +62,16 @@ The first command only previews; the second asks before installing.
 Arch-family use has been exercised. Debian/Fedora package selection has offline
 tests, but real fresh-machine installation remains unverified. The complete
 clean-clone gate is still pending; see <<clean-clone-acceptance>>.
-Windows, macOS and WSL are not validated launcher paths.
+Windows desktop builds use the separate
+link:../src/RunCPM_7xtgv-terminal/tools-win/README.adoc[MSYS2 Windows workflow].
+All six native build/smoke/connection proofs pass on the tested Windows guest;
+interactive Mintty launchers are available as `desktop-local.cmd` for the working
+card and `desktop-card.cmd --card-root "DRIVE:\path\to\card"` for an explicit card.
+Each Windows target folder also has `desktop-rebuild.cmd`. This does not qualify Windows hardware
+upload. macOS and WSL launcher paths remain unvalidated.
 
-=== 3. Open a board folder
+[[_3_open_a_board_folder]]
+=== Open a board folder
 
 The full launcher parent path, relative to the repository root, is
 `src/RunCPM_7xtgv-terminal/tools/targets/`.
@@ -102,7 +112,8 @@ to choose the target for these shortcuts.
 In *Midnight Commander*, execute the script normally. In *Double Commander*,
 use *Shift+Enter* to launch with a terminal. Keep folder spaces quoted in shell paths.
 
-=== 4. Build, then launch
+[[_4_build_then_launch]]
+=== Build, then launch
 
 From the chosen board folder, execute these separately:
 
@@ -123,12 +134,13 @@ INI/history autosaves can modify versioned files in `cpmcard/`.
 For experiments, use a prepared copy via `--card-root`; see <<card-selection>>.
 
 For everyday controls and examples, continue with the
-link:user-guide.adoc[User Guide]. For automation and headless tests, use the
+link:02-UG-user-guide.adoc[User Guide]. For automation and headless tests, use the
 link:../src/RunCPM_7xtgv-terminal/desktop/README.adoc[developer desktop guide].
 
 [[card-selection]]
-== Select the card and close the desktop safely
+== 2. Desktop sessions and cards
 
+[[_local_working_card_or_disposable_copy]]
 === Local working card or disposable copy
 
 `desktop-local.sh` defaults to repository `cpmcard/`, independent of the shell's
@@ -146,6 +158,7 @@ the complete working card to a new destination. Stop writers before copying.
 No launch copies, synchronizes or normalizes card content automatically.
 Use uppercase guest filenames on case-sensitive host filesystems.
 
+[[_mounted_sdusb_card]]
 === Mounted SD/USB card
 
 From the board folder, run `./desktop-card.sh` and enter the mount path,
@@ -162,6 +175,7 @@ interactive prompt. The path must be an actual mounted filesystem root
 containing `A/0`; an ordinary directory or stale unmounted path is rejected.
 Without an interactive terminal, supply the path explicitly.
 
+[[_session_ownership_and_shutdown]]
 === Session ownership and shutdown
 
 * Do not run two writers against the same card tree. Local and physical cards
@@ -170,7 +184,8 @@ Without an interactive terminal, supply the path explicitly.
   desktop session. Wait for shutdown before unmounting/removing the card.
 * Guest `REBOOT` restarts the desktop process and mirror; `REFLASH` cannot
   invoke a hardware uploader from a desktop session.
-* Desktop mirrors use isolated sessions, separate from hardware `7xtgv-cpm`.
+* Desktop mirrors use isolated sessions, separate from the 7xtgv-terminal
+  hardware mirror session (`7xtgv-terminal`).
 * SDL requests always-on-top but can be minimized. Clicking it or using
   Alt+Tab can take keyboard focus: reselect the mirror to type.
 * SDL backlight is a compensated brightness simulation. It does not establish
@@ -181,7 +196,7 @@ inspect `git status --short`. Preserve wanted local card changes; do not reset
 them merely to make Git accept a pull.
 
 [[hardware-workflow]]
-== Build and flash physical hardware
+== 3. Physical hardware
 
 Choose the folder for the *connected physical module*. From that folder:
 
@@ -200,6 +215,7 @@ Choose the folder for the *connected physical module*. From that folder:
 * Confirm boot `Build`, module identity, storage and the CP/M prompt; use
   `VTINFO` if needed. Upload success alone is not a hardware test.
 
+[[_connection_prompts_and_target_guards]]
 === Connection prompts and target guards
 
 [cols="1,3",options="header"]
@@ -225,6 +241,7 @@ For ambiguous serial selection, specify the actual device, for example
 Do not assume `/dev/ttyUSB0` identifies the board: some target defaults
 use generic port names. Never open two readers on the same serial port.
 
+[[_mirror_without_reflashing]]
 === Mirror without reflashing
 
 From the same board folder:
@@ -237,10 +254,12 @@ From the same board folder:
 This attaches without rebuilding, uploading or deliberately resetting CP/M.
 Unlike reflash's missing-device prompt, mirror-only discovery can stop with
 an error: connect the module or specify `--port DEVICE`, then retry.
-The shared hardware session is `7xtgv-cpm`; do not reuse a stale session
-from a different board. Ending a hardware mirror does not itself stop CP/M;
+The shared 7xtgv-terminal hardware mirror session is named `7xtgv-terminal`;
+do not reuse a stale session from a different board.
+Ending a hardware mirror does not itself stop CP/M;
 ending the owning *desktop* mirror stops that emulator.
 
+[[_usb_permissions]]
 === USB permissions
 
 From the repository root, with the device connected:
@@ -256,6 +275,7 @@ The mirror can enter already-configured group membership through `newgrp`,
 or request a temporary user ACL when needed. An ACL may disappear
 when USB recreates the device node. None of this is needed for desktop PTYs.
 
+[[_firmware_is_not_the_card]]
 === Firmware is not the card
 
 Flashing does not install CP/M programs or copy `cpmcard/` onto an SD card.
@@ -267,9 +287,13 @@ Do not overwrite a working card's INI/history with an older repository copy.
 VTPUT/VTGET transfer requires the helpers already on the card; it is not a
 blank-card bootstrap. Building firmware does not require reassembling guest
 COM files. Changed guest sources have separate build/install steps and assembler
-dialects; see the link:reference-guide.adoc[Reference Guide].
+dialects; see the link:03-RG-reference-guide.adoc[Reference Guide].
 
-== Quiet output, logs and optional switches
+[[bg-build-reference]]
+== 4. Build reference and troubleshooting
+
+[[_quiet_output_logs_and_optional_switches]]
+=== Quiet output, logs and optional switches
 
 * Rebuild/reflash and desktop shortcuts show concise steps. Full compiler,
   uploader, image/card paths and section delimiters are in same-named `.log`
@@ -289,7 +313,7 @@ dialects; see the link:reference-guide.adoc[Reference Guide].
   for dependencies; investigate source errors separately.
 
 [[optimization]]
-== Optional optimization selection
+=== Optional optimization selection
 
 Defaults are the starting point: desktop uses `-O2` with debug symbols;
 hardware retains each profile's measured/default setting.
@@ -310,7 +334,8 @@ To experiment, from a board folder:
   Unoptimized/debug firmware can exceed MCU memory; O3 is not always faster.
 * Benchmark correctness and speed before adopting a hardware override.
 
-== Prerequisites and manual setup details
+[[_prerequisites_and_manual_setup_details]]
+=== Prerequisites and manual setup details
 
 Use `setup.sh` first. This inventory is for diagnosing missing components or
 preparing a machine manually, not an extra sequence after setup.
@@ -335,7 +360,8 @@ Native desktop builds do not use MCU cores, SdFat hardware drivers or USB
 upload tools, even though combined setup installs them. They compile the real
 GFX library plus the project's host storage adapter.
 
-=== Setup behavior and versions
+[[_setup_behavior_and_versions]]
+==== Setup behavior and versions
 
 * `setup.sh` uses `/etc/os-release`: exact `ID`, then ordered `ID_LIKE` families.
   Arch uses pacman; Debian/Ubuntu uses apt-get; Fedora uses dnf.
@@ -366,7 +392,7 @@ Useful read-only checks are `arduino-cli version`, `arduino-cli config dump`,
 No separate hand-installed ESP-IDF or Pico SDK is part of the normal build path.
 
 [[artifacts-and-low-level-build]]
-== Artifacts and low-level build entry points
+=== Artifacts and low-level build entry points
 
 All paths below are relative to the repository root:
 
@@ -399,9 +425,10 @@ with upstream HEAD, mix target binaries, or build as root.
 For upload, prefer the target `reflash.sh`: it manages the mirror and RP2350
 BOOTSEL path. Bare `tools/reflash.py` upload is not an RP2350 recipe.
 Developer tests and direct mirror entry points are in the
-link:technical-reference-guide.adoc#_build_upload_and_test_boundary[Technical Reference Guide].
+link:04-TRG-technical-reference-guide.adoc#_build_upload_and_test_boundary[Technical Reference Guide].
 
-== Troubleshooting
+[[_troubleshooting]]
+=== Troubleshooting
 
 [cols="2,3",options="header"]
 |===
@@ -421,7 +448,7 @@ link:technical-reference-guide.adoc#_build_upload_and_test_boundary[Technical Re
 |===
 
 [[clean-clone-acceptance]]
-== Remaining fresh-machine acceptance
+=== Remaining fresh-machine acceptance
 
 Existing-machine builds, offline installer tests and desktop rendering do
 *not* complete this gate. Still required:
@@ -440,7 +467,8 @@ are described in the Technical Reference Guide; skipped dependency tests are
 not completed qualification. Physical panel/backlight/SPI/electrical acceptance
 remains separate from desktop checks.
 
-=== Dependency-isolation helper
+[[_dependency_isolation_helper]]
+==== Dependency-isolation helper
 
 For an intentional download/build test, from the repository root:
 
@@ -466,3 +494,4 @@ For an intentional download/build test, from the repository root:
 
 A separate machine/VM/container check is still needed. Record test evidence,
 not just the existence of this helper, before claiming reproducibility.
+

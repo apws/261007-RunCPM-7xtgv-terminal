@@ -16,12 +16,12 @@ and lists. The original filename was `261004-11 manual reorg.txt` in
 
 * The upstream/CP/M 3 migration mentioned below is not proven complete.
   The recovered approximately 260126 baseline and cleaned integration
-  seams are documented in the link:../guides/technical-reference-guide.adoc#runcpm-baseline-and-upstream-roadmap[Technical Reference Guide].
+  seams are documented in the link:../guides/04-TRG-technical-reference-guide.adoc#runcpm-baseline-and-upstream-roadmap[Technical Reference Guide].
 * `7XF` is a CCP built-in; the original `7XF.COM` wording below is historical.
 * An 80-column terminal on a 52-column viewport needs *horizontal*
   panning; the original VERTICAL wording below is preserved, not endorsed.
 * Shortcut assignments, persistence scope and palette details must be
-  checked against the current link:../guides/reference-guide.adoc[Reference Guide]
+  checked against the current link:../guides/03-RG-reference-guide.adoc[Reference Guide]
   and active INI. Coarse brightness controls were not removed merely
   because these notes call them obsolete. Keyword lists and other
   future ideas are not claims of implemented features.

@@ -75,13 +75,13 @@ groupings identify candidates; they do not prove binary version or ownership.
 
 | Location / examples | Separate review needed |
 | --- | --- |
-| `A/0`, `A/4`: `ASM`, `DDT`, `ED`, `LOAD`, `PIP`, `STAT`, `SUBMIT`, `MAC`, `ZSID` and other system utilities | Identify the exact Digital Research or other distribution and applicable grant. RunCPM's emulator license does not license guest utilities. |
-| `A/0`, `A/7`: `MBASIC.COM`, `M522*`, `MBAS529*`, `MBAS530*` | Microsoft BASIC and variant/patch provenance and exact redistribution terms remain unresolved here. |
-| `A/0`, `A/2`: `TURBO.COM`, `TINST.COM` and related package files | Borland Turbo Pascal distribution/version and terms, including configured/patched copies. |
-| `A/1`: `BBCBASIC.COM`, `BBCLOWER.COM`, package README and examples | BBC BASIC Z80 package/version terms and local patch provenance. The included test-package README supplies usage instructions, not a complete license determination. |
-| `A/4`: `Z80ASM.COM`, `Z80ASM.PDF`, other assemblers; copies in `A/0` | Identify each assembler/manual separately, including SLR material; do not apply one package's terms to the whole area. |
-| `A/E`, `A/F`: dBASE programs, FAND programs, databases and backups | Establish package identity, rightsholder and permission. Review data/privacy separately from executable licensing. |
-| `A/6`: Mandelbrot/Dhrystone programs, `ZEXALL`, `ZEXDOC`, `8085EXER` and other demos/tests | Match each source/binary to its original author, version and license, including any copyleft/source obligations. No permission inferred from benchmark status. |
+| `A/0`, `A/1`: `ASM`, `DDT`, `ED`, `LOAD`, `PIP`, `STAT`, `SUBMIT`, `MAC`, `ZSID` and other system utilities | Identify the exact Digital Research or other distribution and applicable grant. RunCPM's emulator license does not license guest utilities. |
+| `A/0`, `B/1`, `C/1`: `MBASIC.COM`, `M522*`, `MBAS529*`, `MBAS530*` | Microsoft BASIC and variant/patch provenance and exact redistribution terms remain unresolved here. |
+| `A/0`, `B/4`: `TURBO.COM`, `TINST.COM` and related package files | Borland Turbo Pascal distribution/version and terms, including configured/patched copies. |
+| `B/2`: `BBCBASIC.COM`, `BBCLOWER.COM`, package README and examples | BBC BASIC Z80 package/version terms and local patch provenance. The included test-package README supplies usage instructions, not a complete license determination. |
+| `A/1`: `Z80ASM.COM`, `Z80ASM.PDF`, other assemblers; copies in `A/0` | Identify each assembler/manual separately, including SLR material; do not apply one package's terms to the whole area. |
+| `A/D`, `A/F`: dBASE programs, FAND programs, databases and backups | Establish package identity, rightsholder and permission. Review data/privacy separately from executable licensing. |
+| `C/2`, `C/3`: Mandelbrot/Dhrystone programs, `ZEXALL`, `ZEXDOC`, `8085EXER` and other demos/tests | Match each source/binary to its original author, version and license, including any copyleft/source obligations. No permission inferred from benchmark status. |
 | Project-authored `VT*`, `CARDMARK`, graphics helpers, scripts, catalogs and configuration | Original terminal material is MIT. Separate it from imported namesakes and variants; preserved third-party code retains its own terms. |
 | Archives, snapshots and other assets | Inspect contained material too. The listed contents of `A/0/7XTGVTRM.ZIP` are a single historical INI; this does not classify other future archives. |
 
@@ -113,7 +113,7 @@ does not rewrite history, relicense them or resolve their historical permissions
 5. Review required attribution/source/relinking materials before distribution;
    get qualified legal review for unresolved licensing questions if needed.
 
-See the [Technical Reference Guide](guides/technical-reference-guide.adoc#_licensing_and_attribution_inventory)
+See the [Technical Reference Guide](guides/04-TRG-technical-reference-guide.adoc#_licensing_and_attribution_inventory)
 and [261007 scan checkpoint](docs/261007-2344%20DONE%20Component%20licensing%20inventory%20and%20open%20decisions.adoc).
 
 ## Preserved license texts

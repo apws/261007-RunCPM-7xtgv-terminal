@@ -1,0 +1,194 @@
+= Manuals review and morning pickup
+:leveloffset: +2
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 4
+
+== Start here in a fresh session
+
+Continue from this checkpoint, the current guides and `git status`, not from
+an old card-layout proposal. The local repository remains
+`/home/falken/_/drv/v/260906-7xtgv`; its GitHub name is
+`apws/261007-RunCPM-7xtgv-terminal`. The tree contains extensive uncommitted
+work from earlier turns and the maintainer. Do not reset, blanket-stage or
+overwrite it. No commit/push was requested for this overnight work.
+
+Controlling review:
+link:261007-2317%20PLAN%20Entire%20manuals%20current-state%20review.adoc[manuals plan].
+Bounded scope:
+link:261009-0245%20PLAN%20Overnight%20manuals%20and%20history%20review.adoc[overnight plan].
+The two-hour wall-clock window has elapsed; work stops at this handoff.
+The sanitizer run required execution outside the traced sandbox, and completed
+successfully. No claim is made that the elapsed wall-clock stayed inside the
+requested window.
+
+Native 7xtgv remains the primary objective. Current VT/ANSI, internal 7XF,
+Arduino_GFX and real-board SDL are development/test vehicles, not a delivered
+native cell engine or electrical MCU/panel simulator.
+
+== Implemented and reviewed
+
+* Restored normal storage of submitted filtered recalls, including completed
+  numbered/prefixed lines. Exact adjacent duplicates and empty/single-character
+  lines remain excluded. No matching, whitespace or persistence-format change.
+  See link:261009-0251%20DONE%20Filtered%20recall%20returns%20to%20normal%20history.adoc[implementation, tests and keyword follow-up].
+* Reviewed Reference Guide escape/private controls and INI semantics against
+  parser/runtime source; split dense scrolling, graphics, brightness and geometry
+  explanations into topic bullets. Clarified Ctrl+Shift pan chords, full ON as
+  the board's configured maximum, and filtered-completion separator behavior.
+* Reviewed Technical Reference persistence, protocol, runtime ownership and test
+  sections. Corrected BAK semantics: successful history replacement removes
+  BAK. Boot checks BUF, NEW, BAK in that order, not by timestamp. INI uses
+  separate `7XTCFG.NEW`/BAK names. Distinguished invalid guest-output controls
+  from unrecognized host input which can be forwarded as guest bytes.
+* Reconciled source locations and database moves across Reference, Technical,
+  User, index and card README. ZOOM/UNSUB/VTINFO/VTZOOM sources belong in
+  `7xtgv(C1)`, not an A0 source mirror. Historical A6/A7 anchor IDs remain
+  valid, but visible guide-index labels now say the current names.
+* Corrected Features Timeline's obsolete coverage cutoff and added current
+  history behavior. Older rows retain historical DUs. Corrected the feature
+  registry's stale claim that prefix-filtered history was unimplemented;
+  refreshed separate/multiple keyword-list design boundaries. Registry has
+  203 records and the generated ledger was refreshed.
+* Repaired the Writing Guide's live example headings, attributes and includes.
+  Includes require escaping even in source examples. Fixed its current CSS
+  size table, INI RGB examples and relocated Kate tooling link. Heading offsets,
+  CSS, intentional print page breaks and the personal History Guide draft
+  were not redesigned.
+* Added EP4_10 CTest `filtered_history_persistence`, using real MBASIC and the
+  SDL/PTY runtime on a disposable card. Updated working-card browsing checks
+  to derive area visibility from actual copied content, not assume COMAL is
+  always catalog-only.
+
+== Current card and useful 7XF reminders
+
+[cols="1,3",options="header"]
+|===
+|Name(DU) |Role
+|`cpm(A0)` |Shared installed commands, INI/history and global catalogs.
+|`cpmdev(A1)` |Historical system/CCP sources, assembler tools and dependencies.
+|`mbasic(B1)`, `bbcbasic(B2)`, `tp(B4)` |Language packages.
+|`comal(B3)` |Reserved, not an installed runtime/demo. The maintainer's ordinary `comal.txt` marker makes it nonempty and visible in area lists.
+|`fand(B5)`, `dbase(B6)` |Imported databases/data; do not revert to AF/AD.
+|`7xtgv(C1)` |Canonical project guest sources, includes, HEX/listings and BASIC tests; MBASIC included.
+|`xterm256(C2)` |Brot demos, scripts and graphics/timing helpers.
+|`bench(C3)` |CPU benchmarks and disk fixture.
+|===
+
+* Use `name(DU)` in maintained prose about specific card contents. Raw DU syntax
+  remains appropriate in literal commands, host paths and generic explanations.
+* `7XF` selects named prompt presentation; LS/LL/CD already work without it.
+  `LS /` lists drives; `LS ..` lists areas on the current drive. `/` is not a
+  selectable hierarchical root. `CD /B` returns to the remembered B area.
+* Both LS/LL area lists keep the whole-drive VOL.7XF heading at column 2.
+  Only LL adds individual area descriptions. Current-area file headings omit
+  the repeated path. File rows sort by extension/name and display lowercase;
+  canonical host names are not renamed.
+* Empty/catalog-only areas are hidden, not deleted. An ordinary marker file,
+  even zero length, makes an area populated. Keep all A user folders for the
+  supplied SUBMIT queue convention. B0/C0 have no shared commands, but may have
+  catalog placeholders.
+* A card-root AUTOEXEC.TXT containing `7XF` selects named prompts at boot.
+  Do not replace an existing startup command casually. No such file was added
+  to the working card. Named `on_select=cd /b/mbasic\r` works at a live CCP
+  prompt; it is neither a boot command nor injected into a running app.
+* Existing `DIR`/`LDIR` remain useful beside LS/LL. External portable 8080/Z80
+  catalog tools are an idea only, not supplied COM replacements for the CCP.
+
+== Verification completed
+
+[cols="2,3",options="header"]
+|===
+|Check |Result and boundary
+|Python host/tool suite |155 tests PASS; simulated installer/uploader tests do not install or flash real devices.
+|C++ terminal/runtime |Full suites PASS under AddressSanitizer and UndefinedBehaviorSanitizer, including explicit global-shortcut policy scenario. LeakSanitizer cannot operate under the traced sandbox; approved external execution passed.
+|EP4_10 temporary desktop CTest |11/11 PASS: real GFX, framebuffer, host storage, PTY lifecycle, sketch smoke, new filtered-history CRC save/reload, catalog widths 40/80/100.
+|Working-card browsing |PASS for eleven aliases, named prompts, drive/root lists, LS/LL versus DIR/LDIR, remembered drive and AUTOEXEC startup. Only disposable copies were written.
+|VTESTS SDL |Eight scenarios PASS: items 3, 5, 7 and all five stages of item 9. Real MBASIC, production presenter, dummy SDL video driver; not physical panel timing.
+|Manual rendering/links |Eleven selected current/new documents rendered; 457 local rendered links/images and AsciiDoc anchors checked without missing targets. Intentional leveloffset warnings remain. Subsequent prose-only clarifications need the final repeat below.
+|Writing Guide visual |Styled headless Chromium screenshot inspected: title, TOC and source-example structure render correctly. Not a complete every-page print/PDF or GitHub visual acceptance.
+|Registry / whitespace |203-feature registry validates; ledger regenerated; targeted git diff whitespace check passed before final handoff edits.
+|===
+
+Temporary evidence (not portable repository assets):
+
+* `/tmp/xtgv-7xf-listing-build-lIGqtO/xtgv_desktop`: updated source/test build,
+  retaining its older configured stamp. Installed launcher artifacts unchanged.
+* `/tmp/xtgv-overnight-browsing/browse-jnkgn_l0/` and
+  `/tmp/xtgv-overnight-browsing/autoexec-b77j4bmn/`: mirror transcripts and Canvas.
+* `/tmp/xtgv-overnight-vtests/`: eight page/stage evidence directories.
+* `/tmp/xtgv-history-terminal-sanitized`, `/tmp/xtgv-history-runtime-sanitized`.
+* `/tmp/xtgv-guide-review/`, `/tmp/xtgv-writing-styled.html`,
+  `/tmp/xtgv-writing-styled.png`; local audit script `/tmp/xtgv_review_guides.py`.
+
+== One newly confirmed edge case: not fixed
+
+A separate maximum-length history probe saved a 127-character application-bank
+entry and reloaded only 126 characters, losing its final sentinel. The load
+buffer in `terminal_runtime.cpp` is `MaxLine` bytes, but the serialized record
+also begins with `>`. This predates the filtered-recall change and is not a CRC
+failure: serialization contains all 127 bytes; runtime parsing truncates one.
+CCP bank 0 already has a smaller recall limit.
+
+Reproducer: `/tmp/xtgv-history-length-probe.cpp` and executable of the same
+name without `.cpp`, exercising production write/load routines via runtime
+stubs. Output: `Saved 127, reloaded 126 bytes; final sentinel retained=0`.
+No production parsing change was made. Next step: agree the narrow correction,
+add a permanent 126/127-character round-trip regression, account for the record
+marker in the load buffer, and rerun persistence/CRC tests. Do not silently
+alter history format or normalize user entries.
+
+== Tomorrow: shortest useful continuation
+
+. Read `git status` and this note; preserve current INI/BUF, profile ordering,
+  placeholder files and running sessions. No working INI/history or mounted
+  physical card was changed by this overnight pass.
+. Rebuild/relaunch a chosen desktop when ready. New `escape_alt` /
+  `backspace_alt` parser spellings and restored filtered-history logging are
+  source changes; an already-running/old executable does not acquire them.
+  Manually try a filtered older command, Return, then unfiltered Up.
+. Decide whether to fix the separately reproduced maximum-length edge case.
+. Repeat the local render/link/whitespace checks after the last prose edits;
+  inspect a few RG/TRG pages in the browser and scaled print preview. The main
+  content pass is substantially advanced, not a claim of exhaustive protocol,
+  licensing, application, all-board or every-renderer certification.
+. Keep physical-board retesting and real fresh-machine Linux setup as separate
+  acceptance gates. No MCU rebuild/stage/flash, upload or SD synchronization
+  occurred here. The existing guided hardware-acceptance plan remains pending.
+. Keyword lists need a separate design decision: several named lists per
+  profile, explicit selection, bounded storage-owner loading, and independent
+  history logging. Do not restore suppression flags to imitate keyword storage.
+. Review the full accumulated diff before any separately requested commit/push.
+
+Petr's personal History Guide remains his draft. No private MIXWORX material
+was edited or published. No repository rename, upstream/core port, new terminal
+protocol, portable external 7XF utilities or keyword subsystem was attempted.
+
+== Morning reflection on the unattended handoff
+
+The following morning response records Petr's experience of this first
+explicitly requested unattended overnight review and its written handoff.
+It is a collaboration record, not evidence that PC activity triggered a
+notification or resumed execution; that cause has not been established.
+The original night-time request is retained under _Scope and stopping point_
+in the linked overnight PLAN.
+
+.Petr's morning response — verbatim
+[%collapsible]
+====
+[source,text,options="wrap"]
+----
+good morning Ari :-) I heard the notification before I went asleep :-) so this 9:19 wakeup here was triggered automatically based on PC activity? cool :-) ... I read the last your documents, very good, ... I only consider, as this is interesting FIRST occurence when I wished your unattended overnight work to include this entire my verbatim night post "okay, I scanned through RG and TRG quite carefully ,,," into PLAN under "Scope and ...", probably as some "colapsible text" (?? we didnt used this adoc feature yet, mostly?) - its question if not to do this regulary as "colapsible" content;
+
+I highly appreciate your totally precise working and necessary reference notes in handoff documents, ... in fact, as I considered some "fresh session, as we have quite deep context, ... we MAY to try to do that (give me info HOW exactly to start new session with point to docs (as "pick docs since latest PLAN to rebuild fresh context??" - something like that?) - I noticed you have there all necessary question to me to decide ... so far so good, its yours now Ari :-) again, morning :-)
+----
+====
+
+.Petr's request to preserve this reflection — verbatim
+[%collapsible]
+====
+[source,text,options="wrap"]
+----
+(you may also inject that todays morning thing "good morning Ari :-) I heard the notification before ..." into last "morning DONE", somewhere, probably at end ??) - this is interesting shift in collaboration, that unattended handoff ...
+----
+====

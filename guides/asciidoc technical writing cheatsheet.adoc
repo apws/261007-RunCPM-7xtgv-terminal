@@ -6,7 +6,7 @@
 :sectnums:
 :source-highlighter: highlight.js
 
-:project-example: 7xtgv
+:project-example: 7xtgv-terminal
 :cpu-clock-example: 66 MHz
 
 // For Asciidoctor.js Live Preview 4.1.0, cross-document #fragments need
@@ -19,9 +19,11 @@
 
 == Document structure
 
+Keep the title and attributes in the header. This is an example, not another
+document embedded in this guide:
 
-
-
+[source,asciidoc]
+----
 = Document title
 :toc:
 :sectnums:
@@ -32,11 +34,22 @@
 === Level 2 section
 
 ==== Level 3 section
+----
+
+Use blank lines around headings and blocks. Maintained guides normally use
+`:leveloffset: +1`; chronological `docs/` records use `:leveloffset: +2`.
+This Writing Guide deliberately remains unshifted. Keep source headings
+semantic; the offset changes their effective rendered level.
 
 
 
 
-==== Text formatting
+== Text formatting
+
+[source,asciidoc]
+----
+*bold*  _italic_  `monospace`  #marked/highlighted text#
+----
 
 *bold*
 
@@ -48,14 +61,23 @@ _italic_
 
 Inline code / literals:
 
-Use `mode_palette=` in the `[global]` section.
+Use `mode_palette=` in the `[global]` section. Backticks give inline monospace
+with the pale-blue background in our CSS; that is not bold emphasis. Use it
+for commands, settings, paths and concrete card names such as `mbasic(B1)`.
 
 
 
 
-==== Lists
+== Lists
 
 Bullets:
+
+[source,asciidoc]
+----
+* first item
+* second item
+** nested item
+----
 
 * first item
 * second item
@@ -76,15 +98,27 @@ For unordered lists, standardize on `*` rather than Markdown-style `-`, because 
 
 
 
-==== Source code blocks
+== Source code blocks
+
+Put `[source,LANG]` before a pair of `----` delimiter lines. To show a source
+block inside an example, use longer outer delimiters:
+
+[source,asciidoc]
+------
+[source,ini]
+----
+[palette0]
+paper0=255,255,255
+----
+------
 
 [source,ini]
 ----
 [palette0]
 
 ; comment
-paper0 = RGB565
-paper1 = RGB565 R
+paper0 = 255,255,255
+paper1 = 255,224,224
 ----
 
 Other languages:
@@ -115,7 +149,7 @@ preserves spacing
 
 
 
-==== Quotes
+== Quotes
 
 [quote]
 ____
@@ -125,7 +159,7 @@ ____
 
 
 
-==== Admonitions
+== Admonitions
 
 Very useful for technical notes:
 
@@ -151,7 +185,7 @@ And even lists or source blocks.
 
 
 
-==== Links
+== Links
 
 https://example.com
 
@@ -160,14 +194,22 @@ https://example.com[Example site]
 
 
 
-==== Cross-references
+== Cross-references
+
+[source,asciidoc]
+----
+[[palette-model]]
+=== Palette model
+
+See <<palette-model,the palette model>>.
+----
 
 [[palette-model]]
 
 
 
 
-==== Palette model
+=== Palette model
 
 See <<palette-model>>.
 
@@ -178,10 +220,11 @@ See <<palette-model,the palette model>>.
 
 
 
-==== Tables
+== Tables
 
 Simple table:
 
+[cols="1,3,1",options="header"]
 |===
 | Field | Meaning | Status
 
@@ -208,12 +251,12 @@ With header row and column widths:
 
 
 
-==== Images
+== Images
 
 .example alone
 image::images/cheatsheet1.png[width=400]
 
-===== images in table, side by side
+=== Images in a table, side by side
 
 [cols="1a,1a",frame=none,grid=none]
 |===
@@ -242,7 +285,7 @@ image::images/cheatsheet6.png[width=400]
 
 
 
-==== Definition lists
+== Definition lists
 
 Excellent for configuration/reference documentation:
 
@@ -253,7 +296,7 @@ paper0:: Default background color.
 
 
 
-==== Sidebar / separated block
+== Sidebar / separated block
 
 .Optional design note
 ****
@@ -263,7 +306,7 @@ This is visually separated from the main text.
 
 
 
-==== Collapsible block
+== Collapsible block
 
 Supported by renderers that implement collapsible blocks:
 
@@ -275,7 +318,7 @@ Hidden details here.
 
 
 
-==== Horizontal rule and page break
+== Horizontal rule and page break
 
 Horizontal rule:
 
@@ -283,36 +326,48 @@ Horizontal rule:
 
 Page break:
 
+[source,asciidoc]
+----
 <<<
+----
 
 
 
 
-==== Comments
+== Comments
 
 Single-line comment:
 
+[source,asciidoc]
+----
 // single-line comment
+----
 
 
 Block comment:
 
+[source,asciidoc]
+----
 ////
 This is not rendered.
 Useful for internal notes.
 ////
+----
 
 
 
 
-==== Attributes
+== Attributes
 
 One of the most useful AsciiDoc features:
 
-:project: 7xtgv
+[source,asciidoc]
+----
+:project: 7xtgv-terminal
 :cpu-clock: 66 MHz
 
 The {project} system runs at {cpu-clock}.
+----
 
 
 Changing the attribute definition updates every use.
@@ -320,11 +375,17 @@ Changing the attribute definition updates every use.
 
 
 
-==== Includes
+== Includes
 
-include::../docs/260923-08 VTPAL INI sections.adoc[]
+[source,asciidoc]
+----
+\include::chapter.adoc[]
+----
 
 AsciiDoc also supports including selected tagged regions from another file.
+Includes are preprocessor directives: a source block alone does *not* prevent
+them from being executed. In this guide's source an extra leading backslash
+escapes example directives; the rendered example shows the ordinary syntax.
 
 
 
@@ -332,9 +393,10 @@ AsciiDoc also supports including selected tagged regions from another file.
 
 == Recommended house style for technical project docs
 
-:leveloffset: +3
-
+[source,asciidoc]
+------
 = Title
+:leveloffset: +2
 :toc:
 :toclevels: 6
 :sectnums:
@@ -355,6 +417,7 @@ NOTE: design note
 | ...
 | ...
 |===
+------
 
 
 == Practical note
@@ -378,7 +441,6 @@ For technical documentation, the most important constructs to learn first are:
 
 
 
-:leveloffset: -3
 == Tweaking notes
 
 // -----------------------------------------------------------------------------
@@ -402,7 +464,7 @@ For technical documentation, the most important constructs to learn first are:
 ++++
 
 
-==== TOC depth without changing heading styling
+=== TOC depth without changing heading styling
 
 [.post-cheatsheet-note]
 --
@@ -424,12 +486,12 @@ This keeps the actual section levels and CSS styling unchanged, but includes hea
 
 [source,asciidoc]
 ----
-include::chapter.adoc[leveloffset=+1]
+\include::chapter.adoc[leveloffset=+1]
 ----
 --
 
 
-==== Explicit page breaks and Chromium/PDF printing
+=== Explicit page breaks and Chromium/PDF printing
 
 [.post-cheatsheet-note]
 --
@@ -480,7 +542,7 @@ This helps prevent headings or compact blocks from being stranded awkwardly acro
 --
 
 
-==== Table proportions and print roles
+=== Table proportions and print roles
 
 // This is a live specimen: inspect the source to see the role and cols syntax.
 // Select mixworx-golo-260929-liberation-v2.css to see mx-compact at 85%,
@@ -505,7 +567,7 @@ v3 only prevents the bars and stretch tables from becoming *narrower*.
 [cols="1,4",options="header",role="mx-compact"]
 |===
 |DU |Description
-|A0 |Commands and configuration files.
+|`cpm(A0)` |Commands and configuration files.
 |===
 
 .Full identifier
@@ -532,29 +594,30 @@ apply it to a block taller than a page.
 // preamble paragraph automatically. NOTE/TIP/WARNING are semantic, not sizing.
 
 
-==== Current CSS font-size map
+=== Current CSS font-size map
 
 // Live reference for the CSS files linked above, not a new sizing convention.
 // Approximate pixels assume the browser's default base font is 16 CSS px.
 The base is `html, body { font-size: 100%; }`, normally 16 CSS px. Regular
 text uses Liberation Sans; inline and block code use Liberation Mono. These
 are CSS sizes *before* Chromium's Print Scale changes their physical size.
-At print time the `only screen` heading enlargement does not apply.
+Heading sizes no longer grow with screen width: screen and print use the same
+CSS sizes. Browser zoom and print scaling can still change physical size.
 
 [cols="3,2,2,4",options="header"]
 |===
-|Element |Print: v2 and v3 |Wide screen (`>=768px`) |Notes
+|Element |Current CSS size |Screen versus print |Notes
 |Body, paragraphs, lists, admonition text |`1em` (about 16px) |Same |Ordinary inherited size; admonition labels and icons have separate decoration.
-|Document title `h1` |`2.125em` (34px) |`2.75em` (44px) |Inverted dark bar.
-|Section `h2` |`1.6875em` (27px) |`2.3125em` (37px) |Inverted dark bar.
-|Section `h3` |`1.375em` (22px) |`1.6875em` (27px) |Inverted dark bar.
-|Section `h4` |`1.125em` (18px) |`1.4375em` (23px) |Blue bar.
+|Document title `h1` |`2.125em` (34px) |Same |Bold, inverted dark bar.
+|Section `h2` |`1.6875em` (27px) |Same |Bold, inverted dark bar.
+|Section `h3` |`1.375em` (22px) |Same |Bold, inverted dark bar.
+|Section `h4` |`1.125em` (18px) |Same |Bold, blue bar.
 |Sections `h5`, `h6` |`1.125em` (18px), `1em` (16px) |Same |Pale bars.
-|TOC title |`1.2em` (about 19px) |Usually `1.375em` (22px) |Fixed side-TOC variants also have their own sizes.
+|TOC title |`1.2em` (about 19px) |Same |Side-TOC layout has separate media rules.
 |Lead/first preamble paragraph |`1.21875em` (about 19.5px) |Same |A summary role or the first preamble paragraph.
 |Tables |`1em` (16px) |Same |`mx-compact`: `0.85em` (13.6px); `mx-dense`: `0.70em` (11.2px).
 |Inline code |`1em` (16px) |Same |Blue background; code inside a heading inherits that heading's size.
-|Source/literal code blocks |v2: `1em` (16px); v3: `0.80em` (12.8px) |Same |Gray blocks. Compact/dense: v2 `0.85`/`0.70em`; v3 `0.72`/`0.60em`.
+|Source/literal code blocks |`0.80em` (12.8px) |Same |Gray blocks. Compact/dense: `0.72`/`0.60em`.
 |Quote text |`1.15rem` (about 18.4px) |Same |Footnotes use `0.875em` (about 14px).
 |===
 
@@ -564,7 +627,7 @@ change the ordinary body or heading font sizes. Change Chrome's Print Scale
 to enlarge or reduce the *whole* printed layout.
 
 
-==== Side-by-side images
+=== Side-by-side images
 
 [.post-cheatsheet-note]
 --
@@ -600,7 +663,7 @@ Inside table cells, `width=100%` is usually preferable to a fixed pixel width be
 --
 
 
-==== Image captions inside AsciiDoc table cells
+=== Image captions inside AsciiDoc table cells
 
 [.post-cheatsheet-note]
 --
@@ -626,7 +689,7 @@ The latter is not interpreted as a normal image block title/caption.
 --
 
 
-==== Browser preview and source highlighting are separate systems
+=== Browser preview and source highlighting are separate systems
 
 [.post-cheatsheet-note]
 --
@@ -648,7 +711,7 @@ Then use native AsciiDoc source blocks:
 [palette0]
 
 ; comment
-paper0 = RGB565
+paper0 = 255,255,255
 ----
 ....
 
@@ -656,7 +719,7 @@ Kate may use KDE's KSyntaxHighlighting grammar for the `.adoc` source, while the
 --
 
 
-==== Kate nested INI highlighting inside AsciiDoc
+=== Kate nested INI highlighting inside AsciiDoc
 
 [.post-cheatsheet-note]
 --
@@ -671,11 +734,12 @@ A user-local KSyntaxHighlighting override can add an INI source-block context us
 
 Keep the override user-local rather than modifying packaged files directly.
 
-The separate Codex implementation plan documents this customization in detail.
+The repository's link:../src/RunCPM_7xtgv-terminal/tools/kate-asciidoc/[Kate support files] contain the
+local customization. Browser preview does not use that Kate grammar.
 --
 
 
-==== Comments are invisible by design
+=== Comments are invisible by design
 
 [.post-cheatsheet-note]
 --
@@ -702,7 +766,7 @@ Use source blocks for cheat-sheet examples of constructs whose purpose is to van
 --
 
 
-==== Attributes and includes in a live cheat sheet
+=== Attributes and includes in a live cheat sheet
 
 [.post-cheatsheet-note]
 --
@@ -712,7 +776,7 @@ Attributes are normally defined in the document header:
 
 [source,asciidoc]
 ----
-:project: 7xtgv
+:project: 7xtgv-terminal
 :cpu-clock: 66 MHz
 
 The {project} system runs at {cpu-clock}.
@@ -722,8 +786,10 @@ An include directive executes immediately:
 
 [source,asciidoc]
 ----
-include::palette.adoc[]
+\include::palette.adoc[]
 ----
 
-Therefore, if the referenced file does not exist, a live example produces an unresolved-include warning. In a cheat sheet, show such an include inside a source block unless the example file really exists.
+Therefore, if the referenced file does not exist, an unescaped example can
+produce an unresolved-include warning even inside a source block. Escape the
+example directive with a leading backslash in the AsciiDoc source.
 --

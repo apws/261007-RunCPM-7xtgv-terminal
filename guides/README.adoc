@@ -16,11 +16,12 @@ from the committed repository copy.
 [cols="1,3",options="header"]
 |===
 |Read |For
-|link:build-guide.adoc[Build Guide] |Clone, setup, first desktop run; hardware rebuild/reflash, card ownership, prerequisites and troubleshooting. Fresh-machine verification gaps remain explicit.
-|link:user-guide.adoc[User Guide] |Starting desktop or hardware sessions, everyday keys, zoom/pan, file transfer, safe INI changes, recovery.
-|link:reference-guide.adoc[Reference Guide] |Exact commands, keys, profiles, escape-sequence behavior and INI settings.
-|link:technical-reference-guide.adoc[Technical Reference Guide] |RunCPM/CCP fork, core and HAL ownership, protocols, persistence, build safety and licensing.
-|link:history-guide.adoc[History Guide] |Petr's account of where the project began and why; in preparation.
+|link:01-BG-build-guide.adoc[Build Guide] |Clone, setup, first desktop run; hardware rebuild/reflash, card ownership, prerequisites and troubleshooting. Fresh-machine verification gaps remain explicit.
+|link:02-UG-user-guide.adoc[User Guide] |Starting desktop or hardware sessions, everyday keys, zoom/pan, file transfer, safe INI changes, recovery.
+|link:03-RG-reference-guide.adoc[Reference Guide] |Exact commands, keys, profiles, escape-sequence behavior and INI settings.
+|link:04-TRG-technical-reference-guide.adoc[Technical Reference Guide] |RunCPM/CCP fork, core and HAL ownership, protocols, persistence, build safety and licensing.
+|link:05-TG-tooling-guide.adoc[Tooling Guide] |SVG structure map of hardware/desktop launchers, mirror sessions, keyboard tables, builds, uploads and transfers.
+|link:06-HG-history-guide.adoc[History Guide] |Petr's account of where the project began and why; in preparation.
 |link:features_timeline.adoc[Features Timeline] |When implemented features, CP/M helpers, catalog files and command names entered or changed.
 |link:asciidoc%20technical%20writing%20cheatsheet.adoc[AsciiDoc Writing Examples] |How to author these guides: headings, tables, optional size roles, images and Chrome/PDF printing.
 |===
@@ -32,6 +33,27 @@ source `++docs/features.tsv++` and the timeline. Dated reports
 under `docs/` preserve experiments and hardware evidence;
 a historical report is not automatically the current device configuration.
 For running geometry and firmware identity, use `++VTINFO++`.
+
+BG, UG, RG and TRG group their topics into explicitly numbered main chapters;
+TG numbers its existing main chapters. Lower-level topics remain unnumbered.
+Use a short reference such as *RG 4* for a chapter, and a section link for an
+exact topic. Section anchors are independent of the displayed chapter numbers.
+The filename prefixes order the guides; they are not chapter numbers.
+
+[cols="1,3",options="header"]
+|===
+|Guide |Main chapters
+|BG |1 Getting started; 2 Desktop sessions and cards; 3 Physical hardware; 4 Build reference and troubleshooting.
+|UG |1 Getting started; 2 Everyday use; 3 Files and settings; 4 Troubleshooting and checks.
+|RG |1 Terminal operation; 2 Applications and input; 3 CP/M commands and files; 4 Configuration; 5 Terminal interfaces; Appendix A Diagnostics, tests and demonstrations.
+|TRG |1 Architecture and ownership; 2 Interfaces and persistence; 3 Platforms and integration; 4 Development and verification; Appendix A Design context and provenance.
+|TG |1 Structure at a glance; 2 Names and their roles; 3 Hardware mirror and ownership; 4 Desktop launch and ownership; 5 Builds, uploads and transfers.
+|===
+
+The guides use the ordered filenames `01-BG-` through `06-HG-` from 261010.
+Links in the repository follow those filenames; external browser bookmarks to
+the former filenames need updating. Existing topic fragments are retained.
+HG remains a preparation outline for the author's account.
 
 On 261007 these guides moved from `docs/260912-23 7xtgv terminal manual/`
 to root-level `guides/`, including their images. Old browser
@@ -49,67 +71,67 @@ The Asciidoctor.js browser-extension helpers live at repository root:
   run this local helper.
 
 [[starting-the-pc-mirror]]
-xref:user-guide.adoc#starting-the-pc-mirror[Starting the PC mirror]
+xref:02-UG-user-guide.adoc#starting-the-pc-mirror[Starting the PC mirror]
 
 [[vtput--vtget-from-the-mirror]]
-xref:reference-guide.adoc#vtput\--vtget-from-the-mirror[VTPUT / VTGET]
+xref:03-RG-reference-guide.adoc#vtput\--vtget-from-the-mirror[VTPUT / VTGET]
 
 [[global-terminal-keys]]
-xref:reference-guide.adoc#global-terminal-keys[Global terminal keys]
+xref:03-RG-reference-guide.adoc#global-terminal-keys[Global terminal keys]
 
 [[output-interpretation-modes]]
-xref:reference-guide.adoc#output-interpretation-modes[Output interpretation modes]
+xref:03-RG-reference-guide.adoc#output-interpretation-modes[Output interpretation modes]
 
 [[histories-banks-and-the-active-line]]
-xref:reference-guide.adoc#histories-banks-and-the-active-line[Histories, banks and active line]
+xref:03-RG-reference-guide.adoc#histories-banks-and-the-active-line[Histories, banks and active line]
 
 [[application-profiles]]
-xref:reference-guide.adoc#application-profiles[Application profiles]
+xref:03-RG-reference-guide.adoc#application-profiles[Application profiles]
 
 [[editing-details]]
-xref:reference-guide.adoc#editing-details[Editing details]
+xref:03-RG-reference-guide.adoc#editing-details[Editing details]
 
-[#7xtgv-cpm-commands-and-user-areas]
-xref:reference-guide.adoc#7xtgv-cpm-commands-and-user-areas[CP/M commands and user areas]
+[#7xtgv-terminal-cpm-commands-and-user-areas]
+xref:03-RG-reference-guide.adoc#7xtgv-terminal-cpm-commands-and-user-areas[CP/M commands and user areas]
 
 [[shared-a0-commands]]
-xref:reference-guide.adoc#shared-a0-commands[Shared A0 commands]
+xref:03-RG-reference-guide.adoc#shared-a0-commands[Shared A0 commands]
 
 [[a7-visual-tests-and-dec-graphics]]
-xref:reference-guide.adoc#a7-visual-tests-and-dec-graphics[A7 visual tests and DEC graphics]
+xref:03-RG-reference-guide.adoc#a7-visual-tests-and-dec-graphics[7xtgv(C1) visual tests and DEC graphics]
 
 [[a6-graphics-and-timing-helpers]]
-xref:reference-guide.adoc#a6-graphics-and-timing-helpers[A6 graphics and timing helpers]
+xref:03-RG-reference-guide.adoc#a6-graphics-and-timing-helpers[xterm256(C2) graphics and timing helpers]
 
 [[boot-autoexec-and-pending-submit-work]]
-xref:reference-guide.adoc#boot-autoexec-and-pending-submit-work[Boot, AUTOEXEC and SUBMIT]
+xref:03-RG-reference-guide.adoc#boot-autoexec-and-pending-submit-work[Boot, AUTOEXEC and SUBMIT]
 
 [[xterm256-graphics]]
-xref:reference-guide.adoc#xterm256-graphics[xterm256 graphics]
+xref:03-RG-reference-guide.adoc#xterm256-graphics[xterm256 graphics]
 
 [[configuration-reference]]
-xref:reference-guide.adoc#configuration-reference[Configuration reference]
+xref:03-RG-reference-guide.adoc#configuration-reference[Configuration reference]
 
 [[keyboard-overrides-in-7xtgvtrmini]]
-xref:reference-guide.adoc#keyboard-overrides-in-7xtgvtrmini[Keyboard overrides]
+xref:03-RG-reference-guide.adoc#keyboard-overrides-in-7xtgvtrmini[Keyboard overrides]
 
 [[ini-diagnostics-and-syntax-limits]]
-xref:reference-guide.adoc#ini-diagnostics-and-syntax-limits[INI diagnostics and syntax]
+xref:03-RG-reference-guide.adoc#ini-diagnostics-and-syntax-limits[INI diagnostics and syntax]
 
 [[global-settings]]
-xref:reference-guide.adoc#global-settings[Global settings]
+xref:03-RG-reference-guide.adoc#global-settings[Global settings]
 
 [[display-and-per-bank-geometry]]
-xref:reference-guide.adoc#display-and-per-bank-geometry[Display and bank geometry]
+xref:03-RG-reference-guide.adoc#display-and-per-bank-geometry[Display and bank geometry]
 
 [[additional-bank-settings]]
-xref:reference-guide.adoc#additional-bank-settings[Additional bank settings]
+xref:03-RG-reference-guide.adoc#additional-bank-settings[Additional bank settings]
 
 [[palette-slots-and-ansi-color-mapping]]
-xref:reference-guide.adoc#palette-slots-and-ansi-color-mapping[Palette and ANSI color mapping]
+xref:03-RG-reference-guide.adoc#palette-slots-and-ansi-color-mapping[Palette and ANSI color mapping]
 
 [[zip-transfer-and-extraction]]
-xref:reference-guide.adoc#zip-transfer-and-extraction[ZIP transfer]
+xref:03-RG-reference-guide.adoc#zip-transfer-and-extraction[ZIP transfer]
 
 [[source-references-and-implementation-boundaries]]
-xref:technical-reference-guide.adoc#source-references-and-implementation-boundaries[Source and implementation boundaries]
+xref:04-TRG-technical-reference-guide.adoc#source-references-and-implementation-boundaries[Source and implementation boundaries]

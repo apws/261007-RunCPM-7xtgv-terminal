@@ -1,0 +1,60 @@
+= Separate Reference Guide structure example
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Scope and artifact
+
+Petr requested a separate example of the proposed RG top-level reorganization,
+with no changes to existing guides. The resulting
+link:261010-1218%20PLAN%20Reference%20Guide%20stable%20parts%20example.adoc[Reference Guide structure example]
+is a review draft, not an approved or applied migration.
+
+It follows the broader
+link:261007-2317%20PLAN%20Entire%20manuals%20current-state%20review.adoc[manuals review]
+and the
+link:261010-1028%20DONE%20Host%20mirror%20identifiers%20and%20SVG%20tooling%20map.adoc[tooling guide checkpoint].
+
+== Proposed grouping
+
+[cols="1,3",options="header"]
+|===
+|Part |Current material grouped or split
+|1. Terminal operation |Mirror/session reference; global terminal controls, chord table and prefix fallbacks.
+|2. Applications and input |Profiles and selection; history and active line; application editing adapters; RAW.
+|3. CP/M commands and files |7XF and catalogs; DU inventory; shared commands; startup/SUBMIT; transfer and extraction.
+|4. Configuration |INI syntax/reload; key names, presets and precedence; global, display, profile and palette settings.
+|5. Terminal interfaces |Output modes and sequences; text attributes/color interpretation; a concise interface map; xterm256 plotting behavior.
+|Appendix A |Detailed diagnostic procedures, benchmarks, visual tests, palette tests and plotting demos.
+|===
+
+The example has five explicit, provisional part numbers and 22 unnumbered
+topics. Each topic explains its scope and links to existing source material.
+Semantic anchors are separate from the displayed labels; existing live-guide
+anchors are untouched.
+
+Configuration versus runtime behavior, palette definitions versus SGR mapping,
+and plotting interface versus demos are deliberately separated. The interface
+map is a proposed curated index, not a new duplicated protocol specification.
+Internal parser/publication, storage and transfer-framing details are proposed
+for TRG ownership; no text has actually been moved.
+
+== Review and validation
+
+* Rendered the example with the existing custom stylesheet, plus a temporary
+  copy of the title-splitting helper for an HTML preview. No CSS/JavaScript
+  source changes. Existing RG/TRG were rendered read-only to support preview
+  cross-links.
+* Visually inspected the rendered TOC and initial parts. Dark-blue numbered
+  part headings and bright-blue unnumbered topic headings follow existing style.
+* Checked all six part/appendix headings, the 22 topic headings, internal IDs
+  and source cross-links. The VTPUT/VTGET anchor uses escaped double hyphens to
+  avoid typographic substitution in the generated link.
+* All 14 pre-existing guide/style file hashes match the pre-review inventory.
+  Existing guides, guide assets, CSS and JavaScript are byte-for-byte preserved.
+* Preview and preservation inventory: `/tmp/xtgv-rg-structure-example/`.
+  Styled HTML is under its `docs/` folder; screenshot is `toc-preview.png`.
+
+Only the new example/checkpoint and documentation registry/navigation change.
+No source, working INI/history, card, runtime session, build artifact, hardware,
+commit or push action. Review the part names, boundaries and numbering policy
+before separately choosing any migration of live-guide content.

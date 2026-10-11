@@ -1,0 +1,73 @@
+= Numbered guide chapters and preserved navigation
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Outcome and control
+
+Applied the authorized
+link:261010-1254%20PLAN%20Numbered%20guide%20chapters%20and%20renamed%20navigation.adoc[guide chapter plan],
+following the reviewed
+link:261010-1218%20PLAN%20Reference%20Guide%20stable%20parts%20example.adoc[RG example].
+Kept Petr's ordered guide filenames and repaired repository navigation.
+The earlier example-only checkpoint remains the account of that narrower task.
+
+[cols="1,3",options="header"]
+|===
+|Guide |Organization
+|link:../guides/01-BG-build-guide.adoc[BG] |Four numbered chapters: getting started, desktop/cards, physical hardware, build reference/troubleshooting. First-run recipe remains together.
+|link:../guides/02-UG-user-guide.adoc[UG] |Four numbered chapters: getting started, everyday use, files/settings, troubleshooting/checks. Optional demo recipes follow recovery and diagnostics.
+|link:../guides/03-RG-reference-guide.adoc[RG] |Five numbered parts: terminal operation, applications/input, CP/M commands/files, configuration, terminal interfaces. Appendix A holds diagnostics, palette/visual tests and plotting demonstrations.
+|link:../guides/04-TRG-technical-reference-guide.adoc[TRG] |Four numbered chapters: architecture/ownership, interfaces/persistence, platforms/integration, development/verification. Appendix A holds detailed design/provenance and the requested verbatim quotation. The current recovered-baseline warning stays near the front.
+|link:../guides/05-TG-tooling-guide.adoc[TG] |Existing five main chapters explicitly numbered; SVG and technical content retained.
+|link:../guides/06-HG-history-guide.adoc[HG] |Renamed-file navigation repaired; authoring outline remains unnumbered and unfinished.
+|===
+
+Lower-level topics are unnumbered. `:sectnums!:` prevents automatic numbering;
+the main numbers are explicit title text. Guide filename ordering and chapter
+numbering are separate. The guide index documents short references such as
+RG 4 and semantic section links; no permanent multi-level numeric scheme is
+introduced.
+
+Existing topic IDs, including generated IDs, were made explicit before moves
+or title changes. The CP/M command-area ID starts with a digit and therefore
+retains block-ID syntax. File links follow the renamed guides in maintained
+navigation, source README, AGENTS, third-party notices and directly linked
+dated records. Historical literal paths, prose and quotations remain intact;
+only dated-record hyperlink targets were repaired. Registry guide paths were
+updated in TSV and the generated ledger refreshed.
+
+The RG separates palette definitions from runtime SGR interpretation and
+plotting interfaces from demonstrations. Its interface map links controls,
+guest helpers and developer protocol definitions. Required input precedence
+and loading-order explanations remain in RG; implementation/storage ownership
+remains in TRG. This organization pass does not complete a further technical
+content audit.
+
+== Validation and preservation
+
+* Rendered all five guides with the existing stylesheet and a temporary copy
+  of the title helper; inspected each styled TOC and initial chapter layout.
+* Checked 4/4/5/4/5 numbered chapters, the RG/TRG appendices, unnumbered lower
+  headings, duplicate IDs and retention of all 134 pre-existing topic anchors.
+* All 31 source/code blocks match the pre-edit copies exactly. All original
+  technical body words remain after normalizing renamed link targets and
+  excluding headings/anchors; paragraph wrapping and section order may differ.
+* Maintained guide/index/root navigation file and fragment checks pass.
+  The private historical MIXWORX log has a pre-existing missing legacy-document
+  link; it is outside this change and was not edited.
+* Existing `:leveloffset: +1` rendering emits the established top-section
+  sequence warnings. No newly skipped intermediate heading levels remain.
+  Existing CSS print-break selectors target h2/h3; rendered main chapters and
+  appendices use h3, while lower topics use h4-h6. CSS/JavaScript are unchanged.
+* All 301 working-card file hashes match the pre-edit inventory, including
+  INI/history and host snapshots. No running-session controls were used.
+* Feature registry validation and ledger regeneration complete the records.
+
+Pre-edit copies, anchor inventory, verification report, HTML and TOC screenshots
+are in `/tmp/xtgv-guide-chapters/`; this is transient review evidence, not a
+release artifact.
+
+No firmware/desktop rebuild, guest test execution, physical-card deployment,
+flash, commit or push. External browser bookmarks to old guide filenames need
+updating; existing topic fragments work with the new filenames. No compatibility
+stub guides were added.

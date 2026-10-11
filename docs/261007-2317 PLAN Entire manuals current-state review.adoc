@@ -4,6 +4,11 @@
 
 == Scope and current checkpoint
 
+Latest continuation:
+link:261009-0917%20DONE%20Manuals%20review%20and%20morning%20pickup.adoc[overnight review and morning pickup].
+It supersedes earlier pending-status bullets where explicitly covered, while
+retaining fresh-machine, hardware and final visual acceptance gates.
+
 The user requests simplest first steps at the beginning of the guides and a
 complete scan for outdated instructions and links after the repository moves.
 This is the review checklist, not a claim that the full review is complete.
@@ -44,12 +49,82 @@ See link:261008-1149%20DONE%20Manual%20review%20first%20steps%20and%20build%20wo
   been removed from visible guide prose; dated evidence filenames remain valid
   link targets. Keep chronology in dated records and the Features Timeline.
 
-Next: full User Guide recipes and keyboard mappings, then Reference Guide INI
-defaults/settings and Technical Reference Guide implementation boundaries.
-Features Timeline content reconciliation and fresh-machine/hardware acceptance
-remain separate unfinished work. Link-check success is not a content audit.
+=== 261008 practical-guide and readability checkpoint
+
+See link:261008-1648%20DONE%20User%20Guide%20recipes%20and%20readability%20review.adoc[User Guide review and evidence].
+
+* User Guide chapters now use short task introductions, single-level bullets,
+  command tables and numbered transfer/INI steps instead of dense paragraphs.
+* Reviewed documented shortcuts, profile/RAW behaviour, geometry selection,
+  backlight controls, 7XF commands and demo paths against current sources/card.
+* Added an explicit 80x24 setup for scrolling tests, profile-before-geometry
+  ordering and fixed-pixel-position caveats for small-panel graphics demos.
+* Reference Guide history/profile/editing prose received the same focused
+  readability treatment. Its complete command/INI/escape-sequence audit remains pending.
+* Apply this readability approach throughout subsequent guide reviews: split
+  by topic, use one-level bullets for independent facts and headings for topic
+  changes. Preserve exact syntax, safety caveats, examples and link anchors.
+  With guide offset +1, source `===` gives bright-blue subheadings and `====`
+  the pale-blue level; intentional print page-break rules remain unchanged.
+
+=== 261008 command/settings and ownership checkpoint
+
+See link:261008-1752%20DONE%20Reference%20commands%20settings%20and%20source%20ownership%20review.adoc[Reference and Technical Reference changes].
+
+* Reference startup now leads with per-board launchers. Transfer, key-policy,
+  7XF listing/catalog and encoded-byte sections use short topics and tables.
+* Removed the duplicate physical-shortcut table while retaining its distinct
+  cautions; corrected removed-area inventory and Brot launcher descriptions.
+* Checked INI parser scopes/limits and added global/board fallback defaults.
+* Technical Reference now leads with code ownership. Corrected its stale
+  claim that recovered `ccp.h` implements 7XF or VOL reads `DIR.7XF`.
+* Updated complete-card status and separated current source structure from
+  dated hardware qualification. No firmware, card or CSS changes in this pass.
+
+Next: complete Reference escape/private-control and remaining setting semantics
+against source; continue Technical Reference persistence/protocol/test sections.
+Then reconcile Features Timeline and repair the writing cheatsheet examples.
+Fresh-machine and hardware acceptance remain separate unfinished work.
+Rendering/link success is not a complete content audit.
+
+=== Card-layout audit before finalizing DU recipes
+
+At this earlier audit checkpoint the maintainer was reconsidering the areas.
+The later authorized migration is recorded under Acceptance and handoff below.
+See
+link:261008-1957%20DONE%20Working%20card%20provenance%20and%20area%20organization%20audit.adoc[archive comparison, dependency findings and proposed layout].
+
+* Do not finalize an old A0/A4/A5 source inventory as the intended layout.
+  Upstream build dependencies are split, and project helper sources have
+  multiple homes and conflicting generations.
+* Prefer `name(DU)` in descriptive guidance; retain exact DU syntax where
+  a tool or guest program cannot accept catalog aliases.
+* Reconcile manuals/tooling/catalogs together after the layout is agreed.
+  A3 currently has only its catalog, not an installed COMAL demonstration.
+* No card files were moved by the audit. Any cleanup must preserve concurrent
+  maintainer changes and distinguish local-card changes from SD deployment.
 
 == Evidence and review order
+
+=== Final smaller reconciliation pass after card and catalog changes
+
+See link:261009-0035%20DONE%207XF%20desktop%20browsing%20and%20startup%20checkpoint.adoc[interactive desktop browsing and startup evidence].
+
+* Repeat a smaller end-of-review pass across the guides after the working-card
+  layout settles. Earlier review checkpoints do not cover every later change.
+* Reconcile named DU recipes, extension-sorted lowercase LS/LL, whole-drive
+  VOL.7XF headings, description-only current-area headings and hidden empty areas.
+* Explain that 7XF selects prompt style, not command availability; contrast
+  LS/LL with traditional DIR/LDIR, and catalog `/` with actual flat CP/M DUs.
+* Include the tested AUTOEXEC.TXT startup option and named `on_select` recipes.
+  User INI bank names/order are not the compiled defaults; preserve their edits.
+* Current maintainer layout moves FAND to B5 and dBase to B6. Check recipes and
+  overview text accordingly. With subsequent authorization, VOL.7XF now puts
+  databases on B and describes A as shared commands/system development.
+* Final short/long rule: LS /drive and LS .. retain the whole-drive heading
+  but omit individual area descriptions; LL includes those descriptions.
+* External 8080/Z80 catalog commands for other CP/M systems remain an idea;
+  do not document them as supplied COM utilities or portable CCP replacements.
 
 * Start with current source, launchers and configuration, then read relevant
   dated records newest first. Follow PLAN/DONE links to distinguish proposals
@@ -111,6 +186,30 @@ remain separate unfinished work. Link-check success is not a content audit.
   structure unchanged; this review is not a database redesign.
 
 == Acceptance and handoff
+
+=== Working-card layout settled after separate authorization
+
+The earlier area audit's proposed A4/A5 arrangement is superseded by the
+maintainer's later B/C decision. Implementation and evidence:
+link:261008-2120%20DONE%20Working%20card%20areas%20and%20canonical%20guest%20sources.adoc[working card areas and canonical guest sources].
+
+* Shared commands A0; historical system/assembler dependencies A1.
+* Full languages B1-B4; canonical project sources/tests C1, Mandelbrot demos
+  C2, benchmarks C3. B0/C0 intentionally empty; dBase AD and FAND AF preserved.
+* Current User/Reference/Technical guides and card/tool documentation now use
+  the settled locations. Keep `name(DU)` notation; archived evidence retains
+  its historical locations.
+* This authorized card migration does not complete the remaining manuals
+  review, hardware acceptance or fresh-machine build checks. Do not lose those
+  gates when continuing the guide cleanup.
+
+=== Remaining documentation acceptance
+
+The subsequent narrow 7XF listing change is already reflected in User and
+Reference guides: extension/name sorting, same-line descriptions, and `LS ..`
+/ `LL ..` as current-drive area listings. Explicit `/` still lists drives.
+See link:261008-2212%20DONE%207XF%20sorted%20compact%20listings%20and%20parent-drive%20view.adoc[implementation and width checks].
+Keep this distinction when continuing the command/examples audit.
 
 * Render changed guides with Asciidoctor and inspect tables, blocks and headings.
 * Check local links, images and anchors, plus representative GitHub/browser
