@@ -338,6 +338,13 @@ leaves its lock; verify its emulator has stopped before manually removing it.
 Normal shutdown releases only its own lock and never forcibly kills the emulator.
 
 
+=== Retired WezTerm experiment
+
+The optional WezTerm launchers were removed on 261012 after Windows colour
+tests. Use Konsole/Kitty on Linux and Mintty on Windows; the shared host
+keyboard configuration remains supported. Historical findings are retained
+in link:../../../docs/261012-0001%20REJECT%20WezTerm%20colours%20in%20VirtualBox%20Windows%2010.adoc[the retirement record].
+
 == Native connection proof
 
 After rebuilding ES3_5, run `windows.cmd proof --target ES3_5` from `tools-win`.

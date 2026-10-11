@@ -986,3 +986,30 @@ At `261011-2224`, Petr confirms the shared number-row setting works in the
 retested workflow. This closes the requested fresh-launch acceptance check;
 it does not claim every host/layout combination was tested. See the
 link:../docs/261011-2213%20DONE%20Shared%20host%20number-row%20configuration.adoc[user acceptance follow-up].
+
+At `261011-2229`, an isolated installed-WezTerm configuration check accepts
+48 representative bindings. This is feasibility evidence for an optional shared
+Linux/Windows mirror, not an implemented launcher or native keyboard acceptance.
+See link:../docs/261011-2229%20DONE%20WezTerm%20desktop%20integration%20feasibility.adoc[integration points and proposed proof].
+
+At `261011-2243`, all six desktop target folders gain separate `local-wezterm`
+launchers on Linux and Windows, with shared generated keyboard configuration
+and adjacent logs. Linux GUI/raw-input and desktop launch checks pass; the
+WezTerm owner branch passes Linux-hosted lifecycle and transfer proofs.
+Native Windows and physical-key acceptance remain pending. Standard launchers
+retain their existing mirror selection. See
+link:../docs/261011-2243%20DONE%20Separate%20WezTerm%20local%20launchers.adoc[implementation and lettered acceptance checks].
+
+At `261011-2251`, user evidence and shared session logs confirm Windows ES3_35
+WezTerm startup, DIR and clean shutdown. Mirror colour differs from SDL; RGB
+transport and complete physical-key acceptance remain open. See the
+link:../docs/261011-2243%20DONE%20Separate%20WezTerm%20local%20launchers.adoc[native follow-up].
+
+At `261012-0001`, Petr retires the WezTerm experiment. Optional launchers,
+profile generation, integration and temporary test artifacts are removed;
+AsciiDoc records remain. Windows direct Lua and MSYS/ConPTY samples both
+retain RGB 255,165,0 in the terminal model but appear too dark. The cause
+remains unresolved; no further investigation is planned. Shared Konsole/Kitty
+and Mintty keyboard support remains. The accepted compact white-on-grey
+keycaps stay in the shared document CSS. See
+link:../docs/261012-0001%20REJECT%20WezTerm%20colours%20in%20VirtualBox%20Windows%2010.adoc[cleanup scope and retained evidence].

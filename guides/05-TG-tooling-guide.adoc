@@ -154,6 +154,13 @@ lifecycle and binary transfers pass the documented ES3_5 proofs.
 See the link:../src/RunCPM_7xtgv-terminal/tools-win/README.adoc[Windows tooling notes]
 for source-folder launchers, test steps, logs and keyboard qualifications.
 
+=== Retired WezTerm experiment
+
+The optional WezTerm launchers were removed on 261012 after Windows colour
+tests. Use Konsole/Kitty on Linux and Mintty on Windows; the shared host
+keyboard configuration remains supported. Historical findings are retained
+in link:../docs/261012-0001%20REJECT%20WezTerm%20colours%20in%20VirtualBox%20Windows%2010.adoc[the retirement record].
+
 [[tooling-maintenance]]
 == 5. Builds, uploads and transfers
 

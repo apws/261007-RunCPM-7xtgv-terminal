@@ -1,0 +1,168 @@
+= Separate WezTerm local launchers
+:source-highlighter: highlight.js
+:experimental:
+:toc:
+:toclevels: 2
+
+== Authorized scope and entry points
+
+Following the link:261011-2229%20DONE%20WezTerm%20desktop%20integration%20feasibility.adoc[feasibility review],
+Petr requested a separate `local-wezterm` launcher to make testing easy.
+All six target folders now include:
+
+* Linux: `src/RunCPM_7xtgv-terminal/tools/targets/DISPLAY_ID -- target/local-wezterm.sh`.
+* Windows: `src/RunCPM_7xtgv-terminal/tools-win/targets/DISPLAY_ID -- target/local-wezterm.cmd`.
+
+They select the existing target executable and repository `cpmcard` read/write,
+like `desktop-local`, and retain each target's configured SDL scale. They write
+`local-wezterm.log` beside the shortcut. The standard launchers and automatic
+mirror selection keep their existing behavior. No executable rebuild is needed.
+
+Windows session logs additionally retain the generated Lua profile,
+`wezterm-owner.sh`, `wezterm.log`, `owner.log`, status and per-generation desktop
+logs under the existing target build's `sessions/` directory. The owner log
+records frontend, platform, TERM and stdin/stdout TTY status, without typed text.
+
+== Installation and configuration
+
+WezTerm must be installed on the host where the launcher runs. The Linux
+installation does not install it inside the Windows VM. Linux uses PATH;
+Windows checks PATH and normal Program Files/per-user Programs locations.
+A portable or custom Windows installation can be selected in Command Prompt:
+
+[source,bat]
+----
+set "XTGV_WEZTERM_EXE=D:\path\to\WezTerm\wezterm.exe"
+local-wezterm.cmd
+----
+
+The existing Windows bootstrap discovers MSYS2, including the accepted
+`D:\msys64` installation. The WezTerm profile launches that installation's Bash,
+which executes the existing MSYS Python owner through a quoted per-session
+script. Native program/config paths and POSIX Python arguments cross separate,
+explicit boundaries, including paths containing spaces or non-ASCII characters.
+
+Both hosts use `tools/wezterm_profile.py`. It translates the maintained Kitty
+`send_text` policy, including the generated key-event section, and adds physical
+keypad aliases and the common transfer-panel shortcut. Unsupported source mapping
+syntax fails explicitly. The full enabled profile contains 387 byte-producing
+bindings, plus fullscreen on kbd:[F11]. There is no separate manually copied
+table of protocol numbers.
+
+`XTGV_HACK_TOPROW` retains the shared reader's precedence and empty-disable
+behavior. Plain-row bindings match the configured characters; Shift-digit
+bindings retain their actual digit fallback. Modified digit commands use physical
+US row positions and keypad positions. AltGr and other unbound composition
+remain native. This profile does not implement Mintty's full active-layout guard.
+Physical key/NumLock behavior still needs native acceptance.
+
+Profiles have content-specific filenames and disable automatic configuration
+reload. They are passed explicitly to WezTerm; the user's global Lua file is
+neither loaded nor edited. A dedicated process owns the test mirror. Linux keeps
+the existing PTY/tmux bridge; Windows keeps the loopback owner and card lock,
+without constructing the Mintty native hook or its input decoder. The C++
+terminal, SDL renderer and firmware are unchanged.
+
+== Verification
+
+a. 58 tooling tests, six shared-setting tests and three Windows snapshot tests
+   pass. They cover profile commands, exact control payloads, empty row disabling,
+   quoting, Windows discovery, bypass of the Mintty hook and preserved Linux
+   automatic selection. Snapshot imports include the new generator/template
+   dependencies. Shell syntax checks include all new target wrappers.
+b. Installed WezTerm accepts all 387 enabled bindings and all 367 bindings with
+   ordinary row conversion disabled. The check counts normalized `SendString`
+   actions: a successful CLI exit alone is insufficient because an invalid
+   physical key name can silently fall back to default configuration.
+c. A real isolated Linux WezTerm window passes raw-TTY setup, exact private-byte
+   delivery through its own CLI/socket and clean GUI exit. This uses an isolated
+   byte recorder, not a working card. It does not exercise physical key presses.
+d. The complete Linux desktop-to-`wez.sh`-to-tmux path starts the existing ES3_35
+   binary (`261011-2029`) on a disposable card, runs for four seconds and exits
+   cleanly. The desktop is headless for this owner check; its WezTerm mirror is
+   a real GUI window.
+e. The Windows owner's WezTerm branch passes eight Linux-hosted real-desktop
+   cases: quit, EXIT, REBOOT, infinite guest loop, output flood, hangup, TTY close
+   and binary transfer. These establish shared owner behavior, not Windows
+   ConPTY behavior. The transfer fixture was corrected to send WezTerm's direct
+   panel bytes instead of Mintty's numeric action tag.
+
+Evidence:
+
+* `build/RunCPM_7xtgv-terminal/wezterm-investigation/261011-launcher/584493/`
+  contains the GUI byte proof and result; `linux-desktop.log` in its parent
+  records the complete Linux mirror launch.
+* `build/RunCPM_7xtgv-terminal/desktop/jc8048w535/mirror-proofs/mirror-jahy1xwy/`
+  records the seven passing lifecycle cases and the initial incorrect
+  Mintty-tag transfer fixture.
+* `mirror-e3fxscee/` alongside it records the corrected passing binary transfer.
+
+Native Windows launch, physical keyboards on either host, NumLock/AltGr and
+full key-chord acceptance remain pending. The working card INI/history and
+pre-existing sessions were preserved. No commit, push or deployment was made.
+
+== User acceptance checklist
+
+a. Open the chosen target's `local-wezterm` launcher. Confirm a WezTerm mirror
+   and the usual SDL display, then run `DIR`.
+b. Check the ordinary Czech top row and keypad decimal. Check brightness with
+   kbd:[Ctrl+Shift+1] through kbd:[Ctrl+Shift+9] on both rows, and OFF with
+   kbd:[Ctrl+Alt+Shift+0]. Check kbd:[Ctrl+Alt+Shift+PgUp] and
+   kbd:[Ctrl+Alt+Shift+PgDn] for brightness steps.
+c. Check banks with kbd:[Alt+PgUp] / kbd:[Alt+PgDn], zoom with
+   kbd:[Ctrl+Shift+PgUp] / kbd:[Ctrl+Shift+PgDn], and application exit with
+   kbd:[Alt+Q]. Use LAlt for these tests, leaving AltGr for ordinary text.
+d. Exit the desktop with kbd:[Pause] then kbd:[Q], or the established
+   kbd:[Ctrl+\]] prefix then kbd:[Q]. Confirm both windows close. If Windows
+   startup fails, inspect the adjacent `local-wezterm.log` and printed session
+   folder; no rebuild is needed just to collect these logs.
+
+== Keyboard keycaps in our documents
+
+The referenced https://wezterm.org/copymode.html[WezTerm copy-mode page] has
+https://github.com/wezterm/wezterm/blob/main/docs/copymode.md[Markdown source]
+and uses the Material for MkDocs site presentation. Our documents can use the
+native Asciidoctor equivalent without changing formats:
+
+[source,asciidoc]
+----
+:experimental:
+
+Press kbd:[Alt+Q].
+Brightness: kbd:[Ctrl+Shift+1].
+Host prefix: kbd:[Ctrl+\]] then kbd:[Q].
+----
+
+Rendered: kbd:[Alt+Q], kbd:[Ctrl+Shift+1], and kbd:[Ctrl+\]] then kbd:[Q].
+
+The `experimental` attribute enables the stable UI macro. The existing shared
+stylesheet already supplies the keycap border, shadow and spacing for `kbd`
+and `.keyseq`. `docs/README.adoc` now records this authoring convention.
+No stylesheet/JavaScript change or bulk historical rewrite is necessary.
+See https://docs.asciidoctor.org/asciidoc/latest/macros/keyboard-macro/[keyboard macro reference].
+
+== Native Windows follow-up at 261011-2251
+
+Petr reports a working Windows ES3_35 launch and supplies a screenshot of DIR
+in both WezTerm and SDL. The shared evidence in
+`desktop-win/msys2-ucrt64/jc8048w535/sessions/261011-2247-s_bler_9/`
+confirms MSYS Python sees both TTYs with `TERM=xterm-256color`, the desktop
+starts build `261011-2203`, and owner status reaches `finished` with one
+generation. This establishes native startup, basic command input/output and
+clean shutdown. It does not establish all physical-key or transfer checks.
+
+The screenshot also shows purple mirror text while SDL is amber. The generated
+Lua profile does not select a custom theme, but terminal_runtime.cpp emits
+explicit foreground/background RGB sequences for mirror cells. The default
+palette alone therefore does not establish the cause. MSYS/ConPTY colour
+handling remains a hypothesis requiring an isolated RGB-output/capture check;
+no speculative theme or runtime change was applied.
+
+WezTerm supplies https://wezterm.org/multiplexing.html[its own multiplexing].
+The current Linux launcher still invokes the established tmux owner; the
+Windows owner does not use tmux. A future tmux removal must preserve session
+ownership, attach/monitor behavior and automation, rather than only substitute
+an executable name. That migration is not part of this launcher change.
+
+Adjacent `local-wezterm.log` files are now ignored like the existing desktop
+launcher logs. Existing logs are preserved on disk.

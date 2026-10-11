@@ -1,0 +1,167 @@
+= WezTerm desktop integration feasibility
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+
+== Result and scope
+
+WezTerm is a viable candidate for a shared Linux/Windows desktop mirror.
+The installed Linux executable accepts an isolated trial Lua configuration
+covering 48 representative project bindings. This proves configuration parsing,
+not physical keyboard delivery or Windows integration. Production launchers,
+working card INI/history and running sessions were left unchanged.
+
+The recommended next implementation is an optional `--mirror wezterm` route,
+with shared generated key policy and platform-specific process launch adapters.
+Keep the accepted Konsole/Kitty/Mintty routes available during evaluation.
+The SDL display, C++ terminal, Arduino targets and desktop executable do not
+need changes merely to select a different host mirror.
+
+This narrows the common-terminal option from
+link:261011-2158%20CHAT%20Desktop%20profiles%20browser%20runtime%20and%20common%20host%20terminal.adoc[the desktop simplification discussion].
+Runtime board selection and browser/Wasm rendering remain separate proposals.
+
+== Installed executable and isolated check
+
+`/usr/bin/wezterm` reports `wezterm 20260716-195552-76b606ec`.
+An isolated configuration was checked with:
+
+[source,sh]
+----
+wezterm --config-file /absolute/path/to/candidate.lua show-keys --lua
+----
+
+The command exits successfully with empty stderr and 48 `SendString` actions:
+
+* Twenty plain/Shift physical number-row events with declared Czech fallbacks.
+* Eighteen Ctrl+Shift top-row/keypad brightness bindings, plus two
+  Ctrl+Alt+Shift zero bindings for OFF.
+* Keypad decimal, Alt+Q, Alt+PgUp/PgDn bank selection,
+  Ctrl+Shift+PgUp/PgDn zoom, and Ctrl+Alt+Shift+PgUp/PgDn brightness steps.
+
+Bank commands are 12/13; brightness OFF and preset payloads were checked against
+the maintained mappings. Evidence is under the ignored build directory
+`build/RunCPM_7xtgv-terminal/wezterm-investigation/261011-2225/`:
+`candidate.lua`, normalized `show-keys.lua`, `show-keys.stderr` and `result.json`.
+The candidate is a capability probe, not a complete launch profile: navigation,
+function keys, clipboard, transfer and lifecycle parity remain to be covered.
+
+The probe disables default key bindings, configuration hot reload and Win32
+input mode; it requests `xterm-256color`, preserves right-Alt composition and
+does not treat left Ctrl+Alt as AltGr. Acceptance of these settings on Linux
+does not validate their Windows behavior. No global WezTerm configuration
+was installed or edited, and no interactive GUI test was run.
+
+== Common keyboard policy
+
+WezTerm supports physical and mapped key names and `SendString` actions.
+These can emit our existing private control sequences and physical-key event
+packets, retaining the C++ INI/default routing. See
+https://wezterm.org/config/keys.html[key binding syntax] and
+https://wezterm.org/config/lua/keyassignment/SendString.html[SendString].
+
+Reuse `tools/host_key_config.py`, `key_event_ids.py` and the established mapping
+definitions when generating Lua. `XTGV_HACK_TOPROW` must keep its common
+environment-over-file precedence and empty-disable behavior; Alt-bank policy
+remains independent. Avoid another manually maintained parallel key table.
+
+Physical bindings are evaluated before dead-key composition. Consequently,
+the trial's hardcoded declared-row fallbacks do not reproduce the Mintty
+helper's complete active-layout guard. A production mapping must deliberately
+handle layout changes, AltGr, composition, NumLock and fallback text for INI
+overrides. Configured-character bindings for ordinary row conversion are one
+alternative, similar to the current Linux mappings. Neither design has yet
+been accepted for WezTerm. See
+https://wezterm.org/config/keyboard-concepts.html[keyboard processing].
+
+A dedicated generated configuration selected by `--config-file` can isolate
+project keys from the user's ordinary terminal settings. The installed CLI
+also supports `start --always-new-process --no-auto-connect`, useful for an
+independently owned desktop mirror. See
+https://wezterm.org/config/files.html[configuration selection].
+
+== Source integration points
+
+[cols="1,3",options="header"]
+|===
+|Area |Proposed integration
+|Shared configuration
+|Add WezTerm output to the host key generation path, preserving current
+immutable per-configuration launch files and existing templates.
+|Linux launch
+|Extend `tools/target_mirror.py` selection/commands and the mirror choices in
+`tools/target_desktop.py` and `desktop/desktop.py`. A small launcher can start
+the existing `tools/cpm-session.sh` in WezTerm, retaining isolated tmux ownership.
+|Windows launch
+|Add a frontend branch in `tools-win/windows_run.py`, which currently starts
+Mintty and creates its profile. Resolve the existing MSYS2 installation and
+start the MSYS bridge through a tested bootstrap; do not assume `C:\msys64`.
+|Windows keyboard
+|The current `KeyBridge` and `MinttyInput` wrapper are Mintty-specific.
+The WezTerm branch should emit the shared packets directly and avoid installing
+the Mintty hook, once native byte delivery has been proved.
+|Lifecycle and logs
+|Retain `card_lock`, desktop loopback connection, session/status logs, guest
+REBOOT, mirror/SDL close handling and transfers. A different GUI must not
+create another card writer or orphan the existing owning bridge.
+|===
+
+`tools/terminal.py` currently requires stdin/stdout TTYs and uses
+`termios`, `tty.setraw`, `select` and `os.read`. Linux can retain its existing
+PTY/tmux path. Windows must demonstrate that these operations still work
+under the selected WezTerm/MSYS launch route. Replacing the Mintty executable
+name alone does not establish this.
+
+== Windows compatibility boundary
+
+Official WezTerm requirements specify 64-bit Windows 10 build 17763 or later;
+the reported VM build 19044 meets that version requirement. The Windows
+installation and our launch path have not been tested here. See
+https://wezterm.org/install/windows.html[Windows installation requirements].
+
+MSYS2 documents launching its environment in Windows console terminals;
+its bootstrap controls the environment and shell selection. This makes an
+MSYS route plausible, but does not prove the raw Python bridge behaves like
+its current Mintty PTY. See
+https://www.msys2.org/docs/terminals/[MSYS2 terminal launch] and
+https://www.msys2.org/wiki/Terminals/[console and PTY distinctions].
+
+WezTerm's Windows path uses ConPTY. Its optional Win32 input mode changes
+keyboard encoding, so the trial disables that mode to request the ordinary
+terminal encoding our bridge expects. Raw byte delivery and response handling
+still require measurement. See
+https://wezterm.org/what-is-a-terminal.html[Windows terminal architecture] and
+https://wezterm.org/config/lua/config/allow_win32_input_mode.html[Win32 input mode].
+
+Performance is also unmeasured. WezTerm offers multiple rendering backends,
+including a software option useful for a VM comparison, but changing the
+mirror cannot remove VirtualBox shared-filesystem latency or establish faster
+SDL rendering. See
+https://wezterm.org/config/lua/config/front_end.html[rendering backends].
+
+== Recommended next proof
+
+These are proposed checks, not requests to run an unfinished launcher:
+
+a. Launch an isolated byte recorder under WezTerm on Linux and Windows/MSYS.
+   Verify TTY/raw mode and exact private packets before involving a card.
+b. Exercise the accepted Czech row, keypad decimal, top-row/keypad brightness,
+   OFF, bank, zoom and Alt+Q chords; include AltGr, dead keys, NumLock,
+   empty `XTGV_HACK_TOPROW` and an alternate active keyboard layout.
+c. Add the optional desktop adapter and test one ES3_35 session on a disposable
+   card: startup, resize, output/scroll, transfer, REBOOT and both close paths.
+d. Compare ordinary operation and VM rendering with the accepted Mintty route.
+   Only then decide whether WezTerm should become a default.
+
+One desktop target is sufficient for the first host integration proof; this
+change does not alter board rendering. Broader display coverage follows if
+window geometry or output differences reveal a target-dependent issue.
+
+== Commit checkpoint preceding this investigation
+
+The completed keyboard work was committed as `17f0160`
+(`Unify host number-row mapping and fix Windows key configuration`) and pushed
+to `origin/main`, together with the four preceding local commits. Remote main
+was verified as `17f016040dd56ec612e0eb3eb98bf074ba18e662`.
+Working `cpmcard/A/0/7XTGVTRM.INI` and `7XTGVTRM.BUF` were excluded and preserved.
+This investigation record and its ledger update were prepared after that push.
