@@ -882,10 +882,17 @@ Any subset of the three modifier words is syntactically accepted for the non-let
 
 The Windows Mintty launcher supplies these number-row and decimal events through
 its per-session physical-key helper. Rebuild the selected desktop target and
-open a new mirror to load it; this helper's native acceptance remains pending.
+open a new mirror to load it. Keypad decimal and brightness controls have native
+acceptance; the corrected plain Czech number-row detection still needs a native retest.
 It recognizes the Czech number row and the NumLock-on decimal key without
 converting ordinary commas or pasted text. See
 link:05-TG-tooling-guide.adoc[Tooling Guide] for setup and the keyboard probe.
+Plain/Shift row conversion for Linux Konsole/Kitty and Windows Mintty is
+selected by `XTGV_HACK_TOPROW` in
+host `tools/terminal.conf`; its default is `+ěščřžýáíé`, and empty disables it.
+This host option is separate from application INI bindings and Alt-bank selection.
+Changes apply when opening a new mirror through the project launchers; see the
+Tooling Guide for configuration precedence and layout-specific limits.
 
 The right side has five forms:
 

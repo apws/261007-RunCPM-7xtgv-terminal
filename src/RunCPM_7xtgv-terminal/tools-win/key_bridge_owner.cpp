@@ -3,10 +3,13 @@
 #include <cwchar>
 #include <cstring>
 #include <string>
+#include "key_bridge_config.h"
+#include "key_bridge_map.h"
 
 int wmain(int argc, wchar_t **argv) {
-    if (argc != 3 || wcsncmp(argv[1], L"xtgv-keys-", 10)) {
-        std::fputs("Expected unique xtgv-keys- window class and absolute hook DLL path\n", stderr);
+    std::array<unsigned, 10> row{};
+    if (argc != 4 || wcsncmp(argv[1], L"xtgv-keys-", 10) || !xtgv_keys::decodeNumberRow(argv[3], row)) {
+        std::fputs("Expected unique xtgv-keys- window class, absolute hook DLL path and hex row (or -)\n", stderr);
         return 2;
     }
     HWND window = nullptr;
@@ -29,9 +32,14 @@ int wmain(int argc, wchar_t **argv) {
         std::fputs("Cannot arm this Mintty window (or already armed)\n", stderr);
         FreeLibrary(module); return 2;
     }
+    if (!xtgv_keys::setWindowRow(window, row)) {
+        std::fputs("Cannot configure this Mintty window\n", stderr);
+        RemovePropW(window, property); FreeLibrary(module); return 2;
+    }
     HHOOK hook = SetWindowsHookExW(WH_GETMESSAGE, proc, module, thread);
     if (!hook) {
         std::fprintf(stderr, "Thread hook failed: %lu\n", GetLastError());
+        xtgv_keys::clearWindowRow(window);
         RemovePropW(window, property); FreeLibrary(module); return 2;
     }
     PostMessageW(window, WM_NULL, 0, 0);
@@ -40,7 +48,8 @@ int wmain(int argc, wchar_t **argv) {
         Sleep(50);
     if (GetPropW(window, property) != reinterpret_cast<HANDLE>(2)) {
         std::fputs("Hook DLL did not acknowledge loading in Mintty\n", stderr);
-        UnhookWindowsHookEx(hook); RemovePropW(window, property); FreeLibrary(module); return 2;
+        UnhookWindowsHookEx(hook); xtgv_keys::clearWindowRow(window);
+        RemovePropW(window, property); FreeLibrary(module); return 2;
     }
     std::puts("READY"); std::fflush(stdout);
     // Parent holds the pipe open. Normal close, parent crash and terminal
@@ -49,6 +58,7 @@ int wmain(int argc, wchar_t **argv) {
     DWORD count = 0;
     ReadFile(GetStdHandle(STD_INPUT_HANDLE), &byte, 1, &count, nullptr);
     UnhookWindowsHookEx(hook);
+    xtgv_keys::clearWindowRow(window);
     RemovePropW(window, property);
     FreeLibrary(module);
     return 0;

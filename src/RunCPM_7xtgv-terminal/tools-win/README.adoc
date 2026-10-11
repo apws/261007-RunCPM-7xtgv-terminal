@@ -193,8 +193,30 @@ decimal events to the existing firmware mappings: unshifted/Shift number-row
 positions default to ASCII digits, and keypad decimal defaults to ASCII `.`.
 INI overrides for `num0`..`num9`, their Shift variants and `kp_decimal` apply.
 Ordinary comma, pasted text, AltGr and active dead-key composition pass through.
-The helper requires a target rebuild and new Mintty session; native acceptance
-of this addition remains pending.
+Keypad decimal and top-row/keypad brightness controls have native user acceptance.
+Plain row handling now identifies physical scan-code positions and compares
+the layout's unshifted row with `XTGV_HACK_TOPROW` in `tools/terminal.conf`,
+instead of assuming digit virtual-key codes or a Czech input-language identifier.
+Unmatched layouts keep normal plain typing. This row correction requires a target rebuild and new Mintty session;
+the explicit configuration handoff has native ES3_35 plain-row acceptance.
+
+[source,bash]
+----
+XTGV_HACK_TOPROW='+ěščřžýáíé'
+----
+
+The ten characters represent physical positions 1..0. Set `XTGV_HACK_TOPROW=''`
+to disable plain/Shift row conversion; keypad decimal, brightness shortcuts and
+the separate `XTGV_BANK_KEYS` Alt-bank mapping remain available. A different
+ten-character row explicitly selects another layout. An inherited environment
+value overrides the file; a missing setting disables conversion. The Windows
+launcher reads this single literal assignment without executing the shell file
+or importing its hardware target/upload settings. `key-bridge.log` records the
+effective value. Configuration edits need a new mirror session; the current DLL
+correction also needs one rebuild if it has not been built yet. The same option
+and literal-setting reader now control Linux Konsole/Kitty keymap generation
+at launch. Linux binds the supplied characters plus Shift+digits; Windows
+additionally checks the complete active layout before converting physical keys.
 Existing ASCII prefix controls remain available, including Pause then x/c for
 profile exit/clear, +/− for zoom and m for the transfer panel.
 All supplied profiles use *Alt+Q* as the primary configured application exit (`CSI >60v`).
@@ -220,6 +242,12 @@ ANSI/VT52. These assignments also apply with NumLock off. Dedicated navigation
 keys retain their normal bindings; keypad positions 3/9 use numeric presets
 instead of Ctrl+Shift keypad zoom. A newly launched Mintty loads this correction.
 The generator follows https://mintty.github.io/mintty.1.html[Mintty's KeyFunctions syntax].
+
+The resolved row travels as an explicit ASCII-encoded argument to the helper,
+which places it on the selected Mintty window before arming the hook. The DLL
+does not rely on Mintty's native process environment. A bounded diagnostic
+`key-row-PID.log` beside the DLL records layout/configuration matching and first
+row routing flags, without typed text.
 
 The helper consists of `xtgv_key_bridge.exe` and `xtgv_key_hook.dll`, built beside
 each target executable. `key_bridge.py` owns it for the mirror/probe lifetime.

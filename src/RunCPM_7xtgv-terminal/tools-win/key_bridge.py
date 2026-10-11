@@ -1,5 +1,6 @@
 """Own the native key hook for one uniquely named Mintty window/thread."""
 from pathlib import Path
+import os
 import queue
 import subprocess
 import sys
@@ -7,6 +8,8 @@ import threading
 
 from mintty_profile import window_class
 from windows_build import native_path
+
+from host_key_config import TOPROW_SETTING, keyboard_environment as mintty_environment
 
 
 class KeyBridge:
@@ -26,7 +29,11 @@ class KeyBridge:
                 raise RuntimeError(f'Windows key helper missing: {path}. Run this target\'s desktop-rebuild.cmd.')
         self.log = (self.profile.parent / 'key-bridge.log').open('wb')
         try:
-            self.child = subprocess.Popen([str(binary), window_class(self.profile), native_path(library)],
+            row = mintty_environment()[TOPROW_SETTING]
+            self.log.write((TOPROW_SETTING + '=' + repr(row) + '\n').encode('utf-8'))
+            self.log.flush()
+            encoded_row = ''.join(f'{ord(char):04x}' for char in row) or '-'
+            self.child = subprocess.Popen([str(binary), window_class(self.profile), native_path(library), encoded_row],
                                           stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                           stderr=self.log, start_new_session=True)
             ready = queue.Queue()

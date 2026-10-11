@@ -1,0 +1,40 @@
+= Windows row conversion native diagnostic
+:source-highlighter: highlight.js
+
+== Native rejection
+
+Petr retested ES3_35 and reports unchanged plain Czech row behavior after
+link:261011-2115%20DONE%20Windows%20Czech%20row%20detection%20and%20keyboard%20acceptance.adoc[the configurable-row correction].
+The native build log includes the new hook DLL. Session
+`jc8048w535/sessions/261011-2146-dx0pq7yn/key-bridge.log` records the expected
+`XTGV_HACK_TOPROW` value, active helper and normal shutdown. An old executable
+or missing Python configuration therefore does not explain this report.
+That log does not establish which environment or layout the injected DLL sees.
+
+== Diagnostic prepared
+
+The hook now writes `key-row-PID.log` alongside its DLL, in the selected native
+build directory. It records the configuration length and Unicode code points
+seen through the native Windows API, the ten queried layout code points,
+layout handle and match result. The first physical row event also records
+routing flags and fallback/packet lengths. It does not record typed text.
+These bounded reports occur once per queried layout change and once for the
+first row event, rather than adding per-keystroke file writes. Their file path
+comes from the loaded DLL and does not depend on the environment under test.
+
+This adds diagnostics; it does not claim another functional correction.
+No working card, firmware, active session or native build was replaced.
+Strict warnings-as-errors DLL cross-compilation, both CMake helper targets,
+and all 31 Windows tooling tests pass.
+
+== Next native check
+
+a. Close the ES3_35 mirror and run its normal `desktop-rebuild.cmd` on W:.
+b. Reopen `desktop-local.cmd` and press a few plain Czech top-row keys.
+c. Report completion; the shared build log is readable from Linux without copying.
+
+The report will distinguish native configuration visibility, layout mismatch
+and event-routing/fallback failure before choosing the next correction.
+
+API reference:
+https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-tounicodeex[ToUnicodeEx layout translation and non-mutating flag].

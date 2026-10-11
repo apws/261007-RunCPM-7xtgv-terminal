@@ -21,8 +21,8 @@ RUNTIME_FILES = (
     'tools-win/windows_build.py', 'tools-win/mintty_profile.py', 'tools-win/mintty_keys.py',
     'tools-win/shortcut_log.py',
     'desktop/desktop.py', 'tools/target_mirror.py', 'tools/target_config.py',
-    'tools/terminal.py', 'tools/card_paths.py', 'tools/desktop_connection.py',
-    'tools/desktop_card_lock.py', 'tools/key_event_ids.py',
+    'tools/terminal.py', 'tools/terminal.conf', 'tools/card_paths.py', 'tools/desktop_connection.py',
+    'tools/desktop_card_lock.py', 'tools/key_event_ids.py', 'tools/host_key_config.py',
     'tools/cpm-transfer/transfer.py', 'tests/hardware_smoke.py',
     'src/terminal/key_chords.h',
 )

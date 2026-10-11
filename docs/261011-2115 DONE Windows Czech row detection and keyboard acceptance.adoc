@@ -1,0 +1,76 @@
+= Windows Czech row detection and keyboard acceptance
+:source-highlighter: highlight.js
+
+== Native evidence
+
+Follow-up to
+link:261011-1617%20DONE%20Focused%20Mintty%20physical-key%20helper%20prepared.adoc[the helper checkpoint]
+under the
+link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[Windows desktop plan].
+
+Petr confirms keypad decimal produces ASCII dot, Ctrl+Shift+numpad1..9 selects
+brightness, Ctrl+Alt+Shift+0 turns backlight off, and Ctrl+Shift+top-row1..9
+works. Earlier native session logs for ES3_5 and ES3_35 show helper activation
+and normal shutdown. These checks establish native delivery for those routes.
+
+Plain Czech row typing still passes `+ěščřžýáíé` through to the guest instead of
+the desired `1234567890`. No new native typing-probe capture is available yet.
+
+== Correction prepared
+
+The initial helper incorrectly relied on digit virtual-key codes to identify
+the main row and on the low word of HKL being the Czech language identifier.
+Those are narrower assumptions than physical keyboard-position handling.
+
+The mapper now derives row positions 1..0 from non-extended scan codes 02..0B.
+The hook checks the actual unshifted layout row via MapVirtualKeyEx/ToUnicodeEx,
+using a neutral modifier state and the existing non-mutating translation flag.
+Only the complete configured row matches; detection is cached per active HKL.
+Actual event fallback still uses the current modifiers and CapsLock state.
+
+Thus plain/Shift Czech row events reach existing KeyNum0..9 defaults and INI
+overrides independently of the Windows virtual-key names or input language.
+Other layouts retain ordinary plain typing. AltGr/Win modifiers, active
+composition and paste retain their existing bypass paths. Firmware and INI
+syntax are unchanged. Native verification of this correction remains pending.
+
+The existing `tools/terminal.conf` string `XTGV_BANK_KEYS='+ěščřžýáíé'` serves
+Alt-bank selection in the shared mirror; it does not rewrite plain typing.
+Petr requested a distinct, configurable plain-row mapping and approved
+`XTGV_HACK_TOPROW='+ěščřžýáíé'` with an empty value disabling it.
+
+The setting is now in that host configuration file. Windows launch and keyboard
+probe tooling read just this literal assignment, with an inherited environment
+value taking precedence. No shell commands or unrelated target/upload settings
+are evaluated. The resolved Unicode value reaches Mintty's process environment,
+where the hook reads it and compares the active layout's complete row. It is
+also recorded in `key-bridge.log`. Missing/empty disables only plain/Shift row
+conversion; decimal and brightness routes remain available. A different
+ten-character row explicitly selects another layout. Current validation accepts
+ten printable BMP characters, matching the UTF-16 keyboard-layout query.
+
+The native helper has no hardcoded Czech row. Existing Konsole/Kitty generated
+keymaps remain separate; the option currently controls the Windows helper.
+Runtime snapshot packaging now includes `tools/terminal.conf` so local copies
+retain this setting. Configuration changes require a new Mintty session.
+
+== Validation and next check
+
+Portable mapper tests now cover layout-specific non-digit virtual keys,
+physical row boundaries, complete Czech layout recognition and rejection of
+other/similar national rows, an explicit alternative row and empty/disabled mode.
+All 31 Windows tooling tests pass, including config precedence, disabling,
+invalid-value reporting and no shell execution.
+The Windows helper cross-build succeeds through CMake and with warnings treated
+as errors. No live Windows session, working card or physical firmware changed.
+
+Close the selected Windows mirror, rebuild that target and open a new mirror:
+
+a. Plain Czech row, without Shift, should produce `1234567890`.
+b. Shift on that row should still produce digits.
+c. Ordinary punctuation and usual AltGr symbols should retain their behavior.
+
+`AGENTS.md` now requires lettered user-facing test points with stable labels.
+
+Primary API reference:
+https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-mapvirtualkeyexw[Windows scan-code and layout mapping].

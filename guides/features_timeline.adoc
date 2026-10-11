@@ -941,3 +941,48 @@ At `261011-1626`, all six Windows target folders are reduced to rebuild, local
 and card launchers. Diagnostic backends remain accessible through `windows.cmd`;
 future runtime snapshots expose only local/card. All 29 Windows tooling tests
 pass. See link:../docs/261011-1626%20DONE%20Three%20Windows%20target%20launchers.adoc[launcher cleanup].
+
+At `261011-2115`, Petr confirms native keypad decimal, top-row/keypad brightness
+and OFF. Plain Czech row conversion still fails, so detection now uses physical
+scan positions and the complete active layout row. The separate host setting
+`XTGV_HACK_TOPROW` selects that row; empty disables conversion and an inherited
+environment value overrides `tools/terminal.conf`. Windows tooling reads only
+this literal setting. Portable mapping, 31 tooling tests and helper cross-build
+pass; native plain-row recheck remains pending. See
+link:../docs/261011-2115%20DONE%20Windows%20Czech%20row%20detection%20and%20keyboard%20acceptance.adoc[row configuration and native acceptance].
+
+At `261011-2148`, the ES3_35 native retest still passes Czech row text through.
+The rebuild and Python configuration are confirmed; the injected DLL now has
+a bounded layout/configuration/routing diagnostic to locate the bypass. This
+is diagnostic preparation, not native acceptance of a correction. See
+link:../docs/261011-2148%20DONE%20Windows%20row%20conversion%20native%20diagnostic.adoc[native failure and next check].
+
+At `261011-2158`, native ES3_35 diagnostics identify the plain-row failure:
+the detected Czech layout matches, but the setting is absent from Mintty's
+Win32 environment. The helper now receives explicit ASCII-encoded configuration
+and places it on the selected window before hooking. Mapper/decoder tests,
+32 tooling tests and strict helper cross-builds pass; native retest is pending.
+See link:../docs/261011-2158%20DONE%20Explicit%20Windows%20row%20configuration%20handoff.adoc[explicit configuration handoff].
+
+The same evening, source review and official documentation research record
+three independent future simplifications: runtime desktop board profiles,
+a C++ browser/Wasm frontend, and a common cross-platform host terminal.
+They remain brainstorming, with no architecture or launcher migration. See
+link:../docs/261011-2158%20CHAT%20Desktop%20profiles%20browser%20runtime%20and%20common%20host%20terminal.adoc[options and recommended experiments].
+
+At `261011-2207`, Petr confirms the explicit Windows configuration handoff fixes
+the plain Czech row in ES3_35. The Windows-only scope of `XTGV_HACK_TOPROW` is
+confirmed against the separate generated Linux keymaps. See the
+link:../docs/261011-2158%20DONE%20Explicit%20Windows%20row%20configuration%20handoff.adoc[native follow-up].
+
+At `261011-2213`, `XTGV_HACK_TOPROW` becomes a common Linux/Windows host setting
+with one reader and precedence rule. Konsole/Kitty launchers generate immutable
+configuration-specific keymaps, while Windows keeps its accepted native helper.
+Empty disables ordinary row bindings; Alt-bank selection remains separate.
+All 82 focused tooling tests pass; fresh Linux GUI typing remains a human check.
+See link:../docs/261011-2213%20DONE%20Shared%20host%20number-row%20configuration.adoc[shared setting checkpoint].
+
+At `261011-2224`, Petr confirms the shared number-row setting works in the
+retested workflow. This closes the requested fresh-launch acceptance check;
+it does not claim every host/layout combination was tested. See the
+link:../docs/261011-2213%20DONE%20Shared%20host%20number-row%20configuration.adoc[user acceptance follow-up].

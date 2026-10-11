@@ -21,6 +21,28 @@ class KeyBridgeTest(unittest.TestCase):
         for name in ('xtgv_key_bridge.exe', 'xtgv_key_hook.dll'):
             (self.root / name).touch()
 
+    def test_toprow_literal_setting_environment_override_and_disable(self):
+        config = self.root / 'terminal.conf'
+        config.write_text("XTGV_TARGET=unrelated\nXTGV_HACK_TOPROW='+ěščřžýáíé' # Czech\nexport XTGV_HACK_TOPROW\n")
+        self.assertEqual(key_bridge.mintty_environment(config, {})['XTGV_HACK_TOPROW'], '+ěščřžýáíé')
+        for value in ('', '+ľščťžýáíé'):
+            env = {'XTGV_HACK_TOPROW': value, 'PRESERVE': 'yes'}
+            self.assertEqual(key_bridge.mintty_environment(config, env), env)
+        config.write_text("XTGV_HACK_TOPROW=''\n")
+        self.assertEqual(key_bridge.mintty_environment(config, {})['XTGV_HACK_TOPROW'], '')
+        # Missing option disables plain row conversion, without inventing a layout.
+        config.write_text('XTGV_BANK_KEYS=unchanged\n')
+        self.assertEqual(key_bridge.mintty_environment(config, {})['XTGV_HACK_TOPROW'], '')
+
+    def test_toprow_config_is_data_not_shell_code(self):
+        config = self.root / 'terminal.conf'
+        config.write_text("UNRELATED=$(not_a_command)\nexport XTGV_HACK_TOPROW='$(touch x)'\n")
+        self.assertEqual(key_bridge.mintty_environment(config, {})['XTGV_HACK_TOPROW'], '$(touch x)')
+        for literal in ("'short'", "'unterminated", "'1234567890' extra", "'123456789😀'"):
+            config.write_text('XTGV_HACK_TOPROW=' + literal + '\n')
+            with self.assertRaisesRegex(RuntimeError, 'XTGV_HACK_TOPROW'):
+                key_bridge.mintty_environment(config, {})
+
     def test_unique_class_is_same_for_owner_and_profile(self):
         name = window_class(self.profile)
         self.assertIn('Class=' + name + '\n', self.profile.read_text())
@@ -57,6 +79,16 @@ class KeyBridgeTest(unittest.TestCase):
                 process.wait.assert_called_once_with(timeout=5)
                 process.terminate.assert_not_called()
                 self.assertIn('Stopped', (self.root / 'key-bridge.log').read_text())
+
+    def test_native_configuration_is_explicit_ascii_argument(self):
+        for row, encoded in (('+ěščřžýáíé', '002b011b0161010d0159017e00fd00e100ed00e9'), ('', '-')):
+            process = Mock(stdin=io.BytesIO(), stdout=io.BytesIO(b'READY\n'))
+            with patch.object(key_bridge.sys, 'platform', 'cygwin'), \
+                    patch.dict(key_bridge.os.environ, {'XTGV_HACK_TOPROW': row}), \
+                    patch.object(key_bridge, 'native_path', side_effect=str), \
+                    patch.object(key_bridge.subprocess, 'Popen', return_value=process) as popen:
+                with key_bridge.KeyBridge(self.root, self.profile):
+                    self.assertEqual(popen.call_args.args[0][3], encoded)
 
 
 if __name__ == '__main__':

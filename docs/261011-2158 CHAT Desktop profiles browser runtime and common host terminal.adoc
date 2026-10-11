@@ -1,0 +1,257 @@
+= Desktop profiles, browser runtime and a common host terminal
+:source-highlighter: highlight.js
+:toc:
+
+== Scope and Petr's ideas
+
+Brainstorming and a bounded source/documentation investigation, not an approved
+migration plan. No desktop architecture, host-terminal selection or Arduino
+implementation is changed by this record. The C++ 7xtgv-terminal remains the
+shared implementation; maintaining Arduino hardware builds is a requirement.
+
+Petr, verbatim (the preceding keyboard-test completion is omitted):
+
+----
+(generally, thing about desktop emulation (both linux and windows) is that they are in fact "the same" all, almost, only the display resolution and size and terminal sizes are different - we emulate in fact entire rendering path in HAL - question is if not later to SKIP that and take from board only specifics of display as CONFIGURATION of desktop emulation only - one code, with "board config" - this is idea how to simplify this for most cases, note it in docs + ALSO, investigate another possibility to do single desktop emulation shared between systems, based on browser/wasm or emscripten using html5 layer insted of SDL2, if C++ build to THIS target may be easier that full desktop native SDL2 - in combination with "just board config" ... including possibility to have single desktop RunCPM talking with such "web-terminal" somehow simply - jsut brainstorming here ... thing is still we have C++ 7xtgv-terminal code, this IS crucial for hw target arduino-based build)
+----
+
+Petr, subsequent addition, verbatim:
+
+----
+(btw, another simplification possible - isnt there some simple terminal compatible over linux/windows/mac down to config files, to be used instead of Konsole/Kitty vs mintty??)
+----
+
+The following sections are Ari's investigation and recommendations, not a
+reconstructed transcript. They build on the
+link:261006-0935%20PLAN%20Desktop%20runtime%20using%20existing%20board%20HALs.adoc[desktop architecture plan]
+and link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[Windows plan],
+checked against current source rather than those plans' historical status.
+
+== What is already shared
+
+Desktop already excludes the physical board implementations through
+`XTGV_HAL_IMPLEMENTATION && !XTGV_DESKTOP`. The selected board contributes
+constants, while `desktop/platform.cpp` implements one common host HAL with
+`XtgvDesktopCanvas`, filesystem storage and simulated backlight. Real panel
+bus transactions, MCU peripherals and FreeRTOS are not emulated.
+
+The desktop does retain the production C++ parser, terminal runtime and
+Arduino_GFX drawing code. `desktop/presenter.cpp` publishes their RGB565 canvas
+through SDL. Linux and Windows share those sources; native timer, socket,
+filesystem and process-launch boundaries differ.
+
+Since the complete-frame scheduling change, desktop also uses shared buffered
+rendering/full-frame policy regardless of a physical board's direct-panel path.
+Thus the proposed simplification is partly present already. The main remaining
+build duplication is compile-time selection of board constants and capacities.
+
+Concrete source seams, relative to `src/RunCPM_7xtgv-terminal/`:
+
+[cols="2,3",options="header"]
+|===
+|Source |Role / obstacle
+|`hardware/arduino_7xtgv/board.h` and `boards/*.h`
+|Typed display defaults, identity, geometry, backlight table and hardware implementation guards.
+|`desktop/platform.cpp` and `platform.h`
+|Common Canvas/storage/time HAL; no actual panel driver.
+|`src/terminal/terminal.h`
+|Board-dependent `constexpr MaxCols/MaxRows/MaxCells` size terminal arrays and row state.
+|`src/terminal/display_policy.h`, `backlight.h`, `terminal_runtime.cpp`
+|Board defaults, offsets, brightness and geometry constraints consumed by production code.
+|`hardware/arduino_7xtgv/runtime_desktop.h`
+|RunCPM/filesystem worker and terminal owner; shared queues, shutdown and persistence.
+|`desktop/application.cpp`, `serial_loopback.cpp`, `presenter.cpp`
+|Native lifetime/event loop, transport and SDL presentation boundaries.
+|===
+
+== One executable with board profiles
+
+A plausible next desktop design is one executable per host OS, selecting an
+immutable board descriptor at startup, for example `--board ES3_35` (proposed
+syntax). Different OSes still require different native executable builds.
+
+The descriptor needs more than panel width/height: display identity for INI
+lookup, terminal capacity, visible geometry/zoom presets, offsets, indicator
+clearance, refresh defaults and backlight interpretation. Keep these derived
+from one authoritative definition shared with the boards. Do not create a
+second manually maintained JSON geometry catalog or scrape C++ headers.
+The precise descriptor-sharing mechanism needs a separate design decision;
+retain complete, readable board implementations as required by AGENTS.md.
+
+Compile-time arrays are the main reason this is more than a launcher change.
+One desktop build could allocate the largest supported capacity and enforce
+the selected profile's logical limits at runtime, while Arduino retains tight
+board-specific compile-time allocation. Audit indexing, geometry queries,
+INI validation, snapshots and history capture for assumptions that allocation
+capacity equals selected-board capacity. Select before terminal construction;
+changing boards mid-session is a separate, unnecessary first-stage feature.
+
+Retain per-board builds/tests where they catch compile-time hardware policy
+regressions. A generic desktop is useful for daily work; it does not establish
+panel timing or resource fitness on every MCU. Preserve actual C++ renderer
+coverage instead of reimplementing its semantics in a convenience frontend.
+
+== Browser options: separate the questions
+
+Emscripten can compile C/C++ to Wasm with JavaScript glue and browser output.
+It also has an SDL2 port: using a browser does not require replacing SDL first.
+SDL's own browser guidance documents main-loop adaptation and its Emscripten
+build route. This makes retaining SDL2 a useful comparison for any direct
+HTML5 presenter, rather than assuming that removing SDL is the easier port.
+See https://wiki.libsdl.org/SDL2/README-emscripten[SDL2 browser port guidance]
+and https://emscripten.org/docs/compiling/Building-Projects.html[Emscripten project builds].
+
+[cols="2,3,3",options="header"]
+|===
+|Option |What is shared |Principal work / limits
+|Native generic desktop + SDL
+|Current integrated C++ and host storage; runtime board profiles.
+|Descriptor/capacity refactor. Separate native OS builds remain.
+|Entire RunCPM + terminal in Wasm
+|One browser artifact across supported OS/browser combinations; shared C++ CPU, terminal and renderer.
+|Scheduling, browser persistence, import/export, lifecycle, input and platform shims.
+|Native RunCPM + C++ terminal in browser/Wasm
+|Native card access; reusable browser terminal frontend and C++ terminal semantics.
+|Explicit console/control boundary, WebSocket bridge, replies, reconnect and persistence ownership.
+|Native integrated runtime + browser framebuffer viewer
+|All existing state and rendering stay native; browser receives pixels and sends input.
+|Frame transport and input adapter; still needs a native backend. This is a web display, not a Wasm terminal.
+|===
+
+=== Full Wasm runtime
+
+The current blocking application loop and RunCPM worker cannot simply run on
+the browser UI thread. Emscripten expects the UI to yield to its event loop;
+a callback-driven presenter or worker-based arrangement is needed. Pthreads
+can reuse a threading model but require shared-memory deployment with COOP/COEP
+headers and careful avoidance of main-thread waits. A cooperative single-thread
+port would need bounded CPU/runtime stepping; that could reach core seams and
+requires its own scope approval. These are alternative designs, not changes
+already justified by a browser build flag.
+See https://emscripten.org/docs/porting/emscripten-runtime-environment.html[runtime environment]
+and https://emscripten.org/docs/porting/pthreads.html[pthreads requirements].
+
+For a direct HTML5 presenter, keep Arduino_GFX Canvas and export the completed
+framebuffer; a small JavaScript presenter can upload converted RGBA pixels to
+Canvas or a texture. RGB565 conversion, integer scaling, brightness, frame
+scheduling and browser resizing need parity tests. No JavaScript terminal/parser
+rewrite is needed. Replacing Canvas drawing itself is a much broader proposal.
+
+The browser cannot transparently use the existing live `cpmcard/` host path as
+native code does. Emscripten MEMFS is temporary; IDBFS provides IndexedDB-backed
+persistence through synchronization. Define explicit card import/export,
+startup restoration, save completion and multiple-tab ownership. CP/M INI,
+history and file changes must not silently disappear when a page closes.
+A browser prototype should use a disposable card. Host retained-descriptor
+optimizations are not a reason to carry the native storage adapter unchanged.
+See https://emscripten.org/docs/api_reference/Filesystem-API.html[file system APIs].
+
+Browser `KeyboardEvent.code` identifies physical keys and `key` carries
+layout-dependent text, which is promising for numpad/number-row handling.
+Composition, AltGr, paste and browser/OS-reserved shortcuts still need a deliberate
+policy. Web keyboard locking is not a portable promise that every desktop chord
+can be captured. See
+https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent[keyboard events]
+and https://developer.mozilla.org/en-US/docs/Web/API/Keyboard_API[Keyboard API].
+
+This could simplify distribution substantially once ported. Source review does
+not establish that the initial implementation is easier than the working SDL
+native desktop. No Emscripten compiler was available on PATH during this check;
+no browser compilation, installation or performance claim is made.
+
+=== Native RunCPM talking to a web terminal
+
+A concrete possible boundary is:
+
+----
+Native RunCPM + one card owner
+    <-> ordered guest console bytes + explicit control/reply messages
+    <-> loopback WebSocket bridge
+    <-> browser C++ terminal/runtime in Wasm
+    <-> Arduino_GFX Canvas -> HTML canvas; browser input -> C++ key events
+----
+
+Browsers do not expose ordinary raw TCP sockets. The existing native loopback
+endpoint therefore needs a WebSocket-speaking bridge or backend adapter;
+Emscripten documents WebSocket support and socket-proxy options. An explicit
+small protocol is preferable here to assuming arbitrary native sockets work.
+Keep a local bridge loopback-bound with per-session authentication and an
+explicit connection lifetime. See
+https://emscripten.org/docs/porting/networking.html[Emscripten networking].
+
+Crucially, today's ANSI mirror is a derived screen view, not the complete raw
+7xtgv display/graphics input. Feeding it into another terminal cannot guarantee
+reconstruction of graphics, hidden planes or integrated behavior. The real
+split must be near the console queues/`virtualWrite` path, before interpretation.
+The current `_putch` seam calls `virtualWrite`; guest query replies return through
+input. Forced COM return, transfer controls, board geometry and profile/history
+persistence also have integrated ownership and need defined control messages.
+Audit those seams before proposing an executable split; this brainstorming does
+not authorize RunCPM core or common-abstraction edits.
+
+A simpler first proof would compile the terminal/parser/Canvas alone and replay
+known guest byte fixtures, comparing output with native captures. A later native
+backend connection can then measure latency, reply ordering, graphics parity and
+reconnect behavior without mixing those questions with browser card storage.
+
+== A common terminal emulator may be the smaller first step
+
+WezTerm is the first candidate to evaluate. Its official feature list covers
+Linux, Windows 10 and macOS, and it uses Lua configuration. An explicit
+`--config-file` can select a repository-owned project configuration, preserving
+the user's ordinary terminal setup. See
+https://wezterm.org/features.html[WezTerm platforms/features] and
+https://wezterm.org/config/files.html[configuration selection].
+
+Its explicit `phys:` and `mapped:` bindings distinguish physical positions from
+layout-produced symbols, while `SendString` can emit our existing control/event
+bytes. These are unusually relevant to the Czech top row and custom CP/M chords.
+Prefer named physical keys; raw numeric key codes remain OS-dependent.
+See https://wezterm.org/config/keys.html[key bindings] and
+https://wezterm.org/config/lua/keyassignment/SendString.html[SendString].
+
+Alacritty is a second candidate with a smaller terminal-focused feature scope.
+It supports the three operating systems, uses TOML configuration, and offers
+literal output strings, modifier bindings and named numpad keys. Its numeric
+scancode facility would still need platform checks; shared config syntax alone
+does not establish portable physical mapping. See
+https://alacritty.org/[Alacritty] and
+https://alacritty.org/config-alacritty.html[configuration and keyboard bindings].
+
+Neither candidate has been installed or tested for this project in this work.
+A common terminal can share most key/configuration policy, but executable paths,
+Windows process/PTY handling and macOS Option behavior remain platform seams.
+WezTerm specifically documents Left Alt versus AltGr and macOS Option composition;
+review these before claiming all Ctrl+Alt chords behave identically.
+See https://wezterm.org/config/keyboard-concepts.html[keyboard concepts].
+
+The intended integration would still run the existing project mirror, which
+owns transfers, replies and lifecycle. Directly connecting a terminal emulator
+to a serial port would bypass those services. Windows currently hardcodes Mintty
+launch/profile/KeyBridge in `windows_run.py`; a WezTerm adapter would need to
+bypass that Mintty-only hook and preserve the shared mirror byte path, card lock,
+logging and shutdown. Replacing the terminal does not itself remove MSYS Python
+or establish macOS desktop build support.
+
+Generate custom physical events from the existing key IDs and preserve INI
+key overrides and layout fallbacks. Do not merely map every key to a final digit,
+which would silently bypass the override machinery. Test the actual VM's GPU
+and keyboard behavior; documented compatibility is not native acceptance.
+
+== Recommended order, if pursued
+
+a. Finish the present keyboard correction using the measured configuration
+   handoff failure; keep that fix independent of any migration.
+b. Try one isolated WezTerm profile and byte-capture test on Linux and Windows:
+   Czech plain/Shift row, numpad decimal, CS+1..9, CAS+0, bank/zoom keys, Alt+Q,
+   AltGr, paste, resize, transfers and orderly close. Keep existing launchers.
+c. Design the shared board descriptor/capacity boundary if reducing six builds
+   is valuable; demonstrate smallest/largest profiles before replacing builds.
+d. Make a disposable C++ terminal/Canvas Wasm fixture proof, comparing an SDL2
+   browser presenter with a direct HTML5 presenter. Choose integrated Wasm versus
+   native backend only after measuring what each needs.
+
+These are independent simplifications. A shared host terminal offers the most
+focused near-term experiment; a browser frontend offers broader distribution
+benefits with a larger runtime/storage integration task. Keep Arduino C++ and
+physical-board qualification intact throughout.

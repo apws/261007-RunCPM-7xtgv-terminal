@@ -14,7 +14,7 @@ from windows_build import OUTPUT, require_msys, target_name
 from mintty_profile import write_profile
 from mintty_keys import MinttyInput, BRIGHTNESS
 from terminal import Keys
-from key_bridge import KeyBridge
+from key_bridge import KeyBridge, mintty_environment
 from key_event_ids import key_ids
 
 CONTROL_CASES = (
@@ -34,10 +34,11 @@ def cases(section):
         yield from CONTROL_CASES
     if section in ('all', 'typing'):
         ids = key_ids()
-        for digit, char in zip('1234567890', '+ěščřžýáíé'):
+        configured = os.environ.get('XTGV_HACK_TOPROW', '+ěščřžýáíé')
+        for digit, char in zip('1234567890', configured or '+ěščřžýáíé'):
             fallback = ''.join(f'{b:03d}' for b in char.encode())
-            yield (f'{char} (CZ TOP ROW {digit}, no modifiers, CapsLock OFF)',
-                   f'\x1b[>70;1;{ids["KeyNum" + digit]};0;{fallback}v'.encode())
+            expected = f'\x1b[>70;1;{ids["KeyNum" + digit]};0;{fallback}v'.encode() if configured else char.encode()
+            yield (f'{char} (TOP ROW {digit}, no modifiers, CapsLock OFF; conversion {"ON" if configured else "OFF/CZ fixture"})', expected)
         yield ('NUMPAD decimal comma (NumLock ON, no modifiers)',
                f'\x1b[>70;1;{ids["KeyKpDecimal"]};0;044v'.encode())
         yield ('ordinary comma (main keyboard)', b',')
@@ -72,7 +73,7 @@ def capture(directory, section):
         show('Alt means LAlt (not AltGr).')
         show('For each step: press the chord once, release it, then press Enter.')
         show('Use the named key location. For NUMPAD tests, turn NumLock ON.')
-        show('Typing checks physical-key packets; firmware applies digit/decimal defaults afterwards.')
+        show('Typing checks physical-key packets when enabled; firmware applies digit/decimal defaults afterwards.')
         show('Enter alone skips a step. Escape alone ends the probe.')
         for chord, expected in cases(section):
             show('\r\nPress ' + chord + ', then Enter:')
@@ -124,7 +125,8 @@ def main():
         return subprocess.call(['/usr/bin/mintty.exe', '--config', str(profile), '--hold', 'error',
                                 '--title', '7xtgv-terminal keyboard probe', '--exec',
                                 '/usr/bin/python3', str(Path(__file__).resolve()),
-                                '--capture', str(directory), '--section', args.section, '--target', args.target], stdout=log, stderr=subprocess.STDOUT)
+                                '--capture', str(directory), '--section', args.section, '--target', args.target],
+                               env=mintty_environment(), stdout=log, stderr=subprocess.STDOUT)
 
 
 if __name__ == '__main__':

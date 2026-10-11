@@ -4,6 +4,9 @@
 
 - Keep replies compact; report concrete changes, checks and remaining limits.
   Flag conflicts between a request and the implementation before acting.
+- Label user-facing test/checklist points with letters (a, b, c, ...), so the
+  user can refer to individual results unambiguously. Keep labels stable when
+  following up on the same checklist.
 - Prefer small checkpoints and focused host tests. Agree the scope of lengthy
   research or reverse engineering first; external analysis can be brought back
   for repository-grounded verification. Do not prescribe named assistants,

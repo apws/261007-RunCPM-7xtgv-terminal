@@ -21,7 +21,7 @@ import traceback
 from windows_build import OUTPUT, REPO, SKETCH, TARGETS, host_path, native_path, require_msys, target_name
 from mintty_profile import write_profile
 from mintty_keys import MinttyInput
-from key_bridge import KeyBridge
+from key_bridge import KeyBridge, mintty_environment
 from shortcut_log import shortcut_log, append_log
 from desktop_card_lock import LOCK_NAME, card_lock
 from desktop_connection import LoopbackEndpoint
@@ -186,6 +186,7 @@ def serve(args, build, directory, card):
 
 def launch(args, target, build):
     require_msys()
+    environment = mintty_environment()
     mintty = Path('/usr/bin/mintty.exe')
     if not mintty.is_file():
         raise RuntimeError('Mintty is missing. Run tools-win/setup.cmd first.')
@@ -220,7 +221,7 @@ def launch(args, target, build):
     print('Launching desktop and Mintty mirror ...', flush=True)
     with (directory / 'mintty.log').open('wb') as log:
         subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=log,
-                         stderr=subprocess.STDOUT, start_new_session=True)
+                         stderr=subprocess.STDOUT, start_new_session=True, env=environment)
     print(f'Card: {native_path(card)}\nSession logs: {native_path(directory)}', flush=True)
     deadline = time.monotonic() + 20
     while time.monotonic() < deadline:

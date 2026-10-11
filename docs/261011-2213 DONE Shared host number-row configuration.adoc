@@ -1,0 +1,104 @@
+= Shared host number-row configuration
+:source-highlighter: highlight.js
+
+== Scope and decision
+
+Petr approved making `XTGV_HACK_TOPROW` a common setting for ordinary number-row
+conversion in Windows and Linux tooling. It is not restricted to bank selection.
+The preceding Windows fix has native ES3_35 acceptance; see
+link:261011-2158%20DONE%20Explicit%20Windows%20row%20configuration%20handoff.adoc[explicit helper configuration].
+
+== Shared policy
+
+`tools/host_key_config.py` now owns the literal setting reader formerly located
+in the Windows helper. Both Windows launch/probe/helper tooling and the Linux
+keymap generator use it. The default remains:
+
+[source,sh]
+----
+XTGV_HACK_TOPROW='+ěščřžýáíé'
+----
+
+Characters correspond to positions 1..0. Empty or missing disables the
+plain/Shift row conversion. An inherited environment value, including empty,
+takes precedence over `tools/terminal.conf`. The reader evaluates no shell
+commands and does not import unrelated hardware/upload configuration.
+
+`XTGV_BANK_KEYS` / `XTGV_BANK_NUMBERS` remain independent Alt-bank policy.
+Number-row events use the existing KeyNum0..9 protocol and C++ INI/default
+handling. Brightness, keypad decimal and other punctuation mappings are unchanged.
+
+== Linux launch behavior
+
+`generate_key_events.py` now has an import-safe generator and a launch-output
+mode. Normal `kon.sh` / `kit.sh` launches render configuration-specific copies;
+they do not rewrite checked-in templates or any existing cached variant.
+Content hashes select separate names, so changing the setting for a new window
+does not alter a running window's configuration.
+
+Konsole receives `7xtgv-terminal-<hash>.keytab` in its XDG data directory and an
+explicit KeyBindings launch override. The project profile name stays unchanged.
+Kitty receives a generated configuration under its XDG host cache. Both paths
+retain `cpm-session.sh`, so they apply to physical-board mirrors and desktop
+mirrors using these launchers. No live session was restarted by this work.
+
+Running the generator without arguments still updates the maintained template
+blocks from the selected setting. With the current Czech default, generated
+contents are byte-for-byte identical to the existing three templates.
+
+Windows runtime snapshots now include the shared reader. The already accepted
+native helper protocol is unchanged, so this tooling-only unification requires
+no executable or firmware rebuild. New mirror launch is sufficient.
+
+== Meaning of platform parity
+
+Configuration source, precedence, disable behavior, position order and emitted
+terminal events are shared. Platform input detection is still different:
+Windows checks the full physical layout row; Linux Konsole/Kitty bind configured
+characters plus Shift+digits. Linux does not automatically switch entire mapping
+sets when the user changes keyboard layouts inside an open terminal.
+
+The tested Czech row and compatible rows are supported. Linux keymap syntax
+rejects whitespace, quotes, backslashes, hash characters and duplicate/conflicting
+bindings rather than generating ambiguous configuration. Other national layouts
+still need native checks; existing Czech punctuation handling is outside this
+number-row setting. Direct static-profile use or an already open generic terminal
+cannot receive new physical mappings through `--mirror terminal`.
+
+Relevant host syntax:
+https://docs.kde.org/trunk_kf6/en/konsole/konsole/key-bindings.html[Konsole key bindings]
+and https://sw.kovidgoyal.net/kitty/mapping/[Kitty mappings].
+
+== Validation and remaining check
+
+All 82 focused Python tests pass: six new shared-setting/generator/launcher
+checks, 32 Windows tooling checks, seven desktop tooling checks, 36 shared mirror
+checks and one brightness mapping check. Shell syntax and diff whitespace pass.
+New checks cover default-template equality, empty disabling exactly twenty row
+bindings, alternative row generation, environment precedence, invalid/conflicting
+rows and preservation of previous cached variants. Real shell wrappers are
+executed against fake terminal binaries in temporary XDG directories; they do
+not open a GUI, connect to a card or alter live user configuration.
+
+Windows snapshot tests validate the shared module's relocated import closure.
+The fresh Linux GUI launcher path still needs a human typing check:
+
+a. Open a new normal Konsole/Kitty mirror and confirm plain Czech row digits.
+b. If testing disable explicitly, use an empty setting for a separate new
+   launch and confirm normal national characters; existing windows retain their map.
+c. Restore the desired value for subsequent launches; bank/brightness keys
+   should retain their established behavior.
+
+Working card INI/history, sessions and physical hardware were preserved.
+No commit or push was performed. This completes a coherent keyboard follow-up
+checkpoint together with the preceding native Windows fix.
+
+== User acceptance at 261011-2224
+
+Petr reports: "yes, tested, okay" after the shared-setting change and request
+for a fresh Linux typing check. The unified ordinary-row behavior is accepted
+for the tested workflow, alongside the earlier Windows ES3_35 acceptance.
+This confirmation does not separately establish every terminal/layout or the
+optional empty-setting check; those boundaries retain their focused host tests.
+The keyboard changes and related documentation are ready for a small commit
+checkpoint. Working-card INI/BUF changes remain user/runtime-owned and untouched.
