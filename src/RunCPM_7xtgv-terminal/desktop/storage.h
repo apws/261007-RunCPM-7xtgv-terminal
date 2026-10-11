@@ -43,6 +43,10 @@ private:
 
 class XtgvHostStorage {
 public:
+    XtgvHostStorage();
+    ~XtgvHostStorage();
+    XtgvHostStorage(const XtgvHostStorage &) = delete;
+    XtgvHostStorage &operator=(const XtgvHostStorage &) = delete;
     bool begin(const std::filesystem::path &root);
     XtgvHostFile open(const char *path, int flags = O_RDONLY);
     bool exists(const char *path) const;
@@ -51,8 +55,15 @@ public:
     bool rename(const char *from, const char *to);
     bool closeAll();
 private:
+    struct Retained;
+    static constexpr size_t retainedLimit = 8;
+    std::vector<std::unique_ptr<Retained>> retained_;
+    bool closeFailed_ = false;
     std::vector<std::weak_ptr<XtgvHostFile::State>> handles_;
     std::filesystem::path root_;
     std::filesystem::path resolve(const char *path) const;
+    std::unique_ptr<Retained> acquire(const std::filesystem::path &path, int flags);
+    void retain(std::unique_ptr<Retained> handle);
+    void discard(const std::filesystem::path &path);
     friend class XtgvHostFile;
 };

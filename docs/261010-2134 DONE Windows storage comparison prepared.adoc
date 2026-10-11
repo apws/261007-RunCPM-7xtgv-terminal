@@ -1,0 +1,52 @@
+= Windows storage comparison prepared
+:source-highlighter: highlight.js
+
+Continuation of
+link:261010-2032%20DONE%20Desktop%20complete-frame%20scheduling.adoc[desktop scheduling]
+under the
+link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[Windows plan].
+
+== Native observations
+
+Petr confirms immediate Linux rendering and fast Windows SDL redraw, including
+last-line scrolling and keyboard zoom. Windows ES3_5 session build 261010-2102
+uses the new scheduler. DIR A0 still takes approximately one second. His VTDRV
+screen reports 32768-byte write in 3526073 us (9.08 KiB/s), read in 2439446 us
+(13.12 KiB/s), verification PASS. These are guest measurements; they do not yet
+separate shared-folder latency from host adapter overhead. Both inspected Windows
+ES3 build rules already contain -O2.
+
+Fine backlight controls now work according to Petr; apparent range compression
+remains a visual question. The current desktop maps the selected board's PWM
+ladder through inverse gamma. ES3_5 starts at duty 51/255, resulting in about
+48 percent SDL brightness at the first nonzero step. No brightness policy changed.
+
+Alt+Esc cycles windows rather than reaching the guest on this Windows setup.
+This matches the
+https://support.microsoft.com/en-us/windows/keyboard-shortcuts-in-windows-dcc61a57-8ff0-cffe-9796-cb9706c75eec[documented Windows shortcut].
+The existing Pause then x profile-exit fallback is documented in tools-win.
+
+== Isolated comparison
+
+`tools-win/storage-test.cmd` dispatches the new storage comparison through the
+existing performance entry point. It uses the current executable without a
+rebuild, headless, with generated identical cards on build storage and native
+Windows TEMP. Each card contains 128 small data files and tiny output programs.
+Three trials measure marker-program load/output, DIR followed by a marker, and
+200-line output. Completion strings are unique per trial and operation so a
+retained-screen redraw cannot satisfy a subsequent measurement prematurely.
+Timings include guest execution and loopback delivery; they are not direct disk
+bandwidth measurements. No working-card access or live-session interaction.
+
+Linux harness verification passes all 18 measurements at
+`build/RunCPM_7xtgv-terminal/desktop/render-profile-es35/storage-proofs/storage-hj_qn7o5/`.
+Both Linux locations are local; this verifies the harness, not Windows share
+performance. Marker-program results are 1.4-2.7 ms, DIR plus marker 4.5-44.9 ms,
+and 200-line output 4.6-7.0 ms. Raw bytes and per-chunk receive timings are retained.
+The earlier storage-__l10_rq trial used repeated markers and is superseded.
+
+Native comparison is pending. Run the launcher from the W: project and inspect
+its retained comparison.json before choosing a storage optimization. The current
+desktop adapter canonicalizes paths, checks metadata and opens directory entries;
+these are candidates for measurement, not established causes. No production
+storage/core changes, rebuild, commit/push or deployment in this checkpoint.

@@ -1,0 +1,78 @@
+= Host mirror identifiers and SVG tooling map
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Authorized scope
+
+Petr chose the rename `7xtgv-cpm` to `7xtgv-terminal`, retaining the helper
+filename `cpm-session.sh` and existing desktop session names. He also requested
+an AsciiDoc explanation with an SVG structure diagram. This follows
+link:261009-2227%20DONE%20Terminal%20guide%20naming%20and%20reader-context%20review.adoc[guide naming and the operational identifier exception]
+within the broader
+link:261007-2317%20PLAN%20Entire%20manuals%20current-state%20review.adoc[manuals review].
+
+== Implemented rename
+
+* The standard hardware tmux session is now `7xtgv-terminal`. The default in
+  `tools/cpm-session.sh` and stop references in `tools/target_reflash.py` and
+  `tools/fetch-7xtgvtrm-ini.sh` agree on that name.
+* Konsole source files are `tools/7xtgv-terminal.profile` and
+  `tools/7xtgv-terminal.keytab`. Their visible labels and keyboard-table
+  identifier use `7xtgv-terminal`. `kon.sh` installs/selects these names.
+* The key-event generator and existing profile/keymap tests follow the renamed
+  files. Current guides, desktop README and repository instructions use the new
+  identifiers. The Kitty header identifies the terminal consistently.
+* `cpm-session.sh`, `kon.sh`, `kit.sh`, Kitty configuration filenames and
+  `7xtgv-desktop-<PID>` remain as before. No key-binding bytes, application
+  presets, session lifecycle policy or environment variable names changed.
+* Dated records retain their historical names and evidence. The three earlier
+  reader-context reformulation questions remain separate and unanswered.
+
+== Tooling map
+
+The new link:../guides/05-TG-tooling-guide.adoc[Tooling Guide] contains the editable
+link:../guides/images/tooling-structure.svg[SVG structure diagram]. It explains
+hardware and desktop entry points, shared configuration and mirror launchers,
+the script/session/profile distinction, endpoint ownership, builds, uploads,
+transfers and the INI-fetch path. Guide-index and Technical Reference links
+make it discoverable; the Features Timeline records the rename.
+
+== Validation
+
+* Existing helper tests: 35 PASS; workflow tests: 23 PASS; desktop-tool tests:
+  seven PASS; backlight-shortcut test: one PASS. All 66 are offline checks;
+  simulated upload-failure output is from the workflow test's mocks.
+* Executed `kon.sh` against a fake Konsole command and a temporary
+  `XDG_DATA_HOME`: installed files, selected profile/keymap and unchanged
+  `cpm-session.sh` path match the new naming. Executed shell monitor/stop paths
+  with fake tmux: new hardware default and existing desktop override pass.
+* Key-event generation on disposable copies finds the renamed table and is
+  byte-idempotent: 301 Konsole and 300 Kitty rules. Keytable mapping lines match
+  the original; shell syntax and rename-only helper/profile checks pass.
+* SVG XML parses, renders through librsvg and was visually inspected. The guide
+  and changed navigation/checkpoint documents render, with local links/images,
+  internal anchors and table structure checked.
+* All 301 working-card file hashes match the pre-edit snapshot, including INI,
+  history and archived settings. No session, serial device or installed user
+  Konsole profile was changed by these checks.
+
+Recovery copies/card inventory: `/tmp/xtgv-tooling-rename-before/`.
+The original keytab was unmodified before this work and its recovery copy was
+obtained from HEAD. SVG preview: `/tmp/xtgv-tooling-structure.png`.
+Rendered documentation: `/tmp/xtgv-tooling-rename-render/`.
+
+== Adoption and remaining boundaries
+
+New Konsole launches install the renamed files into the user data directory.
+Existing windows retain their loaded settings; existing sessions are not
+automatically renamed or stopped. Close a pre-update hardware mirror before
+launching the replacement so that only one bridge owns its serial endpoint.
+Old installed Konsole files are retained; cleanup is not required for adoption.
+
+The shell helper's `XTGV_SESSION` override remains supported, while hardware
+reflash/INI-fetch helpers stop the standard session name. Generalizing their
+custom-session policy was outside this requested rename.
+
+No firmware/core/HAL edits or builds, guest deployment, INI/history changes,
+hardware writes, commit or push. Physical/GUI acceptance of the new names
+remains the next normal mirror launch.

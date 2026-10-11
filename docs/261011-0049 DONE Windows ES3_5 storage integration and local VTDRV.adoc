@@ -1,0 +1,64 @@
+= Windows ES3_5 storage integration and local VTDRV
+:source-highlighter: highlight.js
+
+== Acceptance
+
+Following link:261011-0024%20DONE%20Native%20Windows%20retained%20handles%20correctness%20and%20timing.adoc[the native adapter probe],
+Petr rebuilt ES3_5, ran the integration proofs and tested a fresh local D: runtime
+with desktop-local. Shared evidence confirms the new executable build and both
+proof suites. This closes the ES3_5 full-desktop retest gate for retained handles.
+It does not establish acceptance of newly rebuilt Windows executables for every
+other target, or change the physical-board scope.
+
+== Shared evidence inspected
+
+Paths below are relative to
+`build/RunCPM_7xtgv-terminal/desktop-win/msys2-ucrt64/jc8048w550/`:
+
+* `build.log`: storage implementation/test rebuilt, headless and SDL executables
+  linked successfully, runtime DLLs staged.
+* `proof-cards/xtgv-loopback-proof-ccvxi4_c/proof.log`: six portable C++ tests
+  pass, including retained-handle correctness on the shared W: filesystem;
+  262149 exact transport bytes and all six guest shutdown/reconnect/history-save
+  cases pass. The report ZIP is retained under `proof-reports/`.
+* `mirror-proofs/mirror-o92yfce2/proof.log`: all eight real-mirror cases pass:
+  quit, exit, reboot, VTLOOP, VTFLOOD, hangup, tty-close and transfer.
+
+== User-reported local guest measurement
+
+Petr supplied this result from desktop-local on D:, rather than the isolated
+adapter diagnostic. The D: session log was not directly inspected from Linux.
+
+[source,text]
+----
+A0>vtdrv rw
+VTDRV: 32 KiB BDOS test; default read-only
+VTDRV write: 32768 bytes in 337755 us = 94.74 KiB/s
+VTDRV read : 32768 bytes in 201972 us = 158.44 KiB/s
+VTDRV verify: PASS
+----
+
+Earlier local D: guest runs measured writes of 1788137 and 1391580 us
+(17.90 and 23.00 KiB/s), with reads of 200273 and 201367 us
+(159.78 and 158.91 KiB/s). The new guest write result is about 4.1--5.3 times
+faster; reads are essentially unchanged. These are individual interactive runs,
+not a controlled repeated benchmark series. The adapter-only sixfold result
+and this guest-level improvement measure different scopes.
+
+The earlier Linux guest result was 2042.77 KiB/s write and 2854.08 KiB/s read.
+A substantial Windows performance gap therefore remains. Retained handles remove
+much of the repeated write-open cost but preserve per-open path/identity checks;
+no Linux parity or durable-media throughput claim follows from these results.
+
+== Scope and continuation
+
+The authorized desktop-only implementation now has Linux and native Windows
+correctness/integration evidence plus the local Windows guest verification.
+No further optimization is applied at this checkpoint. Reducing remaining path
+and metadata overhead would need a separately agreed design and measurement.
+The detailed ownership, flush and host-coordination limits remain in
+link:261010-2330%20DONE%20Desktop%20retained%20file%20handles%20design%20and%20validation.adoc[the design record].
+
+This checkpoint updates documentation/status only. Working cards, INI/history,
+running sessions, common abstraction, physical SdFat and RunCPM core are untouched.
+No commit/push, firmware build/upload or deployment was performed.

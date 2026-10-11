@@ -6,6 +6,10 @@
 #include "../src/terminal/line_history.h"
 #include <new>
 #include <cmath>
+#if defined(_WIN32)
+#include <windows.h>
+#include <cstdio>
+#endif
 
 namespace {
 const auto epoch = std::chrono::steady_clock::now();
@@ -15,7 +19,46 @@ std::atomic<bool> stopRequested{false};
 thread_local bool guestOwner = false;
 std::filesystem::path cardRoot;
 XtgvDesktopCanvas *canvas = nullptr;
+#if defined(_WIN32)
+// Configured before the guest thread starts; immutable while either thread runs.
+bool coarseDelay = false;
+class WindowsDelay {
+public:
+    WindowsDelay() : timer_(CreateWaitableTimerExW(nullptr, nullptr,
+        CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_MODIFY_STATE | SYNCHRONIZE)) {}
+    ~WindowsDelay() { if (timer_) CloseHandle(timer_); }
+    WindowsDelay(const WindowsDelay &) = delete;
+    WindowsDelay &operator=(const WindowsDelay &) = delete;
+    bool available() const { return timer_ != nullptr; }
+    bool wait(uint64_t microseconds) {
+        if (!timer_) return false;
+        LARGE_INTEGER due;
+        due.QuadPart = -static_cast<LONGLONG>(microseconds * 10);
+        if (SetWaitableTimer(timer_, &due, 0, nullptr, nullptr, FALSE)
+            && WaitForSingleObject(timer_, INFINITE) == WAIT_OBJECT_0) return true;
+        std::fprintf(stderr, "Desktop timer wait failed (%lu); using standard sleep\n",
+                     static_cast<unsigned long>(GetLastError()));
+        CloseHandle(timer_);
+        timer_ = nullptr;
+        return false;
+    }
+private:
+    HANDLE timer_;
+};
+// A separate timer per thread prevents the guest and UI from rearming each
+// other's wait. Windows 10 1803+ supports this timer; no busy-wait fallback.
+WindowsDelay &windowsDelay() { thread_local WindowsDelay timer; return timer; }
+#endif
 }
+
+#if defined(_WIN32)
+const char *xtgvDesktopConfigureDelay(bool coarse) {
+    coarseDelay = coarse;
+    if (coarse) return "standard sleep (coarse baseline)";
+    return windowsDelay().available() ? "high-resolution waitable timer"
+                                      : "standard sleep (high-resolution timer unavailable)";
+}
+#endif
 
 XtgvDesktopSerial Serial;
 XtgvHostStorage SD;
@@ -125,10 +168,18 @@ uint32_t micros() {
 }
 void delay(uint32_t milliseconds) {
     xtgvDesktopCheckStop();
+#if defined(_WIN32)
+    if (!milliseconds) return;
+    if (!coarseDelay && windowsDelay().wait(uint64_t(milliseconds) * 1000)) return;
+#endif
     std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
 }
 void delayMicroseconds(uint32_t microseconds) {
     xtgvDesktopCheckStop();
+#if defined(_WIN32)
+    if (!microseconds) return;
+    if (!coarseDelay && windowsDelay().wait(microseconds)) return;
+#endif
     std::this_thread::sleep_for(std::chrono::microseconds(microseconds));
 }
 void yield() { xtgvDesktopCheckStop(); std::this_thread::yield(); }

@@ -2,7 +2,7 @@
 set -eu
 
 tools_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-session=${XTGV_SESSION:-7xtgv-cpm}
+session=${XTGV_SESSION:-7xtgv-terminal}
 case "$session" in
     *[!a-zA-Z0-9_-]*|"") echo "Invalid terminal session name" >&2; exit 1 ;;
 esac

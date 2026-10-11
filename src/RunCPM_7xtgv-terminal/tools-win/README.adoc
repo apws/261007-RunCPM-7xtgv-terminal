@@ -1,0 +1,459 @@
+= Windows desktop setup, rebuild and mirror
+:source-highlighter: highlight.js
+
+== Current status
+
+All six targets pass native Windows rebuild, SDL smoke and full connection/
+storage proofs on Windows 10 LTSC (19044.3031) in VirtualBox, using MSYS2
+UCRT64 and the live W: shared checkout. The desktop uses the same sketch,
+board, terminal and real GFX sources as Linux. See the
+link:../../../docs/261010-1646%20DONE%20All%20six%20Windows%20targets%20pass%20shared-drive%20proofs.adoc[six-target acceptance matrix].
+
+The Windows backend accepts scripted `--input` and an authenticated loopback
+transport with separate guest-data and owner-control sockets. The proofs
+cover binary communication, guest commands, shared-file storage, reconnect,
+cooperative stop, EXIT/REBOOT and history saving. SDL remains output-only;
+`--pty` fails explicitly on Windows. Linux keeps its existing PTY and launchers.
+
+Interactive Mintty launchers are now available for native acceptance. The shared
+mirror and owner lifecycle pass Linux tests over the same loopback transport,
+including binary VTPUT/VTGET and shutdown while busy. Initial Mintty/SDL boot is confirmed, with slow display updates under investigation.
+Unicode card paths and all eight native mirror lifecycle/transfer cases now pass.
+The Windows high-resolution delay correction is confirmed by native measurements;
+physical Windows keyboard behavior still needs acceptance; see the
+link:../../../docs/261010-1738%20DONE%20Windows%20interactive%20mirror%20ready%20for%20native%20test.adoc[interactive checkpoint].
+`targets/` contains thin launchers only; shared tooling stays outside it.
+
+== Start here on Windows
+
+ES3_5 (`jc8048w550`, 800x480) is the selected target for subsequent Windows
+work because it fits the VirtualBox guest screen. All six diagnostic target proofs have passed; further interactive Windows work
+uses ES3_5.
+
+. Install the x64 version of https://www.msys2.org/[MSYS2] using its official
+  installer. No Windows PATH change is needed. Launchers discover `msys64`
+  or `msys2` at a drive root, or MSYS2 installed directly at that root.
+  They check the project drive first, then the system drive, then C: through Z:.
+  Both `usr\bin\bash.exe` and `usr\bin\pacman.exe` must exist.
+  An explicit `XTGV_MSYS2_ROOT` overrides discovery.
+. Open *MSYS2 UCRT64* and run `pacman -Suy` to update MSYS2. If the update
+  requests closing the terminal, close it, reopen UCRT64 and repeat the command
+  until it finishes. Follow the https://www.msys2.org/docs/updating/[MSYS2 update instructions].
+  This updates MSYS2 on Windows, not the Linux host.
+. Copy or check out the project source tree on Windows. Use a revision containing
+  `src/RunCPM_7xtgv-terminal/tools-win/setup.cmd`; the executable alone is not
+  enough to rebuild. For example, place the tree in `C:\work\7xtgv`.
+. Open `src\RunCPM_7xtgv-terminal\tools-win` and double-click *setup.cmd*.
+  This uses the MSYS2 installation from the first step; it does not install
+  another MSYS2. Pacman lists the packages and asks before installing them. Setup installs
+  native UCRT64 GCC/CMake/Ninja/SDL2, MSYS Python and the shell/mirror prerequisites,
+  then downloads the checksum-verified Arduino_GFX 1.6.4 source. It does not
+  install Arduino MCU cores or launch the emulator.
+. Open *targets\ES3_5 -- jc8048w550* and double-click *desktop-rebuild.cmd*.
+  Rebuild checks prerequisites and compiles; it never installs packages or runs
+  against a card. The terminal remains open so errors are visible.
+
+The native build output and full build log are under the repository root:
+
+[source,text]
+----
+build/RunCPM_7xtgv-terminal/desktop-win/msys2-ucrt64/jc8048w550/
+    xtgv_desktop.exe
+    xtgv_headless.exe
+    *.dll
+    build.log
+----
+
+All six existing targets have a rebuild launcher. All six native builds and diagnostic proofs have passed on the tested Windows guest. Native outputs have a separate
+`msys2-ucrt64` directory so copied Linux cross-build CMake caches are not reused.
+Logs stay in the build directory; target folders contain launchers only.
+
+For use from a Windows command prompt:
+
+[source,bat]
+----
+cd /d C:\work\7xtgv\src\RunCPM_7xtgv-terminal\tools-win
+setup.cmd --dry-run
+"targets\ES3_5 -- jc8048w550\desktop-rebuild.cmd" --dry-run
+----
+
+For an installation in a custom directory, or to select one of multiple
+installations, set its root in the same Command Prompt before running setup
+or rebuild. For example:
+
+[source,bat]
+----
+set "XTGV_MSYS2_ROOT=D:\apps\msys64"
+setup.cmd
+----
+
+Use the directory containing `usr`, not `usr\bin` itself. The launcher prints
+the selected root and calls its Bash directly; MSYS2 supplies its own internal
+UCRT64/MSYS PATH. For repeated use, the same variable may be set through Windows
+user environment settings. A wrong explicit root is reported, not silently
+replaced with another installation.
+
+Use `--gfx "C:\path\to\GFX_Library_for_Arduino"` to select an existing 1.6.4
+library, `-O2` or another existing optimization level to select optimization,
+and `--jobs 4` to select build parallelism. Set `XTGV_NO_PAUSE=1` when invoking
+CMD launchers from an existing console or automation. From an MSYS2 UCRT64
+shell, `bash dispatch.sh build --target ES3_5` calls the same adapter.
+
+== Desktop launcher messages and logs
+
+`desktop-rebuild.cmd`, `desktop-local.cmd` and `desktop-card.cmd` show the module,
+progress and result, and create a same-named `.log` beside the launcher. The
+rebuild transcript includes configure/compiler/DLL details when the build ends;
+the live compiler log also remains in the target build directory. Local/card
+transcripts include card/session paths, the embedded build stamp and SDL output,
+then append reboot/shutdown messages while the mirror owns the session.
+
+Each invocation replaces the adjacent transcript, like the Linux launchers.
+Dated session directories keep the separate owner/process/Mintty logs. Source
+and staged D: launchers write their own local logs; nothing is synchronized back.
+The smoke, proof and test launchers retain their existing evidence workflow.
+
+== SDL window size
+
+Desktop launchers accept `--window-scale N`, with an integer from 1 to 9:
+
+[source,bat]
+----
+desktop-local.cmd --window-scale 3
+----
+
+The default is 1 (native panel size). The fixed-size window enlarges the entire
+panel with nearest-neighbour pixels; dragging its borders cannot change the
+scale. CP/M geometry, terminal glyph zoom, INI settings and snapshot dimensions
+are unaffected. Choose a factor that fits the VM screen. Rebuild the target for
+this feature, then restage any D: snapshot; launcher arguments survive guest
+REBOOT. Linux launchers support the same option.
+
+== Interactive mirror
+
+From `targets\ES3_5 -- jc8048w550`, run *desktop-local.cmd* to use the working
+`cpmcard`, including its INI and history. It opens Mintty and the SDL display.
+Type into *Mintty*. The SDL window is output-only. Each Windows target folder
+contains only these three launchers:
+
+[cols="1,3",options="header"]
+|===
+|Launcher |Card and purpose
+|`desktop-rebuild.cmd` |Build the selected Windows target; does not launch it.
+|`desktop-local.cmd` |Working repository `cpmcard`, opened read/write; changes persist there.
+|`desktop-card.cmd --card-root "W:\path\to\card"` |Explicit existing card root with `A/0`; opened read/write. No drive autodiscovery.
+|===
+
+Optional diagnostics remain available from `tools-win` through the shared entry
+point; they have no per-target shortcut files:
+
+[source,bat]
+----
+windows.cmd launch --target ES3_5 --card-mode test
+windows.cmd proof --target ES3_5 --smoke-only
+windows.cmd proof --target ES3_5
+windows.cmd mirror-proof --target ES3_5
+windows.cmd performance --target ES3_5
+----
+
+The first command launches an interactive session on a new complete card copy.
+The other commands run the visual boot, connection/storage, mirror/lifecycle
+and rendering timing diagnostics on disposable cards.
+
+For the first native acceptance, try ordinary commands and BS/Delete/navigation
+in Mintty, then `REBOOT`, `EXIT`, and closing each window in separate test runs.
+`Ctrl+]` then `q` closes the owning mirror; *Pause then q* provides the same
+prefix sequence without depending on the Windows keyboard layout. Closing the
+owner requests cooperative emulator shutdown and waits for saving. Guest
+`REBOOT` starts a fresh emulator on the same card inside the same Mintty window.
+A launch does not start tmux or attach to the Linux hardware mirror.
+
+The launch prints the card and session directory. Session logs (and a copied card
+when test mode is selected) are retained beneath
+`build/RunCPM_7xtgv-terminal/desktop-win/msys2-ucrt64/TARGET/sessions/`.
+`status.json` reports running/finished/failed; `owner.log` contains owner errors;
+`run-NNN/process.log` records each emulator generation. `mintty.log` records
+terminal startup diagnostics. Failed Mintty sessions remain open for inspection.
+A successful startup closes the bootstrap console automatically.
+
+The transfer panel uses a separate `transfers` tree inside the session directory,
+with matching local drive/user folders. Put host send files there; received
+files are saved there. The panel still addresses the guest's *current* DU.
+This avoids modifying the working card through the host side of a test transfer.
+The existing interpreted-screen transfer helper requires an 80x24 guest terminal;
+the working ES3_5 zoom-2 configuration provides it. The automated proof selects
+80x24 explicitly in its disposable INI.
+
+Mintty receives a generated per-session configuration, not an installed global
+profile. Special/navigation/function keys, profile exit/clear, view controls and
+the emergency Ctrl+Alt+C event (LAlt) use the shared protocol. F11 remains Mintty
+fullscreen and Alt+F4 closes Mintty. Ordinary printable characters use the active
+Windows layout. A native helper supplies physical Czech number-row and keypad
+decimal events to the existing firmware mappings: unshifted/Shift number-row
+positions default to ASCII digits, and keypad decimal defaults to ASCII `.`.
+INI overrides for `num0`..`num9`, their Shift variants and `kp_decimal` apply.
+Ordinary comma, pasted text, AltGr and active dead-key composition pass through.
+The helper requires a target rebuild and new Mintty session; native acceptance
+of this addition remains pending.
+Existing ASCII prefix controls remain available, including Pause then x/c for
+profile exit/clear, +/− for zoom and m for the transfer panel.
+All supplied profiles use *Alt+Q* as the primary configured application exit (`CSI >60v`).
+Use LAlt in Mintty. Konsole and Kitty retain Alt+Esc as a compatibility alias.
+Pause then x remains an alternative. Alt+Esc belongs to Windows window cycling.
+The per-session profile supplies digit and Czech unshifted number-row names.
+Numeric Mintty actions preserve the actual modifiers; `mintty_keys.py` translates
+them before the shared mirror sees input. This separates Alt+0..9 banks,
+Ctrl+Shift+1..9 brightness, Ctrl+Alt+Shift+0 OFF, Ctrl+Alt+Shift+1/2
+ANSI/VT52 and Alt+# RAW (CZ: Alt+AltGr+X; US: Alt+Shift+3). Ctrl+Shift+X opens the transfer panel.
+These routes match the Konsole controls in host tests. The native helper handles
+physical Ctrl+Shift+1..9 presets and Ctrl+Alt+Shift+0 OFF before Mintty converts
+them to text, on both the main row and keypad. Ctrl+Alt+Shift+1/2 remain output
+mode controls (ANSI/VT52), not brightness presets. Physical delivery still needs
+the probe on the active Windows layout.
+Modified numpad digit reports and explicit modified top-row digit reports also
+translate to the same OFF/preset and ANSI/VT52 controls. Unassigned reports pass
+through unchanged. The numpad correction is host-tested against captured native
+bytes; fresh physical verification remains pending.
+For the Windows NumLock path that removes Shift, explicit C/CS keypad-position
+aliases select brightness 1..9; CA/CSA keypad 0 selects OFF and 1/2 select
+ANSI/VT52. These assignments also apply with NumLock off. Dedicated navigation
+keys retain their normal bindings; keypad positions 3/9 use numeric presets
+instead of Ctrl+Shift keypad zoom. A newly launched Mintty loads this correction.
+The generator follows https://mintty.github.io/mintty.1.html[Mintty's KeyFunctions syntax].
+
+The helper consists of `xtgv_key_bridge.exe` and `xtgv_key_hook.dll`, built beside
+each target executable. `key_bridge.py` owns it for the mirror/probe lifetime.
+The DLL attaches only to that session's uniquely named Mintty message thread;
+translation operates while its main window has focus. It is not a global hook
+or installed service. Startup errors stop launch with a rebuild/error message;
+`key-bridge.log` in the session/probe directory records activation and shutdown.
+No extra installation command or global keymap is required. This path targets
+64-bit MSYS2 Mintty on Windows 10 1607 or newer.
+
+For shortcut diagnosis, first rebuild ES3_5, then run
+`tools-win\keyboard-test.cmd` (or select another rebuilt target with `--target`). Append
+`--section numpad` or `--section top-row` for a focused 12-step test; use NumLock
+ON for the numpad section. `--section typing` checks the ten unshifted Czech row
+positions, keypad comma and ordinary comma; keep CapsLock off for that fixture.
+It verifies the physical events and fallback bytes, before firmware applies
+digit/dot defaults. The probe checks translation without changing the
+backlight; Enter alone skips a step. RAW uses the character shortcut Alt+#.
+Both the Windows decoder and the shared mirror key translation are checked. It opens Mintty
+with the same generated profile and records application-exit, bank, zoom and all numeric/fine-backlight chords under
+`build/RunCPM_7xtgv-terminal/desktop-win/keyboard-proofs/`. No emulator or card is
+opened. Press each requested chord once, release it, then Enter; Escape ends the
+probe. Use LAlt for the fine-backlight chord. Alt+PgUp/PgDn now
+explicitly select previous/next bank, including the keypad navigation forms.
+
+For slow directory listings, run `tools-win\storage-test.cmd` (ES3_5 by default;
+append `--target ES3_35` for that executable). No rebuild is required. It compares
+identical generated cards below the build directory and in native Windows TEMP,
+using headless guest directory listings, tiny program loads and 200-line output.
+Each result has a unique completion marker; timings include guest execution and
+loopback delivery, not just disk service time. Three trials per operation and
+raw output are retained under the target's `storage-proofs/`; both disposable
+cards are retained. The working card and existing sessions are not accessed.
+
+To test an entirely local runtime, run `tools-win\stage-local.cmd` from the
+source project. It defaults to ES3_5 and creates a fresh dated target folder under
+`D:\~tmp\260906-7xtgv\`. Use `--target ES3_35` to select another already-built
+target, or `--destination "D:\other parent"` to change the parent directory.
+Run the printed `desktop-local.cmd` inside the resulting folder. No rebuild is
+needed; the existing MSYS2 installation is discovered as usual.
+
+The snapshot contains the desktop and key-helper executables and their staged DLLs, the selected target's
+local/card launchers, the required mirror/keyboard/transfer helpers and a
+complete copy of `cpmcard`, including INI/history. Repository archives, top-level
+`private`, build caches, compiler dependencies and other targets are omitted.
+An active source-card lock prevents copying; close its owning session before
+retrying. Sessions on separate test-card copies can remain running. Every staging
+run creates a new folder and never updates an earlier local card.
+
+The top-level `desktop-local.cmd` persists changes to the copied card;
+`desktop-card.cmd --card-root "DRIVE:\path\to\card"` selects another card. Logs remain
+inside the local snapshot's target build directory. Nothing is synchronized
+back to the source project. `stage-manifest.json` records source paths and copied
+file hashes. This is a launch-only personal test snapshot; rebuild in the source
+project and stage again when replacing the executable or helpers.
+
+For a breakdown of local filesystem costs, run `tools-win\storage-profile.cmd`
+from the source project. It compiles a small native diagnostic and a retained-handle
+correctness test at `-O2`, copies
+its executable/runtime DLLs to a fresh folder below `D:\~tmp\260906-7xtgv`, and
+runs correctness before timings there. `--local-root` changes that parent. No emulator rebuild, SDL or card
+access is involved. Results and the build log are retained on the source side
+under `build/RunCPM_7xtgv-terminal/desktop-win/storage-operation-proofs/`.
+The correctness result is in `correctness.log`; timing output is in `profile.csv`.
+The current adapter retains native handles across logical closes while preserving
+close-time flushes and fresh read buffering. Native correctness and adapter timings
+now pass: median 32-KiB record writes fell from 1293 to 214 ms; record reads remain
+about 101 ms. ES3_5 native rebuild, connection/mirror proofs and a fresh local
+snapshot now pass; guest VTDRV reports 94.74 KiB/s write and 158.44 KiB/s read,
+with verification PASS. See
+link:../../../docs/261011-0049%20DONE%20Windows%20ES3_5%20storage%20integration%20and%20local%20VTDRV.adoc[full-desktop acceptance],
+link:../../../docs/261011-0024%20DONE%20Native%20Windows%20retained%20handles%20correctness%20and%20timing.adoc[native probe results] and
+link:../../../docs/261010-2330%20DONE%20Desktop%20retained%20file%20handles%20design%20and%20validation.adoc[design and validation record].
+
+The probe uses the actual desktop storage adapter and its native open/seek helpers.
+It compares the 128-byte record open/close pattern with one retained handle,
+splits operation timings, and verifies every 32-KiB readback in three trials.
+The native baseline bypasses adapter path checks only for its own generated files;
+it is a diagnostic comparison, not a proposed production path. Timings measure
+cached filesystem API completion, not durable media throughput. The metadata row
+uses the `open_ms` column for `is_directory`; other rows time actual opens.
+
+New Linux and Windows desktop launchers coordinate through a
+`.7xtgv-desktop-lock` directory in the selected card. A second participating
+writer is refused. Sessions launched by older tooling do not hold this lock:
+close them before selecting the same live card. A failed/unresponsive owner
+leaves its lock; verify its emulator has stopped before manually removing it.
+Normal shutdown releases only its own lock and never forcibly kills the emulator.
+
+
+== Native connection proof
+
+After rebuilding ES3_5, run `windows.cmd proof --target ES3_5` from `tools-win`.
+Add `--smoke-only` for the ten-second visual boot check.
+This invokes MSYS Python, creates fresh disposable cards and runs the five
+portable C++ tests plus the loopback binary/guest checks. Only the idle guest
+case opens SDL; subsequent cases run headlessly. No keyboard interaction is
+needed. The test checks:
+
+* one select loop over a terminal descriptor and a socket, with descriptor I/O;
+* rejected owner authentication and 262149 exact bytes through bounded queues;
+* a real Z80 program with BDOS punch-file output, and mirror reconnect/snapshot;
+* explicit owner stop during idle, computation and output flood;
+* owner disconnect, guest EXIT, guest REBOOT and saved history on shutdown.
+
+The launcher leaves the console open. Console/process logs, raw mirror samples
+and disposable cards are retained beneath the target output's `proof-cards`
+folder. Portable host-storage tests use that same filesystem. A report ZIP
+is written to the target output's `proof-reports` folder, including on a
+reported test failure. This is a diagnostic proof, not an interactive launcher.
+`--fixture-dir PATH` can select another test parent; each run creates a new
+subdirectory. `--report-dir PATH` additionally copies the report ZIP there.
+
+Running the tools from a mapped shared-drive checkout also puts build output
+and the default proof fixtures on that share. All six native rebuilds,
+smoke tests and full connection/storage proofs have succeeded on Petr's W: share.
+The working `cpmcard` is never selected by this proof. For Petr's current test,
+the live Linux project is visible at `W:\ver\260906-7xtgv`; rebuilding and
+running the proof there makes its logs readable on both hosts. No local-D
+checkout is required for that selected test.
+
+The loopback transport's two ports bind only to 127.0.0.1 and require a fresh
+launch token. Guest bytes have no reserved shutdown sequence. Data reconnect
+keeps ownership; control disconnect requests cooperative stop. Linux ordinary
+launch remains on PTY.
+
+== Files and responsibilities
+
+* `setup.cmd` starts the explicit Windows prerequisite setup.
+* `windows.cmd` selects MSYS2 UCRT64; `dispatch.sh` selects setup, rebuild, launch or proof.
+* `setup.sh` installs the specified prerequisites and calls the pinned GFX setup.
+* `windows_build.py` uses the shared target resolver, existing JSON metadata and
+  desktop CMake sources. It uses MSYS Python and explicit native UCRT64 tools.
+* `targets/DISPLAY_ID -- target/desktop-rebuild.cmd` supplies only the target ID.
+* `windows.cmd proof --target DISPLAY_ID` selects the shared
+  `desktop/tests/loopback_proof.py` diagnostic runner; `--smoke-only` selects
+  its shorter visual boot test, with the same log/report handling.
+* `windows_run.py` owns the native process/control socket and runs shared `terminal.py` inside Mintty.
+* `mintty_profile.py` derives special-key events from shared firmware identifiers.
+* `key_bridge.py` owns the focused Mintty physical-key helper; `key_bridge_map.h`
+  holds its portable mapping, and `key_bridge_hook.cpp` / `key_bridge_owner.cpp`
+  implement the thread hook and its native lifetime.
+* `setup-cross.sh` is an optional *Linux* prerequisite installer for cross-builds.
+  It is not the Windows setup entry point.
+
+MSYS2 remains required for setup and rebuild. After compilation, the rebuild
+scans PE imports for all built `xtgv_*.exe` files and `xtgv_key_hook.dll`, and recursively copies their
+UCRT64 runtime DLLs beside them, including SDL2 and compiler dependencies.
+Windows system DLLs remain supplied by Windows. Missing dependencies fail the
+rebuild; copied DLL paths are recorded in `build.log`. No global PATH change is
+needed to find these runtime DLLs. MSYS Python and Mintty remain required for interactive launch; this is not a standalone distribution.
+
+For a first startup check, open Command Prompt in the output directory and run
+`xtgv_desktop.exe --describe`. It prints the board description without opening
+a card. Double-clicking the executable does not start an interactive session.
+
+== Reproduce the Linux cross-build
+
+Install MinGW-w64 explicitly if absent. On Arch derivatives,
+`bash tools-win/setup-cross.sh --dry-run` previews the package command and
+`--install` runs it through sudo. Rebuild never installs packages.
+Other distributions need their own MinGW-w64 prerequisite setup.
+
+The checked build used GCC 16.2.0, real Arduino_GFX 1.6.4 and the official
+https://github.com/libsdl-org/SDL/releases/tag/release-2.32.10[SDL2 2.32.10]
+MinGW development archive. Its `SDL2-devel-2.32.10-mingw.tar.gz` SHA-256 is
+`83a5d74012311edc3c0d40ea6faecbe57ad692aa033fa5dc273cc937e3938ff2`.
+Download and extract it separately; the build only consumes installed sources.
+
+From the repository root, with GFX and SDL2 locations adjusted as needed:
+
+[source,bash]
+----
+cmake -S src/RunCPM_7xtgv-terminal/desktop \
+  -B build/RunCPM_7xtgv-terminal/desktop-win/jc8012p4a1c \
+  -DCMAKE_TOOLCHAIN_FILE=mingw64-toolchain.cmake \
+  -DXTGV_TARGET=jc8012p4a1c -DXTGV_OPTIMIZATION=O2 \
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+  -DXTGV_GFX_SOURCE="$HOME/Arduino/libraries/GFX_Library_for_Arduino" \
+  -DSDL2_DIR="$PWD/build/RunCPM_7xtgv-terminal/desktop-win/_deps/SDL2-2.32.10/x86_64-w64-mingw32/lib/cmake/SDL2"
+cmake --build build/RunCPM_7xtgv-terminal/desktop-win/jc8012p4a1c --parallel 4
+----
+
+For this Arch cross-toolchain, the runtime DLLs are in
+`/usr/x86_64-w64-mingw32/bin/`. Copy `libgcc_s_seh-1.dll`, `libstdc++-6.dll`
+and `libwinpthread-1.dll` beside the executable when transferring the build.
+CMake copies the selected `SDL2.dll` there after linking the SDL executable.
+Do not mix runtime DLLs from unrelated toolchains. The checkpoint build folder
+already contains all four DLLs and a `build-proof.json` hash/import inventory.
+This directory is a developer build, not a finished distribution package.
+
+The Windows launchers above use native UCRT64 packages and omit this Linux
+cross-toolchain file. Their setup and all six rebuild/proof runs have separate successful
+Windows checkpoints. Deliberate non-ASCII paths and the interactive launch
+workflow still need qualification. A successful cross-build alone does not validate
+those paths.
+
+== Execution boundary
+
+Use a disposable card directory for future execution tests. The command-line
+fixture interface is `--card-root PATH --input FILE`, with optional
+`--headless`, `--run-for-ms N` and `--snapshot FILE.ppm`. `--describe` reports
+the selected board without opening a card. A normal run may save INI/history
+and guest files; never use the working card for an unqualified smoke test.
+
+Five C++ tests and the loopback guest/storage/lifecycle proof pass natively for
+all six targets on the shared drive. The Python integration/PTY CTests remain registered on Linux only. The new
+real-mirror owner proof passes on Linux for close/reboot, binary transfers and
+spaces/Czech card paths. Native Mintty/SDL launch and all eight real-mirror
+lifecycle/transfer cases with Czech card paths pass, including true terminal
+disappearance and exact binary transfer. Physical key behavior and non-ASCII
+repository paths remain open.
+
+Latest native acceptance: link:../../../docs/261010-1957%20DONE%20Native%20Windows%20timing%20and%20mirror%20acceptance.adoc[timing and full mirror proof].
+
+Windows runs use a high-resolution waitable timer for Arduino delays, with a
+separate timer per thread. A scoped 1-ms timer-resolution request is retained;
+that request alone did not improve the measured standard-library sleep.
+Unsupported or failed timer operations fall back to standard sleep; startup
+logs identify the selected method, and wait errors are logged.
+The performance probe includes a coarse-timer baseline, reports actual loop
+timings and leaves each case visible for ten seconds after output delivery.
+The baseline uses the old standard sleep without the timer-resolution request.
+Native ES3_5 measurements reduce average sleep from 15.1 ms to 1.7 ms and
+boot-to-prompt from 1.23 s to 0.31 s. Complete visible repaint duration remains
+a separate interactive check. Board rendering budgets and INI settings are unchanged.
+
+The performance fixture also retains `mirror-chunks.json` for each case, recording
+receive time and size up to the final output marker. These timings measure byte
+delivery, not visual repaint completion. See
+link:../../../docs/261010-2014%20DONE%20Mintty%20bank%20shortcuts%20and%20desktop%20rendering%20profile.adoc[keyboard findings and controlled rendering profile].
+
+Linux and Windows desktops now use complete dirty-frame drawing at the INI
+`render_flush_hz` rate for every selected target. Idle polling still yields CPU;
+physical devices retain their board budgets. This scheduler needs a new native
+Windows rebuild and acceptance. See
+link:../../../docs/261010-2032%20DONE%20Desktop%20complete-frame%20scheduling.adoc[complete-frame scheduling, Linux evidence and native retest].

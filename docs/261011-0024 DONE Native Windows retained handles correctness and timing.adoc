@@ -1,0 +1,100 @@
+= Native Windows retained handles: correctness and timing
+:source-highlighter: highlight.js
+:toc:
+
+== Scope and result
+
+The native Windows probe now verifies the desktop-only storage implementation
+recorded in link:261010-2330%20DONE%20Desktop%20retained%20file%20handles%20design%20and%20validation.adoc[the detailed design and validation record].
+The controlling Windows and shared desktop plans are linked there.
+
+The retained-handle correctness suite passes on Windows 10 LTSC in VirtualBox,
+using native MSYS2 UCRT64 executables built at `-O2`. All 27 timing rows complete
+and all 32-KiB readbacks verify. The production adapter's record-write pattern
+improves about sixfold. The record-read pattern shows no improvement in this run.
+This is adapter-level acceptance; a newly rebuilt full Windows desktop and
+fresh local runtime snapshot still need their integration and guest checks.
+
+== Evidence
+
+Relative to `build/RunCPM_7xtgv-terminal/desktop-win/storage-operation-proofs/`:
+
+* Before: `profile-fc2i1m_d/profile.csv`.
+* After: `profile-ylkwez54/correctness.log`, `profile.csv` and `build.log`.
+
+The diagnostics were built from the shared project, then executed with their
+runtime DLLs and disposable fixtures on local Windows D:. The new fixture parent
+is `D:\~tmp\260906-7xtgv\storage-profile-ptkg0r2b`.
+The correctness fixture includes Czech characters in its path.
+The source working card and existing emulator sessions are outside this probe.
+
+The correctness suite covers fresh read buffers, close-time write visibility,
+alias invalidation, independent simultaneous opens, append/update behavior,
+exclusive create, truncation, replacement identity, rename/remove, resource
+bounds, closeAll, remount and owner destruction. Symlink checks are conditional
+on platform support; a PASS does not establish that Windows symlink creation
+was available. See the design record and `desktop/tests/storage_reuse_test.cpp`
+for the exact checks and documented host-coordination limits.
+
+== Timing comparison
+
+Each figure is the median of three trials, in milliseconds. Record cases process
+256 records of 128 bytes (32 KiB); writes reproduce the caller's extension check
+and separate update open for each record.
+
+[cols="3,1,1",options="header"]
+|===
+|Case |Before |After
+|Actual adapter: record writes |1293.228 |214.194
+|Actual adapter: record reads |97.759 |101.112
+|Uncached native helper: record writes |1268.664 |1270.746
+|Uncached native helper: record reads |17.163 |17.066
+|Adapter: one logical handle held for writes |3.029 |2.859
+|Adapter: one logical handle held for reads |8.609 |2.292
+|===
+
+Record writes are 6.04 times faster, an 83.4% reduction in elapsed time.
+Reads are about 3.4% slower in this short comparison; that is not evidence of a
+read improvement or a controlled regression diagnosis. The unchanged uncached
+write baseline supports the conclusion that the adapter change removed much of
+the repeated write-open cost in this environment.
+
+The before/after change includes retained descriptors and the Windows backing
+open/sharing implementation. It does not isolate the effect of descriptor reuse
+from every other implementation detail. These timings measure filesystem API
+completion, not durable-media throughput or end-to-end VTDRV performance.
+
+== Remaining cost
+
+The new adapter's logical open totals still dominate: median 197.054 ms per
+write trial and 94.757 ms per read trial. Logical opens include path resolution,
+containment checks, file-identity validation and stream setup; this column is
+not just native file opening.
+
+In the separate metadata case, 256 weakly_canonical calls take a median
+71.783 ms. This supports path resolution as an important remaining cost, but is
+not a subtraction-based attribution of the record case. Checks remain enabled
+on every logical open. No path cache or core caller change was introduced.
+
+The approximately 3-ms held-handle diagnostic uses a different calling pattern.
+It must not be presented as the speed now achieved by production record writes.
+The probe does not identify which internal Windows/filesystem component causes
+the residual overhead, nor establish parity with Linux.
+
+== Next native integration check
+
+From the shared source project's `tools-win` directory:
+
+. In `targets\ES3_5 -- jc8048w550`, run `desktop-rebuild.cmd`.
+. Run that target's `desktop-proof.cmd` and `desktop-mirror-proof.cmd`.
+. Run `tools-win\stage-local.cmd` for a fresh ES3_5 snapshot on D:.
+. Launch the new snapshot and repeat `VTDRV RW`, `DIR` and representative
+  applications. Preserve the old snapshot for comparison if useful.
+
+The probe compiles the adapter directly. It does not update existing emulator
+executables, and previous D: snapshots never update automatically. Full Windows
+integration acceptance of this change remains pending those steps.
+
+This checkpoint changes documentation/status only. No further storage code,
+physical SdFat, RunCPM core, common abstraction, working card, INI/history or
+running session was changed; no commit/push or deployment was performed.

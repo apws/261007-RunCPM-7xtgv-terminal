@@ -98,7 +98,7 @@ static void testPlotHighlightHandoff() {
             updateActiveRow();
         }
     };
-    auto paint = [] { for (int n = 0; n < 1000; ++n) renderBatch(); };
+    auto paint = [] { displayFlushAt = millis(); renderBatch(); };
     terminal.reset();
     feed("\033[6;1H");
     paint();
@@ -129,6 +129,37 @@ static void testPlotHighlightHandoff() {
     const int prompt = (terminal.y * 10 + 9) * gfx->width() + x;
     require(frame[prompt] == rgb565(terminal.palette.activeLine), "new prompt highlight returns");
 }
+static void testDesktopFrameScheduling() {
+    terminal.reset();
+    terminal.invalidate();
+    terminal.compositionDirty = true;
+    displayFlushIntervalMs = 100;
+    displayFlushAt = millis() + 1000;
+    auto *canvas = xtgvDesktopCanvas();
+    const auto before = canvas->generation();
+    renderBatch();
+    require(canvas->generation() == before && terminal.compositionDirty,
+            "desktop defers drawing/publication until the frame deadline");
+    require(!terminalDesktopWorkPending(), "future frame deadline must permit idle sleep");
+    require(output.push('X') && terminalDesktopWorkPending(),
+            "queued guest output must bypass desktop idle sleep");
+    uint8_t discarded;
+    require(output.pop(discarded), "remove scheduler fixture byte");
+    displayFlushAt = millis();
+    renderBatch();
+    for (int y = 0; y < terminal.visibleRows; ++y)
+        for (int x = 0; x < terminal.visibleCols; ++x)
+            require(!terminal.dirty[terminal.index(x + terminal.viewport, y + terminal.rowViewport)],
+                    "desktop completes all visible cells in one pass");
+    require(canvas->generation() == before + 1, "one complete frame is published");
+    renderBatch();
+    require(canvas->generation() == before + 1, "idle frame does not republish");
+    displayFlushIntervalMs = 0;
+    displayFlushAt = millis();
+    terminal.invalidate(); renderBatch();
+    terminal.invalidate(); renderBatch();
+    require(canvas->generation() == before + 3, "zero Hz permits each changed complete frame");
+}
 int main() {
     terminalSetup();
     require(ready && gfx && gfx->width() == XTGV_DISPLAY_DEFAULTS.physicalWidth &&
@@ -145,14 +176,13 @@ int main() {
     while (*stream) virtualWrite(uint8_t(*stream++));
     for (unsigned i = 0; i < 100; ++i) {
         terminalLoop();
-        if (!XTGV_DISPLAY_NEEDS_FLUSH) xtgvDesktopCanvas()->publishDirect();
         delay(1);
     }
     auto *canvas = dynamic_cast<XtgvDesktopCanvas *>(gfx);
     require(canvas && canvas->generation() > 0, "real Canvas flush batches");
     require(activeDisplayProfile.renderFlushHz == 10 && displayFlushIntervalMs == 100,
             "real-board INI selects 10 Hz production scheduler");
-    if (XTGV_DISPLAY_NEEDS_FLUSH) {
+    if (BufferedDisplay) {
         const auto before = canvas->generation();
         displayFlushAt = millis() + 100;
         requestDisplayFlush();
@@ -178,6 +208,7 @@ int main() {
     testPlotHighlightHandoff();
     testLegacyAndMargins();
     testBlinkAndReversePixels();
+    testDesktopFrameScheduling();
     std::printf("Production terminal + real Arduino_GFX %s %dx%d: PASS\n",
                 XTGV_DISPLAY_DEFAULTS.id, gfx->width(), gfx->height());
 }

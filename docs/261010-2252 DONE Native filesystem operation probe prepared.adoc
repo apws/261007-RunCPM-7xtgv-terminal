@@ -1,0 +1,77 @@
+= Native filesystem operation probe prepared
+:source-highlighter: highlight.js
+
+Petr confirms the
+link:261010-2144%20DONE%20Local%20Windows%20target%20runtime%20snapshot.adoc[local D: snapshot]
+launches and runs VTDRV successfully, but reports a substantial residual gap:
+
+[cols="2,1,1",options="header"]
+|===
+|Run |32-KiB write |32-KiB read
+|Local Windows, first |1788137 us / 17.90 KiB/s |200273 us / 159.78 KiB/s
+|Local Windows, second |1391580 us / 23.00 KiB/s |201367 us / 158.91 KiB/s
+|Linux |15665 us / 2042.77 KiB/s |11212 us / 2854.08 KiB/s
+|===
+
+All verify PASS. Local Windows remains approximately 89-114 times slower writing
+and 18 times slower reading in these supplied runs. The prior share comparison
+established an additional W: penalty; it did not explain this remaining gap.
+
+== Source and optimization verification
+
+Both desktop builds link desktop/storage.cpp, not SdFat. The Windows support
+identified in the earlier portability review was the adapter's wide-path native
+open, seek/tell and truncate branches. The Arduino-style SD/File facade and
+RunCPM callers are shared. Actual Windows and Linux filesystem calls differ.
+
+Sequential 128-byte writes in abstraction_arduino_7xtgv.h first call
+_sys_extendfile (append open, size check, close), then open for update, seek,
+write and close. Thus 32 KiB involves 512 opens/closes and 256 size queries.
+Reads open/seek/read/close per record. Each adapter open resolves the path with
+weakly_canonical and checks is_directory before the native open. The adapter
+contains no explicit sleep or durable-media synchronization; activity indication
+only updates an atomic deadline. No core/common-abstraction edits were made.
+
+Generated ES3_5 compiler commands, including storage, confirm -O2 on both systems:
+Linux has -g -std=c++17 -O2; Windows has -O2 -g -DNDEBUG -std=c++17 -O2.
+Neither uses -Og. Debug symbols do not cancel optimization.
+
+== Probe and Linux evidence
+
+At Petr's request, tools-win/storage-profile.cmd now builds only a standalone
+native diagnostic from desktop/tests/storage_profile.cpp. It includes the real
+storage.cpp so the native baseline can call its exact private open/seek helpers.
+No production adapter, emulator or SDL behavior changes. The executable/DLLs and
+generated data run locally below D:\~tmp\260906-7xtgv; build/results remain shared
+under desktop-win/storage-operation-proofs. There is no CP/M card access.
+
+Three trials compare adapter and native-helper record operations, then the same
+I/O with one handle retained; every readback verifies all 32768 bytes. Timing
+columns separate open, size, seek, read, write and close. A metadata-only row
+separates weakly_canonical, is_directory and file_size. The held-handle and native
+baselines are diagnostics, not production caching or path-check changes.
+Results are API completion times with normal host caching, not durable disk rates.
+
+Strict -O2 Linux compilation, execution and MinGW cross-compilation pass.
+Python compilation and shell syntax checks pass. Native Windows execution is
+pending the user's storage-profile.cmd run.
+
+The Linux run on the project filesystem is retained at
+`build/RunCPM_7xtgv-terminal/desktop-win/storage-operation-proofs/linux-261010-2252/profile.csv`.
+Medians of three trials:
+
+[cols="2,1,1",options="header"]
+|===
+|Pattern |32-KiB write |32-KiB read
+|Actual adapter, reopen per record |10.623 ms |4.974 ms
+|Native helpers, reopen per record |1.861 ms |0.775 ms
+|Actual adapter, retained handle |0.475 ms |0.081 ms
+|Native helpers, retained handle |0.456 ms |0.062 ms
+|===
+
+Adapter-open time accounts for approximately 9.149 ms of the record-write case
+and 4.455 ms of the record-read case. The separate 256-path metadata probe spends
+3.454 ms in canonicalization. These establish measurable adapter overhead on
+Linux; only the native Windows probe can identify the dominant Windows operation.
+An earlier /tmp fixture also passes but its timings are not substituted for the
+project-filesystem evidence. Working cards and running sessions remain intact.

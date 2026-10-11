@@ -37,6 +37,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=('build', 'local', 'card'))
     parser.add_argument('--target', required=True)
+    parser.add_argument('--window-scale', type=int, choices=range(1, 10), default=1,
+                        help='Fixed SDL window integer scale (1..9); guest geometry is unchanged')
     parser.add_argument('--card-root')
     parser.add_argument('--gfx', help='GFX 1.6.4 source directory for build')
     parser.add_argument('-O', '--optimization', type=optimization_level, choices=OPTIMIZATION_LEVELS)
@@ -51,6 +53,7 @@ def main():
                    '--quiet', '--log', str(args.log.resolve())]
         print('Desktop module: ' + target_label(name, definition), flush=True)
         if args.action == 'build':
+            if args.window_scale != 1: raise RuntimeError('--window-scale is only for launch')
             if args.card_root: raise RuntimeError('--card-root is only for launch')
             if args.gfx: command += ['--gfx', args.gfx]
             if args.optimization: command += ['--optimization', args.optimization]
@@ -58,7 +61,8 @@ def main():
             if args.optimization: raise RuntimeError('--optimization is only for desktop-rebuild.sh')
             if args.gfx: raise RuntimeError('--gfx is only for build')
             root = card_root(args.action, args.card_root)
-            command += ['--card-root', str(root), '--mirror', args.mirror]
+            command += ['--card-root', str(root), '--mirror', args.mirror,
+                        '--window-scale', str(args.window_scale)]
             print('Card: ' + ('local folder' if args.action == 'local' else 'mounted SD/USB') +
                   ' (read/write, including INI/history)', flush=True)
         if args.dry_run:

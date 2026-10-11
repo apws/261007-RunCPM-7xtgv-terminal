@@ -27,6 +27,7 @@ std::string XtgvDesktopSerial::openPty() {
     return path;
 }
 void XtgvDesktopSerial::closePty() {
+    closeLoopback();
     if (master_ >= 0) ::close(master_);
     master_ = -1; attached_ = false; output_.clear();
 }
@@ -39,6 +40,7 @@ size_t XtgvDesktopSerial::write(const uint8_t *bytes, size_t count) {
     return accepted;
 }
 void XtgvDesktopSerial::pump() {
+    if (loopback_) { pumpLoopback(); return; }
     if (master_ < 0) return;
     pollfd fd{master_, POLLIN | POLLOUT, 0};
     if (::poll(&fd, 1, 0) < 0) return;

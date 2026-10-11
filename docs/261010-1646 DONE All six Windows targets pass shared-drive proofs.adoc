@@ -1,0 +1,52 @@
+= All six Windows targets pass shared-drive proofs
+:source-highlighter: highlight.js
+
+All six native Windows targets now have successful rebuild, visual smoke and
+full connection/storage proof logs on the live W: VirtualBox shared checkout.
+This extends the
+link:261010-1626%20DONE%20Native%20Windows%20shared-drive%20connection%20proofs%20pass.adoc[EP4_10 and ES3_5 acceptance]
+under the
+link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[controlling plan].
+ES3_5 remains the primary target for subsequent interactive Windows work.
+
+[cols="1,1,1,2",options="header"]
+|===
+|Target |Build stamp |Build / smoke / proof |Full proof fixture
+|EP4_10 |261010-1620 |PASS / PASS / PASS |xtgv-loopback-proof-mn7opjoe
+|ES3_5 |261010-1623 |PASS / PASS / PASS |xtgv-loopback-proof-atz9h97h
+|EC6_147 |261010-1627 |PASS / PASS / PASS |xtgv-loopback-proof-n92liyaj
+|ES3_35 |261010-1629 |PASS / PASS / PASS |xtgv-loopback-proof-j3zsah_5
+|RP2_147 |261010-1631 |PASS / PASS / PASS |xtgv-loopback-proof-d0w40kzl
+|RP2_2 |261010-1639 |PASS / PASS / PASS |xtgv-loopback-proof-ppe2_ub3
+|===
+
+The last RP2_2 proof finished at 16:46:21. Its build had already completed at
+16:39:42; the screenshot showed Command Prompt in Select mode while the final
+status was not visible. No build failure or required source change was found.
+
+Evidence is under each target's
+`build/RunCPM_7xtgv-terminal/desktop-win/msys2-ucrt64/TARGET/` directory:
+`build.log`, `proof-cards/FIXTURE/proof.log`, per-case `process.log`, and
+`proof-reports/FIXTURE.zip`. All six build logs reach runtime DLL staging;
+latest smoke logs report normal completion and exit code zero. Every full
+proof reports successful MSYS terminal/socket select and descriptor I/O,
+five portable C++ tests, 262149 exact binary bytes, guest BDOS output, data
+reconnect/snapshot and all six shutdown/history-save scenarios.
+
+For the four newly completed full proofs, the report ZIPs pass integrity
+checks. All 24 guest scenarios have PUN.TXT equal to X, nonempty history files,
+and normal-completion process logs. EP4_10 and ES3_5 artifacts were verified
+at the preceding checkpoint. These are desktop/native Windows results, not
+physical MCU or panel qualification.
+
+The storage tests and guest cards ran on the shared W: filesystem. This is
+positive evidence for the tested shared-source build and file-operation path;
+there is no remaining observed shared-folder blocker in this test matrix.
+All 301 working-card hashes still match the pre-port snapshot. No live session
+was disturbed. Only documentation and registry were updated while reviewing
+these results; no implementation, rebuild, commit, push or deployment.
+
+Next: interactive shared mirror and Mintty owner lifecycle on ES3_5. Deliberate
+non-ASCII paths, physical keyboard/chord/AltGr behavior, mirror transfers,
+restart persistence and interactive SDL/mirror close/reboot handling remain
+open. The six-board diagnostic matrix does not complete the entire port.

@@ -1,0 +1,82 @@
+= First EP4 Windows cross-build
+:source-highlighter: highlight.js
+:toc:
+
+== Authorization and scope
+
+Petr approved trying the build from the
+link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[MSYS2 Windows plan].
+This checkpoint completes the first compilation part of A, not the native
+Windows transport/execution gate or the full Windows tooling plan.
+
+The host initially lacked MinGW-w64. An explicit
+`tools-win/setup-cross.sh` prerequisite script was added; its elevated run
+reached a sudo password prompt and was cancelled. Petr installed the packages
+in his terminal. The configured CachyOS mirror delivered approximately
+31 KB/s in a bounded probe; the configured CDN alternative delivered about
+2 MB/s. A temporary `/tmp/xtgv-win-first/pacman-fast.conf` selected that CDN
+without changing normal mirror configuration or signature checks. Petr
+reported the faster installation completed. No package database refresh or
+system upgrade was performed by this work.
+
+== Changes and build result
+
+* Desktop CMake now selects the existing Linux PTY source or an explicitly
+  fixture-only Windows Serial implementation. Linux does not use a socket.
+* The original headless application and SDL presenter build for Windows with
+  MinGW-w64. Five portable C++ test executables also compile. POSIX Python/PTY
+  integration tests remain Linux-only until a Windows harness is qualified.
+* Windows build definitions select HostOS 0x00, matching the existing BDOS
+  host-identity contract, and prevent Win32 min/max macros. No core edit.
+* SDL uses the application's ordinary main function and SDL_SetMainReady.
+  The SDL DLL is copied beside the executable; console diagnostics remain
+  available to the launcher.
+* The first compiler failure was the existing CPU throttle's Win32 Sleep
+  declaration. Including windows.h in the desktop application wrapper fixed
+  it. CPU, CCP, BDOS and common abstraction sources were not changed.
+* Added an optional Linux MinGW toolchain file and
+  link:../src/RunCPM_7xtgv-terminal/tools-win/README.adoc[repeatable cross-build instructions].
+  No target launchers or Windows mirror have been implemented yet.
+
+Build artifact directory:
+`build/RunCPM_7xtgv-terminal/desktop-win/jc8012p4a1c/`.
+It contains `xtgv_desktop.exe`, `xtgv_headless.exe`, five test EXEs, SDL2.dll
+and the three compiler runtime DLLs. `build-proof.json` records SHA-256 hashes,
+PE import lists and the explicit untested execution status.
+
+Compiler: x86_64-w64-mingw32 GCC 16.2.0, POSIX thread model. The executable is
+PE32+ x86-64 and imports UCRT APIs. This is a Linux cross-toolchain result,
+not a native MSYS2 UCRT64 build result. The build uses real Arduino_GFX 1.6.4
+and the official SDL2 2.32.10 MinGW archive, checked against its release asset
+SHA-256 before extraction. Optimization is O2 with RelWithDebInfo.
+
+== Validation and recovery
+
+* Existing EP4_10 Linux baseline: all 12 CTests passed.
+* Fresh Linux build after the platform selection changes: all 12 CTests passed,
+  including PTY lifecycle, integrated guest/SDL, movable profiles, history and
+  catalog listing. Build directory:
+  `build/RunCPM_7xtgv-terminal/desktop/linux-win-port-check/`.
+* Windows build: seven executables linked successfully. PE imports checked;
+  required SDL/GCC/winpthreads DLLs are staged beside them. No native Windows
+  execution or Wine run was performed; Windows tests are compiled, not passed.
+* Setup shell syntax and dry-run checked. Build logs and pre-edit source copies
+  are under `/tmp/xtgv-win-first/`; these are transient, not release artifacts.
+
+The exact configure/build commands and SDL archive digest are in the linked
+tools-win README. Shared Linux build outputs used by existing sessions were
+not replaced. Working card and running sessions were not launched or stopped.
+Existing guide/source/card changes remain in the worktree; no commit, push,
+firmware build, flash or card deployment.
+
+== Next checkpoint
+
+Finish A on native Windows: real guest/storage and visible SDL execution, then
+the native executable/MSYS Python connection and cooperative stop proof.
+Windows currently accepts scripted input only; `--pty` fails explicitly.
+Do not present this executable as the completed interactive Windows port.
+
+After that proof, continue shared mirror/Mintty/lifecycle integration before
+the six-board launcher matrix. Paths with Czech characters, MSYS/native path
+conversion, runtime packaging, full keyboard equivalence and Windows
+persistence remain acceptance work. Normal user guides are unchanged.

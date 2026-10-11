@@ -1,0 +1,60 @@
+= MSYS2 reuse for Windows desktop tooling
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Scope
+
+Petr suggested using MinGW and a Linux-like Windows environment to reuse the
+existing rebuild, launch and mirror tooling. This supplements the
+link:261010-1327%20DONE%20Windows%20desktop%20portability%20review.adoc[portability review].
+It is a proposal, not an installed or tested Windows configuration.
+
+== Assessment
+
+MinGW-w64 supplies a compiler/toolchain for native Windows executables.
+MSYS2 also supplies a POSIX runtime, Bash, tmux, POSIX Python and Mintty.
+These are distinct environments even though they can be used from one shell.
+UCRT64 is MSYS2's recommended default native build environment.
+
+The MSYS Python package includes termios, fcntl and grp modules. It is a better
+candidate for reusing the current POSIX mirror than the native Windows Python
+from a MinGW/UCRT environment. Select interpreters and build tools explicitly;
+PATH ordering alone can otherwise select the wrong Python.
+
+Recommended next feasibility direction:
+
+* Build the emulator and SDL dependencies with the native UCRT64/MinGW toolchain.
+* Run the existing mirror/session logic under MSYS Python, tmux and Mintty,
+  adapting only the required host/transport paths. Reuse shared code rather
+  than maintaining a copied Windows mirror.
+* Add a local socket or pipe backend to the emulator's Serial interface and
+  the mirror. A native MinGW executable cannot use the existing Unix PTY API
+  merely because it was launched by an MSYS shell. Keep protocol bytes and
+  bounded buffering/connection semantics unchanged.
+* Verify a Mintty mapping of the existing key-event contract, including Czech
+  layout, AltGr, keypad and reserved controls. Mintty has configurable key
+  behavior, but exact equivalence is not established by its availability.
+* Keep explicit cooperative shutdown for the native child. POSIX process
+  semantics in a parent environment must not be assumed for a native child.
+* Keep `tools-win/targets/` limited to thin launchers. Card/INI semantics,
+  target metadata, board definitions and emulator implementation stay shared.
+
+This approach can avoid much of a new native-console mirror implementation.
+The tradeoff is that MSYS2 remains a runtime prerequisite for the mirror as
+well as a convenient build environment. A standalone package without MSYS2
+would be a later, separate packaging choice. A wholly POSIX-runtime-linked
+emulator is another possibility, but compatible graphics libraries and runtime
+behavior would need their own proof; do not silently mix native and POSIX DLLs.
+
+No tools installed, code changed or Windows builds/tests run. Existing guides,
+working-card files and sessions remain untouched. This refinement changes the
+recommended experiment, not the implementation status.
+
+== Primary references checked
+
+* https://www.msys2.org/docs/environments/[MSYS2 environments and UCRT64].
+* https://packages.msys2.org/packages/python[MSYS Python package and modules].
+* https://packages.msys2.org/packages/tmux[MSYS tmux package].
+* https://www.msys2.org/docs/terminals/[Mintty and terminal launchers].
+* https://www.msys2.org/wiki/Porting/[Native/POSIX boundaries and path conversion].
+* https://mintty.github.io/mintty.1.html[Mintty configurable key behavior].

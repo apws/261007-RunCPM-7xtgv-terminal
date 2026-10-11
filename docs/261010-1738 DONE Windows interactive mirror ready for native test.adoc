@@ -1,0 +1,92 @@
+= Windows interactive mirror ready for native test
+:source-highlighter: highlight.js
+
+Petr authorized proceeding from the
+link:261010-1646%20DONE%20All%20six%20Windows%20targets%20pass%20shared-drive%20proofs.adoc[six-target native connection matrix]
+to checkpoint B of the
+link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[Windows plan].
+ES3_5 remains the first interactive target. The live project is shared as
+`W:\ver\260906-7xtgv`; native execution still requires Petr to launch the CMD
+entry points. This tooling environment can edit shared files and inspect their
+logs, but does not control the Windows guest desktop.
+
+== Implementation
+
+* Shared `tools/terminal.py` accepts an explicit `LoopbackEndpoint` while retaining
+  its Linux serial/PTY route. Keyboard, host controls, mirror and transfer panel
+  are shared. The owner supplies a child-exit callback; TTY-loss cleanup still
+  closes the data connection. Desktop endpoints cannot configure an uploader.
+* `tools-win/windows_run.py` opens Mintty and runs an owning MSYS Python process.
+  It authenticates the separate control socket, runs the mirror, requests STOP
+  on close and waits for cooperative native cleanup. Guest exit 75 restarts on
+  the same card in the same Mintty; explicit owner close wins. The Windows path
+  does not use tmux or attach to a Linux/hardware session.
+* Per-session Mintty settings derive key IDs from the shared firmware header.
+  Navigation/function/special keys and established global exit/clear/view controls
+  are mapped. F11 is fullscreen, Alt+F4 closes Mintty; Pause supplies the mirror
+  prefix. Ordinary Windows text entry remains layout-owned. Konsole's positional
+  Czech main-row/keypad remaps are not implemented by this initial profile.
+  Native physical keys, AltGr and emergency-chord behavior need acceptance.
+* All six source target folders now include `desktop-test.cmd`,
+  `desktop-local.cmd`, `desktop-card.cmd` and `desktop-mirror-proof.cmd` alongside
+  rebuild/smoke/connection-proof launchers. Test creates a complete retained copy
+  of the working card. Local opens the canonical card read/write; card requires
+  an explicit root. These do not rebuild, install packages or access MCU hardware.
+* New Linux/Windows launches use a per-card atomic-directory lock. An existing
+  participating owner blocks a second writer. Normal close releases its lock;
+  an unresponsive child retains it. Older already-running sessions have no such
+  lock and must be closed before sharing their card with a new writer.
+* Session logs, status, emulator generations and copied cards stay below the
+  target build's `sessions` directory. The transfer panel uses a separate local
+  `transfers/DU` tree there, protecting the working card during acceptance.
+
+The initial Linux mirror tests exposed two fixture assumptions: profile selection
+suppresses input during the one-second notice, and the existing transfer-screen
+parser expects 80x24. Tests now wait after selecting bank 9 and configure their
+disposable terminal geometry. The earlier connection proof selected `CSI >33v`
+(End), not bank 9; it now uses `CSI >29v` plus the notice wait. Earlier results
+remain evidence of connection/storage behavior on disposable cards, not proof of
+bank-9 selection. No live INI/history was changed to accommodate tests.
+
+== Verification
+
+* Eight real mirror/owner cases pass on Linux ES3_5: prefix quit, guest EXIT,
+  guest REBOOT with a second generation and persisted output, SIGTERM during
+  VTLOOP and VTFLOOD, SIGHUP, actual PTY disappearance, and binary VTPUT/VTGET
+  with transfer-panel cancellation. The round trip retains all 256 byte values
+  twice (512 bytes), including NUL/Ctrl-Z. Cases check guest BDOS output, saved
+  history, card lock release and TTY restoration where the terminal still exists.
+* Final retained evidence:
+  `build/RunCPM_7xtgv-terminal/desktop/linux-win-es3-proof/mirror-proofs/mirror-557hfeus/`.
+  Its `proof.log` reports all eight passes; each case retains mirror bytes, card,
+  owner status and per-generation process output. Cards have spaces/Czech
+  characters in their paths. This is Linux evidence, not native Unicode qualification.
+* Updated connection proof passes all five portable C++ tests, mixed descriptor
+  I/O, 262149 binary bytes and six guest/reconnect/save cases. Evidence:
+  `desktop/linux-win-es3-proof/proof-cards/xtgv-loopback-proof-xp5k9ywq/`, under
+  `build/RunCPM_7xtgv-terminal/`, with a corresponding proof-report ZIP.
+* 37 helper/PTY tests, 10 existing desktop-tool/lifecycle tests and 13 Windows
+  tooling/keymap/lock contract tests pass. Windows contract tests do not execute
+  CMD or Mintty. No new C++ build was required for these host-tool changes.
+* All 301 working-card hashes match `/tmp/xtgv-win-first/card-before.json`.
+  Existing sessions, working INI/history, hardware and unrelated work remain
+  untouched. No commit, push or deployment.
+* README, BG, TG and this checkpoint render with Asciidoctor. Existing guide
+  level-offset warnings remain; guide chapter numbering was not restructured.
+
+== Native acceptance next
+
+In `W:\ver\260906-7xtgv\src\RunCPM_7xtgv-terminal\tools-win\targets\ES3_5 -- jc8048w550`:
+
+. Run `desktop-mirror-proof.cmd` for the automated MSYS/native owner test.
+  Results are retained under the target's `mirror-proofs` directory.
+. Run `desktop-test.cmd` to open Mintty and SDL using a fresh full card copy.
+  Type in Mintty; try CCP editing, profile selection and application keys,
+  guest REBOOT/EXIT, then close Mintty and SDL in separate launches.
+  Pause then q is the layout-independent mirror-close fallback.
+
+The existing native loopback build is sufficient; no rebuild is needed solely
+for this Python/keymap update. Full physical keyboard parity, Mintty/SDL close
+behavior on Windows, native non-ASCII paths and wider six-target interactive
+acceptance remain pending. This checkpoint does not mark the entire port complete.
+See link:../src/RunCPM_7xtgv-terminal/tools-win/README.adoc[Windows tooling notes].

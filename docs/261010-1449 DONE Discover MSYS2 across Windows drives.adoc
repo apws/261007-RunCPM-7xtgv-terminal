@@ -1,0 +1,28 @@
+= Discover MSYS2 across Windows drives
+:source-highlighter: highlight.js
+
+Petr installed MSYS2 on D: and found that the initial bootstrap assumed
+C:\msys64. He also asked whether MSYS2 needed to be on Windows PATH.
+It does not: the bootstrap invokes the selected installation's Bash directly,
+then MSYS2 supplies its own UCRT64/MSYS tool paths.
+
+The shared `tools-win/windows.cmd` now honors explicit `XTGV_MSYS2_ROOT` first,
+otherwise probes the project drive, system drive and C: through Z: for
+`msys64`, `msys2`, or an installation directly at the drive root. Candidates
+need both usr/bin/bash.exe and usr/bin/pacman.exe. The first candidate wins;
+the selected root is printed. An invalid explicit root fails rather than
+silently selecting another installation. No global Windows PATH is modified.
+
+For files already copied to Windows, the existing override works immediately
+from Command Prompt: `set "XTGV_MSYS2_ROOT=D:\msys64"`, followed by setup.cmd
+in the same console. The path must be the actual installation root. Automatic
+discovery requires copying the updated windows.cmd into the Windows tree.
+
+The link:../src/RunCPM_7xtgv-terminal/tools-win/README.adoc[Windows setup README]
+now documents discovery, custom paths and the override. This follows
+link:261010-1406%20DONE%20Windows%20setup%20and%20rebuild%20entry%20points.adoc[setup/rebuild entry points]
+under the existing Windows plan.
+
+Six existing offline Windows tooling tests still pass; CMD discovery was
+reviewed but has not been executed on native Windows. README and this record
+rendered. No runtime source, build artifact, card file or session changes.

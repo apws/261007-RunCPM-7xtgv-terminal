@@ -1,0 +1,28 @@
+= Three Windows target launchers
+:source-highlighter: highlight.js
+
+== Requested cleanup
+
+Petr requested only `desktop-rebuild.cmd`, `desktop-local.cmd` and
+`desktop-card.cmd` in each Windows target folder. Removed the five diagnostic
+wrappers (test, smoke, proof, mirror-proof and performance) from all six folders:
+30 files in total. Existing logs and the three retained wrappers are preserved.
+
+Diagnostic implementations remain callable through `tools-win/windows.cmd`
+with an explicit target. The Windows README documents these commands. Build
+and Tooling Guides now describe the three-entry layout. Future runtime snapshots
+copy/generate only local/card launchers, since snapshots omit build sources.
+Previously staged snapshots are not modified.
+
+== Verification and scope
+
+All 29 Windows tooling tests pass, including exact per-target CMD inventory,
+target arguments, CRLF, runtime staging/import closure and card preservation.
+No executable rebuild is needed for this cleanup. Working cards, running
+sessions, Linux launchers and the shared keyboard diagnostic are unchanged.
+
+This refines the tooling in
+link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[the Windows desktop plan].
+The preceding
+link:261011-1617%20DONE%20Focused%20Mintty%20physical-key%20helper%20prepared.adoc[keyboard-helper checkpoint]
+still needs a native target rebuild and physical-key acceptance.

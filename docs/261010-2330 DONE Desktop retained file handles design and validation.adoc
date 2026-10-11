@@ -1,0 +1,274 @@
+= Desktop retained file handles: design and validation
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+
+== Scope and status
+
+Petr authorized desktop-only implementation after
+link:261010-2259%20DONE%20Windows%20native%20file-open%20bottleneck%20measured.adoc[the native Windows operation measurements],
+and requested this detailed record. The controlling scope remains the
+link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[Windows desktop plan]
+and link:261006-0935%20PLAN%20Desktop%20runtime%20using%20existing%20board%20HALs.adoc[shared desktop architecture].
+
+Implementation is in the host SD/File adapter only. Both Linux and Windows use
+the mechanism. No RunCPM CPU, CCP, BDOS/BIOS, common Arduino abstraction or
+physical-board SdFat driver was changed. Working cards, INI/history and running
+sessions were preserved. No commit/push, firmware build/upload or card deployment.
+
+Linux correctness, integrated desktop, connection and mirror tests pass. Windows
+cross-compilation passes. Native Windows correctness and performance of this
+implementation remain pending a new storage-profile.cmd run; the earlier native
+measurements concern the old adapter and the idealized held-handle diagnostic.
+
+Later acceptance: link:261011-0024%20DONE%20Native%20Windows%20retained%20handles%20correctness%20and%20timing.adoc[native Windows correctness and timing] records
+the passing probe and measured sixfold record-write improvement on 261011.
+The pending statements above describe this original implementation checkpoint.
+
+== What the measurements established
+
+=== Two different storage penalties
+
+The identical-card comparison used the same Windows executable and shared logs,
+changing only the card location. Median DIR plus marker fell from 1.4143 seconds
+on W: to 0.1216 seconds on local D:. See
+link:261010-2136%20DONE%20Native%20Windows%20storage%20location%20comparison.adoc[location comparison].
+
+The local runtime snapshot then demonstrated a remaining Windows gap: VTDRV
+32-KiB writes took 1.39-1.79 seconds and reads about 0.20 seconds, versus supplied
+Linux results of 15.665 ms and 11.212 ms. Thus shared-folder overhead was only
+one factor. The desktop builds and diagnostic all use -O2; -g supplies debug
+symbols without disabling that optimization. There was no -Og explanation.
+
+=== Isolated native operation probe
+
+The probe removes RunCPM, terminal rendering and mirror transport, uses generated
+files, and verifies every 32-KiB readback. Its original native Windows medians:
+
+[cols="2,1,1",options="header"]
+|===
+|Pattern |Write |Read
+|Adapter, reopen each record |1293.228 ms |97.759 ms
+|Native helper, reopen each record |1268.664 ms |17.163 ms
+|Adapter, one handle held throughout |3.029 ms |8.609 ms
+|Native helper, one handle held throughout |2.773 ms |8.124 ms
+|===
+
+The record-write case spent approximately 96.5 percent of its time in adapter
+opens. Bypassing the adapter did not remove the write penalty: the native open
+helper still dominated. The separate 256-path metadata test spent 67.890 ms in
+weakly_canonical. The probe identifies expensive operations, not their internal
+Windows filesystem/filter/VM cause. It does not establish an antivirus defect,
+slow physical media or a general limit on Windows bulk I/O.
+
+The original held-handle result is a useful lower-overhead reference, not a
+promised guest speedup. It avoids repeated logical closes and identity checks.
+The production implementation below deliberately retains those correctness costs.
+
+== Existing call path and why it repeats work
+
+[source,text]
+----
+CP/M BDOS record operation
+  -> abstraction_arduino_7xtgv.h
+  -> Arduino-style SD / File interface
+  -> desktop/storage.cpp
+  -> native host filesystem
+----
+
+The desktop does not link SdFat. It implements the subset of the SD/File interface
+required by the existing Arduino abstraction. Physical boards retain their own
+storage implementation.
+
+For an ordinary sequential 128-byte write, _sys_writeseq first calls
+_sys_extendfile: open for append, query size, fill any gap, close. It then opens
+for update, seeks, writes the record and closes. A contiguous 32-KiB write therefore
+performs 512 opens and closes and 256 size checks. A read opens, seeks, reads and
+closes once per record. The adapter also canonicalizes the path and checks whether
+it is a directory on each open. None of those callers were edited.
+
+== Retained native handle design
+
+=== Two distinct lifetimes
+
+The externally visible File object still has its original logical lifetime.
+Each logical open receives a fresh C buffered stream and starts at offset zero.
+Explicit close really calls fclose on that stream: buffered writes are submitted
+to the host, read buffering is discarded, and copies of that logical File become
+invalid together.
+
+A separate native backing descriptor can remain open after logical close. It
+does not perform buffered reads or writes itself. A subsequent matching open
+duplicates that descriptor into a new FILE stream. The duplicate and backing
+descriptor share the kernel offset, but only one logical open leases a backing
+descriptor at a time; simultaneous independent opens never share that lease.
+This preserves separate offsets for independently opened File objects.
+
+The distinction prevents two common failures of simply keeping a FILE pointer:
+stale buffered reads after another write, and a stale EOF indicator after the
+file grows. It also preserves close-time write visibility for other handles.
+
+=== Bounded retention and keys
+
+At most eight idle backing descriptors are retained, in release order. Active
+File objects are outside that idle limit, as active opens were before. Returning
+a descriptor replaces an older idle descriptor with the same key; otherwise the
+oldest idle entry is evicted at capacity. Eviction actually closes the backing
+descriptor. There is no new worker, timer, INI setting or guest command.
+
+The key contains the resolved path and native access/append mode. Read-only,
+write-only, update and append modes are not silently interchangeable. Reuse
+resets the new logical stream position. Append behavior remains enforced by the
+underlying native descriptor, including after a seek.
+
+Creation flags are not treated as access modes: exclusive-create and truncate
+opens always discard matching idle entries and perform a native open, preserving
+their filesystem side effects. Ordinary create-without-truncate may reuse an
+existing matching file, but a missing or replaced path takes the native path.
+
+=== Path containment and external file changes
+
+Every logical open still passes through the existing path resolver. Drive/UNC
+escapes and parent traversal are rejected; weakly_canonical and the card-root
+component check remain. No cached path resolution bypasses those checks.
+
+Before a backing descriptor is reused, its file identity is compared with the
+file currently at that path. Matching size and modification time alone would be
+insufficient: a replacement may deliberately have the same size and timestamp.
+
+On Linux, the adapter compares stat device/inode values against those captured
+for the held descriptor. The descriptor keeps the old inode alive, preventing
+its reuse for a different file during retention. Mode, owner and group changes
+also force a fresh open. Data, file size and timestamps are not cached.
+
+On Windows, an attributes-only handle to the current path supplies identity.
+The comparison uses the volume serial number and full 128-bit FileIdInfo, with a
+read-only attribute check for write-capable reuse. Failed or unsupported identity
+queries cause a fresh open rather than speculative reuse. This permits a shared
+filesystem with limited identity support to remain functional without promising
+the same speedup as local NTFS.
+
+=== Windows sharing and CRT ownership
+
+Retainable Windows handles use CreateFileW with read/write/delete sharing, then
+_open_osfhandle and _fdopen to enter the CRT. Delete sharing lets normal host-side
+rename/replacement proceed while an idle backing descriptor exists. The original
+_wopen helper remains available to the diagnostic's uncached native baseline.
+
+The requested data access still follows O_RDONLY/O_WRONLY/O_RDWR. Metadata access
+is requested for identity checks; an access-denied result retries with just the
+original data access so a write-only ACL is not rejected solely by the extra
+metadata request. If identity cannot be checked, that descriptor cannot be reused.
+
+Ownership transfers are explicit: a successful _open_osfhandle gives the CRT
+ownership of the Win32 handle; fclose closes its CRT descriptor. The duplicate
+stream and backing stream each own their own descriptor. Failure paths release
+the descriptor/handle at the layer which still owns it.
+
+Primary API references:
+
+* https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew[CreateFileW sharing and creation modes].
+* https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/open-osfhandle[_open_osfhandle ownership].
+* https://learn.microsoft.com/en-us/windows/desktop/api/fileapi/ns-fileapi-by_handle_file_information[File identity and the 128-bit ReFS distinction].
+
+=== Flush, invalidation and shutdown
+
+[cols="1,3",options="header"]
+|===
+|Event |Behavior
+|Logical close |fclose flushes/discards the logical stream; only a successful close returns its backing descriptor to the pool. Aliases are invalidated.
+|Close failure |Discard the backing descriptor and latch failure for closeAll to report.
+|Explicit flush/size query |Existing buffered-write flush behavior remains.
+|Truncate |Flush the active stream and discard idle handles for the path before resizing.
+|Adapter remove/rename |Discard idle descriptors for affected paths before the native mutation.
+|Open-file rename |Flush and release the active stream/backing descriptor, rename, reopen and restore the logical position.
+|External replacement/deletion |The next logical open re-resolves the path and rejects a mismatched/missing identity.
+|closeAll |Close active logical streams, invalidate their aliases, and release every idle backing descriptor; report latched close errors.
+|Successful remount |closeAll runs before switching roots, invalidating files from the previous mount.
+|Storage-owner destruction |closeAll prevents surviving File aliases from retaining usable native resources.
+|Desktop EXIT, REBOOT or owner shutdown |The existing worker shutdown calls closeAll after persistence; no shared core hook was added.
+|===
+
+An ordinary CP/M warm return is not a desktop process restart. Its logical file
+closes still flush, while bounded idle backing descriptors may survive for reuse.
+
+Flushing here means normal C-library flush/close into the host operating system.
+It does not add fsync, FlushFileBuffers, write-through or a new power-loss durability
+guarantee. The probe measures API completion with normal filesystem caching.
+
+=== Host coordination limits
+
+The existing one-writer card lock remains. This implementation does not make
+concurrent uncoordinated host/guest writes coherent as a transaction. An already
+open reader still has the ordinary semantics of its active buffered stream.
+
+Native descriptors remain open while idle, so another host program demanding
+exclusive file access may need the desktop session closed first. Retained native
+handles also retain their granted access rights; changing ACLs while a session is
+mounted is not a supported way to revoke those already-open handles. Close the
+session before such access-policy changes. Normal external content replacement,
+rename and deletion are covered by the identity/invalidation tests. On Windows,
+an external deletion may stay pending until its retained handle is released;
+an immediate external delete-and-recreate sequence can therefore require closing
+the desktop. If a logical open cannot resolve a path, the adapter releases idle
+descriptors and retries resolution once, allowing its own next open to recover
+from delete-pending state without bypassing containment checks.
+
+== Changed source and tests
+
+* desktop/storage.cpp and storage.h: bounded backing-descriptor ownership,
+  native sharing/identity checks, fresh logical streams and lifecycle cleanup.
+* desktop/tests/storage_reuse_test.cpp: focused correctness and resource tests.
+* desktop/CMakeLists.txt: host_storage_reuse test alongside the existing contract.
+* desktop/tests/loopback_proof.py: include the new portable storage test.
+* tools-win/storage_profile.py: build/run the new correctness executable before
+  the operation profile, on local Windows storage, keeping logs on the share.
+
+The focused test covers close visibility, copied aliases, simultaneous opens,
+EOF/buffer refresh, append/update interleaving, exclusive-create, truncation,
+same-size/same-timestamp host replacement, internal and external rename/delete,
+symlink containment where supported, bounded descriptor counts, closeAll,
+remount and owner destruction with surviving aliases.
+
+Linux evidence:
+
+* Strict -O2 storage tests pass; focused AddressSanitizer/UndefinedBehaviorSanitizer
+  run passes outside the tracing sandbox required by LeakSanitizer.
+* All ten ES3_5 CTests pass, including integrated sketch, framebuffer, PTY lifecycle
+  and SDL smoke. This replaces the former nine-test set for this build.
+* Eight actual-mirror cases pass at
+  `desktop/render-profile-es35/mirror-proofs/mirror-3lkmgm_9/`, under the project
+  build root, including cooperative close, REBOOT/history and exact binary transfer.
+* The connection/storage proof passes at
+  `desktop/render-profile-es35/proof-cards/xtgv-loopback-proof-ioytm7wi/`, with its
+  report ZIP under proof-reports: six portable tests, 262149-byte transport check,
+  and six guest persistence/shutdown scenarios.
+* Native Windows probe and focused test cross-compile with strict warnings;
+  the complete ES3_5 Windows cross-build passes.
+* Normal Linux ES3_5 and ES3_35 launcher builds were refreshed. The ES3_5 CMake
+  cache used the same project through /run/media, requiring an unsandboxed build
+  after the initial sandbox path was read-only; no cache or source was discarded.
+
+The initial optimized Linux profile is retained under
+`desktop-win/storage-operation-proofs/linux-retained/profile.csv`.
+Its record-write/read medians are 11.054/5.281 ms, compared with earlier
+10.623/4.974 ms. Those short runs do not establish a Linux speed gain; native opens
+were already cheap, and path/identity checks remain. A subsequent small Linux
+implementation refinement removes a redundant fstat of the held inode; integrated
+tests were rerun. Native Windows production-path timing is the important pending
+performance gate. The old 3.029-ms held-handle result is not substituted for it.
+
+== Native continuation
+
+. Run tools-win\storage-profile.cmd from W:. It builds only the small diagnostics
+  at -O2, runs correctness and timing on D:, and retains correctness.log/profile.csv
+  under the shared storage-operation-proofs directory. No card is accessed.
+. After those results are reviewed, rebuild the chosen Windows desktop target.
+  Run desktop-proof.cmd and desktop-mirror-proof.cmd for native integration.
+. Run stage-local.cmd again to create a fresh local snapshot; existing staged
+  executables are snapshots and do not update themselves. Launch its local desktop
+  and repeat VTDRV, DIR and representative applications.
+
+Physical-board work remains separate. A future SdFat optimization may reuse the
+idea, but cannot use desktop descriptors or assume these timing ratios. It needs
+its own storage ownership, flush/invalidation design and physical measurements.

@@ -20,6 +20,10 @@ int main() {
         previous = brightness;
     }
     require(xtgvDesktopBrightness(XTGV_BACKLIGHT_DUTIES[1]) > 0, "first lit level stays visible");
+    std::printf("SDL brightness by level (0..31):");
+    for (const auto duty : XTGV_BACKLIGHT_DUTIES)
+        std::printf(" %u", unsigned(xtgvDesktopBrightness(duty)));
+    std::puts("");
     XtgvDesktopCanvas canvas(32, 24);
     require(canvas.begin(), "Canvas allocation");
     canvas.publish = capture;

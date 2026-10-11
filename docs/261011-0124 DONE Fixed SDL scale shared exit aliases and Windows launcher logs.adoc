@@ -1,0 +1,170 @@
+= Fixed SDL scale, shared exit aliases and Windows launcher logs
+:source-highlighter: highlight.js
+:toc:
+
+== Scope and status
+
+Petr requested a fixed-size SDL desktop window, launcher-selected integer panel
+magnification, investigation of Windows brightness shortcuts and Alt+Esc, then
+selected Alt+Q for Windows and explicitly extended that alias to Konsole/Kitty.
+He also requested Linux-style progress and adjacent logs specifically for
+Windows desktop-rebuild, desktop-local and desktop-card.
+
+These changes follow the
+link:261006-0935%20PLAN%20Desktop%20runtime%20using%20existing%20board%20HALs.adoc[shared desktop plan]
+and link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[Windows plan].
+Source implementation and host checks pass. Native Windows acceptance of these
+new keys, fixed window and launcher messages/logs remains pending.
+No running session, card INI/history, RunCPM core, common abstraction or physical
+board driver was changed; no commit/push or deployment was performed.
+
+== SDL presentation
+
+`--window-scale N` accepts integers 1 through 9, default 1. Both Linux and Windows
+launchers forward it to the native process, including after guest REBOOT.
+The SDL client dimensions are panel width/height multiplied by N; resizable
+window flags are removed and minimum/maximum size requests are identical.
+Nearest-neighbour rendering with integer scaling preserves the panel image.
+The selected board geometry, guest terminal dimensions, terminal glyph zoom,
+INI settings and native framebuffer snapshots are unchanged.
+
+Examples from a chosen target's launcher directory:
+
+[source,sh]
+----
+./desktop-local.sh --window-scale 3
+----
+[source,bat]
+----
+desktop-local.cmd --window-scale 3
+----
+
+Choose a factor that fits the host screen. Host compositor/DPI policy is outside
+the guest framebuffer; the Windows VM still needs a visual size/resize check.
+SDL startup logs the requested panel/scale/size and renderer. Brightness changes
+log the board PWM duty and resulting RGB multiplier for comparison.
+
+== Brightness and key audit
+
+The Linux and Windows executables use the same board duty table and
+`xtgvDesktopBrightness` formula. No brightness curve was changed. The apparent
+platform shift is not yet explained by measurements: compare the same board,
+logical level and card INI, then inspect duty/RGB logs. The portable presentation
+test now prints the complete level-to-RGB table. Different VM graphics and host
+display processing may affect appearance; this checkpoint does not diagnose them.
+
+The initial Mintty profile lacked numeric brightness/OFF definitions. The
+complete Konsole comparison also identified missing explicit number-row mode/RAW
+and transfer-panel routes. Existing mirror Alt-character fallbacks already
+provided some bank selection, so absence of a direct Mintty binding did not
+mean every bank shortcut was absent.
+
+Konsole's `tools/7xtgv-terminal.keytab` is the reference for control semantics;
+Mintty's syntax and character handling differ. Special/navigation/function keys
+use shared firmware key identifiers; many Konsole legacy navigation controls
+and Mintty versioned events therefore differ in bytes but select corresponding
+profile events. Positional Czech ordinary typing, keypad decimal identity and
+arbitrary modified-letter INI bindings are not fully reproduced by Mintty.
+Do not describe this as complete physical-key parity.
+
+Mintty character KeyFunctions use unshifted layout names and can merge modifier
+lookup paths. Sending a fixed OFF string for an Alt-number tag could steal
+ordinary Alt+0. The new Windows-only `mintty_keys.py` instead decodes numeric
+KeyFunctions actions, whose emitted sequences include the actual modifiers.
+Codes 900..912 are local to this profile/helper boundary; they are not firmware
+commands. A bounded incremental decoder preserves other input and times out
+incomplete sequences. Shared `terminal.run` accepts this optional input decoder;
+Linux calls use the unchanged default. Local runtime staging includes the helper.
+
+[cols="2,2",options="header"]
+|===
+|Chord |Decoded control
+|Alt+0..9 |Select bank 0..9 (`CSI >20v` through `>29v`).
+|Ctrl+Shift+1..9 |Brightness levels 4,7,11,14,18,21,25,28,31.
+|Ctrl+Left-Alt+Shift+0 |OFF (`CSI >63;0v`).
+|Ctrl+Left-Alt+Shift+1/2 |ANSI/VT52 (`CSI >1v` / `>2v`).
+|Alt+Shift+3 |RAW toggle (`CSI >15v`).
+|Alt+Q |Configured application exit (`CSI >60v`).
+|Ctrl+Shift+X |Host transfer panel (existing prefix m action).
+|Ctrl+Left-Alt+C |Existing emergency-return key event; ordinary Ctrl+C preserved.
+|===
+
+Tests compare the decoded global controls directly with Konsole definitions and
+check fragmentation, other input, modifier distinctions and ordinary Ctrl+Q/X/C.
+Digit and Czech number-row tags are supplied. Mintty may protect layout-generated
+control characters or decline shifted-character remaps; key-function handling of
+the plus character is also a native-probe concern. The expanded keyboard probe
+records both raw wire bytes and decoded controls. A correct decoder is not proof
+that a physical Windows key reaches it. Existing ASCII prefix alternatives remain.
+
+Alt+Q is now an explicit exit alias in Konsole and both Kitty configurations.
+The generator excludes the previous generic Alt+Q event so regeneration cannot
+replace the alias. Alt+Esc remains on Linux. Windows Alt+Esc cycles windows;
+no global Windows keyboard hook or system setting was installed.
+
+Primary references consulted:
+
+* https://mintty.github.io/mintty.1.html[Mintty manual: KeyFunctions and numeric actions].
+* https://github.com/mintty/mintty/blob/master/src/wininput.c[Mintty key lookup and modifier encoding source].
+* https://support.microsoft.com/en-us/windows/keyboard-shortcuts-in-windows-dcc61a57-8ff0-cffe-9796-cb9706c75eec[Microsoft Windows shortcuts].
+
+== Windows launcher logs
+
+The three requested target wrappers remain thin. They identify a same-named
+adjacent log through `XTGV_SHORTCUT_LOG`; shared Windows bootstrap/build/run
+helpers own progress and logging. Logs include bootstrap selection, target,
+progress/result and errors. Rebuild retains its detailed build-directory log
+and includes those details in the adjacent transcript at completion/failure.
+Local/card logs identify the dated session, append native startup/SDL output,
+and record reboot/shutdown. The compiler transcript is not flooded onto screen.
+
+The stale build message claiming interactive Windows launch was still pending
+is removed. Local D: snapshot wrappers receive the same adjacent-log behavior.
+Smoke/proof/test wrappers keep their existing evidence workflow. Each new
+invocation replaces the adjacent transcript; dated per-session logs are retained.
+Concurrent sessions can interleave an adjacent transcript if the same launcher
+is reused for different cards; their dated logs remain the authoritative evidence.
+
+== Validation and exact artifacts
+
+* ES3_5 diagnostic build: all 11 CTests pass, including real SDL dummy/software
+  window checks at every scale 1..9, exact pixel replication and OFF black.
+* Standard Linux ES3_35 launcher build refreshed at 261011-0113; all 11 CTests pass.
+* Windows ES3_5 cross-build passes, including the new SDL test executable.
+* 20 Windows build/mirror helper tests, three staging tests, 36 shared mirror
+  helper tests, seven desktop launcher tests and the backlight shortcut test pass.
+* All eight real-mirror lifecycle/transfer cases pass using the updated Windows
+  owner/helper on Linux ES3_35, including adjacent startup/reboot/shutdown logs
+  and numeric Mintty Ctrl+Shift+X decoding into the real transfer panel. Evidence:
+  `build/RunCPM_7xtgv-terminal/desktop/jc8048w535/mirror-proofs/mirror-lh5vzkyw/`.
+* Python compilation and focused whitespace checks pass. All 18 requested target
+  wrappers retain CRLF and adjacent-log setup. AsciiDoc renders; TG retains its
+  pre-existing section-level warnings.
+
+Diagnostic ES3_5 build: `build/RunCPM_7xtgv-terminal/desktop/render-profile-es35/`.
+Cross-build: `build/RunCPM_7xtgv-terminal/desktop-win/jc8048w550/`.
+The standard Linux ES3_5 launcher build is still pending: its existing CMake
+cache writes via `/run/media/...`, blocked by the sandbox; the permission request
+was interrupted while Petr supplied further instructions. Its earlier executable
+must not be mistaken for the new fixed-window build. Running sessions were not
+restarted. Native Windows target outputs and older D: snapshots also need refresh.
+
+== Native continuation
+
+. Run Windows `desktop-rebuild.cmd` for the desired target, checking its friendly
+  progress and adjacent `desktop-rebuild.log`.
+. Run `tools-win\keyboard-test.cmd` from W:; use the active Czech layout and
+  left Alt. Keep raw and decoded results for any failing chord.
+. Launch with desktop-local/card and verify fixed size; on a small display try
+  `--window-scale 2`. Check Alt+Q in an application with configured exit.
+. Inspect adjacent local/card logs and their dated session references. Rebuild
+  then restage for D:; an old snapshot contains old helpers and executable.
+. Compare backlight at the same board/level between Linux and Windows using the
+  logged duty/RGB values before considering any curve change.
+
+== Additional storage observations before this request
+
+Petr reports DIR is now visibly faster. On shared W:, two verified VTDRV runs
+measured writes 13.10/13.88 KiB/s and reads 20.22/21.04 KiB/s, compared with the
+earlier 9.08/13.12 KiB/s shared result. Local D: remains much faster. These are
+user-reported interactive observations, separate from the fixed-window/key work.

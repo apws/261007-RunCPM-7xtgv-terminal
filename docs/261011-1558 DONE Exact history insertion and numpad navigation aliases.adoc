@@ -1,0 +1,74 @@
+= Exact history insertion and numpad navigation aliases
+:source-highlighter: highlight.js
+:toc:
+
+== Scope
+
+Follow-up to
+link:261011-1545%20DONE%20Spaced%20history%20filters%20and%20Windows%20numeric%20key%20reports.adoc[spaced filters and numeric reports].
+Petr explicitly requested no automatic space after filtered recall, numpad
+brightness/OFF, keypad comma-to-dot and the same unshifted Czech numeric-row
+behavior as Konsole. Preserve existing changes and live card/session state.
+
+== Exact history insertion
+
+`LineHistory::recall` no longer appends a space or inserts one before a suffix.
+It splices the retained entry bytes into the chosen query position, subject to
+the existing capacity limit. Actual spaces already stored in the entry or
+surrounding input remain intact. Full-prefix matching with spaces and the word
+fallback from the preceding checkpoint remain.
+
+Consequently, recalling the newest entry without editing no longer becomes a
+new history record solely because of an added space: ordinary adjacent exact
+duplicate suppression applies. Inline insertion before a non-space suffix now
+joins the stored text directly to that suffix. The Reference Guide and the
+existing desktop history persistence fixture reflect this behavior.
+
+Address/undefined-sanitized terminal and runtime suites pass, including stored
+trailing-space preservation, exact recall, duplicate suppression and inline
+suffix behavior. The desktop persistence fixture expectations were updated but
+not rerun against an executable; desktop rebuild remains required.
+
+== Native numpad evidence and correction
+
+The ongoing capture at
+`build/RunCPM_7xtgv-terminal/desktop-win/keyboard-proofs/261011-1556-u2g8k5eb/keys.json`
+shows Ctrl+Alt+Shift+numpad0 arriving through the generated mapping as KeyInsert
+with modifiers 5 (Ctrl+Alt, without Shift). Numpad1/2 mode tests similarly report
+End/Down with modifiers 5. The earlier raw-keypad decoder therefore cannot fix
+this path: KeyFunctions already converted the event into a navigation packet.
+
+The profile now adds explicit keypad-position aliases:
+
+* C/CS + KP_End, Down, Next, Left, Begin, Right, Home, Up, Prior select
+  brightness presets 1..9.
+* CA/CSA + KP_Insert turns backlight OFF; KP_End/Down select ANSI/VT52.
+* Dedicated navigation keys retain their current bindings. Ctrl+Shift keypad
+  positions 3/9 now select numeric brightness presets instead of keypad zoom.
+
+These aliases also apply when the numpad is used as a navigation pad with
+NumLock off. This is a deliberate keypad shortcut assignment; dedicated arrows,
+Home/End and PageUp/PageDown are not changed. Modifier removal by Windows is
+not inferred into the shared firmware parser.
+
+All 14 Windows helper tests pass, including the new navigation aliases,
+existing captured numeric reports and dedicated-key isolation. This profile
+correction needs a newly launched Mintty/probe and native verification. There
+was no executable rebuild or live session restart.
+
+Primary reference:
+https://mintty.github.io/mintty.1.html[Mintty KeyFunctions: separate KP_ key tags].
+
+== Positional plain-key gap remains
+
+The standard Mintty profile still does not identify all plain Czech number-row
+keys or distinguish the text comma emitted by the numeric decimal key from
+ordinary punctuation. Konsole supplies explicit KeyNum0..9/KeyKpDecimal events
+with native fallback bytes; firmware then applies profile defaults/overrides.
+Blind text substitution would also alter punctuation, pasted text or composed
+characters. No such substitution was added.
+
+A separate user question asks whether to add a focused-session Windows key
+helper for exact physical-key parity or keep the standard Mintty limits. That
+choice is pending; the helper is not implemented. No global Windows setting,
+key hook, firmware deployment, working INI/history or running session changed.

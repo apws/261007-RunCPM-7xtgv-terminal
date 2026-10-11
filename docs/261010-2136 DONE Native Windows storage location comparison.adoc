@@ -1,0 +1,41 @@
+= Native Windows storage location comparison
+:source-highlighter: highlight.js
+
+Native result of
+link:261010-2134%20DONE%20Windows%20storage%20comparison%20prepared.adoc[the prepared comparison],
+under the existing Windows desktop plan. Petr ran the launcher on the live W:
+project. All 18 completion captures and all six directory captures verify;
+both processes finish normally with build 261010-2102.
+
+Evidence directory:
+`build/RunCPM_7xtgv-terminal/desktop-win/msys2-ucrt64/jc8048w550/storage-proofs/storage-loqvkmzx/`.
+The process logs establish the actual native paths: the shared card is below
+W:\ver\260906-7xtgv\build, and the local card is
+`D:\msys64\tmp\xtgv-storage-6n5mkzhk\card`.
+
+[cols="2,1,1,1",options="header"]
+|===
+|Operation (median of three trials) |W: share |Local D: |Ratio
+|Tiny program load and marker |45.3 ms |6.2 ms |7.31
+|DIR followed by marker program |1414.3 ms |121.6 ms |11.63
+|Program load and 200-line output |832.9 ms |71.4 ms |11.67
+|===
+
+Only the generated card location changes. The executable and evidence logs stay
+on W: in both cases. These end-to-end timings establish a substantial storage
+location penalty in this VM. The output test includes loading its approximately
+11-KiB COM program, so its ratio must not be presented as pure rendering speed.
+No SDL drawing occurs in this headless comparison. Local Windows remains slower
+than the preceding Linux fixture; this test does not isolate every residual cost.
+
+Source inspection explains a plausible amplification mechanism: the shared
+Arduino abstraction opens, seeks and closes for each 128-byte sequential record.
+The desktop storage adapter resolves/canonicalizes paths and checks metadata on
+open; directory enumeration opens each entry. This combination entails many
+small filesystem operations. Individual call costs have not yet been profiled.
+
+Practical option: retain sources, executable and logs on W: while using an
+explicit local Windows card. To improve direct W: card use, investigate repeated
+filesystem work in desktop/storage.cpp, preserving path containment, persistence
+and external-file behavior. No adapter/core changes or automatic card relocation
+were made. Live sessions, INI/history and unrelated work remain untouched.

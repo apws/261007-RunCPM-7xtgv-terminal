@@ -35,7 +35,7 @@ class DesktopToolsTests(unittest.TestCase):
     def test_desktop_rejects_serial_port_and_shared_session(self):
         with patch.object(target_mirror.shutil, 'which', return_value='/usr/bin/tool'):
             for port, session in [('/dev/ttyACM0', '7xtgv-desktop-test'),
-                                  ('/dev/pts/123', '7xtgv-cpm')]:
+                                  ('/dev/pts/123', '7xtgv-terminal')]:
                 with self.subTest(port=port, session=session), self.assertRaises(RuntimeError):
                     target_mirror.mirror_command('jc8012p4a1c', port, 'terminal', session)
 
@@ -61,12 +61,13 @@ class DesktopToolsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory); (root / 'A/0').mkdir(parents=True)
             argv = ['launch', 'local', '--target', 'jc8012p4a1c', '--card-root', str(root),
-                    '--log', str(root / 'desktop-local.log')]
+                    '--log', str(root / 'desktop-local.log'), '--window-scale', '3']
             output = io.StringIO()
             with patch.object(sys, 'argv', argv), patch.object(target_desktop.os, 'execv') as launch, \
                     contextlib.redirect_stdout(output):
                 target_desktop.main()
             command = launch.call_args.args[1]
+            self.assertEqual(command[command.index('--window-scale') + 1], '3')
             self.assertIn('--quiet', command)
             self.assertIn(str(root), command)
             self.assertNotIn(str(root), output.getvalue())

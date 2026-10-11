@@ -1,0 +1,30 @@
+= Native Windows EP4 rebuild confirmed
+:source-highlighter: highlight.js
+
+Petr's screenshot shows the EP4_10 desktop-rebuild.cmd launcher completing
+successfully on Windows 10 LTSC in VirtualBox. Command Prompt reports Windows
+version 10.0.19044.3031. The existing bootstrap first failed at its C:\msys64
+default, then succeeded after `set "XTGV_MSYS2_ROOT=D:\msys64"` in the same
+Command Prompt. The newly added automatic discovery was not tested here.
+
+The build adapter reported Built after configure/build returned successfully.
+Native Windows output is:
+
+[source,text]
+----
+D:\~ver\260906-7xtgv\build\RunCPM_7xtgv-terminal\desktop-win\msys2-ucrt64\jc8012p4a1c\
+----
+
+The principal executable is xtgv_desktop.exe; build.log is in the same
+directory. This is user-observed native build evidence, following the
+link:261010-1505%20DONE%20Windows%20MSYS2%20prerequisite%20setup%20confirmed.adoc[successful prerequisite setup]
+and the link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[controlling plan].
+The Windows build log and exact installed tool versions have not been collected
+on the Linux host. No native CTest or guest/SDL execution is established by
+the screenshot. The executable still uses scripted input, with the interactive
+Windows mirror and cooperative launcher lifecycle pending.
+
+Next gate: a disposable native guest/storage/SDL execution test, then the
+MSYS/native transport and stop proof. No running session, card data or binary
+was changed while recording this evidence. Registry, timeline and Windows
+README updated; no commit/push or deployment.

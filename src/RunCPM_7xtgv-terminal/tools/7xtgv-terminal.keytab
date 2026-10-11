@@ -1,5 +1,5 @@
-# Konsole translation of the 7xtgv CP/M/WordStar-style Kitty mappings.
-keyboard "7xtgv CP/M"
+# Konsole translation of the 7xtgv-terminal Kitty mappings.
+keyboard "7xtgv-terminal"
 
 key Left      -Shift-Alt-Ctrl : "\E[>30v"
 key Right     -Shift-Alt-Ctrl : "\E[>31v"
@@ -303,7 +303,6 @@ key P          -Shift+Alt-Ctrl-KeyPad : "\E[>70;1;65;4;027112v"
 key P          +Shift+Alt-Ctrl-KeyPad : "\E[>70;1;65;6;027080v"
 key Q          -Shift-Alt+Ctrl-KeyPad : "\E[>70;1;66;1;017v"
 key Q          +Shift-Alt+Ctrl-KeyPad : "\E[>70;1;66;3;017v"
-key Q          -Shift+Alt-Ctrl-KeyPad : "\E[>70;1;66;4;027113v"
 key Q          +Shift+Alt-Ctrl-KeyPad : "\E[>70;1;66;6;027081v"
 key R          -Shift-Alt+Ctrl-KeyPad : "\E[>70;1;67;1;018v"
 key R          +Shift-Alt+Ctrl-KeyPad : "\E[>70;1;67;3;018v"
@@ -358,6 +357,8 @@ key -          -Shift-Alt-Ctrl-KeyPad : "\E[>70;1;47;0;045v"
 key _          +Shift-Alt-Ctrl-KeyPad : "\E[>70;1;47;2;095v"
 key ů          -Shift-Alt-Ctrl-KeyPad : "\E[>70;1;41;0;197175v"
 # END GENERATED KEY EVENTS
+
+key Q          -Shift+Alt-Ctrl : "\E[>60v"
 
 # PC fallback for the firmware's future exact Left-Alt + Right-Alt gestures.
 key Escape     -Shift+Alt-Ctrl : "\E[>60v"

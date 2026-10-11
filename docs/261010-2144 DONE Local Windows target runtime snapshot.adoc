@@ -1,0 +1,53 @@
+= Local Windows target runtime snapshot
+:source-highlighter: highlight.js
+
+Petr requested a script to copy one target's launchers and build to
+`D:\~tmp\260906-7xtgv\`, avoiding the large repository/private/archive tree.
+This follows
+link:261010-2136%20DONE%20Native%20Windows%20storage%20location%20comparison.adoc[the measured shared-folder penalty]
+under the existing Windows desktop plan.
+
+== Implementation
+
+`tools-win/stage-local.cmd` dispatches `windows_stage.py` through the existing
+MSYS2 bootstrap. ES3_5 is the default; `--target` selects another already-built
+target and `--destination` changes the parent directory. Each run creates a fresh
+dated target directory. No overwrite/refresh of previous local cards or runtimes.
+
+The copy contains `xtgv_desktop.exe` and all DLLs staged beside it, selected-target
+metadata and three target launchers, the required Python mirror/owner/keyboard/
+transfer helpers, key identifiers and a complete card copy. Existing relative
+path discovery is retained through a small repository-shaped subtree. The root
+has convenient desktop-local/test/card.cmd wrappers. The copied dispatch supports
+launching only. MSYS2 remains an installed prerequisite, discovered normally.
+
+The complete card is copied under the existing coordination lock, excluding only
+that transient lock. An active source-card writer causes a refusal without
+stopping it. Repository private/archive trees, other targets, compiler caches and
+build dependencies are excluded; copied card private data remains part of the
+complete card. License/reference notices accompany this personal test snapshot.
+
+The local launcher persists changes within the copied card. The test launcher
+makes a fresh session-card copy. Logs also remain local; there is no automatic
+synchronization or access to W: during ordinary launch. A manifest records source
+paths and copied-file SHA-256 hashes. No production storage/emulator/core changes.
+
+== Validation and next step
+
+Three staging tests pass: isolated runtime imports including optional transfer
+and key helpers; byte-exact card copy including INI/BUF and private data; source
+archive omission; repeat staging preserving local changes; active writer lock
+preservation; missing SDL runtime and recursive destination rejection. Fourteen
+existing Windows build/mirror helper tests also pass. Python compilation and
+shell syntax checks pass.
+
+A complete real ES3_5 runtime snapshot was prepared and its isolated imports
+verified on Linux at
+`/tmp/xtgv-local-stage-proof/ES3_5-261010-2143-lm52zkq4/`:
+337 files, 13.0 MiB, using the existing native Windows executable/DLLs and card.
+This validates assembly/relocation, not native execution of the snapshot.
+
+Native next step: run tools-win\stage-local.cmd on W:, then the printed
+desktop-local.cmd on D:. Compare DIR and VTDRV there. No rebuild is needed.
+Existing live sessions and working INI/history were not modified; no commit/push,
+hardware write or deployment.

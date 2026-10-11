@@ -7,7 +7,7 @@ TOOLS = Path(__file__).resolve().parents[1] / "tools"
 
 class BacklightShortcutTests(unittest.TestCase):
     def test_off_requires_alt_in_both_hosts(self):
-        konsole = (TOOLS / "7xtgv-cpm.keytab").read_text()
+        konsole = (TOOLS / "7xtgv-terminal.keytab").read_text()
         kitty = (TOOLS / "kitty-cpm.conf").read_text()
         self.assertIn(r'key 0         +Shift+Alt+Ctrl : "\E[>63;0v"', konsole)
         self.assertNotIn(r'key 0         +Shift-Alt+Ctrl : "\E[>63;0v"', konsole)

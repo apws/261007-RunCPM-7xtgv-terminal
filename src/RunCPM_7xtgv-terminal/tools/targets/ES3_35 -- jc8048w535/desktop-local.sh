@@ -3,4 +3,4 @@
 set -euo pipefail
 xtgv_here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 command -v python3 >/dev/null || { printf '%s\n' 'Missing python3. Run tools/setup.sh.' >&2; exit 1; }
-exec python3 "$xtgv_here/../../target_desktop.py" local --log "$xtgv_here/desktop-local.log" "$@" --target jc8048w535
+exec python3 "$xtgv_here/../../target_desktop.py" local --log "$xtgv_here/desktop-local.log" "$@" --target jc8048w535 --window-scale 2

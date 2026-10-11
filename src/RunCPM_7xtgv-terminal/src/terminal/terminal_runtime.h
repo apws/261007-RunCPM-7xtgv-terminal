@@ -49,3 +49,8 @@ uint8_t virtualRead();
 void virtualWrite(uint8_t c);
 // RunCPM task only: discard queued guest keystrokes after a forced COM return.
 void terminalDiscardGuestInput();
+
+#if XTGV_DESKTOP
+// UI-owner query: work can advance immediately, excluding future frame deadlines.
+bool terminalDesktopWorkPending();
+#endif

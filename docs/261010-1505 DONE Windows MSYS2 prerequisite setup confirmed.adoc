@@ -1,0 +1,52 @@
+= Windows MSYS2 prerequisite setup confirmed
+:source-highlighter: highlight.js
+
+== User-observed result
+
+Petr provided a Windows screenshot showing all 101 prerequisite packages
+installed, post-transaction hooks completed, GFX 1.6.4 downloaded and verified,
+and the project script reporting Setup complete. Environment: Windows 10 LTSC
+in VirtualBox; the exact LTSC release/build was not supplied. MSYS2 was
+installed manually on D:, and the earlier bootstrap was used with an explicit
+XTGV_MSYS2_ROOT from Command Prompt. The new automatic root discovery was not
+established by this test.
+
+This validates prerequisite setup and the GFX download on that Windows guest,
+not native compilation, guest execution or the interactive mirror. The next
+step is the EP4_10 desktop-rebuild.cmd launcher. See
+link:261010-1406%20DONE%20Windows%20setup%20and%20rebuild%20entry%20points.adoc[setup implementation]
+and link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[controlling Windows plan].
+
+== One MSYS2 installation
+
+The official installer created the MSYS2 installation. Project setup.cmd does
+not install another MSYS2: windows.cmd calls Bash in the selected installation,
+setup.sh runs that installation's pacman for MSYS and UCRT64 packages, and MSYS
+Python downloads pinned GFX into the project's build dependency directory.
+MSYS /usr and native /ucrt64 tools are parts of the same installation. Project
+setup neither installs nor enables WSL or Hyper-V.
+
+== WSL alternative discussed, not selected
+
+WSL could reuse the Linux executable, PTY and mirror path, with WSL2 providing
+the closest kernel compatibility. Current Linux setup is broader than a desktop
+setup: it also installs Arduino MCU dependencies. WSL deployment has not been
+validated by the project.
+
+WSL1 avoids a managed VM; WSL2 uses Virtual Machine Platform, a subset of
+Hyper-V architecture. Inside a Windows VM, WSL2 needs suitable nested
+virtualization. VirtualBox documents nested virtualization with limitations;
+do not infer supported nested Hyper-V merely from a checked VT-x/AMD-V box.
+WSLg requires WSL2 and a sufficiently recent Windows build. LTSC alone does
+not identify that build. None of these alternatives was enabled or installed.
+
+Keep the current MSYS2 native-Windows build experiment as the next step.
+Working card and sessions remain untouched. Feature evidence updated; no
+runtime change, compilation, deployment or commit in this checkpoint.
+
+== Primary references checked
+
+* https://learn.microsoft.com/en-us/windows/wsl/faq[WSL2 Virtual Machine Platform and nested virtualization].
+* https://learn.microsoft.com/en-us/windows/wsl/compare-versions[WSL1 and WSL2 architecture].
+* https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps[WSLg Windows build and WSL2 requirements].
+* https://docs.oracle.com/en/virtualization/virtualbox/7.2/user/AdvancedTopics.html[VirtualBox nested virtualization and limitations].

@@ -10,7 +10,8 @@ static void require(bool condition, const char *what) {
 int main() {
     namespace fs = std::filesystem;
     const auto unique = std::chrono::steady_clock::now().time_since_epoch().count();
-    const auto root = fs::temp_directory_path() / ("xtgv-storage-fixture-" + std::to_string(unique));
+    const auto root = fs::temp_directory_path() /
+        fs::u8path("xtgv-storage-fixture-" + std::to_string(unique) + u8" spaces žluťoučký");
     fs::create_directory(root);
     try {
         XtgvHostStorage storage;
@@ -60,9 +61,9 @@ int main() {
         std::error_code error;
         fs::create_directory_symlink(root.parent_path(), root / "escape-link", error);
         if (!error) require(!storage.open("escape-link/outside"), "reject symlink escape");
-        std::cout << "Host File/SD adapter: PASS; isolated fixture=" << root << '\n';
+        std::cout << "Host File/SD adapter: PASS; isolated fixture=" << root.u8string() << '\n';
     } catch (const std::exception &error) {
-        std::cerr << "FAIL: " << error.what() << "; fixture retained at " << root << '\n';
+        std::cerr << "FAIL: " << error.what() << "; fixture retained at " << root.u8string() << '\n';
         return 1;
     }
     return 0;

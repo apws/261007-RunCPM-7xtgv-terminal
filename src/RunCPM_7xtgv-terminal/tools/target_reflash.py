@@ -184,7 +184,7 @@ def main():
     port = (ready_serial(args.port, args.target, definition)
             if definition['method'] == 'arduino-cli' else args.port)
     mirror = select_mirror(args.mirror)
-    subprocess.run(['tmux', 'kill-session', '-t', '7xtgv-cpm'],
+    subprocess.run(['tmux', 'kill-session', '-t', '7xtgv-terminal'],
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
     with log_path.open('a') as log:
         log.write('Shared mirror stopped; upload will restart CP/M and lose app state.\n')

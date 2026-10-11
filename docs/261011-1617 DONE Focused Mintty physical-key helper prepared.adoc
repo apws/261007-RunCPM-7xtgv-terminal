@@ -1,0 +1,137 @@
+= Focused Mintty physical-key helper prepared
+:source-highlighter: highlight.js
+:toc:
+
+== Decision and scope
+
+Petr approved adding a helper after the plain Czech number-row and keypad-comma
+gap documented in
+link:261011-1558%20DONE%20Exact%20history%20insertion%20and%20numpad%20navigation%20aliases.adoc[the preceding checkpoint].
+The controlling desktop Windows plan remains
+link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[MSYS2 build and launch].
+
+This checkpoint implements and cross-builds the helper. It does not establish
+native Mintty acceptance. No working INI/history, running session, Linux keymap,
+RunCPM core, hardware HAL or physical firmware was changed by this addition.
+The earlier history-source corrections still require a desktop rebuild.
+
+== Why preserve physical identity
+
+A plain comma from Mintty cannot identify whether the user pressed keypad
+decimal, typed ordinary punctuation or pasted text. Similarly, replacing every
+Czech accented character or plus sign would affect unrelated typing. The
+terminal already understands physical KeyNum0..9 and KeyKpDecimal events, with
+original host bytes as fallback and profile INI overrides before defaults.
+
+The helper supplies those existing events before Windows keys become plain
+text. It adds no new firmware packet format or INI setting.
+
+[cols="2,3",options="header"]
+|===
+|Input |Helper action
+|Czech main-row 0..9 positions, plain or Shift |Emit KeyNum0..9 with actual modifiers and UTF-8 layout fallback. Existing terminal defaults send ASCII digits; INI overrides remain available.
+|NumLock-on keypad decimal |Emit KeyKpDecimal with actual comma/dot fallback. Existing default sends ASCII dot; ordinary comma remains text.
+|Ctrl+Shift+1..9, main row or keypad |Emit existing brightness levels 4,7,11,14,18,21,25,28,31.
+|Ctrl+Alt+Shift+0, main row or keypad |Emit existing brightness OFF control.
+|Ctrl+Alt+Shift+1/2 |Emit existing ANSI/VT52 mode controls, separately from brightness.
+|AltGr/RAlt, Win-modified keys, active dead-key or IME composition |Leave the original Windows message alone.
+|Other punctuation, pasted text, dedicated navigation keys |Leave the original Windows message alone; existing Mintty mapping applies.
+|===
+
+Physical keypad scan codes distinguish keypad navigation from dedicated keys.
+When NumLock plus Shift has been converted to a navigation virtual key with
+Shift removed, the mapper restores Shift for that numeric shortcut decision.
+The previous generated keypad-position aliases remain as a fallback, including
+their documented NumLock-off assignments.
+
+== Components and lifetime
+
+* `tools-win/mintty_profile.py` gives each profile a unique `xtgv-keys-...`
+  Windows class, derived from its session profile path.
+* `tools-win/key_bridge.py` owns `xtgv_key_bridge.exe`, checks required artifacts,
+  opens a private stdin lifetime pipe and waits for a READY acknowledgement.
+* `key_bridge_owner.cpp` locates exactly that class, loads `xtgv_key_hook.dll`
+  and installs WH_GETMESSAGE for the selected Mintty GUI thread only.
+* `key_bridge_hook.cpp` processes removed keydown messages while the identified
+  main window has foreground focus. It uses the thread's keyboard state, scan
+  code and layout. ToUnicodeEx with flag 4 inspects printable fallback without
+  changing dead-key state; this requires Windows 10 1607 or newer.
+* `key_bridge_map.h` contains the portable mapping and shared protocol encoding.
+  The DLL sends each complete ASCII packet synchronously through Mintty's own
+  WM_CHAR path, then suppresses only the original keydown. This avoids a second
+  input stream and preserves ordering with ordinary keys. Auto-repeat counts
+  are retained.
+
+The hook acknowledges loading in the target process before launch proceeds.
+Missing artifacts, class lookup, DLL loading or hook-start failure stop startup
+with diagnostic output. The helper is armed before the desktop/card owner starts.
+Its `key-bridge.log` lives beside the session/probe logs.
+
+Normal exit and exceptions close the lifetime pipe, unhook the selected thread
+and release the DLL. The Python owner waits for cleanup; its timeout fallback
+terminates only its private helper. Windows also removes hooks when their owner
+process exits. There is no global hook, service, registry installation or
+system-wide keymap change. The implementation targets 64-bit MSYS2 Mintty.
+
+== Build and packaging
+
+The normal Windows desktop CMake build now produces `xtgv_key_bridge.exe` and
+`xtgv_key_hook.dll` beside the selected desktop executable. The helper statically
+links its compiler runtime so it does not inject a different toolchain's C++ DLL
+into MSYS Mintty. The native rebuild dependency scan also inspects the dynamically
+loaded hook DLL. Local snapshot packaging includes both helper artifacts and
+their Python owner; the current user workflow continues directly on W:.
+
+Only the two helper targets were cross-built for this checkpoint:
+
+[source,bash]
+----
+cmake -S src/RunCPM_7xtgv-terminal/desktop \
+  -B build/RunCPM_7xtgv-terminal/desktop-win/jc8048w550
+cmake --build build/RunCPM_7xtgv-terminal/desktop-win/jc8048w550 \
+  --target xtgv_key_bridge xtgv_key_hook --parallel 2
+----
+
+This reused the existing ES3_5 cross-build cache and its pinned dependencies.
+It did not replace native MSYS2 output or rebuild/upload an MCU.
+
+== Validation and remaining native check
+
+* Portable C++ mapping tests pass: all ten positions, brightness/OFF/modes,
+  NumLock Shift removal, dedicated-key isolation, actual UTF-8 fallback,
+  ordinary punctuation, AltGr, composition and Win-modified bypass.
+* All 29 Windows Python tooling tests pass: helper lifecycle/failure cleanup,
+  unique class selection, existing numeric stream decoding, runtime DLL closure
+  and relocated snapshot import/card preservation.
+* Both helper targets cross-build through CMake. Independent builds with
+  `-Wall -Wextra -Werror` also pass. PE inspection finds only Windows system/API
+  imports and confirms the exported `XtgvGetMessage` hook symbol.
+* This does not test hook delivery inside the actual VM's Mintty process.
+
+On W:, rebuild ES3_5 with its ordinary `desktop-rebuild.cmd`. From `tools-win`
+run these focused probes, which launch no emulator and open no card:
+
+[source,bat]
+----
+keyboard-test.cmd --section typing
+keyboard-test.cmd --section numpad
+----
+
+The probe defaults to the rebuilt ES3_5 helper; `--target ES3_35` or another
+display ID selects that target's rebuilt artifacts. The typing fixture expects
+the Czech layout, CapsLock off and NumLock on. It checks physical event packets
+and original fallback bytes; it does not itself apply the firmware digit/dot
+default. Each result is saved under
+`build/RunCPM_7xtgv-terminal/desktop-win/keyboard-proofs/` as `keys.json`.
+
+Then launch a new ES3_5 mirror and check plain top-row digits, keypad decimal dot,
+ordinary comma, Ctrl+Shift+numpad1..9 and Ctrl+Alt+Shift+numpad0. Top-row 6/OFF
+can also be checked with `--section top-row`. Later target launches need that
+target rebuilt once to supply the new helper files.
+
+== Primary implementation references
+
+* https://mintty.github.io/mintty.1.html[Mintty Class and KeyFunctions settings].
+* https://github.com/mintty/mintty/blob/master/src/winmain.c[Mintty WM_CHAR input path].
+* https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowshookexw[Thread-specific Windows hooks].
+* https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-tounicodeex[ToUnicodeEx and non-mutating translation flag].

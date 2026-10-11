@@ -1,0 +1,118 @@
+= Windows loopback proof prepared for shared-drive test
+:source-highlighter: highlight.js
+
+Controlling plan:
+link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[MSYS2 Windows desktop build and launch].
+Selected target:
+link:261010-1546%20CHAT%20Select%20ES3_5%20for%20Windows%20continuation.adoc[ES3_5, jc8048w550, 800x480].
+This completes host preparation and host-side proof, not native MSYS acceptance
+or interactive mirror integration.
+
+== Native ES3_5 evidence
+
+Petr reported that the same disposable ten-second SDL test succeeded for
+ES3_5 build 261010-1551 on Windows 10 LTSC in VirtualBox. The window showed
+booted RunCPM. Output ended with `finished normally` and exit code 0. The card
+was `C:\Users\falken\AppData\Local\Temp\xtgv-win-smoke-17285-8561`.
+Mesa reported SVGA3D 24.0.2. This establishes boot/presentation and timed stop,
+following the earlier successful EP4_10 check; it does not prove keyboard input.
+
+Petr subsequently noted that the full MSYS2 `pacman -Suy` update had not yet
+been run. The setup had installed the requested packages. The successful
+native build/boot observations remain valid; full system update was advised
+before the next build, following https://www.msys2.org/docs/updating/[MSYS2's instructions].
+No completed update has yet been reported.
+
+== Implemented transport and proof
+
+The new `desktop/serial_loopback.cpp` provides an optional local socket
+transport on Windows and Linux. The ordinary Linux launcher still uses the
+unchanged PTY route. Windows links Winsock; no RunCPM core or HAL was edited.
+`--loopback-token` explicitly selects the new transport; the application emits
+a JSON `LOOPBACK=` endpoint with data/control ports on standard output.
+
+Both listeners bind to 127.0.0.1 with OS-assigned ports. The launcher supplies
+a fresh 256-bit random token; each socket authenticates with a bounded
+`XTGV/1 TOKEN` line before carrying data or control. The handshake expires
+after five seconds. Missing initial ownership requests stop after 30 seconds.
+Unauthenticated input never reaches the guest queue.
+
+Guest data and owner control are separate streams. Only the control channel
+accepts `STOP`; the same bytes on the data stream remain data. Queues retain
+the existing 16384-byte input and 65536-byte output limits, with nonblocking
+partial I/O and backpressure. Data disconnect clears stale queued data and
+permits reconnect/snapshot while the owner remains connected. Control loss
+requests cooperative stop. An observed owner stop takes precedence over a
+guest reboot result. No ordinary control action kills the emulator process.
+
+`desktop/tests/loopback_proof.py` and the transport-only `xtgv_loopback_echo`
+fixture test mixed terminal/socket select and descriptor I/O, bad-token
+rejection, 262149 exact bytes including NUL/high-bit values and STOP text,
+fragmented transfers, real guest commands, BDOS punch output, reconnect,
+idle/compute/flood stops, owner disconnect, guest EXIT and REBOOT, and history
+save after shutdown. The runner also executes the five portable C++ tests.
+Its forced-kill fallback applies only to a failed, owned disposable test;
+normal shutdown uses the control socket.
+
+Each target folder now has thin `desktop-rebuild.cmd`, `desktop-smoke.cmd`
+and `desktop-proof.cmd` wrappers. The smoke launcher provides the short visual
+boot test beside the rebuild launcher, without visiting build output.
+All implementation is shared. The proof creates fresh cards beneath
+the selected output's `proof-cards` directory and directs host-storage test
+temporary files there too. Console/process logs, raw mirror samples and fixture
+files remain available; `proof-reports` holds a ZIP of each run's evidence.
+`--fixture-dir` and `--report-dir` allow explicit alternative test/report paths.
+The normal interactive mirror, Mintty mappings and owning launcher are still
+pending. No claim of native mixed-select support is made before the guest test.
+
+== Host verification
+
+* All 12 existing EP4_10 Linux CTests pass, including PTY lifecycle and
+  history/profile/catalog regressions.
+* The complete new loopback proof passes against Linux EP4_10 and ES3_5
+  executables, including all six shutdown modes and the five portable tests.
+* The updated ES3_5 Windows x64 build cross-compiles successfully, including
+  the Winsock backend and binary echo fixture. Petr subsequently rebuilt both
+  EP4_10 and ES3_5 natively on W:. Their shared build logs are directly readable
+  on the Linux host and show completed links and runtime DLL staging. The ES3
+  cache confirms source W:/ver/260906-7xtgv and D:/msys64 UCRT64 compiler.
+  Native transport execution remains pending.
+* Eight Windows tooling tests pass; Python/shell syntax and focused whitespace
+  checks pass. Working-card verification matches all 301 previously recorded
+  hashes. Live mirrors and hardware were untouched.
+
+Receipts include `/tmp/xtgv-win-first/es3-loopback-build.log`,
+`/tmp/xtgv-loopback-proof-gnhxwg7q` (EP4), and the ES3 proof reports under
+`build/RunCPM_7xtgv-terminal/desktop/linux-win-es3-proof/proof-reports/`.
+Early proof harness corrections handled a rejected socket's reset response
+and checked buffered punch-file contents after normal close. The passing
+runs use these corrections.
+
+== Selected Windows shared-drive test and recovery
+
+Petr explicitly chose to test the live project directly through the existing
+VirtualBox share `W:\ver\260906-7xtgv`. Do not require another copy to the
+guest's local D: drive. An earlier suggestion to use W: only for exchanging
+ZIPs was not selected. No new shared folder or VM setting was created.
+VirtualBox on this tool host reported no running VMs; this is not evidence
+against the existing share visible in Petr's screenshot.
+
+The checksum-verified cached Arduino_GFX 1.6.4 archive was extracted to the
+live project's `build/RunCPM_7xtgv-terminal/desktop-win/_deps/` directory, so
+the W: rebuild can consume it without another download. Native MSYS output
+uses `desktop-win/msys2-ucrt64/jc8048w550`, distinct from the Linux cross-build.
+
+From W:'s `src\RunCPM_7xtgv-terminal\tools-win\targets\ES3_5 -- jc8048w550`,
+run `desktop-rebuild.cmd`, then `desktop-proof.cmd`. This directly checks
+shared-source compilation, shared build output, and disposable shared-drive
+guest/host storage. The same files are readable here under the live repository;
+inspect `build.log`, `proof-cards/*/proof.log` and per-case `process.log` when
+Petr reports results. Shared rebuild success has already been verified from
+both build logs; next run `desktop-proof.cmd`. Do not use the working cpmcard
+for this qualification.
+
+Next gate: native MSYS mixed terminal/socket waiting and byte exchange, storage
+semantics on W:, and cooperative control tests. Resolve observed failures
+before integrating the full interactive mirror. Non-ASCII paths, physical
+keyboard mappings, SDL-close/launcher ownership and other targets remain open.
+No commit, push, flash or card deployment.

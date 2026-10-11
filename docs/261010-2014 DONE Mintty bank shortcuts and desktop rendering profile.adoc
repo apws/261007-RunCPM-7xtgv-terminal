@@ -1,0 +1,111 @@
+= Mintty bank shortcuts and desktop rendering profile
+:source-highlighter: highlight.js
+
+Follow-up to link:261010-1957%20DONE%20Native%20Windows%20timing%20and%20mirror%20acceptance.adoc[native timing acceptance], under
+link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[Windows plan].
+
+== User observations and key correction
+
+Petr initially judged the improved ES3_5 performance acceptable in VirtualBox,
+then compared Linux ES3_5 and ES3_35 and requested profiling. ES3_5 is slower
+on Linux too; ES3_35 is better but the Windows session still feels slow. Native
+Windows applications in the same VM are fast. This qualifies the earlier
+acceptance: the high-resolution delay fix is measured, not overall parity.
+
+Alt+PgUp/PgDn did not switch banks, while Alt+Space and Alt+Backspace worked.
+The Mintty generator omitted the explicit global bank controls and instead sent
+application-profile Alt+Page key events. It now maps the dedicated and keypad
+forms to CSI >12v and >13v, matching Konsole/Kitty. Fourteen Windows tooling tests
+pass, including comparison of those routes through the shared mirror key filter.
+A fresh launch regenerates the profile; no native rebuild is needed.
+
+Petr also reports Ctrl+Alt+Shift+PgUp/PgDn backlight adjustment failing. The
+existing generator already contains its proper CSI >63;33v and >63;34v routes.
+`tools-win/keyboard-test.cmd` now opens a six-step Mintty byte probe with the
+same generated configuration and no emulator/card. Its Python capture flow
+passes a Linux PTY check. Native evidence:
+`build/RunCPM_7xtgv-terminal/desktop-win/keyboard-proofs/261010-2017-2ghn900v/keys.json`.
+
+* Both bank and both zoom chords produce the expected bytes.
+* The backlight-up step produces a Ctrl+Left Arrow private event, then the
+  ordinary zoom-out control. Backlight-down produces two Ctrl+Left events,
+  then zoom-in. Neither contains the backlight command.
+* Clarification of the physical left-Alt chord is pending. This does not identify
+  which layer changed the input, nor establish a Windows reserved-key conflict.
+  Number shortcuts were not tested; preserve normal Czech Shift-to-digit entry.
+
+Mintty configuration syntax reference:
+https://mintty.github.io/mintty.1.html[upstream manual].
+
+== Rendering profile
+
+Added explicit CMake target `xtgv_render_profile`, excluded from ordinary builds.
+It links the real terminal runtime and Arduino_GFX, with storage-owner callbacks
+stubbed because no card or CP/M worker is started. The fixture applies its INI
+through terminalLoop before measuring. It uses the same 200-line parser workload,
+80x24 logical terminal at zoom 2, and each board's actual physical viewport.
+It compares normal 1-ms pacing with an unpaced diagnostic loop and 10-Hz versus
+unrestricted publication. These controls do not change production behavior.
+The unpaced diagnostic can busy-loop while waiting for a flush deadline; it is
+not a proposed production scheduler.
+
+Linux builds and runs pass for both boards. The profiler also cross-compiles
+for Windows; native execution of that specific diagnostic is not yet claimed.
+Retained reports:
+
+* `build/RunCPM_7xtgv-terminal/desktop/render-profile-es35/render-profile.txt`
+* `build/RunCPM_7xtgv-terminal/desktop/render-profile-es335/render-profile.txt`
+
+Both runs use dummy SDL, measuring software drawing/upload/presentation costs,
+not desktop compositor, GPU, or VirtualBox performance. The first publication
+is allowed immediately, so this is not a worst-phase 10-Hz latency measurement.
+
+[cols="1,1,1",options="header"]
+|===
+|Measured quantity |ES3_5 |ES3_35
+|Physical visible cells, zoom 2 |66x24 |40x16
+|Drawing budget |3 cells per pass |Full visible screen
+|Parse 200 lines |0.624 ms |0.526 ms
+|Full repaint, paced, 10 Hz |601.276 ms |1.543 ms
+|Sleep portion of that repaint |595.840 ms |1.093 ms
+|Drawing plus texture upload |2.333 ms |0.346 ms
+|SDL presentation |2.180 ms |0.100 ms
+|===
+
+ES3_5's drawing policy and sleep dominate that repaint. Removing all flush
+throttling is not automatically faster: its 528 tiny-batch publications cost
+about 734 ms even with normal pacing, versus 601 ms at 10 Hz. ES3_35 paints its
+smaller viewport in one pass. During continuous output its 10-Hz publication
+setting can still delay the next image by up to roughly 100 ms. These facts
+explain target differences but do not establish the cause of the remaining
+Windows mirror delay.
+
+The actual guest/loopback fixture also ran on both Linux builds, retaining
+`performance-proofs/display-kin5cow5/` and `performance-proofs/display-bufmxszf/`
+under their respective build directories. Default 200-line mirror output took
+88 ms and 94 ms. Receive gaps were at most about 2.5 ms and 3.1 ms respectively.
+The earlier native Windows corrected result was about 1.1 seconds, even headless.
+`desktop-performance.cmd` now additionally retains `mirror-chunks.json` with
+receive timestamps and byte counts. Rerun it on native ES3_35 without rebuilding
+to locate the remaining delivery delay; do not assume an MSYS2 or GPU cause.
+
+== Scope and next checks
+
+No core, board HAL, renderer policy, working INI/history or live session changes.
+Only Mintty bank mappings are corrected; fine-backlight input needs clarification
+and physical retest. A fresh desktop-test launch picks up the bank correction.
+The shared key probe and chunk logger need no executable rebuild. Repaint
+profiling is an explicitly built diagnostic, not a new default application mode.
+Continue from the native input and chunk evidence before changing pacing,
+transport batching or physical-board rendering policy. No commit/push/deployment.
+
+Petr questioned the roughly 600-ms ES3_5 repaint. The profile attributes only
+2.3 ms to drawing/upload and about 596 ms to waits; it is not a fundamental
+host rendering cost. Candidate follow-up: desktop-specific scheduling that
+performs more drawing work between sleeps while retaining physical-board
+policy. No such optimization has been implemented in this checkpoint.
+
+The final card comparison detects a newer working A0:7XTGVTRM.BUF while the
+other 300 files still match the earlier baseline. This turn's tools used isolated
+fixtures and did not edit that working history; its newer contents are preserved.
+Do not describe the entire card as byte-unchanged at this later checkpoint.

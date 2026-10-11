@@ -1,0 +1,20 @@
+= Select ES3_5 for Windows continuation
+:source-highlighter: highlight.js
+
+Petr selected ES3_5 (`jc8048w550`, 800x480) for subsequent Windows build and
+interactive-mirror work because the VirtualBox Windows 10 screen is smaller
+than the EP4_10 panel. This changes the primary acceptance target in the
+link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[Windows plan]
+from EP4_10 to ES3_5. The shared architecture and Linux path remain unchanged.
+
+The existing `tools-win/targets/ES3_5 -- jc8048w550/desktop-rebuild.cmd` already
+selects this board. Native output is under
+`build/RunCPM_7xtgv-terminal/desktop-win/msys2-ucrt64/jc8048w550/`.
+The same disposable ten-second `desktop-smoke.cmd` is now prepared in that
+host-side output folder for copying to Windows. No native ES3_5 build or test
+has been reported yet; the
+link:261010-1540%20DONE%20Native%20Windows%20SDL%20RunCPM%20boot%20confirmed.adoc[successful EP4_10 checkpoint]
+remains evidence for EP4_10 only. Windows README examples now select ES3_5.
+
+No executable was rebuilt or replaced during this target-selection update.
+Existing EP4_10 artifacts, working card and running sessions were preserved.

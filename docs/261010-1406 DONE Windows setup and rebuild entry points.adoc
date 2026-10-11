@@ -1,0 +1,74 @@
+= Windows setup and rebuild entry points
+:source-highlighter: highlight.js
+
+== Scope correction
+
+After the
+link:261010-1354%20DONE%20First%20EP4%20Windows%20cross-build.adoc[first cross-build],
+Petr correctly noted that tools-win had no target folders and no usable
+from-scratch Windows instructions. The Linux-only setup-cross.sh was not the
+Windows setup workflow requested by the
+link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[controlling plan].
+This checkpoint adds the Windows setup/rebuild entry points while retaining
+the explicit unimplemented interactive-launch boundary.
+
+== Added workflow
+
+`src/RunCPM_7xtgv-terminal/tools-win/` now contains:
+
+* `setup.cmd`, calling the shared `windows.cmd` MSYS2 UCRT64 bootstrap.
+* `setup.sh` for explicit prerequisite installation and `dispatch.sh` for
+  setup/build dispatch. Rebuild does not install packages.
+* `windows_build.py`, using MSYS Python, the existing shared target resolver,
+  target JSON and desktop CMake. Native compiler, Ninja, SDL2 and CMake paths
+  are explicit, with MSYS/native path conversion at the command boundary.
+* All six `targets/DISPLAY_ID -- target/desktop-rebuild.cmd` launchers. These
+  folders contain only launchers; target build logs stay in build output.
+* Local Git attributes keep CMD files CRLF and shell/Python files LF.
+
+The revised link:../src/RunCPM_7xtgv-terminal/tools-win/README.adoc[Windows README]
+starts with installing x64 MSYS2, completing its system update, copying a
+current source tree, running setup.cmd and selecting a target rebuild launcher.
+MSYS2 is not silently installed. Alternate installation roots use
+`XTGV_MSYS2_ROOT`; `XTGV_NO_PAUSE=1` suppresses the launcher pause for automation.
+
+Setup installs MSYS Python/Bash-related tools plus native UCRT64 GCC, CMake,
+Ninja and SDL2; no MCU cores. It downloads Arduino_GFX 1.6.4 using the URL and
+SHA-256 from the installed official Arduino library index. Existing invalid
+GFX directories are preserved and reported, not replaced. Successful repeat
+setup reuses a valid installed library.
+
+Native Windows output uses
+`build/RunCPM_7xtgv-terminal/desktop-win/msys2-ucrt64/<target>/` so it cannot
+reuse the Linux cross-build CMake cache. Build logs are placed there too.
+The setup/build code does not access a card or start an emulator.
+
+== Evidence and limits
+
+* Six new offline tests pass: target launcher routing, UCRT64 tool selection,
+  cache separation/space-bearing arguments, nonmutating dry-run, wrong-host
+  refusal, checked archive installation and existing-data preservation.
+* The actual cached GFX 1.6.4 archive passes the production SHA-256/extraction
+  path in a temporary directory; no new download or system installation.
+* Shell syntax and setup/build previews pass. Seven existing desktop-tool
+  tests and three disposable-process desktop-close tests pass.
+* README and this record rendered; registry checked and ledger regenerated.
+
+Native Windows CMD startup, MSYS2 setup, compiler execution, path conversion
+and non-ASCII path acceptance still require a Windows machine. Offline tests
+do not establish those results. The previously built EP4_10 cross-build EXEs
+are unchanged; no six-board native-build success is claimed.
+
+There are no desktop-local.cmd or desktop-card.cmd launchers yet. Windows
+Serial remains fixture-only; the connection, Mintty bindings and cooperative
+launcher lifecycle remain the next implementation work. MSYS2 runtime DLLs
+remain an environment prerequisite, not a finished standalone package.
+Working-card contents, current INI/history, live sessions and Linux runtime
+sources were not changed. No commit/push, hardware build, flash or deployment.
+
+== Primary setup references checked
+
+* https://www.msys2.org/[MSYS2 installation and UCRT64 environment].
+* https://www.msys2.org/docs/updating/[MSYS2 full update procedure].
+* https://packages.msys2.org/packages/mingw-w64-ucrt-x86_64-SDL2[UCRT64 SDL2 package].
+* https://packages.msys2.org/packages/mingw-w64-ucrt-x86_64-cmake[UCRT64 CMake package].

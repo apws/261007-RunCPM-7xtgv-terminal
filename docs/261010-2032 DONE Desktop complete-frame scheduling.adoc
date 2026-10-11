@@ -1,0 +1,94 @@
+= Desktop complete-frame scheduling
+:source-highlighter: highlight.js
+
+Authorized by Petr after
+link:261010-2014%20DONE%20Mintty%20bank%20shortcuts%20and%20desktop%20rendering%20profile.adoc[rendering profile]:
+remove the desktop's sleeps between tiny drawing batches on Linux and Windows,
+finish the visible drawing at the INI refresh rate, preserve working devices.
+This extends the original
+link:261006-0935%20PLAN%20Desktop%20runtime%20using%20existing%20board%20HALs.adoc[desktop architecture plan]
+with an explicit desktop scheduling exception. Windows integration remains under
+link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[Windows plan].
+
+== Implementation
+
+The same two native threads remain: RunCPM/storage worker and terminal/SDL main
+thread. Under XTGV_DESKTOP only, terminal rendering uses a full visible-screen
+budget and buffered publication for every selected board, including simulations
+of direct panels. Dirty-cell drawing waits until the software frame deadline;
+it then finishes in one pass and publishes once. `render_flush_hz=10` means
+roughly 100 ms between changed publications; 0 removes the interval. Idle frames
+are not republished. Pixel drawing still uses the production renderer and real
+Arduino_GFX; logical geometry, plot retention and display selection stay shared.
+
+The main thread no longer sleeps unconditionally after each terminal pass. A
+UI-owner query identifies runnable guest output or mirror reconstruction that
+can advance into transport space. That work continues immediately, with input,
+SDL events and stop checks processed each iteration. When idle, transport-blocked
+or awaiting a future frame deadline, the loop sleeps briefly instead of spinning.
+Worker input/output queue waits and cooperative pause/save handling are retained.
+No new renderer thread, core changes, physical HAL edits or INI modifications.
+
+Desktop timing reports now distinguish loop-average waiting, idle-wait count and
+actual average wait duration. `--describe` reports desktop buffered/full-frame
+policy separately from the selected physical board's policy. The coarse-timer
+probe still compares Windows wait implementations, but both modes now use the
+new complete-frame scheduling; it no longer reproduces old tiny-batch rendering.
+
+== Validation
+
+* Linux builds and all nine CTests each pass for ES3_5, ES3_35 and RP2_2: 27
+  checks, including integrated guest/PTY/SDL smoke and real framebuffer tests.
+* The framebuffer contract checks deferral before the deadline, one-pass
+  completion of every dirty visible cell, a single publication, no idle
+  republication, zero-interval operation and pending-output versus idle waiting.
+  Existing retained-plot/highlight checks also pass.
+* Physical-policy host runtime regression passes with ASan/UBSan and strict
+  compiler warnings. It covers rendering/mirror, slow/disconnected USB, queue
+  saturation and reconnect. This is host evidence, not device or UART acceptance.
+* Eight actual mirror cases pass at
+  `build/RunCPM_7xtgv-terminal/desktop/render-profile-es35/mirror-proofs/mirror-fq299llp/`,
+  including busy guest shutdown, terminal disappearance, REBOOT/history saving,
+  lock cleanup and exact binary VTPUT/VTGET.
+* ES3_5 MinGW cross-build passes. Native Windows qualification is pending a
+  user rebuild; earlier native passes apply to the preceding executable.
+* Normal Linux ES3_5 and ES3_35 launcher builds are rebuilt at their standard
+  `desktop/jc8048w550` and `desktop/jc8048w535` locations. Existing processes
+  were not restarted or stopped.
+
+The controlled ES3_5 offscreen profile is retained at
+`build/RunCPM_7xtgv-terminal/desktop/render-profile-es35/render-profile-fullframe.txt`.
+With publication immediately allowed, the new repaint takes 2.396 ms including
+one diagnostic 1.060-ms post-frame sleep; drawing/upload takes 1.094 ms and
+presentation 0.239 ms. Without that diagnostic post-frame sleep it takes 1.402 ms.
+The preceding small-batch measurement was 601.276 ms, including 595.840 ms waiting.
+These are Linux dummy-SDL measurements, not Windows/VM pixel-completion timing.
+A change arriving just after a 10-Hz publication can still wait for the next frame.
+
+The actual guest output fixture at
+`desktop/render-profile-es35/performance-proofs/display-rcjwe0b0/`, below the
+same project build root, reports default boot-to-prompt 15 ms and 200-line
+mirror output 7 ms, versus preceding 76 ms and 88 ms. Its log records 870 loop
+iterations and 580 idle waits, demonstrating continued yielding between active
+bursts. Microsecond timings vary with host load and do not establish universal
+speed ratios.
+
+Build logs are `/tmp/xtgv-fullframe-{es35,es335,rp2,cross}-build.log` and the
+normal Linux launcher logs `/tmp/xtgv-fullframe-es35-launcher-build.log` and
+`/tmp/xtgv-fullframe-es335-launcher-build.log`.
+
+== Native continuation
+
+Close the Windows test windows before replacing their executable. Rebuild the
+selected target, preferably ES3_5 first for comparison, then run
+`desktop-performance.cmd`, `desktop-mirror-proof.cmd` and `desktop-test.cmd`.
+Judge DIR and full repaint visibly; the performance fixture measures mirror
+marker delivery and loop costs. Rebuild ES3_35 when testing that target too.
+Linux's ordinary ES3_5/ES3_35 launchers already select updated artifacts.
+
+Fine-backlight physical input remains a separate pending investigation: its
+probe received Ctrl+Left plus zoom instead of an Alt-bearing backlight chord.
+Bank-switch byte mappings were fixed and proved by the native key probe; no
+changes to Czech printable input. Preserve live sessions and the working card,
+including the newer working BUF noted in the preceding record. No commit/push,
+hardware rebuild/upload, card deployment or UART qualification.

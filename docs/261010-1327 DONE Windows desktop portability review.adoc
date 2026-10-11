@@ -1,0 +1,155 @@
+= Windows desktop portability review
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Request and status
+
+Petr requested a source review of what is missing for a native Windows
+executable of the integrated desktop emulator. Linux remains the primary
+hardware development environment. Wine is optional and is not a current
+acceptance target. The new `tools-win/targets/` location is intended for
+launchers only. Product operation and most guide content should remain the same.
+
+This is completed analysis, not a Windows implementation or build result.
+No dependency installation, application/source changes, builds, runtime tests,
+session controls, working-card edits or deployments were performed.
+
+The controlling desktop design remains
+link:261006-0935%20PLAN%20Desktop%20runtime%20using%20existing%20board%20HALs.adoc[the real-board desktop plan],
+read against the current code and its
+link:261006-1117%20DONE%20Linux%20desktop%20real-board%20SDL%20and%20mirror%20checkpoint.adoc[Linux checkpoint].
+In particular, SDL remains the output-only panel and the mirror provides input
+and the full logical screen. Windows transport was explicitly deferred in that
+plan; introducing SDL keyboard input would change the agreed design.
+
+== Existing reusable foundation
+
+* The same original Arduino sketch, RunCPM, 7XF and terminal are compiled by
+  the desktop build. Existing board headers supply geometry, display identity,
+  INI selection and drawing policy independently of physical HAL execution.
+* `runtime_desktop.h` uses standard C++ threads and atomics. `platform.cpp`
+  supplies host timing, queues, storage/display bindings and real Arduino_GFX
+  Canvas drawing. The selected library is pinned to Arduino_GFX 1.6.4.
+* `presenter.cpp` presents RGB565 pixels through SDL2. Its only explicit
+  Linux-desktop hint is conditional on the Hyprland environment. It deliberately
+  contains no keyboard translator.
+* `storage.cpp` already has Windows branches for wide-path binary open,
+  64-bit seek/tell and truncation. Directory operations use C++ filesystem;
+  there is already a storage contract test. Windows branches being present
+  does not establish that they have been compiled or tested on Windows.
+* The headless fixture path supplies commands through `Serial.feed()` and
+  verifies a real guest program through its PUN.TXT output. This offers a
+  first native build test without completing the interactive mirror first.
+
+== Missing work identified in current source
+
+Paths in this table are relative to `src/RunCPM_7xtgv-terminal/`.
+
+[cols="1,2,3",options="header"]
+|===
+|Area |Current evidence |Required Windows work
+|Build |`desktop/CMakeLists.txt` rejects non-Linux systems, always includes `serial_pty.cpp`, uses GCC-style optimization flags and fixes HostOS to the Linux value. Integrated executables/tests are inside a Linux-only block.
+|Separate portable targets from host transport; add Windows selection and host identity; select compiler flags; resolve Windows SDL2 and its application entry-point convention. Preserve real-board selection.
+|Mirror transport |`desktop/serial_pty.cpp` uses `posix_openpt`, termios, poll, Unix descriptors and PTY connection state. Its interface and descriptor member are exposed in `desktop/shims/Arduino.h`.
+|A Windows transport behind the same Serial behavior, with bounded queues, partial writes, backpressure, connection changes and reconnect snapshots. A loopback socket is the leading proposal; a pipe is another option. Neither is implemented.
+|Keyboard and mirror |`tools/terminal.py` imports fcntl, termios, tty, pwd and grp and selects on console/serial descriptors. Konsole and Kitty configuration currently encode several chords before the helper sees them.
+|Windows console input/output and transport adapters; reuse existing protocol, key identifiers and applicable translation/transfer logic. Reproduce event semantics, modifier sides, AltGr, Czech layout, keypad and reserved controls. Opening a generic terminal window alone does not supply those mappings.
+|Launch/lifecycle |`desktop/desktop.py` assumes an extensionless executable, selectable stdout pipe, PTY announcement and tmux cleanup. Closing the mirror calls `child.terminate()`; exit code 75 triggers reboot/relaunch.
+|Resolve .exe and platform-specific build output paths; replace Unix process/pipe monitoring and mirror launching. Request cooperative stop explicitly, wait for storage-owner cleanup, and preserve reboot/close ordering.
+|Storage acceptance |Windows branches exist; the CLI still receives narrow arguments and passes paths through string conversions. Host filesystem behavior determines case and sharing rules.
+|Test paths containing spaces and Czech characters, removable-drive roots, binary bytes including Ctrl-Z, seek/truncate, rename/open-handle behavior, INI/history transactions and normal exit/reboot on disposable cards. Do not add a second card format or case-folding resolver.
+|Packaging/tests |Current per-target outputs and scripts are Linux-oriented. Most interactive tests open PTYs through the POSIX mirror.
+|Separate Windows artifacts from Linux outputs; package the executable, SDL/compiler runtime dependencies and mirror runtime if required. Keep ordinary portable tests and adapt interactive tests to the Windows transport. Verify on native Windows.
+|===
+
+The lifecycle difference is concrete: Python documents that `terminate()` sends
+SIGTERM on POSIX but invokes TerminateProcess on Windows. It cannot simply
+remain the normal Windows save-and-close path. Python also documents that
+Windows `select()` supports sockets, not arbitrary console/file descriptors.
+
+== Proposed boundaries and tooling
+
+Keep shared emulator/platform code in `desktop/`, existing board definitions
+in their current headers, and one source of target metadata. `tools-win/targets/`
+can contain thin `.cmd` or PowerShell launchers mirroring the desktop build,
+local-card and selected-card actions. They should call a shared dispatcher;
+do not copy emulator sources, INI definitions or target JSON into every folder.
+There is no requirement here to port MCU build/upload tools to Windows.
+
+For a first compiler, MinGW-w64 is a reasonable candidate because the present
+build already uses GCC-style flags and it permits either Windows builds or
+Linux-to-Windows cross compilation. This is a recommendation, not a measured
+winner or proof that every Arduino_GFX dependency compiles unchanged. MSVC
+would need its own flag and source-compatibility checks. Build dependencies
+are separate from the dependencies shipped with a runnable Windows package.
+
+For interaction, preserve the two views: simulated panel plus mirror. A
+Windows-capable console adapter can translate host key events into the existing
+terminal event protocol. Prefer reusing the current mirror logic through
+platform adapters before considering an independent reimplementation. Its
+packaging may initially include Python or a packaged helper; a single physical
+EXE is not a prerequisite for a usable Windows executable distribution.
+
+ConPTY hosts console applications; it is not a drop-in Unix PTY or virtual
+COM-port implementation. It should not be chosen merely because its name
+contains PTY. A local loopback transport would also allow transport tests on
+Linux without making Wine an acceptance dependency.
+
+== Size assessment and recommended first checkpoint
+
+The compilation/display proof appears bounded and relatively small because
+the renderer, runtime and storage foundations already exist. An equivalent
+interactive Windows package is a moderate host-porting task: transport,
+keyboard fidelity and cooperative lifecycle are its main work. This is a
+source-based estimate; no compilation experiment has measured the remaining
+compiler/library issues.
+
+Recommended sequence, pending an implementation choice:
+
+. Establish an x64 Windows compiler/dependency configuration and isolated
+  build directory. Build the existing portable tests and the fixture-driven
+  integrated executable, using an explicitly noninteractive Serial backend.
+. On native Windows, verify real guest execution, storage and a visible SDL
+  panel for one representative real-board target, initially EP4_10. This
+  establishes buildability, not interactive completeness.
+. Implement the selected local transport and Windows mirror adapter; verify
+  the existing shortcuts, application key mappings, full-screen mirror output,
+  transfer behavior and connection lifecycle. Retain Linux regression coverage.
+. Complete cooperative close/reboot and persistence tests, then build the
+  existing board matrix and provide the thin Windows launchers/package.
+
+No CPU/BDOS/CCP change is expected from the reviewed architecture. If compilation
+exposes a required core edit, identify that exact seam before making it, as
+required by repository guidance.
+
+Product commands, INI semantics, profiles, history format and card layout
+should remain the same. BG/TG would gain platform build/launch instructions;
+UG would need only the relevant Windows startup/key-delivery notes. RG/TRG
+would need narrow platform-boundary updates rather than a rewritten manual set.
+
+Petr clarified that ordinary operation after launch should remain equivalent,
+allowing small host hotkey adjustments. The Windows mirror should emit the
+same key identifiers, modifiers and fallback bytes as the current host mappings.
+Existing INI presets and explicit application overrides then keep their meaning.
+Platform adjustments belong in host bindings; do not create a separate Windows
+application-key configuration. Terminal-reserved controls retain their current
+routing. A key intercepted by the operating system or host terminal before it
+reaches the mirror needs host-side handling or a documented fallback.
+
+== Evidence and external references
+
+Inspected current CMake, application, presenter, Serial, platform, storage and
+runtime sources; launcher and mirror; key-event generator; existing storage
+and headless smoke tests. `tools-win/` was empty at the initial inspection.
+Wine was found on the host; the conventional x86_64-w64-mingw32-g++ command
+was not on PATH. Neither observation is native Windows acceptance.
+
+Primary platform documentation checked:
+
+* https://wiki.libsdl.org/SDL2/README-cmake[SDL2 CMake and Windows entry-point linking].
+* https://www.mingw-w64.org/build-systems/cmake/[MinGW-w64 CMake and cross compilation].
+* https://docs.python.org/3/library/select.html[Python select platform limitations].
+* https://docs.python.org/3/library/subprocess.html#subprocess.Popen.terminate[Python process termination semantics].
+* https://learn.microsoft.com/en-us/windows/console/readconsoleinput[Windows console event input].
+* https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences[Windows virtual-terminal output/input modes].
+* https://learn.microsoft.com/en-us/windows/console/creating-a-pseudoconsole-session[ConPTY purpose and lifecycle].

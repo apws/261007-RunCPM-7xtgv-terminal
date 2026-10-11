@@ -1,0 +1,100 @@
+= Spaced history filters and Windows numeric key reports
+:source-highlighter: highlight.js
+:toc:
+
+== Scope and current acceptance
+
+Petr reports testing all six hardware variants as Windows desktops on the live
+W: project: Alt+Q works, SDL windows are fixed-size, and integer window scaling
+works. This is desktop acceptance, not a physical-board test. Brightness appearance
+still differs slightly between hosts; no curve change was requested or made.
+Alt+Q is now the primary documented application-exit shortcut across supplied
+profiles. Konsole/Kitty keep Alt+Esc as a compatibility alias.
+
+This follows
+link:261006-0935%20PLAN%20Desktop%20runtime%20using%20existing%20board%20HALs.adoc[the desktop plan],
+link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[the Windows plan], and
+link:261011-0124%20DONE%20Fixed%20SDL%20scale%20shared%20exit%20aliases%20and%20Windows%20launcher%20logs.adoc[the preceding window/key checkpoint].
+
+Petr clarified that top-row brightness presets work except 6 and OFF. He wants
+both top-row and numpad Ctrl+Shift+1..9 presets, plus Ctrl+Alt+Shift+0 OFF.
+Numeric keypad use in the earlier probe was not consistently separated from
+number-row use; its labels cannot establish physical-key provenance.
+
+== Windows input correction and limits
+
+The saved native probe
+`build/RunCPM_7xtgv-terminal/desktop-win/keyboard-proofs/261011-0145-9e_m8jzo/keys.json`
+contains `CSI 1;8p`, `CSI 1;8q`, `CSI 1;8r`, and `CSI 1;6v` for OFF,
+ANSI, VT52 and brightness 6 respectively. These are modified keypad reports
+in https://github.com/mintty/mintty/blob/master/src/wininput.c[Mintty's app_pad_code/mod_ss3 source].
+Our Windows decoder previously recognized only private numeric KeyFunctions
+reports and passed these sequences through to the guest.
+
+`tools-win/mintty_keys.py` now translates modified keypad digit reports for
+Ctrl+Shift+1..9 and Ctrl+Alt+Shift+0/1/2. Explicit modified-digit xterm and CSI-u
+reports have equivalent translations. Only the assigned combinations are
+intercepted. Other keypad/navigation reports, text and AltGr characters remain
+byte-exact. A finite prefix set bounds incremental buffering and retains the
+existing timeout. There is no firmware or shared Linux input-parser change.
+
+The probe now separates top-row and numpad cases, with NumLock ON requested
+for the latter. It exercises both the Windows decoder and shared mirror Keys
+stage, fixing the false failure for Alt+#. RAW is described as Alt+#, with
+CZ Alt+AltGr+X and US Alt+Shift+3 examples. The probe changes no real backlight;
+Enter alone skips a step. Prompts use Alt, with one LAlt clarification.
+
+On W:, run either focused section from `tools-win`:
+
+[source,bat]
+----
+keyboard-test.cmd --section numpad
+keyboard-test.cmd --section top-row
+----
+
+No executable rebuild is needed for these helper changes; a newly launched
+mirror reads them. Already-running mirrors are not changed. Physical verification
+of the correction is pending, especially the two top-row exceptions. Do not
+map ambiguous raw control bytes to brightness without identifying their source.
+
+== History filters containing spaces
+
+Petr requested `cd /` and other command/parameter prefixes as filters while
+retaining history-based inline keyword insertion. In `LineHistory::recall`, the
+first lookup now tries all text before the cursor, including literal spaces or
+tabs, against entry beginnings (ASCII case-insensitive).
+
+* `cd /` cycles matching absolute-path commands, not standalone slash entries.
+* `cd ` includes the separating space and filters command arguments.
+* If no whole-prefix match exists, a nonempty final word is the fallback query:
+  `10 pr` can still insert a retained `PRINT` entry after the line number.
+* A query ending in whitespace remains a whole-prefix query; if nothing matches,
+  the line stays intact. Column-zero recall remains unfiltered.
+* The query is chosen once for each browsing cycle. Wrapping and cursor-suffix
+  preservation remain; there is no substring search or separate keyword store.
+
+This extends
+link:261009-0251%20DONE%20Filtered%20recall%20returns%20to%20normal%20history.adoc[the earlier history/inline completion work].
+The first query selection adds one bounded scan of the active bank; memory and
+retained entry format are unchanged. Full-prefix matching has priority over a
+word-only match. The Reference Guide documents this order explicitly.
+
+== Checks and continuation
+
+* 13 Windows mirror helper tests pass, including captured failures, all nine
+  keypad presets, packet splitting, unrelated-key preservation, probe translation
+  and canonical Konsole control comparisons.
+* 36 shared mirror helper tests pass.
+* Address/undefined-sanitized terminal and runtime suites pass, including spaced
+  path filters, traversal/wrap, no-match trailing space, suffix preservation and
+  existing inline keyword completion. LeakSanitizer needed execution outside the
+  sandbox; the initial sandbox failure was an inspection restriction.
+* The runtime test formerly recalled unrelated OLD at a cursor following `A `.
+  It now verifies the intended no-match behavior, then checks full-line erasure
+  through unfiltered column-zero recall.
+
+The history change requires rebuilding the selected desktop executable before
+interactive use. No desktop or physical firmware rebuild, flash, deployment,
+commit or push was performed in this checkpoint. Working card INI/history and
+running sessions were preserved. Native key results and history acceptance after
+rebuild remain the next checks; physical-board behavior is not yet qualified.

@@ -1,0 +1,57 @@
+= Windows native file-open bottleneck measured
+:source-highlighter: highlight.js
+
+Petr ran
+link:261010-2252%20DONE%20Native%20filesystem%20operation%20probe%20prepared.adoc[the native filesystem probe].
+Evidence:
+`build/RunCPM_7xtgv-terminal/desktop-win/storage-operation-proofs/profile-fc2i1m_d/`.
+The build log confirms native UCRT64 -O2 compilation. The fixture ran on
+`D:/~tmp/260906-7xtgv/storage-profile-ugur88hy/` using generated files only,
+without RunCPM, SDL or the working card. All 27 rows (three trials of nine cases)
+are present, and every 32-KiB readback passes verification.
+
+== Results
+
+Medians of three native Windows trials:
+
+[cols="2,1,1",options="header"]
+|===
+|32-KiB pattern |Write |Read
+|Actual adapter, reopen per record |1293.228 ms |97.759 ms
+|Native helpers, reopen per record |1268.664 ms |17.163 ms
+|Actual adapter, retained handle |3.029 ms |8.609 ms
+|Native helpers, retained handle |2.773 ms |8.124 ms
+|===
+
+Retaining the adapter handle improves this fixture's write by approximately
+427 times and its read by 11.4 times. These are isolated probe ratios, not
+promised end-to-end guest speedups or durable-media throughput.
+
+The record-write case spends a median 1248.327 ms in adapter opens, around 96.5
+percent of its median total. The native baseline also spends 1216.204 ms in its
+open helper, so adapter path checks alone cannot explain the write slowdown.
+The helper includes _wopen and _fdopen; this probe does not distinguish those two
+calls or identify costs inside the Windows filesystem/filter/VM stack.
+
+For reads, the native repeated-open baseline takes only 17.163 ms versus the
+adapter's 97.759 ms. The metadata probe's 256 weakly_canonical calls take a median
+67.890 ms, showing substantial additional path-resolution overhead. Aggregate
+medians are independently computed and are not an exact additive decomposition
+of one trial. Held reads still incur a relatively costly initial open after the
+write phase; the cause is not isolated here.
+
+== Conclusion and next scope
+
+The residual local Windows write penalty is reproduced without emulator, SDL,
+mirror or shared-card I/O. Repeated native file opening dominates this workload.
+Keeping a handle open is a measured optimization candidate on both desktop
+platforms. It is not evidence that Windows has universally slow bulk writes, nor
+proof of an antivirus, virtual disk or runtime-library defect.
+
+Recommended next step: design a bounded retained-handle prototype with explicit
+flush/invalidation at file mutation and lifecycle boundaries, then exercise the
+actual guest and persistence regressions. Start with desktop validation; shared
+RunCPM/common-abstraction changes require identifying the seam and obtaining
+direction, and physical SdFat testing remains separate. No production storage
+optimization, core edit, card overwrite, session stop, commit or deployment was
+performed in this diagnostic checkpoint.

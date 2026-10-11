@@ -1,0 +1,57 @@
+= Native Windows timing and mirror acceptance
+:source-highlighter: highlight.js
+
+Follow-up to link:261010-1950%20DONE%20Windows%20delay%20measurement%20and%20terminal%20close%20correction.adoc[delay and terminal-close correction], under
+link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[Windows plan].
+
+== Native result
+
+Petr rebuilt ES3_5 on the live W: share and reran both proofs in Windows 10 LTSC
+VirtualBox. The native log identifies build 261010-1952. Evidence paths below
+are relative to `build/RunCPM_7xtgv-terminal/desktop-win/msys2-ucrt64/jc8048w550/`.
+
+`performance-proofs/display-ngb708o9/` reports:
+
+[cols="1,1,1,1",options="header"]
+|===
+|Mode |Boot to prompt, seconds |200-line output, seconds |Average sleep, microseconds
+|Coarse baseline |1.230 |2.136 |15118
+|Default SDL |0.306 |1.089 |1718
+|Software SDL |0.282 |1.226 |1713
+|Headless |0.233 |1.066 |1731
+|===
+
+All corrected modes confirm the high-resolution waitable timer in their startup
+logs and finish normally. Default mode executes 6506 loops during the fixture,
+versus 872 for the baseline. The Windows delay correction is confirmed natively.
+This is not a direct measurement of complete visible SDL repaint duration:
+the output marker measures the mirror byte stream, followed by a fixed settle
+interval. A 528-pass ES3_5 repaint now has about 0.91 seconds of measured-average
+sleep overhead, compared with about 7.98 seconds for the baseline. Actual visible
+completion also includes drawing, presentation and scheduling. Prior Linux
+measurements were around 1.05 ms sleep, so Windows/VM parity is not established.
+The exact internal reason for the old standard-library sleep rounding remains
+unidentified; requesting timer resolution alone was insufficient in this VM.
+
+`mirror-proofs/mirror-72eafig_/proof.log` passes all eight cases: quit, EXIT,
+REBOOT, VTLOOP, VTFLOOD, hangup, true terminal close and transfer. The transfer
+round trip verifies 512 bytes containing all byte values via shared VTPUT/VTGET.
+All cases use spaces and Czech characters in card paths. Owner status is
+finished for every case, REBOOT records two generations, every native process
+finishes normally and no card locks remain. The MSYS terminal-close correction
+is confirmed natively. Physical Mintty key translation is not exercised by this
+PTY-driven proof.
+
+All 301 working-card hashes still match the earlier baseline. No live session
+was stopped by the agent; no runtime code changes, hardware writes or commit/push
+were made during this acceptance check.
+
+== Next step
+
+Use ES3_5 `desktop-test.cmd` and try DIR to judge visible redraw and keyboard
+responsiveness. No further rebuild is needed for that check. Continue physical
+key/application acceptance on the copied card; other targets need the updated
+Windows build when their interactive acceptance resumes. Non-ASCII repository
+paths remain distinct from the confirmed non-ASCII card paths. Wider interactive
+acceptance is still open; this checkpoint closes the measured delay and automated
+mirror lifecycle/transfer failures.

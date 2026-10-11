@@ -17,6 +17,15 @@
 #include <stdio.h>
 #include <string.h>
 
+// A desktop Canvas is always buffered, including simulations of direct panels.
+// Only the desktop changes batching; physical targets retain their HAL policy.
+#if XTGV_DESKTOP
+static constexpr bool BufferedDisplay = true;
+static constexpr bool FullFrameBudget = true;
+#else
+static constexpr bool BufferedDisplay = XTGV_DISPLAY_NEEDS_FLUSH;
+static constexpr bool FullFrameBudget = XTGV_DISPLAY_FULL_FRAME_BUDGET;
+#endif
 static Arduino_GFX *gfx = nullptr;
 
 static ByteQueue<4096> input;
@@ -1326,7 +1335,7 @@ static void applyViewZoom(uint8_t zoom) {
 }
 
 static void requestDisplayFlush() {
-    if (XTGV_DISPLAY_NEEDS_FLUSH) {
+    if (BufferedDisplay) {
         displayFlushPending = true;
     }
 }
@@ -1357,7 +1366,7 @@ static void diskActivityIndicatorPoll() {
     }
 }
 static void flushCanvasIfDue() {
-    if (XTGV_DISPLAY_NEEDS_FLUSH) {
+    if (BufferedDisplay) {
         const uint32_t now = millis();
         if (displayFlushPending && int32_t(now - displayFlushAt) >= 0) {
             gfx->flush();
@@ -1815,6 +1824,12 @@ static void retireDiskIndicatorForPlot() {
 static void renderBatch() {
     if (!displayOK)
         return;
+#if XTGV_DESKTOP
+    // Keep processing input/output between frame deadlines. At the deadline,
+    // finish every dirty visible cell in this pass, then publish once.
+    if (int32_t(millis() - displayFlushAt) < 0)
+        return;
+#endif
     // Plot samples paint directly into the graphics surface. Keep terminal
     // cells out until SGR 0 ends that transaction, but still flush a buffered
     // canvas so the physical Mandelbrot image becomes visible.
@@ -1832,7 +1847,7 @@ static void renderBatch() {
         requestDisplayFlush();
     }
     int drawn = 0, pixelsDrawn = 0;
-    const int DrawBudgetPixels = XTGV_DISPLAY_FULL_FRAME_BUDGET
+    const int DrawBudgetPixels = FullFrameBudget
         ? terminal.visibleCols * terminal.visibleRows * 6 * 10 * terminal.zoom * terminal.zoom
         : 12 * 6 * 10;
     const int visibleCells = terminal.visibleCols * terminal.visibleRows;
@@ -1868,7 +1883,7 @@ static void renderBatch() {
         requestDisplayFlush();
     }
     diskIndicatorDirty = false;
-    if (XTGV_DISPLAY_NEEDS_FLUSH) {
+    if (BufferedDisplay) {
         displayFlushPending |= drawn != 0;
         flushCanvasIfDue();
     }
@@ -2168,7 +2183,7 @@ void terminalSetup() {
     displayOK = gfx && xtgvBoardBeginDisplay(gfx);
     if (displayOK) {
         gfx->fillScreen(0);
-        if (XTGV_DISPLAY_NEEDS_FLUSH) {
+        if (BufferedDisplay) {
             gfx->flush();
             displayFlushAt = millis() + 33;
         }
@@ -2296,7 +2311,7 @@ static void terminalBootBacklightPoll() {
                 if (terminal.dirty[terminal.index(x + terminal.viewport,
                                                   y + terminal.rowViewport)])
                     return;
-        if (XTGV_DISPLAY_NEEDS_FLUSH) {
+        if (BufferedDisplay) {
             gfx->flush();
             displayFlushPending = false;
             displayFlushAt = millis() + displayFlushIntervalMs;
@@ -2592,5 +2607,20 @@ void terminalLoop() {
     terminalBootBacklightPoll();
     xtgvBacklightPoll();
     mirrorPump();
+}
+#endif
+
+#if XTGV_TERMINAL && XTGV_DESKTOP
+bool terminalDesktopWorkPending() {
+    // Called only by the UI owner after terminalLoop(). A future frame deadline
+    // is not runnable work; sleep while waiting for it instead of spinning.
+    if (pauseRequested.load(std::memory_order_acquire)) return false;
+    if (output.available()) return true;
+    if (!connected || Serial.availableForWrite() <= 0) return false;
+    if (mirrorSent < mirrorLength || mirrorReset || terminal.mirrorCursorDirty ||
+        hostIdentityLength || hostReflashPending) return true;
+    for (int row = 0; row < terminal.rows; ++row)
+        if (terminal.mirrorDirty[row]) return true;
+    return false;
 }
 #endif

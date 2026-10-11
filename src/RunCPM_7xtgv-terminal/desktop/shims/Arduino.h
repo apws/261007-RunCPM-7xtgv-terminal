@@ -12,6 +12,7 @@
 #include <Print.h>
 #include <deque>
 #include <mutex>
+#include <memory>
 
 using byte = uint8_t;
 using boolean = bool;
@@ -60,9 +61,15 @@ public:
     size_t write(const uint8_t *, size_t count) override;
     size_t feed(const uint8_t *bytes, size_t count);
     std::string openPty();
+    std::string openLoopback(const std::string &token);
+    void closeLoopback();
+    bool transportStopRequested() const;
     void pump();
     void closePty();
 private:
+    struct Loopback;
+    std::shared_ptr<Loopback> loopback_;
+    void pumpLoopback();
     std::mutex mutex_;
     std::deque<uint8_t> input_;
     // Only the terminal/UI owner touches transport output and connection state.

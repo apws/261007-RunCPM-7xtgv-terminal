@@ -1,0 +1,46 @@
+= Stage Windows runtime DLL dependencies
+:source-highlighter: highlight.js
+
+Petr's first direct launch of the native EP4_10 executable from Total Commander
+on Windows 10 LTSC stopped in the Windows loader: `libwinpthread-1.dll` was
+missing. The successful native rebuild had copied SDL2 through CMake, but the
+compiler runtime was available only through the build process's UCRT64 PATH.
+The emulator did not reach startup; no guest or SDL runtime acceptance follows.
+
+This follows the
+link:261010-1512%20DONE%20Native%20Windows%20EP4%20rebuild%20confirmed.adoc[native build checkpoint]
+under the
+link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[Windows plan].
+
+== Change
+
+`tools-win/windows_build.py` now scans PE imports with the installed UCRT64
+objdump after compilation. It resolves dependencies recursively from that
+toolchain's bin directory, then refreshes the DLLs beside every built
+`xtgv_*.exe`. System32 libraries and Windows API sets are left to Windows.
+Unknown dependencies fail the rebuild rather than reporting a complete build.
+Old output copies and arbitrary PATH directories do not supply dependencies.
+`build.log` records the copied DLL sources and destinations.
+
+Only the shared Windows build adapter changed; no target launcher, Linux build,
+core, card or running session was changed. Rebuild does not install packages.
+The Windows README now explains DLL staging and the card-free `--describe`
+startup check. No global Windows PATH change or MSYS2 reinstall is required.
+
+== Checks and remaining gate
+
+* Eight offline tooling tests pass, including transitive dependencies, cycles,
+  case-insensitive import names, stale-copy refresh, system-library exclusion
+  and rejection of missing dependencies despite an old output copy.
+* The actual seven EP4_10 cross-built PE executables were scanned in a temporary
+  directory with the real cross-toolchain objdump. The resolver staged SDL2.dll,
+  libgcc_s_seh-1.dll, libstdc++-6.dll and libwinpthread-1.dll. Windows system
+  filenames were represented by fixture entries; no Windows execution occurred.
+  Receipt: `/tmp/xtgv-win-first/runtime-staging.log`.
+* Native MSYS staging and executable startup still need Petr's Windows check.
+  Copy the updated `tools-win/windows_build.py` into the guest, rerun the same
+  target rebuild, then run `xtgv_desktop.exe --describe` in its output directory.
+
+Guest/storage/SDL execution on a disposable card remains the next runtime gate.
+The interactive Windows mirror and cooperative launcher lifecycle remain
+pending. No commit, push, hardware write or card deployment.

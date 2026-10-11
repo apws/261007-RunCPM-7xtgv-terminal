@@ -1,0 +1,77 @@
+= Native Windows shared-drive connection proofs pass
+:source-highlighter: highlight.js
+
+Petr confirmed completing the MSYS2 pacman system update, rebuilding targets
+and running smoke/proof launchers from the live W: shared project. The shared
+files were inspected directly on Linux; no pasted console output was needed.
+This follows the
+link:261010-1615%20DONE%20Windows%20loopback%20proof%20prepared%20for%20shared-drive%20test.adoc[prepared loopback/shared-drive proof]
+under the
+link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[controlling Windows plan].
+
+== Results
+
+[cols="1,1,1,1",options="header"]
+|===
+|Target |Build stamp |Smoke |Full connection/storage proof
+|EP4_10 / jc8012p4a1c |261010-1620 |PASS, exit 0 |PASS
+|ES3_5 / jc8048w550 |261010-1623 |PASS, exit 0 |PASS
+|ES3_35 / jc8048w535 |261010-1617 |PASS, exit 0 |No full run found
+|===
+
+All three native build logs finish with linked executables and the four staged
+runtime DLLs. The ES3_35 configure log identifies native GNU 16.2.0; MSYS proof
+logs report Python 3.12.14, platform cygwin, MSYSTEM UCRT64. The GCC version in
+Python's own version string identifies its interpreter build, not the native
+C++ compiler. The pacman update itself is user-reported; its transaction log
+was not collected.
+
+For both full runs, the following passed on the native Windows/MSYS boundary:
+
+* mixed terminal/socket select and descriptor read/write;
+* all five portable C++ tests, including real GFX/framebuffer and host storage;
+* 262149 exact binary bytes with fragmented I/O and bounded queues;
+* real Z80 guest command execution and BDOS punch-file output;
+* data reconnect and mirror snapshot;
+* owner STOP while idle, computing or flooding output;
+* owner disconnect, guest EXIT and guest REBOOT;
+* history persistence on all six shutdown scenarios.
+
+The host-storage test and guest fixtures used W:, not a local TEMP substitute.
+The checked storage contract includes binary data, seek/extension, truncate,
+append, open-handle rename, directory enumeration and NEW/BAK save transactions.
+The two report ZIPs passed integrity checks. All twelve scenario PUN.TXT files
+contain exactly X, all history files are nonempty, and each process log reports
+normal completion. The proof additionally checked expected exit 75 for reboot.
+These checks establish the tested shared-drive workflow; they do not imply
+every possible shared filesystem or file-operation case is qualified.
+
+An earlier ES3_35 smoke attempt reported a missing xtgv_desktop.exe. A later
+successful native build and smoke supersede that attempt. This was a launch
+before its executable existed, not an observed shared-folder runtime defect.
+
+== Exact shared evidence
+
+All paths below are relative to
+`build/RunCPM_7xtgv-terminal/desktop-win/msys2-ucrt64/`:
+
+* `jc8012p4a1c/proof-cards/xtgv-loopback-proof-mn7opjoe/proof.log` -- full proof.
+* `jc8012p4a1c/proof-cards/xtgv-loopback-proof-zuz6uxhm/proof.log` -- smoke.
+* `jc8048w550/proof-cards/xtgv-loopback-proof-atz9h97h/proof.log` -- full proof.
+* `jc8048w550/proof-cards/xtgv-loopback-proof-nnzr1_db/proof.log` -- smoke.
+* `jc8048w535/proof-cards/xtgv-loopback-proof-fcbjuwsx/proof.log` -- later smoke.
+* `jc8048w535/proof-cards/xtgv-loopback-proof-pj3wi3q2/proof.log` -- earlier missing EXE.
+
+Each target's `build.log` and `proof-reports` retain build and zipped run
+evidence. Working-card comparison still matches all 301 recorded file hashes.
+No running session was touched, and no source change, rebuild, commit, push,
+hardware operation or deployment was performed while checking these results.
+
+== Next step
+
+Continue on ES3_5 and the live W: checkout. The native loopback/MSYS boundary
+has passed its functional gate. Integrate the shared interactive mirror and
+Mintty launcher, including owning-window shutdown and reboot handling. Keep
+Linux PTY as its ordinary path. Physical keyboard/AltGr/chord mappings, normal
+mirror transfers, SDL-close/launcher ownership, restart persistence, deliberate
+non-ASCII paths and the remaining native target matrix still need qualification.

@@ -46,7 +46,7 @@ if [ ! -d "$mirror_dir" ]; then
     exit 1
 fi
 
-tmux kill-session -t 7xtgv-cpm 2>/dev/null || true
+tmux kill-session -t 7xtgv-terminal 2>/dev/null || true
 mirror_stopped=true
 
 python3 "$tools_dir/cpm-transfer/transfer.py" --port "$port" --user 0 \

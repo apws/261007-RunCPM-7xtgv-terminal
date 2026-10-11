@@ -1,0 +1,78 @@
+= Windows delay measurement and terminal close correction
+:source-highlighter: highlight.js
+
+Follow-up to link:261010-1750%20DONE%20Windows%20Unicode%20startup%20fix%20and%20display%20timing%20probe.adoc[Unicode and timing checkpoint], under
+link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[Windows plan].
+
+== Native evidence
+
+Petr rebuilt ES3_5 on the live W: share (build 261010-1942) and ran both
+performance and real-mirror proofs. Evidence below is relative to
+`build/RunCPM_7xtgv-terminal/desktop-win/msys2-ucrt64/jc8048w550/`.
+
+`performance-proofs/display-sepng44s/` measured:
+
+[cols="1,1,1,1",options="header"]
+|===
+|Mode |Boot to prompt, seconds |200-line output, seconds |Average sleep, microseconds
+|Coarse timer |1.259 |2.131 |15126
+|Default |1.250 |2.081 |15132
+|Software SDL |1.173 |2.097 |14892
+|Headless |1.148 |2.075 |15583
+|===
+
+The default, software and headless logs confirm a successful 1-ms timer-resolution
+request. It did not shorten standard-library sleep. SDL presentation averaged
+406 microseconds in default mode, 699 in software mode and 1 headless; sleep
+dominates all cases. This supports the earlier calculation: 528 ES3_5 drawing
+passes at roughly 15 ms account for the reported eight-second screen refresh.
+It does not establish a particular internal MinGW or VirtualBox cause.
+
+`mirror-proofs/mirror-bysythpd/` passes quit, EXIT, REBOOT, VTLOOP, VTFLOOD
+and hangup, all using a card path containing spaces and Czech characters.
+The Unicode startup correction is therefore confirmed natively for card paths.
+True PTY master close fails in the Python owner: stdin read raises EIO while
+MSYS still reports it as a TTY. The native child nevertheless finishes normally,
+PUN/history artifacts exist and the card lock is released. The subsequent
+native transfer case was not reached.
+
+== Correction
+
+* Windows-only desktop Arduino delay functions now use a high-resolution
+  waitable timer, with one scoped handle per thread. Relative one-shot waits
+  avoid a busy loop. Unsupported creation or failed waits fall back to standard
+  sleep; the startup log identifies the selected method and wait errors are
+  logged. The scoped timer-resolution request is retained.
+* Diagnostic `--coarse-timer` keeps the preceding standard-library sleep and
+  suppresses the timer-resolution request, preserving a comparison baseline.
+* Shared mirror stdin reading treats EIO/ENXIO as EOF at that exact boundary,
+  without depending on `isatty`. Other read errors still propagate.
+
+Implementation is confined to desktop `platform.cpp`, `platform.h`,
+`application.cpp` and mirror `tools/terminal.py`, with a focused regression and
+supporting documentation. No RunCPM core, terminal drawing budget, physical HAL
+or INI changes. All 301 working-card file hashes match the preceding baseline;
+existing sessions remain untouched.
+
+Microsoft documents the high-resolution flag for Windows 10 1803 onward:
+https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-createwaitabletimerexw[CreateWaitableTimerExW].
+Relative due times use negative 100-ns intervals:
+https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-setwaitabletimer[SetWaitableTimer].
+These API contracts do not guarantee the VM's measured wake-up latency.
+
+== Validation and next check
+
+ES3_5 Linux and MinGW cross-builds pass. Nine Linux CTests, 38 mirror/helper tests
+and 13 Windows tooling tests pass. All eight real-mirror cases pass on Linux,
+including true terminal close and exact binary transfer, at
+`build/RunCPM_7xtgv-terminal/desktop/linux-win-es3-proof/mirror-proofs/mirror-803ibjqe/`.
+Build logs: `/tmp/xtgv-win-first/waitable-linux-build.log` and
+`/tmp/xtgv-win-first/waitable-cross-build.log`.
+
+Native speed and terminal-close correction remain unqualified until retest.
+Close the current test windows, then use the ES3_5 source-folder launchers in
+order: `desktop-rebuild.cmd`, `desktop-performance.cmd`,
+`desktop-mirror-proof.cmd`. The first performance case deliberately remains
+slow as the baseline. Compare logged delay method and measured sleeps; do not
+claim a speedup from cross-compilation. Physical key behavior and wider native
+interactive acceptance remain pending. No commit/push or hardware deployment.

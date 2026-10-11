@@ -1,0 +1,46 @@
+= Native Windows SDL RunCPM boot confirmed
+:source-highlighter: highlight.js
+
+Petr ran the prepared `desktop-smoke.cmd` beside the native EP4_10 executable
+on Windows 10 LTSC 10.0.19044.3031 in VirtualBox. He observed the SDL window
+showing booted RunCPM. The script used a fresh TEMP card and requested a
+ten-second run. It returned normally with exit code zero.
+
+[source,text]
+----
+Temporary test card: C:\Users\falken\AppData\Local\Temp\xtgv-win-smoke-14532-24391
+Starting a ten-second SDL test. Keyboard input is not connected yet.
+Desktop EP4_10 | 261010-1527 | card="C:\\Users\\falken\\AppData\\Local\\Temp\\xtgv-win-smoke-14532-24391"
+Mesa: SVGA3D; build: RELEASE;
+
+Mesa: 24.0.2
+Mesa: SVGA3D; build: RELEASE;
+
+Mesa: 24.0.2
+Integrated Arduino sketch / RunCPM 6.9 / 7XF: finished normally
+
+Test exit code: 0
+Temporary card retained at: C:\Users\falken\AppData\Local\Temp\xtgv-win-smoke-14532-24391
+----
+
+== Evidence and boundary
+
+This user-observed check establishes native loading, SDL panel presentation,
+RunCPM boot and successful timed cooperative shutdown for EP4_10 build
+261010-1527. It follows the
+link:261010-1530%20DONE%20Native%20Windows%20executable%20startup%20confirmed.adoc[card-free startup check]
+and the
+link:261010-1521%20DONE%20Stage%20Windows%20runtime%20DLL%20dependencies.adoc[DLL staging fix].
+The temporary card remains available in the guest. No working card was used.
+
+It does not establish interactive keyboard/mirror operation, scripted guest
+program or filesystem coverage, persistence across restart, SDL-close handling,
+Unicode paths, the five native C++ tests, or other native board targets.
+The next major implementation step remains the bounded MSYS/native connection
+and cooperative stop proof in checkpoint A of the
+link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[controlling plan],
+alongside disposable guest/storage checks before broader launch integration.
+
+Only documentation and registry evidence were updated for this result. No
+source change, rebuild, card write, session operation, commit or push occurred
+on the Linux host while recording it.

@@ -1,0 +1,202 @@
+= MSYS2 Windows desktop build and launch
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+
+== Status and purpose
+
+Status: plan prepared at Petr's request; implementation has not started.
+The intended result is a repeatable Windows desktop rebuild and launch using
+MSYS2, with the same emulated boards, CP/M card and terminal behavior as Linux.
+MSYS2 is an accepted design prerequisite for both building and running the
+mirror; a standalone distribution without MSYS2 is outside this first scope.
+This plan does not authorize installation, implementation, commit/push,
+physical-card writes or hardware deployment.
+
+Supporting evidence:
+
+* link:261010-1327%20DONE%20Windows%20desktop%20portability%20review.adoc[Current source portability review].
+* link:261010-1334%20CHAT%20MSYS2%20reuse%20for%20Windows%20desktop%20tooling.adoc[MSYS2 reuse proposal and primary platform references].
+* link:261006-0935%20PLAN%20Desktop%20runtime%20using%20existing%20board%20HALs.adoc[Controlling shared desktop architecture], read with its subsequent implementation records.
+* link:261007-1810%20DONE%20Desktop%20mirror%20close%20owns%20emulator%20shutdown.adoc[Current mirror-owned shutdown contract].
+
+Linux remains the primary hardware development environment. Wine is optional
+and is not an acceptance requirement. Native Windows execution is required
+before describing the Windows path as working; Linux cross-compilation alone
+does not establish that result.
+
+== 1. Fixed boundaries
+
+* Keep the Linux PTY backend and existing Linux launch behavior. Shared files
+  may gain platform selection or a small transport interface; Linux does not
+  migrate to a socket or acquire an MSYS2 dependency.
+* Compile the same Arduino sketch, terminal engine, runtime and real board
+  definitions. Keep the pinned Arduino_GFX 1.6.4 dependency.
+* Build a native x64 Windows executable with the UCRT64 MinGW-w64 toolchain
+  and matching native SDL2 libraries. Use explicit tool paths/environment
+  selection so MSYS and native libraries cannot silently mix.
+* Run the shared mirror/session logic with MSYS Python, Bash, tmux and Mintty.
+  The MSYS interpreter is distinct from native UCRT64/Windows Python.
+* SDL remains output-only. The mirror remains the keyboard and transfer path.
+  Reuse existing key-event identifiers, terminal protocol and host actions.
+* Keep commands, INI presets/overrides, profiles, history format, persistence
+  ownership and the CP/M card layout shared. No Windows-specific bank settings.
+* Preserve unrelated changes, existing running sessions and working-card bytes.
+  All automated guest tests use disposable cards, including persistence tests.
+
+No RunCPM CPU/CCP/BDOS or common abstraction changes are expected. If compilation
+exposes one, identify the exact seam and obtain direction before editing it.
+Select the proper existing Windows HostOS identity in desktop build definitions
+after checking its meaning; do not carry the Linux value into Windows blindly.
+
+== 2. Tooling layout and ordinary workflow
+
+All paths in this section are relative to `src/RunCPM_7xtgv-terminal/`.
+
+[cols="1,3",options="header"]
+|===
+|Location |Responsibility
+|`tools-win/targets/DISPLAY_ID -- target/`
+|Thin `desktop-rebuild.cmd`, `desktop-local.cmd` and `desktop-card.cmd` launchers only. Each supplies target and action to one shared entry point.
+|`tools-win/`
+|Shared Windows bootstrap, explicit prerequisite setup/checking and Mintty configuration assets. No per-target implementation copies.
+|`tools/` and `desktop/desktop.py`
+|Shared target resolution, build/run orchestration, mirror/session and transport logic, with narrow platform adapters.
+|`tools/targets/*.json`
+|The existing single source of target metadata; no copied Windows target catalog.
+|`desktop/`
+|Shared emulator, CMake platform selection and host transport implementations.
+|===
+
+Planned user workflow: perform explicit MSYS2/project setup once, then run the
+chosen target's rebuild launcher and local/card launcher. Rebuild and launch
+stay separate. Missing prerequisites produce an actionable message; ordinary
+launchers do not install packages. No Arduino MCU toolchains are needed for
+this desktop-only path.
+
+Keep quiet status, adjacent action logs, meaningful exit codes and quoted
+arguments. Support configurable MSYS2 and GFX locations rather than one user's
+paths. Convert MSYS/Windows paths only at the relevant process boundary.
+Preserve the existing Linux artifact location; use a distinct Windows tree,
+proposed `build/RunCPM_7xtgv-terminal/desktop-win/<target>/` at repository root.
+Handle the `.exe` suffix, runtime DLL lookup and fresh build stamps explicitly.
+
+== 3. Connection and lifecycle design
+
+Preferred first Windows experiment: a loopback TCP byte stream between the
+native emulator and MSYS Python. This avoids adding a virtual COM driver and
+lets most mirror processing remain shared. A Windows pipe remains a fallback
+if the experiment exposes a concrete blocker; do not implement both first.
+
+Bind to loopback only, let the OS select the port and pass the actual endpoint
+through structured launcher startup information. Select desktop transport
+explicitly; never treat a socket endpoint as a hardware serial device. Limit
+the connection to its intended session/owner, using a launch token where needed.
+Preserve arbitrary bytes, bounded queues, partial I/O, backpressure and existing
+attach/disconnect snapshot semantics. Test mixed terminal-descriptor/socket
+waiting in MSYS Python early; package availability does not prove this works.
+
+Lifecycle requests must remain separate from guest bytes, using a small host
+control channel or equivalent explicit host mechanism. Do not reserve a byte
+sequence inside the CP/M data stream for killing the process. Normal mirror
+close requests cooperative stop, waits for history/INI/storage cleanup and
+reaps the child. SDL close and guest EXIT clean up that session's mirror;
+guest REBOOT preserves the current exit-75/relaunch contract. A close request
+wins over a simultaneous reboot. Abnormal launcher/control loss must have a
+defined cooperative cleanup path; forced process termination is not normal save.
+
+Existing reconnect behavior must be distinguished from the owning mirror
+being closed. Clean up only this launch's tmux session and children. Desktop
+REFLASH remains unsupported and cannot select a hardware uploader.
+
+== 4. Implementation checkpoints
+
+=== A. Minimal native build and MSYS boundary proof
+
+. Capture the current worktree and selected Linux test baseline without
+  disturbing live sessions. Confirm access to a native Windows test machine.
+. Specify explicit prerequisite setup: MSYS runtime tools and Python; UCRT64
+  compiler, CMake/build tool and SDL2; pinned GFX source. Record actual versions
+  used, interpreter identity and native DLL provenance.
+. Add only the platform/build seams needed to compile EP4_10 and portable
+  tests. Retain Linux PTY selection. Use an explicit noninteractive mode for
+  the first guest/SDL proof if the transport is not yet available.
+. Prove native executable to MSYS Python byte exchange, interactive terminal
+  waiting and cooperative stop with a disposable fixture. Verify spaces and
+  Czech characters in repository/card paths at this boundary.
+
+Gate: native Windows can run the real guest and show the selected SDL panel;
+the proposed MSYS connection and stop mechanism work. Record compiler or
+runtime blockers before expanding launchers. If native Windows is unavailable,
+report only the build/source evidence achieved and leave execution unqualified.
+
+=== B. Shared mirror and lifecycle integration
+
+. Add the selected Serial backend and a mirror connection adapter; keep
+  protocol/key/transfer processing shared and physical serial paths unchanged.
+. Adapt startup endpoint discovery, executable lookup, process monitoring and
+  cooperative close/reboot. Reuse tmux/session logic where it works under MSYS.
+. Add Mintty launch/configuration handling. Derive event mappings from the
+  shared key definitions where possible; do not maintain new numeric key IDs.
+. Exercise attach/reconnect, idle close, partial output, backpressure, transfer
+  cancellation, guest exit/reboot and mirror-close versus reboot ordering.
+
+Gate: the complete EP4_10 Windows session is usable and saves correctly on
+normal close. Linux PTY and launcher regression checks still pass.
+
+=== C. Repeatable launchers and six-board acceptance
+
+. Provide the shared Windows bootstrap and launcher-only target folders.
+  Implement local card and explicitly selected card-root actions, missing
+  prerequisite diagnostics, logs and build-only behavior.
+. Build all six existing board selections and run applicable portable tests.
+  Retain one implementation; do not duplicate Linux scripts just to change
+  target names or path syntax.
+. Test launching from Explorer and an MSYS shell, arbitrary working directory,
+  repository paths with spaces/non-ASCII text and dependency discovery without
+  relying on an accidental developer PATH. Prevent conflicting card writers.
+
+Gate: a prepared Windows checkout supports the documented rebuild-and-launch
+workflow. Use copied cards for acceptance, including a removable-drive copy
+only when explicitly selected for testing; do not touch Petr's physical card.
+
+=== D. Documentation and handoff
+
+After the relevant behavior passes, update BG/TG with prerequisites and
+Windows entry points. Add only necessary startup/key notes to UG and host
+boundary details to TRG. RG changes only if an actual documented interface
+needs a platform qualification. Preserve guide structure and common semantics.
+
+Record native Windows version, MSYS2/toolchain versions, exact build/test
+commands, passed checks and remaining limitations in a linked DONE record.
+Update the feature registry and implemented-feature timeline at that time.
+A self-contained installer, native-console rewrite, MSVC support, hardware
+upload and Wine acceptance are separate later scope.
+
+== 5. Acceptance checklist
+
+* Portable catalog, real GFX, presentation, framebuffer and host storage tests;
+  integrated guest smoke tests on Windows and the applicable Linux suite.
+* All six target identities/geometries build correctly; EP4_10 first receives
+  full interactive acceptance, with representative buffered/direct display
+  checks on other boards. No Windows result implies hardware acceptance.
+* Host storage: binary Ctrl-Z/NUL data, seek/truncate, rename/open handles,
+  paths with spaces/Czech characters, persistence after close/reboot and failed
+  save behavior. Keep host filesystem semantics; no case-folding resolver.
+* Keyboard: BS/Delete, arrows/Home/End, function keys, side-specific modifiers,
+  Czech layout/AltGr, keypad and terminal-reserved controls. Check CCP, TE,
+  MBASIC and the existing custom TINST profile using copied INI settings.
+  Document any unavoidable host interception and an existing fallback.
+* Mirror: full-screen output, snapshot/reconnect and exact-byte VTPUT/VTGET
+  round trip on disposable guest files, including profile/RAW restoration.
+* Lifecycle: owning mirror close, SDL close, guest EXIT, REBOOT, startup failure,
+  abnormal connection/control loss, no orphan writer and no normal forced kill.
+* Linux: existing PTY lifecycle, mirror/tooling tests and representative desktop
+  guest/persistence checks. Linux remains independent of MSYS2 and sockets.
+
+== First next step
+
+Review this plan, then start checkpoint A when implementation is chosen.
+The first deliverable is a bounded Windows build/transport proof, not the full
+launcher matrix. Current guides, executable sources, tools-win contents,
+working card and running sessions are unchanged by preparation of this plan.

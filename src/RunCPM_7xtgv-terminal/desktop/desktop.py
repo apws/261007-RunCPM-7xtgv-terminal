@@ -16,6 +16,7 @@ REPO = SKETCH.parents[1]
 sys.path.insert(0, str(SKETCH / 'tools'))
 from target_mirror import mirror_command
 from target_config import OPTIMIZATION_LEVELS, optimization_level
+from desktop_card_lock import card_lock
 TARGETS = {p.stem: json.loads(p.read_text()) for p in (SKETCH / 'tools/targets').glob('*.json')}
 
 def target_name(name):
@@ -86,6 +87,7 @@ def run(args, target, directory):
         raise RuntimeError('Build first with: desktop.py build --target ' + target)
     root = args.card_root.resolve(strict=True)
     command = [str(executable), '--card-root', str(root)]
+    if args.window_scale != 1: command += ['--window-scale', str(args.window_scale)]
     if args.headless: command += ['--headless']
     if args.input: command += ['--input', str(args.input.resolve())]
     if args.snapshot: command += ['--snapshot', str(args.snapshot.resolve())]
@@ -156,6 +158,8 @@ def main():
     parser.add_argument('action', choices=['build', 'test', 'matrix', 'run'])
     parser.add_argument('--target', type=target_name, default='jc8012p4a1c')
     parser.add_argument('--gfx', type=Path, default=Path.home() / 'Arduino/libraries/GFX_Library_for_Arduino')
+    parser.add_argument('--window-scale', type=int, choices=range(1, 10), default=1,
+                        help='Fixed SDL window integer scale (1..9); guest geometry is unchanged')
     parser.add_argument('--card-root', type=Path)
     parser.add_argument('--headless', action='store_true')
     parser.add_argument('--no-mirror', action='store_true')
@@ -167,6 +171,8 @@ def main():
     parser.add_argument('--log', type=Path)
     parser.add_argument('-O', '--optimization', type=optimization_level, choices=OPTIMIZATION_LEVELS)
     args = parser.parse_args()
+    if args.window_scale != 1 and args.action != 'run':
+        parser.error('--window-scale is a run option; it does not change the built panel')
     if args.optimization and args.action == 'run':
         parser.error('--optimization is a build/test/matrix option; run uses the existing binary')
     if args.action == 'run' and not args.card_root:
@@ -182,7 +188,8 @@ def main():
             if args.action == 'test': tests(directory)
         else:
             if args.log: args.run_log = args.log.open('w')
-            return run(args, args.target, REPO / 'build' / SKETCH.name / 'desktop' / args.target)
+            with card_lock(args.card_root):
+                return run(args, args.target, REPO / 'build' / SKETCH.name / 'desktop' / args.target)
     except (OSError, RuntimeError, subprocess.SubprocessError) as error:
         if args.run_log: args.run_log.write('\nERROR: ' + str(error) + '\n')
         reason = ('Build/launcher command failed' if isinstance(error, subprocess.SubprocessError)

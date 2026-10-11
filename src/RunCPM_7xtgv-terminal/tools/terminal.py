@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """PC keyboard and screen bridge for RunCPM_7xtgv-terminal (Linux, Python 3)."""
 import argparse
+import contextlib
 import errno
 import fcntl
 import grp
@@ -12,6 +13,7 @@ import select
 import shlex
 import shutil
 import signal
+import socket
 import struct
 import subprocess
 import sys
@@ -29,6 +31,7 @@ if str(Path(__file__).resolve().parent) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
 from target_config import resolve_port
 from card_paths import transfer_root, du_directory
+from desktop_connection import LoopbackEndpoint
 
 PREFIX = 0x1D  # Ctrl+]
 SOH, EOT, ACK, NAK, CAN, CRC_REQUEST = 0x01, 0x04, 0x06, 0x15, 0x18, 0x43
@@ -763,6 +766,8 @@ def ensure_port_group(port):
 
 def port_identity(port):
     """Identity changes when udev replaces a native-USB serial device node."""
+    if isinstance(port, LoopbackEndpoint):
+        return port
     status = os.stat(port)
     return status.st_dev, status.st_ino, status.st_rdev
 
@@ -781,6 +786,9 @@ def configure_serial(fd):
 
 def open_serial(port):
     """Open one USB-serial incarnation without disturbing the PC terminal."""
+    if isinstance(port, LoopbackEndpoint):
+        stream = port.connect()
+        return stream.fileno(), stream
     fd = os.open(port, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
     try:
         fcntl.ioctl(fd, termios.TIOCEXCL)
@@ -794,6 +802,9 @@ def open_serial(port):
 
 def close_serial(fd, saved_serial):
     if fd is None:
+        return
+    if isinstance(saved_serial, socket.socket):
+        saved_serial.close()
         return
     try:
         if saved_serial is not None:
@@ -811,9 +822,22 @@ def interrupted(signum, frame):
     raise KeyboardInterrupt
 
 
-def run(port, mode, reflash_command=None):
+def read_terminal_input():
+    try:
+        return os.read(0, 256)
+    except OSError as error:
+        # MSYS can keep isatty(0) true after its PTY master disappears.
+        # Treat only a terminal read's hangup errors as EOF, not device I/O.
+        if error.errno in (errno.EIO, errno.ENXIO):
+            return b''
+        raise
+
+
+def run(port, mode, reflash_command=None, *, should_stop=None, input_decoder=None):
+    if isinstance(port, LoopbackEndpoint) and reflash_command:
+        raise RuntimeError('Desktop REFLASH is unsupported')
     if not os.isatty(0) or not os.isatty(1):
-        raise RuntimeError('Run this helper inside kitty or Konsole, with an interactive keyboard.')
+        raise RuntimeError('Run this helper inside an interactive terminal window.')
     dimensions = os.get_terminal_size(1)
     if dimensions.columns < 80 or dimensions.lines < 24:
         raise RuntimeError('Enlarge the PC terminal to at least 80 columns and 24 rows.')
@@ -845,6 +869,8 @@ def run(port, mode, reflash_command=None):
         host_dimensions = dimensions
         resize_seen_at = 0.0
         while not keys.quit:
+            if should_stop is not None and should_stop():
+                return "stopped"
             # Keep stdin readable during a USB outage so Ctrl+] q always works.
             readers = [0]
             if fd is not None and len(incoming) < 65536:
@@ -885,10 +911,13 @@ def run(port, mode, reflash_command=None):
                     close_serial(fd, saved_serial)
                     fd = saved_serial = None
                     reconnect_at = time.monotonic() + 0.05
-            if 0 in readable or (xmodem_prompt is not None and xmodem_prompt.escape_ready()):
-                data = os.read(0, 256) if 0 in readable else b''
-                if 0 in readable and not data:
+            data = input_decoder.tick() if input_decoder is not None else b''
+            if 0 in readable:
+                raw = read_terminal_input()
+                if not raw:
                     break
+                data += input_decoder.feed(raw) if input_decoder is not None else raw
+            if data or (xmodem_prompt is not None and xmodem_prompt.escape_ready()):
                 if xmodem_prompt is not None:
                     answer = xmodem_prompt.feed(data)
                     if answer == 'cancel':
@@ -953,6 +982,8 @@ def run(port, mode, reflash_command=None):
                     data = os.read(fd, 4096)
                 except BlockingIOError:
                     data = None
+                except OSError:
+                    data = b''
                 if data == b'':
                     close_serial(fd, saved_serial)
                     fd = saved_serial = None
@@ -1010,12 +1041,16 @@ def run(port, mode, reflash_command=None):
                         else:
                             raise
     finally:
-        fcntl.fcntl(1, fcntl.F_SETFL, saved_stdout)
-        if entered:
-            os.write(1, mirror_sanitize_host_modes()
-                     + b'\x1b[0m\x1b[?7h\x1b[?25h\x1b[?1049l')
-        termios.tcsetattr(0, termios.TCSANOW, saved_keyboard)
+        with contextlib.suppress(OSError, termios.error):
+            fcntl.fcntl(1, fcntl.F_SETFL, saved_stdout)
+            if entered:
+                os.write(1, mirror_sanitize_host_modes()
+                         + b'\x1b[0m\x1b[?7h\x1b[?25h\x1b[?1049l')
+        with contextlib.suppress(OSError, termios.error):
+            termios.tcsetattr(0, termios.TCSANOW, saved_keyboard)
         close_serial(fd, saved_serial)
+
+    return "closed"
 
 
 def main():

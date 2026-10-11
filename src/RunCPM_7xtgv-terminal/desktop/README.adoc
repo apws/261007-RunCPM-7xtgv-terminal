@@ -23,7 +23,8 @@ Normal `tools/setup.sh` includes CMake, make, C++ and SDL2 packages alongside
 pinned Arduino cores/libraries. Preview with `--dry-run`.
 The former `--with-desktop` option remains accepted for compatibility.
 Nothing is installed automatically by launching or rebuilding.
-Windows/macOS transport and packaging are not implemented.
+Windows build/launch instructions are in link:../tools-win/README.adoc[tools-win].
+macOS transport and packaging are not implemented.
 
 == Build and launch
 
@@ -125,8 +126,14 @@ running; close first, then unmount normally. No automatic synchronization with a
 == Display and storage boundaries
 
 * Real Arduino_GFX paints RGB565; SDL only uploads and presents its pixels.
-* Buffered boards publish on the production flush scheduler, including INI
-  `render_flush_hz=10`; direct boards publish after changed drawing batches.
+* Linux and Windows desktops finish every dirty visible cell in one drawing
+  pass, then publish a complete frame at the INI `render_flush_hz` rate.
+  This also applies when simulating a direct-display board. A value of 0
+  removes the software interval; unchanged frames are not republished.
+* RunCPM/storage and terminal/SDL run on separate native threads. The terminal
+  thread drains runnable output/mirror work without a sleep between batches;
+  it waits briefly when idle or awaiting a frame deadline. Physical boards
+  retain their own drawing budgets and scheduling.
 * The initial client area requests the selected panel's native dimensions,
   without automatic fit-to-screen reduction. Desktop scaling and compositor
   policy can still affect its physical size.
@@ -145,7 +152,12 @@ o.window("^xtgv_desktop$", { float = true, center = true })
 * SDL requests always-on-top again following the CachyOS review. It remains
   minimizable and focusable; this does not exclude it from Alt+Tab or prevent
   clicks from taking keyboard focus away from the mirror.
-* SDL resizing scales/letterboxes the selected panel, not its terminal geometry.
+* SDL uses a fixed-size window: `--window-scale N` selects an integer factor
+  from 1 through 9 (default 1), with nearest-neighbour pixels. For example,
+  `./desktop-local.sh --window-scale 3` enlarges the whole panel threefold.
+  Windows launchers accept the same argument. Mouse resizing/maximizing is
+  disabled; guest geometry, INI view zoom and native snapshots remain unchanged.
+  Choose a factor that fits the host screen.
   No-activation on initial show is a request to the window manager, not a promise
   that clicking the window cannot give it focus. SDL keys are deliberately ignored.
 * Backlight uses one SDL-only compensation: normalize duty to the selected
@@ -159,6 +171,13 @@ o.window("^xtgv_desktop$", { float = true, center = true })
   tracked handles and joins the worker. No thread is asynchronously killed.
 * The host adapter implements only the used SD/File interface, with ordinary
   binary host files. It is not full SdFat or FAT emulation, nor a security sandbox.
+* The desktop adapter retains up to eight idle native backing descriptors.
+  Each logical File open gets fresh buffering; close still flushes writes and
+  invalidates aliases. Reuse checks file identity, and path containment is still
+  checked every time. Rename/delete/truncate invalidate affected idle entries;
+  shutdown releases all descriptors. Host operations requiring exclusive access
+  or immediate Windows delete/recreate may require closing the desktop session.
+  See link:../../../docs/261010-2330%20DONE%20Desktop%20retained%20file%20handles%20design%20and%20validation.adoc[design, evidence and limits].
 * Lookup follows the host filesystem; use uppercase names on case-sensitive
   Linux storage. CARDMARK reports unsupported; no fake CID/CSD or raw-sector test.
 
@@ -191,7 +210,7 @@ host persistence fault injection and a fresh-OS install remain separate acceptan
 
 An opt-in real MBASIC/VTESTS runner tests attributes, VT52 and scrolling regions
 through the integrated SDL executable. It creates minimal disposable cards from
-canonical `cpmcard/A/7` sources, forces 80x24 logical geometry for EP4_10/EC6_147,
+canonical `cpmcard/C/1` sources, forces 80x24 logical geometry for EP4_10/EC6_147,
 and retains mirror transcripts and GFX Canvas captures. No physical card or
 user `cpmcard` files are touched. Omit `--choice` to run all reviewed pages:
 
@@ -203,6 +222,23 @@ python3 src/RunCPM_7xtgv-terminal/desktop/tests/vtests_sdl.py \
 ----
 
 This uses `SDL_VIDEODRIVER=dummy`: quiet, with the production presenter active.
+`desktop/tests/card_layout.py EXECUTABLE` separately checks the current card's
+nine aliases and real CCP executable lookup with tiny guest probes. It creates
+a disposable card, including a drive/user folder without FORMAT or user 0;
+it neither changes the working INI/history nor qualifies physical storage.
+
+`desktop/tests/catalog_browsing.py EXECUTABLE EVIDENCE_DIRECTORY` exercises
+eleven current aliases, named prompts, root/drive browsing, LS/LL versus
+DIR/LDIR, remembered drive selection and AUTOEXEC startup on disposable copies.
+It retains transcripts and Canvas captures; the directory must be a separate
+test-output location, not the working card.
+
+For EP4_10, CTest `filtered_history_persistence` runs real MBASIC with
+automation profile 9, submits filtered and prefixed completions, verifies
+CRC history after shutdown/restart and checks that an unsubmitted recall is
+not appended. The standalone runner is `desktop/tests/history_recall.py
+EXECUTABLE`; it never writes the working INI/BUF.
+
 The CTest `production_terminal_framebuffer` additionally checks exact VT52 and
 margin cell contents and both blink phases/reverse-colour pixels. A single PPM
 is a static Canvas capture, not evidence of real display timing or flashing.
@@ -218,7 +254,7 @@ For manual mirror attachment, invoke the native `xtgv_desktop` binary with
 `--card-root PATH --pty`; it prints `PTY=/dev/pts/N`. Attach exactly one reader:
 `tools/kon.sh --desktop-pty --port /dev/pts/N`, preferably with a unique
 `XTGV_SESSION`. The Python launcher does this and cleans up its own session;
-it never edits `terminal.conf` or stops `7xtgv-cpm`.
+it never edits `terminal.conf` or stops `7xtgv-terminal`.
 
 Direct CMake users may specify `-DXTGV_WITH_SDL=OFF` for headless-only builds.
 Pass `-DXTGV_TARGET=<long-target-id>` and `-DXTGV_GFX_SOURCE=<library-root>`.

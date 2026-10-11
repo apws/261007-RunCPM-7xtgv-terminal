@@ -1,4 +1,5 @@
 import configparser
+import errno
 import importlib.util
 import os
 import pathlib
@@ -14,6 +15,15 @@ bridge = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bridge)
 
 class HelperTests(unittest.TestCase):
+    def test_terminal_read_hangup_is_eof_even_when_still_a_tty(self):
+        for error in (errno.EIO, errno.ENXIO):
+            with patch.object(bridge.os, 'isatty', return_value=True), \
+                    patch.object(bridge.os, 'read', side_effect=OSError(error, 'PTY closed')):
+                self.assertEqual(bridge.read_terminal_input(), b'')
+        with patch.object(bridge.os, 'read', side_effect=OSError(errno.EBADF, 'bad fd')):
+            with self.assertRaises(OSError):
+                bridge.read_terminal_input()
+
     def test_transfer_ccp_prompt_forms(self):
         transfer = bridge.load_console_transfer()
         for prompt in ('A15>', 'AF>', 'A>', '/a/mbasic>', '/a/7>'):
@@ -172,7 +182,7 @@ class HelperTests(unittest.TestCase):
 
     def test_konsole_profile_keeps_wheel_out_of_cpm(self):
         profile = configparser.ConfigParser()
-        profile.read(pathlib.Path(__file__).parents[1] / 'tools' / '7xtgv-cpm.profile')
+        profile.read(pathlib.Path(__file__).parents[1] / 'tools' / '7xtgv-terminal.profile')
         self.assertFalse(profile.getboolean('Interaction Options', 'AllowMouseTracking'))
         self.assertFalse(profile.getboolean('Interaction Options', 'AlternateScrolling'))
 
@@ -229,7 +239,7 @@ class HelperTests(unittest.TestCase):
 
     def test_zoom_host_bindings_down_in_up_out(self):
         tools = pathlib.Path(__file__).parents[1] / 'tools'
-        konsole = (tools / '7xtgv-cpm.keytab').read_text()
+        konsole = (tools / '7xtgv-terminal.keytab').read_text()
         for key, code in [('PgDown', 66), ('PgUp', 67)]:
             lines = [line for line in konsole.splitlines()
                      if line.startswith('key ') and

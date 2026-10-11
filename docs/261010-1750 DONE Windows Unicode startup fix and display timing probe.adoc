@@ -1,0 +1,96 @@
+= Windows Unicode startup fix and display timing probe
+:source-highlighter: highlight.js
+
+Follow-up to link:261010-1738%20DONE%20Windows%20interactive%20mirror%20ready%20for%20native%20test.adoc[interactive mirror checkpoint].
+
+== Native findings
+
+Petr ran ES3_5 `desktop-mirror-proof.cmd` on W:. Fixture
+`mirror-slmmxsow/quit/session/run-001/process.log` reports
+`Desktop: filesystem error: Cannot convert character sequence: Illegal byte sequence`.
+The card root contains `žluťoučký`. The native executable exits before announcing
+its loopback endpoint; the missing alternate-screen marker is only the test's
+secondary symptom. Its owner records failure and releases the disposable card.
+
+Petr then ran `desktop-test.cmd`: Mintty and SDL both booted RunCPM from an ASCII
+session-card path, build 261010-1623. Shared session evidence is
+`build/RunCPM_7xtgv-terminal/desktop-win/msys2-ucrt64/jc8048w550/sessions/261010-1742-s9c24c2v/`.
+The screenshot shows fast VTCPU execution, but Petr reports roughly two seconds
+to draw Mintty boot text, another three seconds of black SDL, and about eight
+seconds for a complete SDL refresh. Both windows are affected. Logs identify
+Mesa SVGA3D in VirtualBox. CPU execution speed does not establish display-loop
+speed; neither the graphics driver nor timer granularity is yet proved causal.
+The running native session has not been stopped or modified by the agent.
+
+== Changes
+
+* Windows application entry now uses `wmain` and MinGW `-municode`. Arguments
+  cross explicitly from UTF-16 to UTF-8. Card/input/snapshot paths use filesystem
+  UTF-8 conversion into native path objects, and path logging uses UTF-8 rather
+  than a locale-dependent narrow conversion.
+* Host storage retains native wide paths, with UTF-8 for facade names and directory
+  enumeration. Its existing `_wopen` file opening is retained. The portable
+  storage test now uses a root containing spaces and Czech characters.
+* The mirror proof reports an early owner exit directly instead of waiting for
+  an alternate-screen marker that cannot arrive.
+* `desktop-performance.cmd` runs four fresh-card cases: coarse-timer SDL,
+  normal SDL with the timer request, software SDL and headless. All use the same 80x24, zoom-2, 10-Hz fixture and a 200-line
+  guest output program. It records startup-to-prompt and output-to-final-marker
+  elapsed time. Native `--timing-report` records average main-loop costs for
+  socket service, terminal/texture work, presentation and requested 1-ms sleeps.
+  Logs/timings stay in the target's `performance-proofs` folder. It leaves the normal renderer and working INI unchanged and does not control
+  a live session. Each native case remains alive for ten seconds after the
+  final mirror text, so a slow panel can complete its repaint.
+
+Only desktop host sources and tooling changed; no RunCPM core or physical HAL.
+The Unicode test remains in place. These changes require a new Windows rebuild;
+the preceding checkpoint's no-rebuild instruction no longer applies.
+
+== Validation and next native check
+
+ES3_5 Linux and MinGW cross-builds pass, with `wmain` present in the PE binary.
+All nine ES3_5 Linux CTests pass, including host storage, PTY and SDL smoke.
+All eight real-mirror cases pass again on the rebuilt Unicode-capable application:
+`desktop/linux-win-es3-proof/mirror-proofs/mirror-2k2fg4bt/`, below
+`build/RunCPM_7xtgv-terminal/`. Thirteen Windows tooling tests pass.
+
+The timing harness passes with Linux dummy SDL; initial zoom-1 smoke evidence
+is `desktop/linux-win-es3-proof/performance-proofs/display-15uh7sum/`.
+It reported 74–80 ms startup, 85–86 ms output and approximately 1055–1058 us sleep
+per loop. Dummy SDL does not qualify graphics performance or Windows timing.
+The native fixture uses zoom 2 to match Petr's ES3_5 configuration.
+
+Next, close the current disposable-card session, rebuild ES3_5, then run
+`desktop-performance.cmd` and `desktop-mirror-proof.cmd`. Read their shared
+logs to verify the timer correction and separate any residual graphics cost. Native Unicode acceptance and
+timer-fix acceptance remain open. Other native targets need
+rebuild only when their own acceptance resumes. No commit/push or hardware work.
+
+Implementation references:
+https://learn.microsoft.com/en-us/cpp/c-language/using-wmain[Unicode entry point],
+https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-widechartomultibyte[explicit Windows UTF-8 conversion],
+https://sourceforge.net/p/mingw-w64/wiki2/Unicode%20apps/[MinGW Unicode startup].
+
+== Timing finding and candidate correction
+
+Further source inspection matches Petr's clarified observation: DIR reaches
+Mintty in about one second while SDL repaints the full screen in about eight.
+ES3_5 has a 720-pixel per-pass drawing budget. At zoom 2 each cell costs 240
+pixels, allowing three cells per loop; 66x24 visible cells need 528 passes.
+If the requested 1-ms sleep is rounded to approximately 15.6 ms, a full repaint
+takes 8.24 seconds. The same loop sends at most 64 mirror bytes per pass,
+consistent with the slower mirror. This is a source-based hypothesis until
+native sleep measurements confirm it, not a measured Windows result.
+
+Windows desktop sessions now request `timeBeginPeriod(1)` with a matched scoped
+`timeEndPeriod(1)`. Linux timing and all board redraw budgets remain unchanged.
+The diagnostic `--coarse-timer` option suppresses the request for an old-behavior
+baseline. `--timing-report` records actual average sleep and processing times.
+See https://learn.microsoft.com/en-us/windows/win32/api/timeapi/nf-timeapi-timebeginperiod[Microsoft timer-resolution semantics];
+the tested Windows 10 build is newer than version 2004, where this request is
+process-specific. Native comparison is pending after rebuild.
+
+Final timer-enabled ES3_5 Linux and MinGW builds pass. Nine Linux CTests
+pass again. The final four-case offscreen diagnostic completes at
+`desktop/linux-win-es3-proof/performance-proofs/display-olnvk88r/`;
+this verifies the harness and zoom-2 fixture, not native timer behavior.

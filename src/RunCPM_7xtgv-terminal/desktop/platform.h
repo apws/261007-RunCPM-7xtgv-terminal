@@ -13,6 +13,11 @@ void xtgvDesktopSetWorker(bool active);
 void xtgvDesktopCheckStop();
 void xtgvDesktopRequestStop();
 bool xtgvDesktopStopping();
+#if defined(_WIN32)
+// Call once before starting the guest worker. The returned label describes
+// the UI thread's delay implementation for native diagnostic logs.
+const char *xtgvDesktopConfigureDelay(bool coarse);
+#endif
 
 // Drawing remains in the real library. Flush marks a completed render batch.
 class XtgvDesktopCanvas : public Arduino_Canvas {

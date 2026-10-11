@@ -1,0 +1,38 @@
+= Native Windows executable startup confirmed
+:source-highlighter: highlight.js
+
+Following the
+link:261010-1521%20DONE%20Stage%20Windows%20runtime%20DLL%20dependencies.adoc[runtime DLL fix],
+Petr ran `xtgv_desktop.exe --describe` from Command Prompt in the native EP4_10
+output directory on Windows 10 LTSC in VirtualBox. It printed:
+
+[source,text]
+----
+EP4_10 jc8012p4a1c 1280x800 desktop flush=1 full-budget=1
+----
+
+The prompt returned normally. This confirms native executable loading and the
+expected compiled board identity. The earlier missing-DLL loader failure no
+longer blocks this invocation. The command returns before opening a card,
+initializing SDL or starting the emulator worker; these remain untested.
+The exact staged DLL inventory was not supplied by the guest.
+
+== Next bounded check
+
+From the same Windows output directory, create a fresh disposable card and
+run the SDL executable for ten seconds:
+
+[source,bat]
+----
+set "VT_CARD=%TEMP%\xtgv-win-smoke-%RANDOM%-%RANDOM%"
+mkdir "%VT_CARD%\A\0"
+xtgv_desktop.exe --card-root "%VT_CARD%" --run-for-ms 10000
+----
+
+Expected: a visible EP4_10 panel with the CP/M startup/prompt, then cooperative
+shutdown and `finished normally` in Command Prompt. This checks initial
+SDL/guest boot only; scripted guest programs, storage acceptance and the
+interactive Windows mirror remain subsequent gates in the
+link:261010-1342%20PLAN%20MSYS2%20Windows%20desktop%20build%20and%20launch.adoc[controlling plan].
+The fixture remains in Windows TEMP for inspection. No working card or live
+session is used. This record does not claim the next check has run.
