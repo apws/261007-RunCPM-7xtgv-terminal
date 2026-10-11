@@ -355,28 +355,39 @@ strong strong { font-weight: normal; }
 
 
 
-/*mixworx kbd background ivory, btn background lightblue, menuseq background lightgray */
-.keyseq { color: rgba(51, 51, 51, 0.8); }
-kbd {
-  font-family: var(--mixworx-code-font);
-  display: inline-block;
-  color: rgba(0, 0, 0, 0.8);
-  font-size: 1em;
-  font-weight: bold;
-  line-height: 1.45;
-  background-color: #f1eeee;
-  border: 1px solid #ccc;
-  border-radius: 3px;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 0 0 0.1em white inset;
-  margin: 0 0.15em;
-  padding: 0.1em 0.25em;
-  vertical-align: middle;
-  position: relative;
-  top: -0.1em;
+/* Collapse the anonymous '+' flex items; retain separators in copied text.
+ * Key labels restore normal tracking and scale with the surrounding text. */
+.keyseq {
+  display: inline-flex;
+  align-items: baseline;
+  color: transparent;
+  letter-spacing: -1em;
+  vertical-align: baseline;
   white-space: nowrap;
 }
-.keyseq kbd:first-child { margin-left: 0; }
-.keyseq kbd:last-child { margin-right: 0; }
+kbd {
+  font-family: var(--mixworx-text-font);
+  display: inline-block;
+  color: #fff;
+  font-size: 0.70em;
+  font-weight: 600;
+  line-height: 1.08;
+  background-color: #555;
+  border: 1px solid #777;
+  border-radius: 3px;
+  box-shadow: none;
+  letter-spacing: normal;
+  margin: 0 0.1em;
+  padding: 0.10em 0.38em;
+  vertical-align: baseline;
+  position: relative;
+  /* Lift the label; added bottom padding keeps the cap's lower edge in place. */
+  top: calc(-0.18em - 1px);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  white-space: nowrap;
+}
+.keyseq kbd { margin: 0; }
 
 .menuseq, .menuref { color: #000; }
 .menuseq b:not(.caret), .menuref { font-weight: inherit; }

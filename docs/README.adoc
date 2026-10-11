@@ -47,6 +47,20 @@ documents or rewrite earlier discussions to make them agree with later decisions
 Future SPEC records may capture stable specifications; none are required merely
 to create a plan.
 
+=== Keyboard notation
+
+For keyboard instructions, use the AsciiDoc keyboard macro, for example
+`kbd:[Alt+Q]` or `kbd:[Ctrl+Shift+1]`, and add `:experimental:` in the document
+header. This is a stable Asciidoctor UI macro despite the attribute's name.
+Our shared stylesheet already styles `kbd` and `.keyseq`; no JavaScript or
+image is required. Prefer `Alt` (or `LAlt` when the side matters), `PgUp`,
+`PgDn` and `Backspace`. Write successive actions as separate macros, such as
+`kbd:[Pause]` then `kbd:[X]`; a plus means keys held together. Keep literal
+command/configuration examples and quoted historical evidence unchanged.
+Use macros when writing or revising reader-facing instructions; existing prose
+is not automatically rewritten. See
+https://docs.asciidoctor.org/asciidoc/latest/macros/keyboard-macro/[official keyboard macro reference].
+
 == Resume ongoing work
 
 * Separate RG organization example:
