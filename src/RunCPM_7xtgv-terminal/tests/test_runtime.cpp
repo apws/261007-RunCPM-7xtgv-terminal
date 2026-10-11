@@ -7,6 +7,7 @@
 bool terminalHistoryStoragePoll() { return true; }
 bool terminalConfigStoragePoll() { return true; }
 #include "../src/terminal/terminal_runtime.cpp"
+#include "profile_test_fixture.h"
 #include <fstream>
 #include <iostream>
 #include <vector>
@@ -133,11 +134,206 @@ static void testIdentity() {
     }
     std::cout << "Firmware identity normal/RAW/partial-write tests passed\n";
 }
+static void testGlobalShortcutNames() {
+    terminalSetup();
+    terminalBootConfigComplete();
+    struct Case { const char *exit; const char *clear; const char *esc; const char *bs; };
+    for (const auto &test : {
+            Case{"escape_alt", "backspace_alt", "X", "C"},
+            Case{"backspace_alt", "escape_alt", "C", "X"},
+            Case{"lalt+ralt+escape", "lalt+ralt+delete", "X", "C"},
+            Case{"none", "none", "", ""}}) {
+        terminalConfigBegin();
+        const std::string ini = std::string("[global]\nexit_key=") + test.exit +
+            "\nclear_key=" + test.clear +
+            "\n[bank0]\nhistory_clear=\ncommand_new_line=false\n"
+            "exit_command=X\nclear_command=C\n";
+        for (uint8_t c : ini) terminalConfigFeed(c);
+        assert(terminalConfigEnd() == 0);
+        uint8_t byte;
+        while (input.pop(byte)) {}
+        for (const auto &event : {std::pair<const char *, const char *>("\033[>60v", test.esc),
+                                 std::pair<const char *, const char *>("\033[>61v", test.bs)}) {
+            for (const char *p = event.first; *p; ++p) keyboard.feed(uint8_t(*p), fakeTime++);
+            std::string received;
+            while (input.pop(byte)) received.push_back(char(byte));
+            assert(received == event.second);
+        }
+    }
+    std::cout << "canonical/legacy exit-clear names, swap, disabled and host events passed\n";
+}
+
+static void testHistoryRecordLengths() {
+    static_assert(vt::LineHistory::MaxEntry + 1 == 80, "history record width");
+    const auto writeByte = [](void *context, uint8_t byte) {
+        static_cast<std::string *>(context)->push_back(char(byte));
+        return true;
+    };
+    for (const size_t length : {78u, 79u, 80u, 127u}) {
+        delete history;
+        history = new vt::LineHistory();
+        // Put the sentinel at the last character which must survive clipping.
+        std::string original(length, 'A');
+        original[std::min(length, size_t(79)) - 1] = 'Z';
+        const std::string expected = original.substr(0, 79);
+        for (uint8_t bank = 0; bank < vt::LineHistory::Banks; ++bank)
+            assert(history->appendEntry(bank, original.data(), uint8_t(length)));
+        std::string serialized;
+        assert(terminalHistoryWrite(writeByte, &serialized));
+        assert(serialized.find('>' + expected + '\n') != std::string::npos);
+        uint32_t crc = 0xffffffffUL;
+        for (size_t i = 0; i < serialized.size() - 17; ++i)
+            crc = historyCRC32Byte(crc, uint8_t(serialized[i]));
+        char footer[24];
+        snprintf(footer, sizeof footer, "# crc32=%08lX\n",
+                 static_cast<unsigned long>(crc ^ 0xffffffffUL));
+        assert(serialized.compare(serialized.size() - 17, 17, footer) == 0);
+        for (const unsigned format : {0u, 1u, 2u}) {
+            // Legacy records may exceed the new retained length. Consume the
+            // rest of the line without corrupting the next entry/bank header.
+            std::string inputText = serialized;
+            if (format) {
+                inputText = "# 7xtgv terminal history v" + std::to_string(format) + "\n";
+                for (uint8_t bank = 0; bank < vt::LineHistory::Banks; ++bank)
+                    inputText += '[' + std::to_string(bank) + "]\r\n>" +
+                                 original + "\r\n>FOLLOWING\r\n";
+                if (format == 2) {
+                    uint32_t originalCRC = 0xffffffffUL;
+                    for (uint8_t byte : inputText)
+                        originalCRC = historyCRC32Byte(originalCRC, byte);
+                    snprintf(footer, sizeof footer, "# crc32=%08lX\n",
+                             static_cast<unsigned long>(originalCRC ^ 0xffffffffUL));
+                    inputText += footer;
+                }
+            }
+            delete history;
+            history = new vt::LineHistory();
+            terminalHistoryLoadBegin();
+            for (uint8_t byte : inputText) terminalHistoryLoadFeed(byte);
+            terminalHistoryLoadEnd();
+            for (uint8_t bank = 0; bank < vt::LineHistory::Banks; ++bank) {
+                char retained[vt::LineHistory::MaxEntry]; uint8_t retainedLength;
+                assert(history->copyEntry(bank, 0, retained, retainedLength));
+                assert(std::string(retained, retainedLength) == expected);
+                assert(retained[retainedLength - 1] == 'Z');
+                if (format) {
+                    assert(history->copyEntry(bank, 1, retained, retainedLength));
+                    assert(std::string(retained, retainedLength) == "FOLLOWING");
+                }
+            }
+        }
+    }
+    delete history;
+    history = new vt::LineHistory();
+    terminalHistoryLoadBegin();
+    terminalHistoryLoadEnd();
+}
+
+static void testMovableRuntimeProfiles() {
+    terminalSetup();
+    terminalBootConfigComplete();
+    Serial.online = true;
+    uint8_t byte;
+    auto drain = [&]() {
+        std::string sent;
+        while (input.pop(byte)) sent.push_back(char(byte));
+        return sent;
+    };
+    // Reproduce the reported TE cursor/Backspace path in every slot, including
+    // the former MBASIC/VTESTS slots and slot 0 with no CCP role assigned.
+    for (unsigned bank = 0; bank < 10; ++bank) {
+        const std::string ini = "[bank" + std::to_string(bank) + "]\nname=TE\n"
+            "editing_surface=screen\nleft=send:\\x13\nright=send:\\x04\n";
+        terminalConfigBegin(); for (uint8_t c : ini) terminalConfigFeed(c);
+        assert(terminalConfigEnd() == 0);
+        selectedBank = uint8_t(bank); history->select(uint8_t(bank)); resetLineSession();
+        terminal.reset(); ccpPromptLive = false;
+        keyboardKeyEvent(nullptr, {vt::KeyLeft, 0}, nullptr, 0);
+        keyboardKeyEvent(nullptr, {vt::KeyBackspace, 0}, nullptr, 0);
+        assert(drain() == std::string("\x13\x08", 2));
+        assert(!mbasicEditMode && !mbasicEditStartPending);
+        keyboardAction(nullptr, vt::Keyboard::ProfileExit);
+        keyboardAction(nullptr, vt::Keyboard::ProfileClear);
+        assert(drain().empty()); // no inherited SYSTEM/PRINT commands
+        emit("A0>"); settle(); updateEffectiveBank();
+        assert(history->activeBank() == bank); // absent ccp_bank disables rerouting
+    }
+    terminalConfigBegin();
+    for (uint8_t c : std::string("[global]\nccp_bank=6\n[bank6]\n"
+                                "home=send:\\x02\nend=send:\\x17\n"
+                                "[bank7]\nname=TE\nleft=send:\\x13\n")) terminalConfigFeed(c);
+    assert(terminalConfigEnd() == 0);
+    selectedBank = 7; history->select(7); resetLineSession(); terminal.reset();
+    emit("A0>"); settle(); updateEffectiveBank();
+    assert(selectedBank == 7 && history->activeBank() == 6 && !useCpmRecallTransport());
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>("TE\r"), 3);
+    drain(); emit("\r\nTE editor\r\n"); settle(); updateEffectiveBank();
+    assert(history->activeBank() == 7);
+    selectedBank = 6; history->select(6); resetLineSession(); terminal.reset();
+    emit("A0>"); settle(); updateEffectiveBank();
+    assert(useCpmRecallTransport());
+    history->replaceCurrent("DIR", 3, 2);
+    profileKey(vt::AppHome); assert(drain() == std::string("\x01\x01", 2));
+    profileKey(vt::AppEnd); assert(drain() == std::string("\x06\x06\x06", 3));
+    terminalConfigBegin();
+    for (uint8_t c : std::string("[global]\nccp_bank=6\n[bank6]\nhome=none\nend=none\n"))
+        terminalConfigFeed(c);
+    assert(terminalConfigEnd() == 0 && useCpmRecallTransport());
+    profileKey(vt::AppHome); profileKey(vt::AppEnd);
+    assert(drain().empty() && history->currentCursor() == 3);
+    history->discardCurrent();
+    const auto count = history->bankCount(6);
+    const std::string longLine(125, 'X');
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(longLine.data()), longLine.size());
+    assert(history->currentLength() == 0 && history->bankCount(6) == count + 1);
+    drain();
+    // Reload clears the old role; bank 0 then has no CCP line-length behavior.
+    terminalConfigBegin(); terminalConfigEnd();
+    selectedBank = 0; history->select(0); resetLineSession();
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(longLine.data()), longLine.size());
+    assert(history->currentLength() == 125);
+    drain();
+    std::cout << "TE movement/Backspace in all slots and explicit CCP routing passed\n";
+}
+
+static void testExplicitBootProfile() {
+    terminalSetup();
+    terminalConfigBegin();
+    for (uint8_t c : std::string("[global]\nccp_bank=6\n[bank6]\nzoom1_terminal=40x12\n"))
+        terminalConfigFeed(c);
+    assert(terminalConfigEnd() == 0);
+    terminalBootConfigComplete();
+    terminalLoop();
+    assert(selectedBank == 6 && history->activeBank() == 6);
+    assert(terminal.cols == 40 && terminal.rows == 12 && bootGeometry.cols == 40);
+    selectedBank = 7; history->select(7); resetLineSession();
+    terminalConfigBegin(); terminalConfigEnd(); terminalLoop();
+    assert(selectedBank == 7 && history->activeBank() == 7);
+    std::cout << "Explicit CCP boot profile/geometry and reload preservation passed\n";
+}
+
 int main(int argc, char **argv) {
+    if (argc == 2 && std::string(argv[1]) == "boot-profile") {
+        testExplicitBootProfile(); return 0;
+    }
+    if (argc == 2 && std::string(argv[1]) == "movable-profiles") {
+        testMovableRuntimeProfiles(); return 0;
+    }
+    if (argc == 2 && std::string(argv[1]) == "history-length") {
+        terminalSetup();
+        testHistoryRecordLengths();
+        std::cout << "80-character history records: boundary, legacy and CRC checks passed\n";
+        return 0;
+    }
+    if (argc == 2 && std::string(argv[1]) == "global-shortcuts") { testGlobalShortcutNames(); return 0; }
     if (argc == 2 && std::string(argv[1]) == "identity") { testIdentity(); return 0; }
     if (argc == 2) { testBoot(argv[1]); return 0; }
     terminalSetup();
+    terminalConfigBegin();
+    for (uint8_t c : profileTestFile("fixtures/application-profiles.ini")) terminalConfigFeed(c);
+    assert(terminalConfigEnd() == 0);
     assert(ready && backlight == 0 && displayOK);
+    testHistoryRecordLengths();
     terminalBootConfigComplete();
     for (int n = 0; n < 300; ++n) { fakeTime++; terminalLoop(); }
     assert(ready && backlight == xtgvBacklightDuty(16) && displayOK);
@@ -458,6 +654,18 @@ int main(int argc, char **argv) {
     bbcActual.clear();
     while (input.pop(testByte)) bbcActual.push_back(char(testByte));
     assert(bbcActual == "10 for i = 1 TO 100");
+    const uint8_t beforeCompletedLine = history->bankCount(5);
+    const uint32_t beforeCompletedGeneration = history->generation();
+    const uint8_t submitCompletedLine = 13;
+    keyboardSend(nullptr, &submitCompletedLine, 1);
+    assert(history->bankCount(5) == beforeCompletedLine + 1);
+    assert(history->generation() == beforeCompletedGeneration + 1);
+    char submittedLine[vt::LineHistory::MaxLine]; uint8_t submittedLength;
+    assert(history->copyEntry(5, beforeCompletedLine, submittedLine, submittedLength));
+    assert(std::string(submittedLine, submittedLength) == "10 for i = 1 TO 100");
+    bbcActual.clear();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == "\r");
     // MBASIC's EDIT command is deliberately adapted only while it is modal.
     history->select(1);
     selectedBank = 1;
@@ -580,8 +788,8 @@ int main(int argc, char **argv) {
     bbcActual.clear();
     while (input.pop(testByte)) bbcActual.push_back(char(testByte));
     assert(bbcActual == "\x06\x06\x06" && history->currentCursor() == 3);
-    // CP/M recall moves to the tracked start then deletes every character in
-    // place, so a suffix cannot survive a recall from a middle cursor.
+    // An unmatched whole prefix ending in space leaves the edit intact.
+    // Recall at column zero is unfiltered and deletes the entire old line.
     history->discardCurrent();
     const std::string recalledCpm = "OLD\r";
     keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(recalledCpm.data()), recalledCpm.size());
@@ -597,7 +805,13 @@ int main(int argc, char **argv) {
     profileKey(vt::AppUp);
     bbcActual.clear();
     while (input.pop(testByte)) bbcActual.push_back(char(testByte));
-    assert(bbcActual == std::string("\x01\x01\x07\x07\x07\x07\x07OLD"));
+    assert(bbcActual.empty() && history->currentLength() == 5);
+    profileKey(vt::AppHome);
+    while (input.pop(testByte)) {}
+    profileKey(vt::AppUp);
+    bbcActual.clear();
+    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    assert(bbcActual == std::string("\x07\x07\x07\x07\x07OLD"));
     history->discardCurrent();
     profileKey(vt::AppHome);
     profileKey(vt::AppEnd);
@@ -628,7 +842,7 @@ int main(int argc, char **argv) {
     // application. Neither its command nor history-model backspaces may reach
     // the guest, and the notice must restore the exact row and cursor.
     terminalConfigBegin();
-    for (uint8_t c : std::string("[bank3]\non_select=A2:\\r\n")) terminalConfigFeed(c);
+    for (uint8_t c : std::string("[global]\nccp_bank=0\n[bank0]\nname=CP/M\n[bank2]\nname=TE\n[bank3]\nname=TURBO\non_select=A2:\\r\n")) terminalConfigFeed(c);
     assert(terminalConfigEnd() == 0);
     terminal.reset();
     ccpPromptLive = false;

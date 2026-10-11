@@ -1,0 +1,80 @@
+= Keyboard presets and override order review
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Requested clarification
+
+Petr requested a source-grounded explanation of shared `input` presets, their
+relationship to the tested TE/FAND mappings and TINST-configured Turbo, adapter
+behavior and the order of loading/overriding. This follows
+link:261009-2026%20DONE%20INI-owned%20application%20profiles.adoc[INI-owned movable profiles].
+
+The earlier conversational suggestion that ANSI modifier coverage needed an
+extension was incorrect: `input=ansi` already includes all eighteen Ctrl/Alt
+navigation modifier bindings. The reviewed implementation was not changed.
+
+== Findings and documentation
+
+The link:../guides/03-RG-reference-guide.adoc#profile-loading-and-key-priority[Reference Guide]
+now explains:
+
+* Separate output mode, key-map preset, editing adapter, history/prompt settings,
+  CCP routing and RAW state. A preset only supplies key bindings.
+* Neutral initialization, parsing explicit settings, preset expansion after the
+  entire INI and publication of the completed configuration. Preset placement
+  within its section does not affect override priority.
+* Binding priority: explicit bank, explicit global, preset/neutral navigation,
+  then normal handling for keys outside the navigation table. Explicit `none`
+  suppresses ordinary mapping/fallback; duplicate bindings keep the first
+  accepted definition, while scalar settings use the last accepted value.
+* Runtime routing is a separate layer. Reserved terminal controls have priority;
+  adapters can consume ordinary editing keys before configured bytes are sent.
+  In particular, `left=none` does not disable local composer movement. Native
+  CCP Home/End honors explicit `none`. No adapter behavior was altered.
+* Exact shared maps: ANSI 30 active bindings, VT52 six, WordStar 12; all ordinary
+  sequences and ANSI Ctrl/Alt variants are tabulated. Shift/function/letter macros
+  and Backspace are not supplied by these presets.
+* Current local INI banks all omit `input` and therefore use custom. Previously
+  numbered application defaults were a separate mechanism. Explicit preset
+  selections alone leave all current navigation bindings unchanged.
+* The local composer's line editor is reusable machinery, but the current
+  adapter also recognizes MBASIC EDIT, issues X, captures the line, and sends
+  Escape/Q before local editing. Other applications need separate qualification.
+* Every bank-setting fallback is now explicit in a default column. This includes
+  false tracking flags, true active-line highlight, empty commands/prefixes,
+  zero delay, no adapter, custom input, and global/display/palette inheritance.
+
+== TE, FAND and Turbo comparison
+
+A host comparison program called the production `HistoryProfiles` parser against
+the current local INI and explicitly selected presets. Temporary tool source and
+binary: `/tmp/xtgv-review-presets.cpp` and `/tmp/xtgv-review-presets`.
+
+* TE matches nine of the WordStar preset's 12 active bindings. Home is 11 53
+  instead of 11 13; End is 11 44 instead of 11 04. These are printable S/D versus
+  Ctrl-S/Ctrl-D following Ctrl-Q. Insert is explicitly disabled rather than ^V.
+  Four additional Ctrl bindings remain application-specific. RG includes an
+  optional equivalent WordStar-plus-exceptions example, not an INI migration.
+* FAND matches all 12 active WordStar preset bindings. Its additional Ctrl/Shift
+  controls and save macro remain explicit. No universal FAND-version key-map
+  claim is made, and no guest acceptance was performed in this documentation work.
+* Turbo's TINST-defined private 8-bit values remain explicit. An ANSI preset
+  does not install that guest key map or replace its tested controls.
+* Adding ANSI to banks 2/3/4/8 or WordStar to banks 5/7 changes zero current
+  navigation bindings because explicit definitions win. Future removal of
+  redundant matching lines remains a separate chosen INI cleanup.
+
+== Validation and boundary
+
+* The changed RG/navigation/checkpoint documents render with only the established
+  intentional leveloffset warnings. All 26 RG tables have consistent columns,
+  every internal HTML fragment resolves, and changed-document local targets exist.
+* All 301 working-card file hashes match the pre-review inventory, including INI,
+  BUF and snapshots. Targeted whitespace checks pass; the registry validates
+  205 features and its generated ledger is refreshed.
+* Recovery/evidence: `/tmp/xtgv-preset-review-before/card-sha256.json`, the prior
+  RG in that directory, and HTML under `/tmp/xtgv-preset-review-render`.
+
+Only documentation and the existing feature-record references change. No source,
+INI, BUF, card content, runtime session, normal desktop/MCU build artifact or physical board changed;
+no commit or push. The previous checkpoint retains the runtime/desktop evidence.

@@ -79,15 +79,19 @@ struct HistoryProfile {
     bool geometryOverride[4] = {};
 };
 
-enum GlobalKey : uint8_t { GlobalKeyNone, GlobalKeyDualAltEscape, GlobalKeyDualAltDelete };
+// Logical events from the host Alt+Esc / Alt+Backspace mappings, not AltGr.
+enum GlobalKey : uint8_t { GlobalKeyNone, GlobalKeyAltEscape, GlobalKeyAltBackspace };
 struct GlobalProfile {
+    // No numeric slot is a CCP profile until explicitly assigned in the INI.
+    // 10 means disabled; valid profile slots are 0..9.
+    uint8_t ccpBank = 10;
     uint8_t modePalette = 0;
     bool gutterOverride = false, activeGutterOverride = false;
     OutputMode mode = OutputAnsi;
     uint8_t consoleBits = 7;
     uint8_t sdfatSpiMHz = 20; // Requested Arduino clock; applied at boot only.
-    GlobalKey exitKey = GlobalKeyDualAltEscape;
-    GlobalKey clearKey = GlobalKeyDualAltDelete;
+    GlobalKey exitKey = GlobalKeyAltEscape;
+    GlobalKey clearKey = GlobalKeyAltBackspace;
     uint16_t cursorBlinkMs = 500;
     // Last non-off brightness. Zero is never persisted: PgUp/PgDn from off
     // restores this value before making another adjustment.

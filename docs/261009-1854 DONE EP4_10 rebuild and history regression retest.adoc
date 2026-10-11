@@ -1,0 +1,72 @@
+= EP4_10 rebuild and history regression retest
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Scope and build
+
+Petr requested rebuild and retest after the
+link:261009-1843%20DONE%2080-character%20history%20records.adoc[history-length correction].
+The selected regression target was the EP4_10 desktop (`jc8012p4a1c`), matching
+the earlier manuals/history test vehicle. No MCU build or upload was requested
+or performed; no working session was stopped/reloaded by this work.
+
+* Used the normal target `desktop-rebuild.sh`, default `-O2`, real Arduino_GFX
+  1.6.4 and SDL. Build succeeded with a fresh embedded stamp `261009-1850`.
+* Executable: `build/RunCPM_7xtgv-terminal/desktop/jc8012p4a1c/xtgv_desktop`.
+* Build log: `src/RunCPM_7xtgv-terminal/tools/targets/EP4_10 -- jc8012p4a1c/desktop-rebuild.log`.
+* The desktop header from a test boot confirms EP4_10 and `261009-1850`.
+
+== Results
+
+* CTest: 11/11 pass, including real GFX/production framebuffer, storage,
+  PTY lifecycle, sketch smoke, filtered-history persistence and catalog widths.
+* Additional integrated history probe: four boots pass (v1 and CRC-valid v2
+  imports, each saved and rebooted). All ten banks are checked with original
+  lengths 78, 79, 80 and 127; retained entries have at most 79 text characters
+  plus `>`. The final retained sentinel and following entry survive, and new
+  saves pass CRC validation.
+* Working-card browsing snapshot: eleven aliases, LS/LL versus DIR/LDIR,
+  drive/root listings, remembered drive selection and AUTOEXEC startup pass.
+* Real MBASIC/VTESTS: eight scenarios pass -- items 3, 5, 7 and all five
+  scrolling stages of item 9. These use the production SDL presenter with
+  dummy video on disposable cards. Physical panel timing is not qualified.
+* Visually inspected production framebuffer captures for scrolling origin
+  clamps/header/footer, VT52 move/erase, and final LL current-drive browsing.
+
+Temporary evidence:
+
+* `/tmp/xtgv-history80-integrated.py`: additional boundary probe.
+* `/tmp/xtgv-desktop-retest-evidence/`: four boot logs and saved BUF outputs,
+  plus PNG copies of three inspected framebuffers.
+* `/tmp/xtgv-desktop-retest-browsing/`: mirror transcripts and framebuffers.
+* `/tmp/xtgv-desktop-retest-vtests/`: eight page/stage transcripts and frames.
+* Normal CTest evidence remains under the target's `Testing/Temporary/`.
+
+== Working-state preservation and concurrent activity
+
+The pre-test inventory hashed 301 working-card files. After testing, 300 are
+unchanged and only `cpm(A0)/7XTGVTRM.BUF` differs; no file was added/deleted.
+The INI and its six host snapshots remain unchanged.
+
+The EP4_10 `desktop-local.log` records a separate launch at 18:51 on the actual
+working card with build `261009-1850`. The BUF mtime is 18:52:56. This is
+consistent with a concurrent ordinary desktop history save; the log alone
+does not establish every action taken in that session. Our automated commands
+used explicit separate disposable card roots. The current BUF is preserved,
+not restored over the concurrent state.
+
+No physical SD synchronization, guest deployment, MCU staging/flash,
+commit or push occurred. All other accumulated changes remain in place.
+
+== Manuals status and next gate
+
+The night pass covered the remaining Reference and Technical Reference topics,
+guide/card indexes, Features Timeline/registry and writing-cheatsheet repairs.
+See the
+link:261009-0917%20DONE%20Manuals%20review%20and%20morning%20pickup.adoc[manuals pickup]
+and its controlling PLAN; substantial content review is not exhaustive visual,
+fresh-machine or physical-board acceptance.
+
+The rebuilt EP4_10 desktop is now available for ordinary interactive use.
+Other target artifacts have not been rebuilt here. Final browser/print review,
+real fresh-machine setup and guided hardware acceptance remain separate gates.

@@ -2,6 +2,7 @@
 #include "../src/terminal/history_profiles.h"
 #include "../src/terminal/line_history.h"
 #include "../src/terminal/terminal.h"
+#include "profile_test_fixture.h"
 #include <algorithm>
 #include <assert.h>
 #include <iostream>
@@ -9,6 +10,85 @@
 #include <string>
 #include <thread>
 #include <vector>
+static void assertSameProfile(const vt::HistoryProfile &a, const vt::HistoryProfile &b) {
+    assert(std::string(a.name) == b.name);
+    for (unsigned k = 0; k < vt::AppKeyCount; ++k) {
+        assert(a.keys[k].kind == b.keys[k].kind && a.keys[k].length == b.keys[k].length);
+        assert(std::equal(std::begin(a.keys[k].bytes), std::end(a.keys[k].bytes), std::begin(b.keys[k].bytes)));
+    }
+#define SAME(field) assert(a.field == b.field)
+    SAME(selectLength); SAME(historyClearLength); SAME(linePrefixLength); SAME(activatePrefixLength);
+    SAME(exitLength); SAME(clearLength); SAME(historyRetypeDelayMs);
+    SAME(activeLineOverride); SAME(cursorOverride); SAME(screenLine); SAME(trimLeft);
+    SAME(escapeCancels); SAME(activeLine); SAME(commandNewLine); SAME(activateNumberedLine);
+    SAME(inputAdapter); SAME(editingSurface); SAME(mode); SAME(modeOverride); SAME(input);
+#undef SAME
+#define SAME_BYTES(field) assert(std::equal(std::begin(a.field), std::end(a.field), std::begin(b.field)))
+    SAME_BYTES(selectBytes); SAME_BYTES(historyClearBytes); SAME_BYTES(linePrefixBytes);
+    SAME_BYTES(activatePrefixBytes); SAME_BYTES(exitBytes); SAME_BYTES(clearBytes);
+    SAME_BYTES(activeLineRGB); SAME_BYTES(cursorRGB); SAME_BYTES(geometryOverride);
+#undef SAME_BYTES
+    for (unsigned n = 0; n < 4; ++n)
+        assert(a.geometry[n].cols == b.geometry[n].cols && a.geometry[n].rows == b.geometry[n].rows);
+}
+static void testMovableProfiles() {
+    vt::HistoryProfiles profiles;
+    auto neutral = [&]() {
+        assert(profiles.global().ccpBank == vt::HistoryProfiles::Banks);
+        for (unsigned bank = 0; bank < vt::HistoryProfiles::Banks; ++bank) {
+            const auto &p = profiles.get(bank);
+            assert(std::string(p.name) == "Bank " + std::to_string(bank));
+            assert(p.inputAdapter == vt::InputAdapterNone && p.editingSurface == vt::EditingSurfaceLine);
+            assert(!p.screenLine && !p.trimLeft && !p.commandNewLine && !p.activateNumberedLine);
+            assert(!p.selectLength && !p.exitLength && !p.clearLength && !p.historyClearLength);
+            assert(!p.linePrefixLength && !p.activatePrefixLength && !p.historyRetypeDelayMs);
+            for (const auto &key : p.keys) assert(key.kind == vt::BindingNone && !key.length);
+        }
+    };
+    neutral(); // missing INI
+    profiles.beginLoad(); profiles.finishLoad(); neutral(); // empty INI
+    // A name never selects application behavior, regardless of its slot.
+    for (unsigned bank = 0; bank < 10; ++bank) {
+        const std::string ini = "[bank" + std::to_string(bank) + "]\nname=MBASIC\n";
+        profiles.beginLoad(); for (uint8_t c : ini) profiles.feed(c); profiles.finishLoad();
+        assert(profiles.errors() == 0 && profiles.get(bank).inputAdapter == vt::InputAdapterNone);
+        assert(profiles.get(bank).keys[vt::AppLeft].kind == vt::BindingNone);
+    }
+    const std::string workingIni = profileTestFile("../../../cpmcard/A/0/7XTGVTRM.INI");
+    profiles.beginLoad(); for (uint8_t c : workingIni) profiles.feed(c); profiles.finishLoad();
+    assert(profiles.errors() == 0 && profiles.global().ccpBank == 0);
+    std::vector<vt::HistoryProfile> original;
+    for (unsigned bank = 0; bank < 10; ++bank) original.push_back(profiles.get(bank));
+    assert(original[7].inputAdapter == vt::InputAdapterNone && !original[7].screenLine);
+    assert(original[5].inputAdapter == vt::InputAdapterNone && !original[5].activatePrefixLength);
+    assert(original[1].inputAdapter == vt::InputAdapterLocalCompose);
+    assert(original[2].historyClearLength == 2 && original[2].historyRetypeDelayMs == 100);
+    // Rotate every complete working section through every numeric slot.
+    for (unsigned shift = 0; shift < 10; ++shift) {
+        std::string moved = workingIni;
+        size_t pos = 0;
+        while ((pos = moved.find("[bank", pos)) != std::string::npos) {
+            if (moved[pos + 5] >= '0' && moved[pos + 5] <= '9' && moved[pos + 6] == ']')
+                moved[pos + 5] = char('0' + (moved[pos + 5] - '0' + shift) % 10);
+            pos += 5;
+        }
+        const size_t ccp = moved.find("ccp_bank=0"); assert(ccp != std::string::npos);
+        moved[ccp + 9] = char('0' + shift);
+        profiles.beginLoad(); for (uint8_t c : moved) profiles.feed(c); profiles.finishLoad();
+        assert(profiles.errors() == 0 && profiles.global().ccpBank == shift);
+        for (unsigned bank = 0; bank < 10; ++bank)
+            assertSameProfile(original[bank], profiles.get((bank + shift) % 10));
+    }
+    for (const std::string value : {"none", "0", "9", "10", "-1", "x", "1x", ""}) {
+        profiles.beginLoad();
+        for (uint8_t c : "[global]\nccp_bank=" + value + "\n") profiles.feed(c);
+        profiles.finishLoad();
+        const bool valid = value == "none" || value == "0" || value == "9";
+        assert(profiles.errors() == (valid ? 0u : 1u));
+        assert(profiles.global().ccpBank == (value == "0" ? 0 : value == "9" ? 9 : 10));
+    }
+    std::cout << "Neutral banks and all ten working-profile permutations passed\n";
+}
 static void collect(void *p, const uint8_t *s, size_t n) {
     static_cast<std::string *>(p)->append(reinterpret_cast<const char *>(s), n);
 }
@@ -101,6 +181,31 @@ static void testKeyboardOverrides() {
     assert(!vt::parseKeyChordName("left_alt_shift", chord));
 
     vt::HistoryProfiles profiles;
+    assert(profiles.global().exitKey == vt::GlobalKeyAltEscape);
+    assert(profiles.global().clearKey == vt::GlobalKeyAltBackspace);
+    struct GlobalKeyCase { const char *text; vt::GlobalKey expected; };
+    for (const auto &test : {
+            GlobalKeyCase{"escape_alt", vt::GlobalKeyAltEscape},
+            GlobalKeyCase{"backspace_alt", vt::GlobalKeyAltBackspace},
+            GlobalKeyCase{"lalt+ralt+escape", vt::GlobalKeyAltEscape},
+            GlobalKeyCase{"lalt+ralt+delete", vt::GlobalKeyAltBackspace},
+            GlobalKeyCase{"none", vt::GlobalKeyNone}}) {
+        profiles.beginLoad();
+        const std::string ini = std::string("[global]\nexit_key=") + test.text +
+                                "\nclear_key=" + test.text + "\n";
+        for (uint8_t c : ini) profiles.feed(c);
+        profiles.finishLoad();
+        assert(profiles.errors() == 0);
+        assert(profiles.global().exitKey == test.expected);
+        assert(profiles.global().clearKey == test.expected);
+    }
+    profiles.beginLoad();
+    for (uint8_t c : std::string("[global]\nexit_key=escape_altgr\nclear_key=delete_alt\n"))
+        profiles.feed(c);
+    profiles.finishLoad();
+    assert(profiles.errors() == 2);
+    assert(profiles.global().exitKey == vt::GlobalKeyAltEscape);
+    assert(profiles.global().clearKey == vt::GlobalKeyAltBackspace);
     const std::string ini =
         "[global]\nleft=send:G\nnum1=send:9\na_ctrl_shift=send:X\n"
         "kp_decimal=send:,\nleft_ctrl=send:C\n"
@@ -315,6 +420,7 @@ static void testLineEditing() {
     expectRow(5, 'F');
 }
 int main() {
+    testMovableProfiles();
     testKeyboardOverrides();
     testCaretControlNotation();
     testProfileParseDiagnostics();
@@ -679,6 +785,8 @@ int main() {
 
     vt::HistoryProfiles profiles;
     assert(profiles.global().crtRampupMs == 0);
+    // Application settings are supplied by an INI fixture, never slot defaults.
+
     for (const std::string duration : {"0", "1", "1500", "60000", "60001", "-1", "abc", "1ms", ""}) {
         profiles.beginLoad();
         const std::string ini = "[global]\nbacklight_level=32\ncrt_rampup_ms=" + duration + "\n";
@@ -690,11 +798,11 @@ int main() {
         assert(profiles.global().crtRampupMs == (valid ? unsigned(std::stoi(duration)) : 0u));
     }
     const std::string profileIni =
-        "[global]\r\nexit_key=lalt+ralt+delete\r\nclear_key=lalt+ralt+escape\r\ncursor_blink_ms=250\r\n"
+        "[global]\r\nexit_key=backspace_alt\r\nclear_key=escape_alt\r\ncursor_blink_ms=250\r\n"
         "viewport_gutter_rgb=128,129,130\r\nviewport_active_gutter_rgb=active_line\r\n"
-        "[bank2]\r\nname=EDITOR\r\nup=send:\\x05\r\n"
-        "up_alt=history_previous\r\non_select=A4:\\r\n"
-        "page_up=send_cancel:\\e\r\nactive_line_rgb=210,255,210\r\n"
+        "[bank2]\r\nname=EDITOR\r\n"
+        "on_select=A4:\\r\n"
+        "active_line_rgb=210,255,210\r\n"
         "cursor_rgb=0,255,64\r\nscreen_line=true\r\ntrim_left=true\r\nline_prefix=>\r\n"
         "activate_numbered_line=true\r\n"
         "input_adapter=mbasic_native\r\n"
@@ -702,11 +810,16 @@ int main() {
         "history_retype_delay_ms=75\r\n"
         "exit_command=BYE\\r\r\nclear_command=PAGE\\r\r\n\x1a ignored padding";
     profiles.beginLoad();
+    std::string appFixture = profileTestFile("fixtures/application-profiles.ini");
+    const size_t tePage = appFixture.find("page_up=send:\\x03");
+    assert(tePage != std::string::npos);
+    appFixture.replace(tePage, std::string("page_up=send:\\x03").size(), "page_up=send_cancel:\\e");
+    for (uint8_t c : appFixture) profiles.feed(c);
     for (uint8_t c : profileIni) profiles.feed(c);
     profiles.finishLoad();
     assert(profiles.errors() == 0);
-    assert(profiles.global().exitKey == vt::GlobalKeyDualAltDelete);
-    assert(profiles.global().clearKey == vt::GlobalKeyDualAltEscape);
+    assert(profiles.global().exitKey == vt::GlobalKeyAltBackspace);
+    assert(profiles.global().clearKey == vt::GlobalKeyAltEscape);
     assert(profiles.global().cursorBlinkMs == 250);
     assert(profiles.global().viewportGutterRGB[0] == 128);
     assert(profiles.global().viewportGutterRGB[1] == 129);
@@ -803,7 +916,7 @@ int main() {
     vt::HistoryProfiles legacyProfiles;
     const std::string legacyIni =
         "[global]\nmode=vt52\nconsole_bits=8\n"
-        "[bank2]\nup=send:\\e[A\ninput=wordstar\nmode=ansi\n"
+        "[bank2]\nup=send:\\e[A\ninput=wordstar\nmode=ansi\nediting_surface=screen\n"
         "zoom1_terminal=79x20\nzoom3_terminal=80x24\n"
         "[bank3]\ninput=vt52\n";
     legacyProfiles.beginLoad();
@@ -834,8 +947,26 @@ int main() {
     for (uint8_t c : std::string(125, 'X')) history.input(c);
     history.input(13);
     assert(history.recall(true, recalled) &&
-           recalled.length == vt::LineHistory::MaxCcpRecall);
+           recalled.length == vt::LineHistory::MaxEntry);
     assert(history.deleteRecalled() && history.bankCount(0) == 0);
+    // All banks retain 79 text characters; longer active input remains intact
+    // until submission. Clipping also applies to imported old entries.
+    for (uint8_t bank = 0; bank < vt::LineHistory::Banks; ++bank) {
+        vt::LineHistory bounded;
+        bounded.select(bank);
+        const std::string line = std::string(78, 'A') + 'Z' + std::string(48, 'B');
+        for (uint8_t c : line) bounded.input(c);
+        assert(bounded.currentLength() == 127);
+        bounded.input('\r');
+        assert(bounded.recall(true, recalled) && recalled.length == 79);
+        assert(std::string(recalled.text, recalled.length) == line.substr(0, 79));
+        bounded.input('\r');
+        assert(bounded.bankCount(bank) == 1); // same retained adjacent entry
+        assert(bounded.appendEntry(bank, line.data(), uint8_t(line.size())));
+        char retained[vt::LineHistory::MaxEntry]; uint8_t retainedLength;
+        assert(bounded.copyEntry(bank, 1, retained, retainedLength));
+        assert(retainedLength == 79 && retained[78] == 'Z');
+    }
     history.select(1);
     for (uint8_t c : std::string("dir\rstat\r")) history.input(c);
     assert(history.recall(true, recalled));
@@ -875,32 +1006,74 @@ int main() {
     for (uint8_t c : std::string("dir\rdump\rdir a\rstat\rdir b\r")) filtered.input(c);
     filtered.input('d'); filtered.input('i');
     assert(filtered.recall(true, recalled) && recalled.erase == 2 &&
-           std::string(recalled.text, recalled.length) == "dir b ");
+           std::string(recalled.text, recalled.length) == "dir b");
     assert(filtered.deleteRecalled());
     assert(filtered.recall(true, recalled) && recalled.erase == 0 &&
-           std::string(recalled.text, recalled.length) == "dir a ");
+           std::string(recalled.text, recalled.length) == "dir a");
     assert(filtered.recall(true, recalled) &&
-           std::string(recalled.text, recalled.length) == "dir ");
+           std::string(recalled.text, recalled.length) == "dir");
     // Filtered traversal wraps rather than stopping at the oldest match.
     assert(filtered.recall(true, recalled) &&
-           std::string(recalled.text, recalled.length) == "dir a ");
+           std::string(recalled.text, recalled.length) == "dir a");
     assert(filtered.recall(false, recalled) &&
-           std::string(recalled.text, recalled.length) == "dir ");
+           std::string(recalled.text, recalled.length) == "dir");
     assert(filtered.recall(false, recalled) &&
-           std::string(recalled.text, recalled.length) == "dir a ");
+           std::string(recalled.text, recalled.length) == "dir a");
     const uint8_t filteredCount = filtered.bankCount(0);
-    filtered.input('\r'); // unchanged filtered recall is deliberately not re-added
-    assert(filtered.bankCount(0) == filteredCount);
-    // The token immediately before the cursor, not the whole input line,
-    // becomes the filter prefix.
+    const uint32_t filteredGeneration = filtered.generation();
+    filtered.input('\r'); // submitted filtered recall is a new history event
+    assert(filtered.bankCount(0) == filteredCount + 1);
+    assert(filtered.generation() == filteredGeneration + 1);
+    char savedCompletion[vt::LineHistory::MaxLine]; uint8_t savedLength;
+    assert(filtered.copyEntry(0, filteredCount, savedCompletion, savedLength));
+    assert(std::string(savedCompletion, savedLength) == "dir a");
+    assert(filtered.recall(true, recalled));
+    filtered.input('\r'); // adjacent exact duplicate is still suppressed
+    assert(filtered.bankCount(0) == filteredCount + 1);
+    assert(filtered.generation() == filteredGeneration + 1);
+    // Whole-prefix filters include spaces/arguments and take precedence
+    // over a matching standalone word from the same history bank.
+    vt::LineHistory pathFilter;
+    for (uint8_t c : std::string("cd /alpha\rcd /beta\rcd relative\r/bare\r")) pathFilter.input(c);
+    for (uint8_t c : std::string("CD /")) pathFilter.input(c);
+    assert(pathFilter.recall(true, recalled) &&
+           std::string(recalled.text, recalled.length) == "cd /beta");
+    assert(pathFilter.recall(true, recalled) &&
+           std::string(recalled.text, recalled.length) == "cd /alpha");
+    assert(pathFilter.recall(true, recalled) &&
+           std::string(recalled.text, recalled.length) == "cd /beta");
+    assert(pathFilter.recall(false, recalled) &&
+           std::string(recalled.text, recalled.length) == "cd /alpha");
+    pathFilter.discardCurrent();
+    for (uint8_t c : std::string("cd ")) pathFilter.input(c);
+    assert(pathFilter.recall(true, recalled) &&
+           std::string(recalled.text, recalled.length) == "cd relative");
+    pathFilter.discardCurrent();
+    for (uint8_t c : std::string("missing ")) pathFilter.input(c);
+    assert(!pathFilter.recall(true, recalled));
+    assert(pathFilter.currentLength() == 8 && pathFilter.currentCursor() == 8);
+    pathFilter.discardCurrent();
+    for (uint8_t c : std::string("cd /b -flag")) pathFilter.input(c);
+    while (pathFilter.currentCursor() > 5) pathFilter.left();
+    assert(pathFilter.recall(true, recalled) &&
+           std::string(recalled.text, recalled.length) == "cd /beta -flag");
+    // Spaces that are actually stored in history remain byte-exact.
+    vt::LineHistory storedSpaces;
+    for (uint8_t c : std::string("cd /kept  \rcd /k")) storedSpaces.input(c);
+    assert(storedSpaces.recall(true, recalled) &&
+           std::string(recalled.text, recalled.length) == "cd /kept  ");
+    // When the whole prefix has no match, the token before the cursor
+    // remains available for inline keyword insertion.
     vt::LineHistory tokenFilter;
     for (uint8_t c : std::string("PRINT\rPRINTER\rLIST\r")) tokenFilter.input(c);
     for (uint8_t c : std::string("10 pr")) tokenFilter.input(c);
     assert(tokenFilter.recall(true, recalled) &&
-           std::string(recalled.text, recalled.length) == "10 PRINTER ");
+           std::string(recalled.text, recalled.length) == "10 PRINTER");
     const uint8_t keywordCount = tokenFilter.bankCount(0);
-    for (uint8_t c : std::string("HELLO\r")) tokenFilter.input(c);
-    assert(tokenFilter.bankCount(0) == keywordCount); // nested source line stays out
+    for (uint8_t c : std::string(" HELLO\r")) tokenFilter.input(c);
+    assert(tokenFilter.bankCount(0) == keywordCount + 1);
+    assert(tokenFilter.copyEntry(0, keywordCount, savedCompletion, savedLength));
+    assert(std::string(savedCompletion, savedLength) == "10 PRINTER HELLO");
     // Inline completion preserves the edited suffix and does not duplicate
     // the whitespace already following the cursor.
     vt::LineHistory inlineFilter;
@@ -909,6 +1082,22 @@ int main() {
     while (inlineFilter.currentCursor() > 4) inlineFilter.left();
     assert(inlineFilter.recall(true, recalled) &&
            std::string(recalled.text, recalled.length) == "10 FOR i = 1 TO 100");
+    inlineFilter.input('\r');
+    assert(inlineFilter.bankCount(0) == 2);
+    assert(inlineFilter.copyEntry(0, 1, savedCompletion, savedLength));
+    assert(std::string(savedCompletion, savedLength) == "10 FOR i = 1 TO 100");
+    // Abandoning a completion does not store it, and banks remain isolated.
+    inlineFilter.select(2);
+    for (uint8_t c : std::string("PRINT\rpr")) inlineFilter.input(c);
+    assert(inlineFilter.recall(true, recalled));
+    inlineFilter.discardCurrent();
+    assert(inlineFilter.bankCount(2) == 1 && inlineFilter.bankCount(0) == 2);
+    for (uint8_t c : std::string("pr")) inlineFilter.input(c);
+    assert(inlineFilter.recall(true, recalled));
+    inlineFilter.input('\r');
+    // Exact recall of the newest entry no longer gains an artificial space,
+    // so the existing adjacent-duplicate rule suppresses it.
+    assert(inlineFilter.bankCount(2) == 1 && inlineFilter.bankCount(0) == 2);
     vt::LineHistory missingKeyword;
     for (uint8_t c : std::string("10 PRINT 42\rLIST\r")) missingKeyword.input(c);
     for (uint8_t c : std::string("10 f i = 1 TO 100")) missingKeyword.input(c);
@@ -920,16 +1109,16 @@ int main() {
     vt::LineHistory replFilter;
     for (uint8_t c : std::string("LOAD\rLIST\r")) replFilter.input(c);
     replFilter.input('l');
-    assert(replFilter.recall(true, recalled) && std::string(recalled.text, recalled.length) == "LIST ");
+    assert(replFilter.recall(true, recalled) && std::string(recalled.text, recalled.length) == "LIST");
     for (uint8_t c : std::string("DISK\r")) replFilter.input(c);
     assert(replFilter.bankCount(0) == 3); // edited column-zero recall is an immediate command
     vt::LineHistory midCursor;
     for (uint8_t c : std::string("stat\rdir\r")) midCursor.input(c);
     midCursor.input('d'); midCursor.input('i'); midCursor.left();
     assert(midCursor.recall(true, recalled) &&
-           std::string(recalled.text, recalled.length) == "dir i");
+           std::string(recalled.text, recalled.length) == "diri");
     assert(midCursor.recall(true, recalled) &&
-           std::string(recalled.text, recalled.length) == "dir i");
+           std::string(recalled.text, recalled.length) == "diri");
     vt::LineHistory edited;
     for (uint8_t c : std::string("PRINT 12345")) edited.input(c);
     edited.left(); edited.left();
@@ -982,11 +1171,11 @@ int main() {
     wrapped.select(0);
     wrapped.input('L');
     assert(wrapped.recall(true, recalled) &&
-           std::string(recalled.text, recalled.length) == newest + " ");
+           std::string(recalled.text, recalled.length) == newest);
     for (int i = vt::LineHistory::Depth - 1; i >= 1; --i)
         assert(wrapped.recall(true, recalled));
     assert(wrapped.recall(true, recalled) &&
-           std::string(recalled.text, recalled.length) == newest + " ");
+           std::string(recalled.text, recalled.length) == newest);
     // Random hostile streams must never escape fixed buffers or screen bounds.
     std::mt19937 rng(42);
     for (int i = 0; i < 200000; i++) {

@@ -1,0 +1,53 @@
+= 80-character history records
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Decision and implementation
+
+Following the
+link:261009-0917%20DONE%20Manuals%20review%20and%20morning%20pickup.adoc[morning pickup],
+Petr selected the history-length correction and revised the requested bound:
+"umm, so let it be rather 80, including that >".
+
+* Every bank now retains at most 79 text characters, making an 80-character
+  saved record with its leading `>` marker, excluding the line ending.
+* `line_history.h` separates retained `MaxEntry=79` from active `MaxLine=127`.
+  Typed submission and imported entries share the retained bound. Existing
+  minimum-length and adjacent-repeat rules apply to retained entry bytes.
+* `terminal_runtime.cpp` loads the full 80-character record before removing
+  its marker. This fixes the previously demonstrated missing-last-character
+  bug; merely lowering the old shared limit would not have fixed it.
+* Older longer v1/v2 entries are clipped in memory; excess bytes are consumed
+  through the newline. A later normal save writes the shorter entries. Existing
+  BUF files are not rewritten by this implementation work.
+* Live input/editing retains its longer capacity and the CCP's 125-character
+  submission tracking. Filtered token composition can still include surrounding
+  text; the history entry stored on Return has the 79-character bound.
+* Entry storage saves 48,000 bytes across ten banks of 100 entries. No history
+  format version, matching rules, profile ordering or keyword subsystem change.
+
+== Verification and delivery boundary
+
+* Strict-warning C++ terminal and runtime suites pass. The model tests check
+  all banks, 127-character active input, clipped stored/imported entries,
+  retained final sentinel and adjacent-repeat suppression.
+* Production-runtime save/load tests cover 78/79-character boundaries and
+  80/127-character oversized entries in all banks, old v1/v2 records followed
+  by a second entry, and serialized v2 CRC. Dedicated scenario: `history-length`.
+* History-to-token CRC/import and INI storage transaction tests pass (4 tests).
+* Full terminal/runtime suites and the dedicated boundary scenario also pass
+  with AddressSanitizer and UndefinedBehaviorSanitizer. Leak detection was
+  disabled for the traced sandbox; no LeakSanitizer qualification is claimed.
+* Five changed guides/checkpoint documents rendered with only the existing
+  intentional leveloffset warnings; 227 local link/image targets exist.
+* The 204-feature registry validates and its ledger is refreshed. Targeted
+  diff whitespace checks pass. All eight working INI/BUF/snapshot hashes match
+  the read-only pre-change snapshot.
+
+Host binaries are under `/tmp/xtgv-history80-*`; these are transient evidence.
+Working INI/BUF and host INI snapshots are preserved. No running session was
+reloaded or stopped, no normal desktop/MCU artifact was rebuilt or staged,
+and no flash, guest deployment, SD synchronization, commit or push occurred.
+
+Next: separately choose a desktop target to rebuild/relaunch. Physical-board
+acceptance and the remaining manuals/rendering review retain their own scope.

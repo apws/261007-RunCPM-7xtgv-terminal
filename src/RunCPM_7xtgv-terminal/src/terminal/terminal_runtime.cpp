@@ -69,6 +69,8 @@ static MbasicStartKind mbasicEditStartKind = MbasicStartNone;
 static uint8_t mbasicEditStartCursor = 0, mbasicEditStartSuffix[2] = {};
 static uint8_t mbasicEditStartSuffixLength = 0;
 static uint8_t selectedBank = 0;
+static std::atomic<bool> bootProfileQueued{false};
+static std::atomic<int> requestedBootBank{-1};
 // A prompt already painted on the screen is not proof that the CCP is still
 // reading input: an app can start before the cursor leaves its launcher row.
 static bool ccpPromptLive = false;
@@ -92,7 +94,8 @@ static uint8_t activePalette = 0;
 static std::atomic<bool> configPalettePending{false};
 static std::atomic<uint32_t> configChangedAt{0};
 static uint8_t historyLoadBank = 0, historyLoadLength = 0;
-static char historyLoadText[vt::LineHistory::MaxLine] = {};
+// The serialized line includes a '>' before the retained entry text.
+static char historyLoadText[vt::LineHistory::MaxEntry + 1] = {};
 // Screen inspection is wider than editable command history on the W550.
 // Keep this independent scratch storage at the compiled terminal maximum.
 static char screenRowCapture[vt::MaxCols] = {};
@@ -216,13 +219,13 @@ static int cpmPromptEndColumn() {
     }
     return col < terminal.x && terminal.charRAM[first + col] == '>' ? col : -1;
 }
-// Bank 0 is temporarily effective while an app profile's on_select command
-// reaches its CP/M launcher prompt (for example A7>).  That is not a general
-// CCP editing session: the next program can interpret Ctrl-A/Ctrl-G as data.
-// Reserve RunCPM's special in-place recall transport for an explicitly
-// selected CP/M/GENERAL session.
+// The configured CCP bank is temporarily effective at an app's launcher
+// prompt. Reserve native in-place recall for explicitly selecting that bank;
+// an on_select launch must not inject CCP editing controls into the next app.
 static bool useCpmRecallTransport() {
-    return history && history->activeBank() == 0 && selectedBank == 0 &&
+    const uint8_t ccpBank = profiles.global().ccpBank;
+    return history && ccpBank < vt::HistoryProfiles::Banks &&
+           history->activeBank() == ccpBank && selectedBank == ccpBank &&
            ccpPromptLive && cpmPromptEndColumn() >= 0;
 }
 static void selectEffectiveBank(uint8_t bank) {
@@ -235,7 +238,9 @@ static void selectEffectiveBank(uint8_t bank) {
 static void updateEffectiveBank() {
     if (!history || historyNoticeActive)
         return;
-    selectEffectiveBank(ccpPromptLive && cpmPromptEndColumn() >= 0 ? 0 : selectedBank);
+    const uint8_t ccpBank = profiles.global().ccpBank;
+    selectEffectiveBank(ccpBank < vt::HistoryProfiles::Banks && ccpPromptLive &&
+                        cpmPromptEndColumn() >= 0 ? ccpBank : selectedBank);
     observeLineSession();
 }
 static uint8_t readCursorRow(char *text, size_t capacity, uint8_t &cursor) {
@@ -267,7 +272,7 @@ static void syncHistoryFromScreen() {
         return;
     // An app's first output can leave its submitted launcher row under the
     // cursor briefly; never import that old CCP command into app history.
-    if (history->activeBank() != 0 && !ccpPromptLive && cpmPromptEndColumn() >= 0)
+    if (history->activeBank() != profiles.global().ccpBank && !ccpPromptLive && cpmPromptEndColumn() >= 0)
         return;
     uint8_t cursor;
     uint8_t length = readCursorRow(screenRowCapture, sizeof(screenRowCapture), cursor);
@@ -345,9 +350,9 @@ static void keyboardSend(void *, const uint8_t *data, size_t n) {
         // Internal CCP's BDOS read returns as soon as the 125th printable
         // character arrives, without a CR.  Close the local history model at
         // the same boundary so subsequent input is not appended to that
-        // already-dispatched command.  The saved bank-0 entry is capped to
-        // 124 characters by LineHistory for safe recall.
-        const bool ccpAutoSubmitted = capture && history->activeBank() == 0 &&
+        // already-dispatched command. Retained history has its own smaller
+        // entry limit; the active model still tracks the full input boundary.
+        const bool ccpAutoSubmitted = capture && history->activeBank() == profiles.global().ccpBank &&
             data[i] >= 0x20 && data[i] <= 0x7e && history->currentLength() == 125;
         if (ccpAutoSubmitted)
             history->input(13);
@@ -628,7 +633,8 @@ static void profileKey(vt::AppKey key) {
     // prompt, make physical Home/End deterministic from our tracked line by
     // using only the unambiguous one-cell editor motions.  This also prevents
     // a native recalled line being silently prepended to 7xtgv history.
-    if (useCpmRecallTransport() && (key == vt::AppHome || key == vt::AppEnd)) {
+    if (useCpmRecallTransport() && binding.kind == vt::BindingSend &&
+        (key == vt::AppHome || key == vt::AppEnd)) {
         const uint8_t cursor = history->currentCursor();
         const uint8_t length = history->currentLength();
         const uint8_t count = key == vt::AppHome ? cursor : uint8_t(length - cursor);
@@ -916,12 +922,12 @@ static void keyboardAction(void *, vt::Keyboard::Action action) {
         return;
     }
     if (action == vt::Keyboard::ProfileExit || action == vt::Keyboard::ProfileClear) {
-        const vt::GlobalKey physical = action == vt::Keyboard::ProfileExit
-                                          ? vt::GlobalKeyDualAltEscape
-                                          : vt::GlobalKeyDualAltDelete;
-        if (profiles.global().exitKey == physical)
+        const vt::GlobalKey event = action == vt::Keyboard::ProfileExit
+                                          ? vt::GlobalKeyAltEscape
+                                          : vt::GlobalKeyAltBackspace;
+        if (profiles.global().exitKey == event)
             profileCommand(true);
-        else if (profiles.global().clearKey == physical)
+        else if (profiles.global().clearKey == event)
             profileCommand(false);
         return;
     }
@@ -2061,7 +2067,7 @@ void terminalHistoryLoadFeed(uint8_t byte) {
         finishHistoryLoadLine();
         return;
     }
-    if (historyLoadLength < vt::LineHistory::MaxLine)
+    if (historyLoadLength < sizeof historyLoadText)
         historyLoadText[historyLoadLength++] = char(byte);
 }
 void terminalHistoryLoadEnd() {
@@ -2101,7 +2107,7 @@ bool terminalHistoryWrite(TerminalHistoryWriteByte writeByte, void *context) {
     if (!history || !writeHistoryText(writeHistoryCheckedByte, &state,
                                       "# 7xtgv terminal history v2\n"))
         return false;
-    char text[vt::LineHistory::MaxLine];
+    char text[vt::LineHistory::MaxEntry];
     for (uint8_t bank = 0; bank < vt::LineHistory::Banks; ++bank) {
         char header[8];
         snprintf(header, sizeof(header), "[%u]\n", unsigned(bank));
@@ -2191,8 +2197,12 @@ void terminalConfigBegin() { profiles.beginLoad(vt::displayHalDefaults()); }
 void terminalConfigFeed(uint8_t byte) { profiles.feed(byte); }
 unsigned terminalConfigEnd() {
     profiles.finishLoad();
+    const uint8_t ccpBank = profiles.global().ccpBank;
+    const uint8_t bootBank = ccpBank < vt::HistoryProfiles::Banks ? ccpBank : 0;
+    if (!bootProfileQueued.exchange(true, std::memory_order_acq_rel))
+        requestedBootBank.store(bootBank, std::memory_order_release);
     bootDisplayProfile = profiles.display();
-    bootGeometry = profiles.geometryFor(0, bootDisplayProfile.viewZoom);
+    bootGeometry = profiles.geometryFor(bootBank, bootDisplayProfile.viewZoom);
     terminal.setMode(profiles.global().mode == vt::OutputAnsi);
     pendingDisplayProfile = profiles.display();
     xtgvBacklightSet(profiles.global().backlightLevel);
@@ -2441,6 +2451,14 @@ void terminalLoop() {
         return;
     }
     pauseAcknowledged.store(false, std::memory_order_release);
+    // The terminal task owns selection. Only the first configuration selects
+    // the explicitly assigned shell profile; later loads preserve selection.
+    const int bootBank = requestedBootBank.exchange(-1, std::memory_order_acq_rel);
+    if (bootBank >= 0) {
+        selectedBank = uint8_t(bootBank);
+        selectEffectiveBank(selectedBank);
+        resetLineSession();
+    }
     if (displayProfilePending.load(std::memory_order_acquire) &&
         (!zoomRequestPending || uint32_t(millis() - zoomRequestedAt) >= 150) &&
         displayProfilePending.exchange(false, std::memory_order_acq_rel)) {

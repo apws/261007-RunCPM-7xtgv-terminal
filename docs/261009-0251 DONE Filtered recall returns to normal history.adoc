@@ -1,0 +1,85 @@
+= Filtered recall returns to normal history
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Implemented behavior
+
+Petr requested that submitting a filtered recall become a new recent history
+entry again. The keyword experiment had left two suppression flags in
+`src/RunCPM_7xtgv-terminal/src/terminal/line_history.h`: one for unchanged
+filtered recalls, another for completions inside a nonempty prefix.
+
+Both suppression paths are removed. Return now follows ordinary `store()`
+regardless of whether the line was typed, recalled or token-completed.
+
+* Empty/single-character lines remain excluded.
+* An exact adjacent repeat is still excluded; comparison includes whitespace.
+  This is not whole-bank deduplication or trimming.
+* Reusing an older command makes it recent again.
+* Recall without submission, cancellation and profile changes do not append.
+* Existing token filtering, cycling, prefix/suffix splicing and trailing-space
+  behavior are unchanged. Completion is still history-based, not a keyword store.
+* Bank count, generation tracking and the v2 persistence format are unchanged.
+  Ten banks retain at most 100 entries each.
+
+No CPU, BDOS, CCP, HAL or physical-card implementation was changed for this fix.
+
+== Tests and reproducible check
+
+* Full C++ terminal suite: PASS, including count/generation/content checks,
+  exact adjacent-repeat suppression and cancelled recalls.
+* Full C++ runtime suite: PASS, including submitted prefixed BBC completion
+  through `keyboardSend`, with only Return forwarded at submission.
+* Integrated EP4_10 SDL/PTY with real MBASIC: PASS. A disposable card seeds
+  automation bank 9; filtered `PRINT 22` and prefixed `10 LIST` are submitted.
+  Shutdown writes CRC-checked v2 history; a second boot loads it and recalls
+  the new numbered line. An unsubmitted recall creates no extra entry.
+  Application banks 1--8 remain untouched; CCP commands use effective bank 0.
+
+From the repository root, with a newly built EP4_10 executable:
+
+[source,sh]
+----
+python3 src/RunCPM_7xtgv-terminal/desktop/tests/history_recall.py \
+  build/RunCPM_7xtgv-terminal/desktop/jc8012p4a1c/xtgv_desktop
+----
+
+The scenario is also the EP4_10 CTest `filtered_history_persistence`.
+It uses `SDL_VIDEODRIVER=dummy` with the production presenter, a temporary
+card and the existing PTY/mirror protocol. It is not a physical keyboard or
+hardware persistence qualification.
+
+Tests used `/tmp/xtgv-7xf-listing-build-lIGqtO/xtgv_desktop`; this reused
+temporary build retains its earlier embedded stamp, so source/test evidence,
+not that stamp alone, identifies the candidate. Normal launcher rebuilds
+configure a fresh stamp. Installed desktop and hardware artifacts were not
+replaced; rebuild/relaunch is still needed to use the changed behavior.
+
+== Keyword follow-up: separate state, not suppressed history
+
+The earlier discussions remain useful:
+
+* link:260915-21%20history%20tokens%20and%20editing%20surfaces.adoc[History tokens and editing surfaces]:
+  separate editable `.TOK` sources, cached lookups and line/screen distinctions.
+* link:260919-11%20TP301%20editor%20TINST%20and%20profile%20switching.adoc[Several explicit completion lists per profile]:
+  more than a single history/keywords toggle.
+* link:260923-22%20profile-only%20selection%20and%20keyword%20shortcuts.adoc[Profile-only selection and proposed keyword shortcuts].
+
+Proposed next design, not implemented or approved as an overnight expansion:
+
+. Keep submitted-command history as a log, independent of the completion source.
+. Give a profile several named lists and an explicit current-list selection;
+  history can remain one selectable source. Selected profile, effective CCP
+  history bank and selected completion list are different state.
+. Load/validate bounded lists through the storage owner, then search memory.
+  Do not open SD files from the terminal task on every keystroke.
+. Decide list ordering, duplicate policy, case matching, persistence and key
+  assignments before coding. Preserve Czech AltGr and existing app bindings.
+. Test line editors first; `editing_surface=screen` does not grant reliable
+  editor cursor semantics or safe generic insertion into every screen editor.
+
+`bbcbasic(B2)/BBCBASIC.TOK` and `tools/history_to_tokens.py` are existing data
+and an export helper, not an automatic keyword engine. Export preserves source
+order/case/duplicates and validates v2 CRC; its historical default bank 5 is
+not a universal BBC assignment. Specify the intended bank explicitly when
+using a reordered INI. Do not overwrite a live history file to simulate a list.

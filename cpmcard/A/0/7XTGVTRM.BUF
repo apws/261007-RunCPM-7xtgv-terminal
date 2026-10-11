@@ -1,136 +1,106 @@
 # 7xtgv terminal history v2
 [0]
->submit brot_bs
->submit brot_ps
->cls
->submit brot_bs
->submit brot_ps
->submit brot_bs
->vtcpu
->submit brot_bs
->submit brot_ps
->cls
+>ll .. 
+>cd 7xtgv
 >dir
->vtcpu
->submit brot_ps
->submit brot_bs
->cls
->reboot
->7xf
->cls
->dir
->cd xterm256
->cls
->dir
->submit brot_bs
->kjhkjhjkhkj
->lkjljlkjl
->lkjlkjklj
->lkjlkj
->dir
->vtpal 1
->vtpal 2
->vtpal 3
->vtpal 4
->vtpal 5
->vtpal 0
->cd mbasic
->dir
->mbasic vtests
->mbasic vtpal
->0123450121234561234512345454565543210121012345012345pi012345432100121234450ip123210123450123454321010123210q
->dir
->list
->run
 >ll
->mbasic prog
->ll
->ll /
->ll /a
->vtpal 1
->vtpal 2
->vtpal 3
->vtpal 4
->vtpal 5
+>ls
 >dir
 >ldir
->7xf
 >dir
->vtcpu
->reboot
->7xf
->vtcpu
->vtdrv w
->cd xterm256
+>ll
+>type dir.7xf
 >dir
->vtcpu
->7xf
->cd xterm256
+>ll
+>cd /b
+>ll ..
+>cd bbcbasic
 >dir
->speed 100
->vtcpu
->speed 2
->vtcpu
->speed 60000
->speed 50000
->speed 20000
->cd xterm256
+>bbclower
+>load "prog"
+>list
+>bbclower 
+>cd tp
+>turbo
 >dir
->7xf
->cd mbasic
+>ll
+>prog
+>turbo 
+>ll .. 
+>cd dbase
+>ll
+>cd /
+>ll /
+>cd /c
+>ll ..
+>dir
+>ldir
 >ls
->mbasic vtests
->ls *.bas
->reboot
->7xf
->cd mbasic
->ls
->mbasic
->run "vtests
->speed 20000
->vtcpu
->mbasic "vtests
->mbasic vtests
->vtzoom 2 80x24
->mbasic vtests
->speed 60000
->vtcpu
->mbasic vtests
->reboot
->7xf
+>vtpal 0
+>dir
+>vtpal 1
+>vtpal 2
+>vtpal 3
 >vtpal 4
+>vtpal 5
+>dir
+>mbasic vtests
+>cd /a
+>dir
+>cd cpmdev
+>dir
+>cd cpm
+>cd /b
+>cd /c
+>ll ..
+>dir
+>vtinfo
+>vtpal 2 
+>dir
+>vtdrv rw 
+>vtcpu
+>vtdrv rw  
+>7xf
+>cd /c/xterm256  
+>cd 7xtgv
+>dir
+>dir *.bas
+>mbasic
+>vtdrv rw
+>exit
+>7xf
+>cd /b/masic
+>cd /b/mbasic
+>mbasic
+>vtinfo
+>cd /c/7xtgv
+>mbasic vtests
 >cd xterm256
+>dir
+>vtinfo
+>dir
+>7xf
+>[1exit
+>;;;;111++
+>cls
+>cd xterm256 
+>cd /c/xterm256
+>dir
+>cd /c/xterm256
+>submit brot_bs
+>submit brot_ps
+>dir
+>cls
+>7xf
+>cd /c/7xtgv
+>mbasic vtests
+>7xf
+>ll /
+>vtcpu
+>vtdrv rw
+>wxit
+>exit
 [1]
->Enter returns to menu:
->Select:2
->Enter returns to menu:
->Select:3
->Enter returns to menu:
->Select:4
->Enter: all 32 glyphs
->Enter returns to menu:5
->Select:
->Select:6
->Enter returns to menu:
->Select:7
->Enter returns to menu:
->Select:8
->Enter returns to menu:
->Select:
->Select:1
->Enter returns to menu:
->Select:2
->Enter returns to menu:
->Select:3
->Enter returns to menu:
->Select:1
->Enter returns to menu:
->Select:2
->Enter returns to menu:
->Select:3
->Enter returns to menu:
->Select:4
->Enter: all 32 glyphs
 >Enter returns to menu:5
 >Select:5
 >Enter returns to menu:
@@ -199,9 +169,39 @@
 >Selection is saved by terminal. Choose preferred preset last.q
 >Select:a
 >Enter returns to menu:
+>-- Press any key, ^C to quit --
+>list
+>load "vtests 
+>list
+>Select:1
+>Enter returns to menu:
+>Select:2
+>Enter returns to menu:
+>Select:3
+>Enter returns to menu:
+>Select:4
+>Enter: all 32 glyphs
+>Enter returns to menu:
+>Select:5
+>Enter: return to ANSI
+>Select:4
+>Enter: all 32 glyphs
+>Enter returns to menu:
+>Select:5
+>Enter: return to ANSI
+>Select:6
+>Enter returns to menu:
+>Select:
+>Select:7
+>Enter returns to menu:
+>Select:7
+>Enter returns to menu:
+>Select:8
+>Enter returns to menu:
+>Select:9
+>Enter: next scroll check
 >Select:q
 [2]
->ctrl_home=send:\x11R                                                            
 >ctrl_end=send:\x11C  
 >escape=send:K\D
 >na
@@ -300,10 +300,11 @@
 >brot_ps.sub  
 >brot_bs.sub  
 >vtstart.com  benchmark test time note
->vtstop.com   benchmark test stt stop, prints elapsed timeBill Shen xterm256 mandelbrot assmblyPhilip Stevens x rendering rende
+>vtstop.com   benchmark test stt stop, prints elapsed timeBill Shen xterm256 man
+>eprog
 [3]
 >dddddsflksdfSESESErksdjflkklsdjlfjsdfsdfs
->/home/falken/_/drv/x/260915/!!! mz-800 - cpm - text tools, fand, nc !!!!/!!! Jiri Lama CPM 1988 !!!/!!! jiri lamac -- cpm14.zi
+>/home/falken/_/drv/x/260915/!!! mz-800 - cpm - text tools, fand, nc !!!!/!!! Ji
 >mdd
 >SEftp301tr
 >ftp301
@@ -315,7 +316,7 @@
 >efTP301; - Ctrl+Alt+S launches Konsole Tab PropertdialogSEies dialog
 >sdfssd sfsd sd
 >klsdjfklsdjkgfglkfdjgkldfjklgjdlkfjglkdfjdglkjklsdlkffsdklahsjkasjkd
->ksdjl ksjdlkdddddddfjsd lkjfsd lkjf skldjflsk  djflks dfkls j  d ksd ksd kljsd flksd ksd fk
+>ksdjl ksjdlkdddddddfjsd lkjfsd lkjf skldjflsk  djflks dfkls j  d ksd ksd kljsd 
 >dd
 >xy
 >--bb
@@ -368,11 +369,11 @@
 >;mainkeys 
 >backspace=
 >escapeldsjkljsdkfjskldfs
->                                                                                
->Init SD SPI bus ......OK                                                        
->Mount MicroSD card ...OK (SPI, CS=10 MOSI=11 MISO=13 SCK=12, 25000000 Hz)       
->Terminal profile .....LOADED WITH ERRORS (1)                                    
-> 282: [bank3]: shift_ctrl_z1=send:\xdF                                          
+>                                                                               
+>Init SD SPI bus ......OK                                                       
+>Mount MicroSD card ...OK (SPI, CS=10 MOSI=11 MISO=13 SCK=12, 25000000 Hz)      
+>Terminal profile .....LOADED WITH ERRORS (1)                                   
+> 282: [bank3]: shift_ctrl_z1=send:\xdF                                         
 >klsdjklfsjdfsTerminal history .....OK                      
 >klsdjklfsjdfsklsdjklfsjdfssend:\x8B
 >shift_backspace=send:\x9B
@@ -403,6 +404,7 @@
 >crrd
 >xprog.com
 [4]
+>yeprog
 [5]
 >str$()
 >val()
@@ -505,6 +507,8 @@
 >list
 >run
 [6]
+>7xf
+>sautoexec.txt
 [7]
 >/Text?
 >soubor:
@@ -518,11 +522,11 @@
 >Edit/Sort/Rprt/Merg/Proc/Disk/eXec/Text?ezaci
 >Celou vetu/Seznam udaju?sprijmeni,jmeno
 >        .  .       v.04/89     veta:    1   Kontr      A:ZACI N            8
->          PECKY                       L                 .  .       v.04/89     v
-> Oa:    1   Kontr      A:ZACI           .  .       v.04/89     veta:    1   Kont
-> ODA           5r      A:ZACI           .  .       v.04/89     veta:    1   Kont
-> ODA           5UDA                         L      v.04/89     veta:    1   Kont
-> ODA           5UDA                         LOS           5    veta:    1   Kont
+>          PECKY                       L                 .  .       v.04/89     
+> Oa:    1   Kontr      A:ZACI           .  .       v.04/89     veta:    1   Kon
+> ODA           5r      A:ZACI           .  .       v.04/89     veta:    1   Kon
+> ODA           5UDA                         L      v.04/89     veta:    1   Kon
+> ODA           5UDA                         LOS           5    veta:    1   Kon
 >       M:ZACI           .  .       v.04/89     veta:    1   Kontr      A:ZACI
 >       MROSLAV       9  .  .       v.04/89     veta:    1   Kontr      A:ZACI
 >       MROSLAV       9RNY                         J:    1   Kontr      A:ZACI
@@ -536,9 +540,9 @@
 >TR           4SEK                         P
 >TR           4GR                          LBOR          4
 >     L
->      VEL          7K          6PECKY                       LDEK          6PECKY
->      VEL          7DLEC                        P           LDEK          6PECKY
->      VEL          7KAREK                       ODRA          7K          6PECKY
+>      VEL          7K          6PECKY                       LDEK          6PECK
+>      VEL          7DLEC                        P           LDEK          6PECK
+>      VEL          7KAREK                       ODRA          7K          6PECK
 >           O           LDEK          6PECKY                       LDEK
 >      VEL   ROSLAV       3                      ODRA          7OBNY
 >      VEL   ROSLAV       3OBNY                        J       7OBNY
@@ -599,6 +603,7 @@
 >^U! ocekavam ,
 >,cvyber(ET=vse cp
 >-hledat---^W-duplik---^O-prepinace---^K-akce---^B-soub
+>VTSTART
 [8]
 >a0:
 >koleje
@@ -734,4 +739,4 @@
 >1_terminal=132x48
 >zoom2_terminal=80x24
 >zoom3_terminal=44x16
-# crc32=81DB6F64
+# crc32=1D13584E

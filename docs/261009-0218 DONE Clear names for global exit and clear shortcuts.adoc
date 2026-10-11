@@ -1,0 +1,36 @@
+= Clear names for global exit and clear shortcuts
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Change
+
+The INI now uses `exit_key=escape_alt` and `clear_key=backspace_alt`, matching
+the supplied Alt+Esc and Alt+Backspace host mappings. Left Alt is intended;
+Right Alt / AltGr is not a required second modifier.
+
+* Parser accepts both canonical names in either setting, plus `none`.
+* Old `lalt+ralt+escape` and `lalt+ralt+delete` remain compatibility aliases.
+* Internal enum names now describe Alt+Escape and Alt+Backspace; numeric
+  values, default behavior, host event bytes and profile action routing remain
+  unchanged. This does not change the host's AltGr distinguishability.
+* Updated only these values and their adjacent explanatory comment in local
+  `cpmcard/A/0/7XTGVTRM.INI`; preserved CRLF/Ctrl-Z and unrelated profiles.
+* Reference Guide now documents canonical names and legacy compatibility,
+  rather than claiming `escape_alt` is invalid for this setting.
+
+== Validation and rollout
+
+* Terminal/parser suite passes: canonical and legacy spellings, both policy
+  fields, swapped assignments, none and rejected unknown values.
+* Runtime suite passes; dedicated `global-shortcuts` case feeds actual
+  CSI >60v / >61v host events and checks normal, swapped, legacy and disabled
+  policy results against custom profile commands.
+* Read-only parse of the complete updated working INI reports zero errors
+  and the expected exit/clear selections.
+* No MCU flash, mounted-card edit, running-session reload or staged target
+  rebuild was performed. Rebuild/relaunch desktop, or rebuild/reflash hardware
+  separately, before loading the new INI spelling on an older parser.
+
+The change addresses an ambiguity discovered during the
+link:261007-2317%20PLAN%20Entire%20manuals%20current-state%20review.adoc[manual review].
+It does not complete the remaining settings/protocol review or hardware tests.

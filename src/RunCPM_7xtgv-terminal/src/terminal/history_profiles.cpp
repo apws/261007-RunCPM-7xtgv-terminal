@@ -1,28 +1,11 @@
 #include "history_profiles.h"
 #include <ctype.h>
-#include <initializer_list>
 #include <new>
 #include <stdio.h>
 #include <string.h>
 
 namespace vt {
 namespace {
-struct DefaultProfile { const char *name; const char *keys[AppKeyCount]; };
-
-// Values use the same grammar as the INI file.
-static const DefaultProfile Defaults[HistoryProfiles::Banks] = {
-    {"CP/M",      {"send:\x01", "send:\x06", "send:\x02", "send:\x17", "send:\x07", "send:\x16", "history_previous", "history_next", "send:\x1b[A", "send:\x1b[B"}},
-    {"MBASIC",    {"none", "none", "none", "none", "none", "none", "history_previous", "history_next", "none", "none"}},
-    {"TE",        {"send:\x13", "send:\x04", "send:\x11" "S", "send:\x11" "D", "send:\x07", "none", "send:\x05", "send:\x18", "history_previous", "history_next"}},
-    {"TURBO",     {"send:\x1b[D", "send:\x1b[C", "send:\x1b[H", "send:\x1b[F", "send:\x1b[3~", "send:\x1b[2~", "send:\x1b[A", "send:\x1b[B", "history_previous", "history_next"}},
-    {"COMAL",     {"send:\x1b[D", "send:\x1b[C", "send:\x1b[H", "send:\x1b[F", "send:\x1b[3~", "send:\x1b[2~", "send:\x1b[A", "send:\x1b[B", "history_previous", "history_next"}},
-    {"BBC BASIC", {"send:\x1b[D", "send:\x1b[C", "send:\x1b[H", "send:\x1b[F", "send:\x1b[3~", "send:\x1b[2~", "send:\x1b[A", "send:\x1b[B", "history_previous", "history_next"}},
-    {"DDT",       {"none", "none", "none", "none", "none", "none", "history_previous", "history_next", "none", "none"}},
-    {"VTESTS",    {"none", "none", "none", "none", "none", "none", "history_previous", "history_next", "none", "none"}},
-    {"ANSI APP",  {"send:\x1b[D", "send:\x1b[C", "send:\x1b[H", "send:\x1b[F", "send:\x1b[3~", "send:\x1b[2~", "send:\x1b[A", "send:\x1b[B", "history_previous", "history_next"}},
-    {"GENERAL",   {"send:\x01", "send:\x06", "send:\x02", "send:\x17", "send:\x07", "send:\x16", "history_previous", "history_next", "send:\x1b[A", "send:\x1b[B"}},
-};
-
 static const char *BaseKeyNames[] = {
     nullptr,
     "left", "right", "home", "end", "delete", "insert", "up", "down",
@@ -208,8 +191,12 @@ static bool parseRGB(const char *value, uint8_t result[3]) {
 
 static bool parseGlobalKey(const char *value, GlobalKey &result) {
     if (!strcmp(value, "none")) result = GlobalKeyNone;
-    else if (!strcmp(value, "lalt+ralt+escape")) result = GlobalKeyDualAltEscape;
-    else if (!strcmp(value, "lalt+ralt+delete")) result = GlobalKeyDualAltDelete;
+    // Old INIs used dual-Alt labels for these same host shortcut events.
+    // Keep them as aliases; neither event requires Right Alt / AltGr.
+    else if (!strcmp(value, "escape_alt") || !strcmp(value, "lalt+ralt+escape"))
+        result = GlobalKeyAltEscape;
+    else if (!strcmp(value, "backspace_alt") || !strcmp(value, "lalt+ralt+delete"))
+        result = GlobalKeyAltBackspace;
     else return false;
     return true;
 }
@@ -347,92 +334,10 @@ void HistoryProfiles::defaults(Set &set) {
     // Value initialization here preserves all default member initializers.
     set.~Set();
     new (&set) Set{};
-    for (uint8_t bank = 0; bank < Banks; ++bank) {
-        HistoryProfile &profile = set.banks[bank];
-        strncpy(profile.name, Defaults[bank].name, HistoryProfile::MaxName);
-        for (uint8_t key = 0; key < AppKeyCount; ++key)
-            parseBinding(Defaults[bank].keys[key] ? Defaults[bank].keys[key] : "none", profile.keys[key]);
-    }
-    auto setKey = [&](uint8_t bank, AppKey key, const char *value) {
-        parseBinding(value, set.banks[bank].keys[key]);
-    };
-    // RunCPM/GENERAL retain the useful extended CCP controls.
-    for (uint8_t bank : {uint8_t(0), uint8_t(9)}) {
-        setKey(bank, AppCtrlLeft, "send:\x11\x02");
-        setKey(bank, AppCtrlRight, "send:\x11\x17");
-        setKey(bank, AppCtrlHome, "send:\x11\x18");
-        setKey(bank, AppCtrlEnd, "send:\x11\x0b");
-        setKey(bank, AppCtrlDelete, "send:\x0b");
-        setKey(bank, AppCtrlInsert, "send:\x11\x05");
-    }
-    // TE v1.11 WordStar bindings from its embedded help screen.
-    set.banks[2].editingSurface = EditingSurfaceScreen;
-    set.banks[3].editingSurface = EditingSurfaceScreen;
-    setKey(2, AppPageUp, "send:\x03");
-    setKey(2, AppPageDown, "send:\x12");
-    setKey(2, AppCtrlLeft, "send:\x01");
-    setKey(2, AppCtrlRight, "send:\x06");
-    setKey(2, AppCtrlHome, "send:\x11" "R");
-    setKey(2, AppCtrlEnd, "send:\x11" "C");
-    // Exact table embedded in the BBC BASIC 5.00 package's DIST.Z80.
-    setKey(5, AppLeft, "send:\x0a");
-    setKey(5, AppRight, "send:\x0c");
-    setKey(5, AppHome, "send:\x06");
-    setKey(5, AppEnd, "send:\x0e");
-    setKey(5, AppDelete, "send:\x12");
-    setKey(5, AppInsert, "send:\x11");
-    setKey(5, AppUp, "history_previous");
-    setKey(5, AppDown, "history_next");
-    setKey(5, AppAltUp, "send:\x07");
-    setKey(5, AppAltDown, "send:\x0f");
-    decode("\\x06\\x18", set.banks[5].historyClearBytes, KeyBinding::MaxBytes,
-           set.banks[5].historyClearLength);
-    set.banks[5].historyRetypeDelayMs = 50;
-    // Screen-derived input handles BASIC lines produced by EDIT as well as
-    // characters typed through this terminal.
-    set.banks[1].screenLine = true;
-    set.banks[1].inputAdapter = InputAdapterMbasicNative;
-    set.banks[1].commandNewLine = true;
-    set.banks[5].screenLine = true;
-    set.banks[5].trimLeft = true;
-    set.banks[5].activateNumberedLine = true;
-    decode(">", set.banks[5].linePrefixBytes, HistoryProfile::MaxPrefixBytes,
-           set.banks[5].linePrefixLength);
-    decode(">", set.banks[5].activatePrefixBytes, HistoryProfile::MaxPrefixBytes,
-           set.banks[5].activatePrefixLength);
-    decode("system\\r", set.banks[1].exitBytes, HistoryProfile::MaxCommandBytes,
-           set.banks[1].exitLength);
-    decode("print chr$(27);\"[2J\";chr$(27);\"[H\"\\r", set.banks[1].clearBytes, HistoryProfile::MaxCommandBytes,
-           set.banks[1].clearLength);
-    decode("BYE\\r", set.banks[4].exitBytes, HistoryProfile::MaxCommandBytes,
-           set.banks[4].exitLength);
-    decode("PAGE\\r", set.banks[4].clearBytes, HistoryProfile::MaxCommandBytes,
-           set.banks[4].clearLength);
-    decode("QUIT\\r", set.banks[5].exitBytes, HistoryProfile::MaxCommandBytes,
-           set.banks[5].exitLength);
-    decode("PRINT CHR$(27);\"[2J\";CHR$(27);\"[H\"\\r", set.banks[5].clearBytes,
-           HistoryProfile::MaxCommandBytes, set.banks[5].clearLength);
-    for (uint8_t bank : {uint8_t(0), uint8_t(9)})
-        decode("CLS\\r", set.banks[bank].clearBytes, HistoryProfile::MaxCommandBytes,
-               set.banks[bank].clearLength);
-    // VTESTS is an MBASIC test suite, so it uses the same local composer,
-    // history behavior, and unified commands while keeping its own bank.
-    set.banks[7] = set.banks[1];
-    strncpy(set.banks[7].name, "VTESTS MBASIC", HistoryProfile::MaxName);
-    set.banks[7].name[HistoryProfile::MaxName] = 0;
-    // Modifier-bearing ANSI sequences for configurable VT applications.
-    for (uint8_t bank : {uint8_t(3), uint8_t(4), uint8_t(5), uint8_t(8)}) {
-        setKey(bank, AppPageUp, "send:\x1b[5~"); setKey(bank, AppPageDown, "send:\x1b[6~");
-        setKey(bank, AppCtrlLeft, "send:\x1b[1;5D"); setKey(bank, AppCtrlRight, "send:\x1b[1;5C");
-        setKey(bank, AppCtrlUp, "send:\x1b[1;5A"); setKey(bank, AppCtrlDown, "send:\x1b[1;5B");
-        setKey(bank, AppCtrlHome, "send:\x1b[1;5H"); setKey(bank, AppCtrlEnd, "send:\x1b[1;5F");
-        setKey(bank, AppCtrlDelete, "send:\x1b[3;5~"); setKey(bank, AppCtrlInsert, "send:\x1b[2;5~");
-        setKey(bank, AppCtrlPageUp, "send:\x1b[5;5~"); setKey(bank, AppCtrlPageDown, "send:\x1b[6;5~");
-        setKey(bank, AppAltLeft, "send:\x1b[1;3D"); setKey(bank, AppAltRight, "send:\x1b[1;3C");
-        setKey(bank, AppAltHome, "send:\x1b[1;3H"); setKey(bank, AppAltEnd, "send:\x1b[1;3F");
-        setKey(bank, AppAltDelete, "send:\x1b[3;3~"); setKey(bank, AppAltInsert, "send:\x1b[2;3~");
-        setKey(bank, AppAltPageUp, "send:\x1b[5;3~"); setKey(bank, AppAltPageDown, "send:\x1b[6;3~");
-    }
+    // A bank number identifies storage and selection only. Application keys,
+    // commands and editing behavior are supplied by that bank's INI section.
+    for (uint8_t bank = 0; bank < Banks; ++bank)
+        snprintf(set.banks[bank].name, sizeof(set.banks[bank].name), "Bank %u", unsigned(bank));
 }
 
 void HistoryProfiles::displayDefaults(Set &set) {
@@ -607,7 +512,13 @@ void HistoryProfiles::parseLine() {
     *equals = 0;
     char *keyName = trim(text), *value = trim(equals + 1);
     if (section_ == -2) {
-        if (!strcmp(keyName, "mode_palette")) {
+        if (!strcmp(keyName, "ccp_bank")) {
+            unsigned bank = 0; char tail = 0;
+            if (!strcmp(value, "none")) sets_[loading_].global.ccpBank = Banks;
+            else if (sscanf(value, "%u%c", &bank, &tail) == 1 && bank < Banks)
+                sets_[loading_].global.ccpBank = uint8_t(bank);
+            else fail();
+        } else if (!strcmp(keyName, "mode_palette")) {
             if (strlen(value) == 1 && value[0] >= '0' && value[0] <= '9')
                 sets_[loading_].global.modePalette = uint8_t(value[0] - '0');
             else fail();

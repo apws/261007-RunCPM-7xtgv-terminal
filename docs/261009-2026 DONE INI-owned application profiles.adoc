@@ -1,0 +1,110 @@
+= INI-owned application profiles
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Decision and scope
+
+Petr reproduced strange TE cursor/Backspace behavior after moving complete,
+unique bank sections to match the language ordering on drive B. Source inspection
+confirmed that slot 7 inherited MBASIC/VTESTS behavior, despite its TE name and
+explicit WordStar keys. The earlier
+link:260917-20%20profile%20bank%20coupling%20review%20note.adoc[bank coupling review]
+had documented this inheritance; it is now removed.
+
+Petr directed that application settings belong in INI and that numbered slots
+remain flexible. The additional audit covers global, display and palette sections.
+This follows the
+link:261009-1854%20DONE%20EP4_10%20rebuild%20and%20history%20regression%20retest.adoc[desktop/history checkpoint].
+
+== Implementation
+
+* Removed the ten application-name/key tables and all numbered-bank application
+  initialization from `history_profiles.cpp`. Every slot has a generic `Bank N`
+  label, inactive navigation keys, no adapter/commands/prompt tracking and no
+  history-clear/retype settings. Shared neutral member defaults remain.
+* Application identity and behavior come solely from the complete `[bankN]`
+  section. Names do not infer behavior. Explicit protocol presets remain
+  available through `input=ansi|vt52|wordstar`; they are not assigned by slot.
+* Added `[global] ccp_bank=0..9|none`. Missing means disabled. The working card
+  explicitly selects 0. CCP effective-bank routing, native recall/Home/End,
+  launcher-row guards, boot selection/geometry and the 125-character CCP
+  submission boundary use the configured slot. Later configuration loads
+  preserve the selected application. Explicit `home=none`/`end=none` remain
+  inactive even at the CCP prompt.
+* Migrated missing active settings into the current working INI according to
+  application identity, rather than copying the old accidental slot inheritance.
+  No existing active assignment was altered. The original section order,
+  CRLF formatting and trailing Ctrl-Z remain. No empty/false fallback boilerplate
+  was added to each bank.
+
+[cols="1,2,1",options="header"]
+|===
+|Slot |Current application |Additional settings
+|0 |CP/M |6
+|1 |MBASIC |0
+|2 |BBC BASIC |18
+|3 |COMAL |18
+|4 |Turbo Pascal |2
+|5 |FAND |0
+|6 |DDT |0
+|7 |TE |4
+|8 |ANSI APP |18
+|9 |GENERAL |6
+|===
+
+These 72 entries are modifier-key mappings, plus one global `ccp_bank=0`
+assignment. Existing language adapters, commands and BBC history settings were
+already explicit. TE no longer inherits MBASIC commands or editing. FAND no
+longer inherits BBC prompt prefixes, numbered-line activation or retype timing.
+
+== Other INI sections
+
+* `[global]` starts with common terminal/storage/UI fallbacks, not per-slot
+  application values. Bank bindings override global bindings explicitly.
+* The matching `[display:HALID]` overlays the selected HAL's geometry and timing
+  fallbacks; unmatched display sections are ignored. Validation retains board
+  backing-store bounds. No HAL file was edited.
+* All palette slots independently begin with the same PAPER theme. They do not
+  inherit another numbered palette's edits or have separate slot-specific themes.
+
+== Verification
+
+* Strict-warning terminal and production-runtime tests pass. Neutral missing/
+  empty INI and name-only banks are checked. All ten complete working profiles
+  are rotated through all ten numeric slots and compared field by field.
+* Runtime TE Left/Backspace passes in every slot, with no inherited MBASIC edit
+  state or exit/clear commands. Explicit CCP routing to slot 6, native Home/End,
+  the submission boundary, boot selection/geometry and reload preservation pass.
+* Terminal and runtime checks pass AddressSanitizer/UndefinedBehaviorSanitizer;
+  LeakSanitizer is disabled for the traced sandbox. Global shortcuts, identity
+  and dark/error/ramp/display-failure startup scenarios also pass.
+* The normal EP4_10 desktop wrapper rebuilt the real Arduino_GFX/SDL application
+  at O2 (261009-2026). Real TE opens a disposable text file, receives Right,
+  Right and physical Backspace, and changes ABCDEF to ACDEF with TE assigned to
+  slots 7, 1 and 0 and corresponding relocated CCP slots. Framebuffers/transcripts
+  are retained under `/tmp/xtgv-neutral-profile-desktop`; the slot-0 PNG was
+  visually inspected.
+* The existing filtered-history desktop fixture now explicitly assigns its CCP
+  bank instead of relying on the removed implicit slot. The TE scenario is
+  registered as `movable_application_profiles` in CTest.
+
+* Final rebuilt desktop passes all 12 CTest checks, including real TE profile
+  moves, filtered-history persistence, storage, rendering and PTY lifecycle.
+* Catalog/startup browsing across all eleven named areas and all eight VTESTS
+  scenarios (3, 5, 7 and 9 stages 1 through 5) pass on disposable cards.
+* All six changed guides/navigation/checkpoint documents render with only the
+  established intentional leveloffset warnings. Feature registry validates
+  205 records; generated ledger and targeted whitespace checks pass.
+
+== Delivery and recovery
+
+Pre-change source/INI/BUF copies and a complete card SHA-256 inventory are under
+`/tmp/xtgv-neutral-profiles-before`. Only the authorized local INI changed on the
+working card; BUF and snapshots remain untouched. Existing sessions were neither
+stopped nor reloaded. The current session keeps its old in-memory settings until
+restarted with the rebuilt executable. The INI's new `ccp_bank` setting requires
+this updated loader.
+
+No RunCPM CCP/BDOS/CPU, board HAL, MCU artifact, physical card, flash, commit or
+push changed. COMAL installation/testing remains a separate pending card task;
+callable helper binaries and richer BASIC/COMAL scripting remain hypothetical.

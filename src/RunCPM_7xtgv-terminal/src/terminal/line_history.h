@@ -12,6 +12,9 @@ class LineHistory {
     // Shared retention limit for every module and the portable .BUF file.
     // Keep SRAM-only boards comfortable; keyword lists have a separate budget.
     static constexpr uint8_t Depth = 100;
+    // Retained entries use at most 80 characters including the .BUF '>' marker.
+    // Active-line editing keeps its separate, longer capacity.
+    static constexpr uint8_t MaxEntry = 79;
     static constexpr uint8_t MaxLine = 127;
     // RunCPM's internal CCP auto-submits at its 125-character BDOS input
     // limit.  A recalled command must stay one character below that limit.
@@ -40,9 +43,8 @@ class LineHistory {
     bool appendEntry(uint8_t bank, const char *text, uint8_t length) {
         if (bank >= Banks || length <= 1)
             return false;
-        const uint8_t limit = bank == 0 ? MaxCcpRecall : MaxLine;
-        if (length > limit)
-            length = limit;
+        if (length > MaxEntry)
+            length = MaxEntry;
         Bank &target = banks_[bank];
         Entry &entry = target.entries[target.next];
         entry.length = length;
@@ -110,10 +112,10 @@ class LineHistory {
 
     void input(uint8_t c) {
         if (c == 13) {
-            // A nested filtered completion is part of a program/source line,
-            // not an immediate command. An unchanged recall at column zero
-            // also need not duplicate its existing history entry.
-            if (length_ > 1 && !suppressFilteredComposite_ && !filteredRecallUnchanged_)
+            // Submission is history regardless of how the line was composed.
+            // Completion/keyword source selection must not suppress logging;
+            // store() retains the ordinary adjacent exact-duplicate rule.
+            if (length_ > 1)
                 store();
             resetLine();
         } else if ((c == 8 || c == 127) && cursor_) {
@@ -121,7 +123,6 @@ class LineHistory {
             --cursor_;
             --length_;
             recalling_ = filtering_ = false;
-            filteredRecallUnchanged_ = false;
             offset_ = 0;
         } else if (c >= 0x20 && c <= 0x7e && length_ < MaxLine) {
             if (insert_ || cursor_ == length_) {
@@ -130,7 +131,6 @@ class LineHistory {
             }
             current_[cursor_++] = char(c);
             recalling_ = filtering_ = false;
-            filteredRecallUnchanged_ = false;
             offset_ = 0;
         }
     }
@@ -138,27 +138,40 @@ class LineHistory {
     bool recall(bool previous, Recall &result) {
         result.erase = result.length = 0;
         Bank &bank = banks_[active_];
-        // Filter on the token directly before the cursor, rather than only a
-        // whole line at its end. This keeps keyword recall useful after a
-        // number/prefix or while editing a larger command.
+        // Prefer the whole prefix before the cursor, including spaces and
+        // command arguments. If it has no match, retain word completion for
+        // insertion after a line number/prefix (for example "10 pr").
         if (!offset_ && !filtering_ && cursor_) {
-            uint8_t start = cursor_;
-            while (start && current_[start - 1] != ' ' && current_[start - 1] != '\t')
-                --start;
-            queryLength_ = uint8_t(cursor_ - start);
-            if (queryLength_) {
-                memcpy(query_, current_ + start, queryLength_);
-                filterPrefixLength_ = start;
-                filterSuffixLength_ = uint8_t(length_ - cursor_);
-                memcpy(filterPrefix_, current_, filterPrefixLength_);
-                memcpy(filterSuffix_, current_ + cursor_, filterSuffixLength_);
-                filtering_ = true;
+            queryLength_ = cursor_;
+            memcpy(query_, current_, queryLength_);
+            filtering_ = true;
+            bool wholePrefixMatches = false;
+            for (uint8_t offset = 1; offset <= bank.count; ++offset) {
+                if (matches(bank, offset)) {
+                    wholePrefixMatches = true;
+                    break;
+                }
             }
+            uint8_t start = 0;
+            if (!wholePrefixMatches) {
+                start = cursor_;
+                while (start && current_[start - 1] != ' ' && current_[start - 1] != '\t')
+                    --start;
+                // A trailing space belongs to the full query. Do not turn it
+                // into an empty filter that recalls unrelated commands.
+                if (start == cursor_) start = 0;
+                queryLength_ = uint8_t(cursor_ - start);
+                memcpy(query_, current_ + start, queryLength_);
+            }
+            filterPrefixLength_ = start;
+            filterSuffixLength_ = uint8_t(length_ - cursor_);
+            memcpy(filterPrefix_, current_, filterPrefixLength_);
+            memcpy(filterSuffix_, current_ + cursor_, filterSuffixLength_);
         }
         uint8_t nextOffset = offset_;
         if (filtering_) {
             // Filtered browsing deliberately wraps in either direction. The
-            // original typed token is not a separate stop between matches.
+            // original typed query is not a separate stop between matches.
             if (!bank.count)
                 return false;
             uint8_t attempts = 0;
@@ -204,7 +217,7 @@ class LineHistory {
         const uint8_t limit = active_ == 0 ? MaxCcpRecall : MaxLine;
         uint8_t entryLength = active_ == 0 && entry.length > MaxCcpRecall ? MaxCcpRecall : entry.length;
         if (filtering_) {
-            // Splice the matched history item into the token position. The
+            // Splice the matched history item into the query position. The
             // transport may redraw a whole app line, but the model preserves
             // both sides of this in-line insertion.
             uint8_t composed = filterPrefixLength_;
@@ -213,27 +226,18 @@ class LineHistory {
             memcpy(current_, filterPrefix_, composed);
             memcpy(current_ + composed, entry.text, entryLength);
             composed = uint8_t(composed + entryLength);
-            // A completion at the end needs a convenient next-word space.
-            // Inside a line, retain an existing separator rather than adding
-            // a second one; add one only when the suffix would touch the
-            // completed identifier directly.
-            const bool suffixHasSeparator = filterSuffixLength_ &&
-                                            (filterSuffix_[0] == ' ' || filterSuffix_[0] == '\t');
-            if (composed < limit && !suffixHasSeparator)
-                current_[composed++] = ' ';
+            // Recall inserts the stored bytes exactly. Any separator must
+            // already exist in the entry or surrounding input.
             cursor_ = composed;
             const uint8_t suffixAvailable = composed < limit ? uint8_t(limit - composed) : 0;
             const uint8_t suffixLength = filterSuffixLength_ > suffixAvailable ? suffixAvailable
                                                                                 : filterSuffixLength_;
             memcpy(current_ + composed, filterSuffix_, suffixLength);
             length_ = uint8_t(composed + suffixLength);
-            suppressFilteredComposite_ = filterPrefixLength_ != 0;
-            filteredRecallUnchanged_ = true;
         } else {
             length_ = entryLength;
             memcpy(current_, entry.text, length_);
             cursor_ = length_;
-            suppressFilteredComposite_ = filteredRecallUnchanged_ = false;
         }
         result.length = length_;
         insert_ = true;
@@ -274,7 +278,6 @@ class LineHistory {
         filterSuffixLength_ = resumeSuffixLength;
         memcpy(filterPrefix_, resumePrefix, resumePrefixLength);
         memcpy(filterSuffix_, resumeSuffix, resumeSuffixLength);
-        filteredRecallUnchanged_ = false;
         generation_.fetch_add(1, std::memory_order_release);
         return true;
     }
@@ -282,7 +285,7 @@ class LineHistory {
   private:
     struct Entry {
         uint8_t length = 0;
-        char text[MaxLine];
+        char text[MaxEntry];
     };
     struct Bank {
         Entry entries[Depth];
@@ -292,7 +295,6 @@ class LineHistory {
     Bank banks_[Banks];
     uint8_t active_ = 0, length_ = 0, cursor_ = 0, offset_ = 0;
     bool recalling_ = false, insert_ = true, filtering_ = false;
-    bool filteredRecallUnchanged_ = false, suppressFilteredComposite_ = false;
     char current_[MaxLine];
     char query_[MaxLine];
     char filterPrefix_[MaxLine], filterSuffix_[MaxLine];
@@ -316,14 +318,12 @@ class LineHistory {
     void resetLine() {
         length_ = cursor_ = offset_ = 0;
         recalling_ = filtering_ = false;
-        filteredRecallUnchanged_ = suppressFilteredComposite_ = false;
         queryLength_ = filterPrefixLength_ = filterSuffixLength_ = 0;
         insert_ = true;
     }
     void store() {
         Bank &bank = banks_[active_];
-        const uint8_t storedLength = active_ == 0 && length_ > MaxCcpRecall
-                                         ? MaxCcpRecall : length_;
+        const uint8_t storedLength = length_ > MaxEntry ? MaxEntry : length_;
         if (bank.count) {
             const Entry &last = bank.entries[(bank.next + Depth - 1) % Depth];
             if (last.length == storedLength && !memcmp(last.text, current_, storedLength))
