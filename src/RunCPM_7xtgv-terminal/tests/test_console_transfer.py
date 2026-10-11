@@ -6,12 +6,15 @@ import pty
 import shutil
 import subprocess
 import tempfile
+import sys
 import unittest
 from unittest.mock import patch
 
 SKETCH = Path(__file__).resolve().parents[1]
 ROOT = SKETCH.parents[1]
 HELPERS = SKETCH / 'tools/cpm-transfer'
+sys.path.insert(0, str(SKETCH / 'tools'))
+from card_paths import card_root
 spec = importlib.util.spec_from_file_location('console_transfer', HELPERS/'transfer.py')
 transfer = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(transfer)
@@ -153,7 +156,7 @@ class ConsoleTransferTests(unittest.TestCase):
             drive = Path(temporary)/'A/0'
             drive.mkdir(parents=True)
             for name in ('VTPUT.COM', 'VTGET.COM'):
-                shutil.copyfile(HELPERS/name, drive/name)
+                shutil.copyfile(card_root()/'A/0'/name, drive/name)
             master, slave = pty.openpty()
             process = subprocess.Popen([str(ROOT/'build/RunCPM_linux/RunCPM')],
                 cwd=temporary, stdin=slave, stdout=slave, stderr=slave,

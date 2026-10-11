@@ -1,7 +1,5 @@
 nukedc-recovery-mostly-corrupted-some-valid/
 # Local material deliberately kept outside the published repository.
-/private/
-/docs/private/
 /src/RunCPM_7xtgv-terminal/tools/targets/*-reflash.log
 /src/RunCPM_7xtgv-terminal/tools/targets/*/rebuild.log
 /src/RunCPM_7xtgv-terminal/tools/targets/*/reflash.log
@@ -26,7 +24,7 @@ cpm-languages/comal/
 cpm-languages/comal-unpacked/
 cpm-languages/turbo/
 # Local/raw hardware backups and regenerated/vendor build material.
-# The complete cpmcard tree is included explicitly below.
+# The cpmcard tree is included below, except directories named private.
 docs/tft-ips-modules/
 *.o
 *.swp
@@ -41,3 +39,5 @@ ext/
 # backups and host-side INI snapshots. Override the generic filters above.
 !/cpmcard/
 !/cpmcard/**
+# Local material at any depth, including cpmcard/private. Keep after inclusions.
+**/private/

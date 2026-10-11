@@ -1,0 +1,12 @@
+mbasic       Microsoft BASIC package, variants and examples
+CINF.COM     Create INFO.TXT; BASIC source supplied, not a 7XF editor
+FRAROUND.COM Compiled fractal example; BASIC source supplied
+M5228080.COM Microsoft BASIC 5.22 variant for 8080
+M5228085.COM Microsoft BASIC 5.22 variant for 8085
+M522Z80.COM  Microsoft BASIC 5.22 variant for Z80
+MBAS529.COM  Microsoft BASIC 5.29 variant
+MBAS529P.COM Microsoft BASIC 5.29 patched variant
+MBAS530.COM  Microsoft BASIC 5.30 variant
+MBAS530P.COM Microsoft BASIC 5.30 patched variant
+MBASIC.COM   Microsoft BASIC working interpreter (patched 5.30)
+

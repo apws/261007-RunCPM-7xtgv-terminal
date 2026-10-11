@@ -31,6 +31,48 @@ Guest filenames should be uppercase 8.3 names. The host filesystem adapter
 remains case-sensitive. Some imported archival material still has mixed-case
 names; this migration does not silently rename or rewrite it.
 
+== Current working areas
+
+[cols="1,3",options="header"]
+|===
+|Name(DU) |Contents
+|`cpm(A0)` |Shared installed commands, INI/history and global catalogs.
+|`cpmdev(A1)` |Historical CP/M/CCP sources, assemblers and required libraries.
+|`mbasic(B1)` |Microsoft BASIC versions and general examples.
+|`bbcbasic(B2)` |BBC BASIC package and examples.
+|`comal(B3)` |Reserved catalog/placeholder files; COMAL and its demo are not installed yet.
+|`tp(B4)` |Complete Turbo Pascal package and examples.
+|`7xtgv(C1)` |One canonical home for our guest sources, includes, HEX/listings
+and visual BASIC tests. Includes MBASIC for convenient testing.
+|`xterm256(C2)` |Mandelbrot variants, SUB scripts and their graphics/timing helpers.
+|`bench(C3)` |CPU benchmarks/exercisers and the VTDRV disk fixture.
+|`fand(B5)` / `dbase(B6)` |Database packages and data; subsequently moved to B by the maintainer.
+|===
+
+* `B0` and `C0` intentionally have no shared commands. Catalog-only placeholders
+  are harmless; absent empty folders do not prevent using populated areas
+  such as `mbasic(B1)` or `7xtgv(C1)`.
+* Keep every A-drive user folder (`A/0` through `A/F`). Empty ones contain
+  a `DIR.7XF` placeholder (or a host-only `.gitkeep`) so fresh clones retain
+  them. Catalog-only areas are hidden from LS/LL area overviews. The supplied patched
+  `SUBMIT.COM` creates its `$$$.SUB` queue on A with the current user number:
+  submitting from `xterm256(C2)` therefore also needs `A/2`. A missing folder can misleadingly
+  report `Directory Full`; copying SUBMIT into C0 or C2 is not the solution.
+* Current CCP unqualified COM lookup is: current DU, then A0, then the
+  current drive's user 0 if the original user was nonzero. For example,
+  B1 -> A0 -> B0. Explicit drive qualification suppresses the fallback.
+* That lookup finds the executable, not its includes, overlays or data.
+  Keep complete language packages and historical build dependencies together.
+  The deliberate A0 Turbo/editor installation retains its own TINST settings.
+* Uppercase host folders such as `B/1` are sufficient; no disk-image format
+  is needed. A named `CD /B/mbasic` additionally needs the area's `DIR.7XF` alias.
+* Shared installed COM files stay in `cpm(A0)`. Build from `7xtgv(C1)` in a disposable copy,
+  then explicitly install the tested result. Imported Brot sources stay with
+  their demos in `xterm256(C2)`; `BROTINFO.TXT` explains the BS/PS names and original credits.
+* `cpmdev(A1)` combines the former A4/A5 so ZCPR headers and MAC/MLOAD are
+  together. This is not acceptance of every old build recipe. `ABDOS.SUB`
+  still expects an absent `ABDOS.Z80`; `CLEAN.SUB` deletes build files.
+
 == What Git contains
 
 Petr's decision on 261007: *version the complete `cpmcard` tree*, not a
@@ -89,6 +131,16 @@ names; slash-style paths do not turn CP/M into a hierarchical filesystem.
 * `A0:VOL.7XF`: descriptions of drives.
 * `A0:DRV.7XF`: remembered selection per drive. This mutable runtime state
   is versioned alongside the rest of the working card.
+* Describe what programs do, primarily on their `.COM` entries. Do not repeat
+  generic explanations of ASM/HEX/Z80 and other extensions on every file.
+  Keep useful descriptions of standalone BASIC tests, live configuration or
+  specific safety warnings; omit duplicate descriptions of a program's sources.
+* LS/LL display filenames as lowercase `name.ext`; this does not rename the
+  uppercase host files or change the case-sensitive storage policy.
+* Area overviews hide empty areas and areas with only `DIR.7XF`/host dotfiles.
+  Their directories and aliases remain available; no files are removed.
+  An ordinary marker such as `comal.txt` counts as content and makes its area
+  visible; that visibility is not proof of an installed language runtime.
 
 Catalogs describe a developer's working collection. They may mention
 applications that are absent or unfinished; they are neither a package
@@ -96,7 +148,7 @@ installer nor proof that every listed program is present or working.
 
 This catalog preference *does not remove* RunCPM's `INFO.TXT` convention.
 `VOL` still displays `INFO.TXT`; it does not read `VOL.7XF`.
-The supplied `A7:CINF.BAS` asks for one line of text and creates/replaces
+The supplied `mbasic(B1)` `CINF.BAS` asks for one line of text and creates/replaces
 `INFO.TXT` in the current drive/user area; empty input cancels. It does not
 load an existing description for editing and does not maintain `.7XF` files.
 See the link:../guides/reference-guide.adoc[Reference Guide]
@@ -144,11 +196,33 @@ mirror rather than retained as current card metadata.
   the old A6 duplicates. `VTDRV W` writes a scratch fixture; avoid running it
   on a valuable physical card without intending that write.
 
-Typical visual test: select `A7:`, run `MBASIC`, then `RUN "VTESTS"`.
+Typical visual test: select `7xtgv(C1)` with `C1:`, run `MBASIC`, then
+`RUN "VTESTS"`.
 The current menu includes separate attribute, VT52 and scroll-region tests;
 select 80x24 logical geometry for the scrolling test. Small panels may pan.
 
-== Migration checkpoint
+== Area reorganization checkpoint
+
+The 261008 reorganization moves the language packages to B and separates
+project work on C. Only the language-profile names and `on_select` locations
+changed in the local INI; FAND and other profiles, history and physical cards
+were preserved. Old commands saved inside history are not silently rewritten.
+
+Current helper sources were consolidated from host `tools/vtbench` and
+`tools/cpm-transfer` into C1; host tools/tests now use that single source home.
+VTDRV was freshly assembled and tested before installing local A0/C1 copies.
+The previously missing ZOOM.COM was also built from C1 and installed locally.
+Other retained HEX/PRN/COM artifacts were not all rebuilt by this move.
+
+The complete pre-change snapshot, displaced files, host helper copies and
+SHA-256 migration manifests are outside the repository at
+`../card-reorg-backups/261008-2102/`. They are local recovery evidence, not
+files to deploy to a card. No physical SD card was modified.
+
+The two temporary upstream comparison ZIPs at the card root were left where
+the maintainer put them; this move does not approve publishing those imports.
+
+== Earlier migration checkpoint
 
 The 261007 cutover preserved every pre-existing working-card guest file.
 Only missing authored `A0:CARDMARK.ASM`, `VTPAL.ASM` and `ZOOM.ASM` were copied

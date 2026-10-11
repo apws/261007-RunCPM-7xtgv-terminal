@@ -1,0 +1,57 @@
+= 7XF sorted compact listings and parent-drive view
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Requested behavior
+
+After accepting the reorganized working card, Petr requested extension-sorted
+file listings and same-line descriptions. Clarification: filenames remain
+`NAME.EXT`; only sorting uses `(EXT, FILENAME)`. He also requested that `..`
+list all areas of the current drive rather than all drives.
+
+* `LS`, `LL`, `LS -L`, explicit DU/path patterns and `-O` captures share the
+  extension-first, filename-second ordering. Matching names are already
+  normalized to uppercase; extensionless files sort first.
+* Drive and user-area ordering remains drive letter / user number.
+* File descriptions remain exclusive to long listings. Long drive/area rows
+  now use the same aligned-column/two-space separator convention; current-area
+  headings also keep their description on the same row.
+* `LS ..` / `LL ..` means `LS /A` / `LL /A` on A, `/C` on C, etc. Explicit
+  `/` still lists nonempty drives. Neither listing changes the selected DU.
+
+== Width and implementation boundary
+
+* The previous second line was explicitly emitted by the catalog formatter,
+  not selected because the terminal was too narrow. An INI-only change could
+  not remove it.
+* Existing clipping is preserved: stop one column short of the logical width
+  to avoid automatic wrapping. A 100-column logical terminal exposes more
+  description than 80 columns, without changing listing semantics.
+* Product extension `ccp_catalog.h` is the only firmware behavior file changed.
+  No CPU, BDOS, ordinary DIR, command lookup, catalog format, HAL or native-cell
+  specification changes. No upstream code was imported or CP/M 3 work attempted.
+* Sorting collects only validated 8.3 names and byte sizes, not open File
+  handles or descriptions. The small dynamic index grows geometrically and
+  is freed on completion, paging cancellation or failure. Allocation failure
+  reports an error instead of silently printing an unsorted/partial file list.
+* Current guides and the feature registry are updated. Broader manual review
+  continues under its existing plan; no further shell feature was added.
+
+== Verification and delivery
+
+* Focused catalog contract passes with C++11, strict warnings, AddressSanitizer
+  and UndefinedBehaviorSanitizer (including leak checking outside the sandbox).
+* Cases cover extension/name ties, extensionless and mixed-case names, 70-file
+  index growth, memory failure, wildcard/path listings, capture, pagination,
+  current-drive parent aliases, same-line descriptions and 40/80/100 clipping.
+* Temporary EP4_10 integrated desktop build succeeds. The new
+  `desktop/tests/catalog_listing.py` uses disposable cards and real 7XF capture
+  output at 40, 80 and 100 logical columns; all pass.
+* Existing integrated card-layout test still passes all nine aliases and
+  executable-search behavior. Both new catalog checks are registered with
+  desktop CTest (integrated width fixture uses EP4_10).
+* Temporary build: `/tmp/xtgv-7xf-listing-build-lIGqtO`. No active emulator,
+  working-card INI/BUF, physical card or staged MCU firmware was modified.
+* Normal target binaries have not been rebuilt/replaced by this test build.
+  Use the selected board's `desktop-rebuild.sh` and relaunch to see the change;
+  hardware rebuild/reflash remains a separate action. No commit/push performed.

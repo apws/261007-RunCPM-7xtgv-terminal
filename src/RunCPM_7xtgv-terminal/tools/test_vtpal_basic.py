@@ -11,7 +11,7 @@ import tempfile
 from build_vtpal import ROOT, receive
 
 from card_paths import card_root, require_files
-SOURCE = card_root() / "A/7"
+SOURCE = card_root() / "C/1"
 END_PAGE = b"Choose preferred preset last."
 
 

@@ -1,6 +1,8 @@
 #ifndef CCP_CATALOG_H
 #define CCP_CATALOG_H
 
+#include <stdlib.h>
+
 // RunCPM-only catalog over its A/0..F host folders. DIR.7XF
 // uses a 12-character key, one space, then a description on every line.
 // Neither LS nor alias lookup changes the selected CP/M drive/user.
@@ -208,12 +210,11 @@ static bool _ccp_catRow(const char *name, const char *description,
     _CcpCatOutputRow row;
     row.put(' ');
     row.append(name);
-    if (!row.emit(lines)) return false;
-    if (!description[0]) return true;
-    _CcpCatOutputRow detail;
-    detail.put('\t');
-    detail.append(description);
-    return detail.emit(lines);
+    if (description[0]) {
+        if (name[0]) row.append("  ");
+        row.append(description);
+    }
+    return row.emit(lines);
 }
 
 static bool _ccp_catArea(uint8 drive, uint8 user, char *alias,
@@ -362,7 +363,7 @@ static bool _ccp_catFileRow(const char *name, const char *description,
         row.append("k  ");
     }
     uint8 length = 0;
-    while (name[length]) row.put(name[length++]);
+    while (name[length]) row.put(tolower((unsigned char)name[length++]));
     if (longListing && description[0]) {
         while (length++ < 12) row.put(' ');
         row.append("  ");
@@ -388,6 +389,44 @@ static void _ccp_catDisplayPath(char *path, uint8 drive, uint8 user,
     }
 }
 
+// Store only 8.3 names/sizes, not descriptions or open File objects. Sorting
+// must not depend on FAT directory insertion order or the desktop filesystem.
+struct _CcpCatFileEntry {
+    char name[13];
+    uint32 bytes;
+};
+
+static int _ccp_catFileCompare(const void *left, const void *right) {
+    const char *a = static_cast<const _CcpCatFileEntry *>(left)->name;
+    const char *b = static_cast<const _CcpCatFileEntry *>(right)->name;
+    const char *aExt = strchr(a, '.');
+    const char *bExt = strchr(b, '.');
+    const int extension = strcmp(aExt ? aExt + 1 : "", bExt ? bExt + 1 : "");
+    return extension ? extension : strcmp(a, b);
+}
+
+struct _CcpCatFileList {
+    _CcpCatFileEntry *entries = NULL;
+    size_t count = 0;
+    size_t capacity = 0;
+
+    ~_CcpCatFileList() { free(entries); }
+    bool add(const char *name, uint32 bytes) {
+        if (count == capacity) {
+            const size_t maximum = size_t(-1) / sizeof *entries;
+            if (capacity > maximum / 2) return false;
+            const size_t next = capacity ? capacity * 2 : 16;
+            void *grown = realloc(entries, next * sizeof *entries);
+            if (!grown) return false;
+            entries = static_cast<_CcpCatFileEntry *>(grown);
+            capacity = next;
+        }
+        strcpy(entries[count].name, name); // Validated, uppercased 8.3 only.
+        entries[count++].bytes = bytes;
+        return true;
+    }
+};
+
 static void _ccp_catListFiles(uint8 drive, uint8 user,
                               const char *pattern = "*.*",
                               bool longListing = false) {
@@ -403,13 +442,14 @@ static void _ccp_catListFiles(uint8 drive, uint8 user,
     uint16 lines = 0;
     if (!_ccp_catEol(&lines)) return;
     char heading[17];
+    const bool currentArea = drive == currentDrive && user == currentUser;
     if (_ccp_catArea(drive, user, alias, description)) {
         _ccp_catDisplayPath(heading, drive, user, alias);
-        if (!_ccp_catRow(heading, description, &lines))
+        if (!_ccp_catRow(currentArea ? "" : heading, description, &lines))
             return;
     } else {
         _ccp_catDisplayPath(heading, drive, user, NULL);
-        if (!_ccp_catRow(heading, "", &lines)) return;
+        if (!currentArea && !_ccp_catRow(heading, "", &lines)) return;
     }
     if (!_ccp_catEol(&lines)) return;
     File folder = SD.open(path, O_READ);
@@ -418,7 +458,7 @@ static void _ccp_catListFiles(uint8 drive, uint8 user,
         if (folder) folder.close();
         return;
     }
-    uint16 count = 0;
+    _CcpCatFileList listing;
     File file;
     while ((file = folder.openNextFile())) {
         bool regular = !file.isDirectory();
@@ -427,16 +467,24 @@ static void _ccp_catListFiles(uint8 drive, uint8 user,
         file.close();
         if (!regular || !_ccp_catFilename(name) ||
             !_ccp_catMatch(name, pattern)) continue;
-        description[0] = 0;
-        if (longListing) _ccp_catDescription(drive, user, name, description);
-        if (!_ccp_catFileRow(name, description, bytes, longListing, &lines)) {
+        if (!listing.add(name, bytes)) {
             folder.close();
+            _puts(" Not enough memory to sort listing\r\n");
             return;
         }
-        ++count;
     }
     folder.close();
-    if (!count) _puts(" No file\r\n");
+    if (listing.count > 1)
+        qsort(listing.entries, listing.count, sizeof *listing.entries,
+              _ccp_catFileCompare);
+    for (size_t i = 0; i < listing.count; ++i) {
+        const _CcpCatFileEntry &entry = listing.entries[i];
+        description[0] = 0;
+        if (longListing) _ccp_catDescription(drive, user, entry.name, description);
+        if (!_ccp_catFileRow(entry.name, description, entry.bytes,
+                            longListing, &lines)) return;
+    }
+    if (!listing.count) _puts(" No file\r\n");
 }
 
 // Sum record and DEXT estimates per file: rounding only the total bytes
@@ -445,6 +493,7 @@ struct _CcpCatTotals {
     uint64_t bytes = 0;
     uint64_t records = 0;
     uint64_t dext = 0;
+    bool hasContent = false;
 
     void addFile(uint32 size) {
         const uint32 fileRecords = size / 128 + (size % 128 != 0);
@@ -456,6 +505,7 @@ struct _CcpCatTotals {
         bytes += other.bytes;
         records += other.records;
         dext += other.dext;
+        hasContent = hasContent || other.hasContent;
     }
 };
 
@@ -468,7 +518,15 @@ static _CcpCatTotals _ccp_catAreaTotals(uint8 drive, uint8 user) {
     if (folder.isDirectory()) {
         File entry;
         while ((entry = folder.openNextFile())) {
-            if (!entry.isDirectory()) total.addFile(entry.size());
+            if (!entry.isDirectory()) {
+                total.addFile(entry.size());
+                char name[64];
+                entry.getName(name, sizeof name);
+                // Catalog-only/empty areas and host dotfile placeholders are
+                // not useful in an area overview. Zero-byte guest files count.
+                if (name[0] && name[0] != '.' &&
+                    !_ccp_catEqual(name, "DIR.7XF")) total.hasContent = true;
+            }
             entry.close();
         }
     }
@@ -498,12 +556,30 @@ static bool _ccp_catCatalogRow(const _CcpCatTotals &totals, const char *path,
         row.put(' ');
     }
     row.append(path);
-    if (!row.emit(lines)) return false;
-    if (!longListing || !description[0]) return true;
-    _CcpCatOutputRow detail;
-    detail.put('\t');
-    detail.append(description);
-    return detail.emit(lines);
+    if (description[0]) {
+        for (size_t length = strlen(path); length < 12; ++length) row.put(' ');
+        row.append("  ");
+        row.append(description);
+    }
+    return row.emit(lines);
+}
+
+static bool _ccp_catDriveDescription(uint8 drive, char *description) {
+    description[0] = 0;
+    char line[128];
+    File file = SD.open("A/0/VOL.7XF", O_READ);
+    if (!file) return false;
+    bool found = false;
+    while (_ccp_catLine(file, line, sizeof line)) {
+        if (toupper((unsigned char)line[0]) == 'A' + drive && line[1] == ' ') {
+            strncpy(description, line + 2, 80);
+            description[80] = 0;
+            found = true;
+            break;
+        }
+    }
+    file.close();
+    return found;
 }
 
 static void _ccp_catListAreas(uint8 drive, bool longListing = false) {
@@ -513,40 +589,35 @@ static void _ccp_catListAreas(uint8 drive, bool longListing = false) {
     char heading[17];
     uint16 lines = 0;
     if (!_ccp_catEol(&lines)) return;
+    if (_ccp_catDriveDescription(drive, description) && description[0]) {
+        if (!_ccp_catRow("", description, &lines)) return;
+        if (!_ccp_catEol(&lines)) return;
+    }
     for (uint8 user = 0; user < 16; ++user) {
         _ccp_catPath(folder, drive, user, NULL);
         if (!_ccp_catFolder(folder)) continue;
+        const _CcpCatTotals totals = _ccp_catAreaTotals(drive, user);
+        if (!totals.hasContent) continue;
         if (_ccp_catArea(drive, user, alias, description)) {
             _ccp_catDisplayPath(heading, drive, user, alias);
         } else {
             _ccp_catDisplayPath(heading, drive, user, NULL);
             description[0] = 0;
         }
-        if (!_ccp_catCatalogRow(_ccp_catAreaTotals(drive, user), heading,
-                                description, &lines, longListing)) return;
+        if (!_ccp_catCatalogRow(totals, heading,
+                                longListing ? description : "",
+                                &lines, longListing)) return;
     }
 }
 
 static void _ccp_catListDrives(bool longListing = false) {
-    char line[128];
     uint16 lines = 0;
     if (!_ccp_catEol(&lines)) return;
     for (uint8 drive = 0; drive < 16; ++drive) {
         const _CcpCatTotals totals = _ccp_catDriveTotals(drive);
         if (!totals.bytes) continue;
-        char description[81] = "--";
-        File file = SD.open("A/0/VOL.7XF", O_READ);
-        if (file) {
-            while (_ccp_catLine(file, line, sizeof line)) {
-                if (toupper((unsigned char)line[0]) == 'A' + drive &&
-                    line[1] == ' ') {
-                    strncpy(description, line + 2, 80);
-                    description[80] = 0;
-                    break;
-                }
-            }
-            file.close();
-        }
+        char description[81];
+        if (!_ccp_catDriveDescription(drive, description)) strcpy(description, "--");
         char path[] = "/a";
         path[1] += drive;
         if (!_ccp_catCatalogRow(totals, path, description, &lines,
@@ -690,8 +761,10 @@ static uint8 _ccp_ls(void) {
         } else subject = token;
     }
     if (!subject) subject = emptySubject;
+    char parentSubject[] = {'/', char('A' + currentDrive), 0};
+    if (_ccp_strEqual(subject, "..")) subject = parentSubject;
     _CcpCatCapture capture;
-    if (_ccp_strEqual(subject, "/") || _ccp_strEqual(subject, "..")) {
+    if (_ccp_strEqual(subject, "/")) {
         if (!capture.start(captureName)) {
             _puts("\r\n LS output file unavailable");
             return 0;

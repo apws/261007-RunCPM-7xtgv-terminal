@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <cstdlib>
+#include <stdlib.h>
 #include <map>
 #include <string>
 
@@ -27,6 +29,7 @@ static uint8 mockKey = 0;
 static int pagePauses = 0;
 static uint16 inBuf = 0x100;
 static char ram[512] = {};
+static bool extraArea = false;
 
 struct File {
     std::string content;
@@ -82,7 +85,7 @@ struct File {
 struct MockSD {
     File open(const char *path, int flags) {
         if (!strcmp(path, "A/0") || !strcmp(path, "A/7") ||
-            !strcmp(path, "B/0")) {
+            !strcmp(path, "B/0") || (extraArea && !strcmp(path, "A/8"))) {
             File result;
             result.open = true;
             result.directory = true;
@@ -120,7 +123,13 @@ static uint8 _ccp_strEqual(const char *a, const char *b) {
     return !strcmp(a, b);
 }
 
+static bool failAllocation = false;
+static void *catalogRealloc(void *pointer, size_t size) {
+    return failAllocation ? nullptr : std::realloc(pointer, size);
+}
+#define realloc catalogRealloc
 #include "../ccp_catalog.h"
+#undef realloc
 
 int main() {
     files["A/0/VOL.7XF"] = "a CP/M system and programs\r\n\x1a";
@@ -172,20 +181,21 @@ int main() {
     assert(_ccp_catMatch("VT", "VT*"));
     assert(!_ccp_catMatch("OTHER.BAS", "VT*"));
     _ccp_catListFiles(0, 7);
-    assert(output.find("/a/mbasic\r\n\tMBASIC programs") != std::string::npos);
-    assert(output.find("64k  VTESTS.BAS") !=
+    assert(output.find("\r\n MBASIC programs") != std::string::npos);
+    assert(output.find("/a/mbasic") == std::string::npos);
+    assert(output.find("64k  vtests.bas") !=
            std::string::npos);
     assert(output.find("ANSI and DEC test menu") == std::string::npos);
     assert(currentDrive == 0 && currentUser == 7);
     output.clear();
     _ccp_catFileRow("LIMIT.BIN", "", 65535, false, NULL);
-    assert(output.find("64k  LIMIT.BIN") != std::string::npos);
+    assert(output.find("64k  limit.bin") != std::string::npos);
     output.clear();
     _ccp_catFileRow("LIMIT.BIN", "", 65536, false, NULL);
-    assert(output.find("64k  LIMIT.BIN") != std::string::npos);
+    assert(output.find("64k  limit.bin") != std::string::npos);
     output.clear();
     _ccp_catFileRow("LARGE.BIN", "", 1048576, false, NULL);
-    assert(output.find("1,024k  LARGE.BIN") != std::string::npos);
+    assert(output.find("1,024k  large.bin") != std::string::npos);
     mockLogicalColumns = 40;
     output.clear();
     _ccp_catFileRow("VTESTS.BAS", "This description must not wrap", 10368,
@@ -197,39 +207,60 @@ int main() {
     largeTotals.addFile(1048576);
     _ccp_catCatalogRow(largeTotals, "/a/mbasic",
                        "This description must not wrap", NULL, true);
-    assert(output.find("\tThis description") != std::string::npos);
+    assert(output.find("/a/mbasic     This") != std::string::npos);
+    assert(output.find("\r\n") == 39);
+    assert(output.find('\t') == std::string::npos);
     mockLogicalColumns = 80;
     pageSize = 2;
     mockKey = 3;
     output.clear();
     _ccp_catListFiles(0, 7);
     assert(pagePauses == 1);
-    assert(output.find("VTESTS.BAS") == std::string::npos);
+    assert(output.find("vtests.bas") == std::string::npos);
     pageSize = 22;
     mockKey = 0;
 
     output.clear();
     _ccp_catListAreas(0);
+    assert(output.find("\r\n CP/M system and programs\r\n") == 0);
     assert(output.find("65k /a/mbasic\r\n") != std::string::npos);
     assert(output.find("MBASIC programs") == std::string::npos);
     output.clear();
     _ccp_catListAreas(0, true);
-    assert(output.find("/a/mbasic\r\n\tMBASIC programs") !=
+    assert(output.find("\r\n CP/M system and programs\r\n") == 0);
+    assert(output.find("/a/mbasic     MBASIC programs") !=
            std::string::npos);
     assert(output.find("516    4 /a/mbasic") !=
            std::string::npos);
     assert(output.find("/a/0") != std::string::npos);
     assert(output.find("/a/6") == std::string::npos);
+    assert(output.find("/a/DEMOS") == std::string::npos);
+    extraArea = true;
+    files["A/8/.gitkeep"] = "";
+    files["A/8/.gitignore"] = "placeholder";
+    assert(!_ccp_catAreaTotals(0, 8).hasContent);
+    assert(_ccp_catResolveAlias(0, "DEMOS") == 8);
+    // Direct listing remains available, even when the area overview hides it.
+    output.clear();
+    _ccp_catListFiles(0, 8);
+    assert(output.find("/a/DEMOS  Demos and games") != std::string::npos);
+    files["A/8/ZERO.COM"] = "";
+    output.clear();
+    _ccp_catListAreas(0);
+    assert(output.find("/a/DEMOS") != std::string::npos);
+    files.erase("A/8/ZERO.COM");
+    files.erase("A/8/.gitkeep");
+    files.erase("A/8/.gitignore");
+    extraArea = false;
 
     output.clear();
     _ccp_catListDrives();
-    assert(output.find("65k /a\r\n") != std::string::npos);
-    assert(output.find("CP/M system and programs") == std::string::npos);
+    assert(output.find("65k /a            CP/M system and programs") != std::string::npos);
     output.clear();
     _ccp_catListDrives(true);
-    assert(output.find("/a\r\n\tCP/M system and programs") !=
+    assert(output.find("/a            CP/M system and programs") !=
            std::string::npos);
-    assert(output.find("/b\r\n\t--") != std::string::npos);
+    assert(output.find("/b            --") != std::string::npos);
     assert(output.find("/c") == std::string::npos);
     output.clear();
     _ccp_catCatalogRow(largeTotals, "/a/10", "", NULL);
@@ -242,69 +273,71 @@ int main() {
     output.clear();
     strcpy(ram + inBuf + 2, "LS ..");
     assert(_ccp_ls() == 0);
-    assert(output.find("CP/M system and programs") == std::string::npos);
+    assert(output.find("\r\n CP/M system and programs\r\n") == 0);
+    assert(output.find("/a/mbasic") != std::string::npos);
+    assert(output.find("/b") == std::string::npos);
     output.clear();
     strcpy(ram + inBuf + 2, "LS A7:");
     assert(_ccp_ls() == 0);
-    assert(output.find("VTESTS.BAS") != std::string::npos);
+    assert(output.find("vtests.bas") != std::string::npos);
     output.clear();
     strcpy(ram + inBuf + 2, "LS -L A7:*.*");
     assert(_ccp_ls() == 0);
-    assert(output.find("65,536   512    2  VTESTS.BAS") != std::string::npos);
-    assert(output.find("129     2    1  VTPAL.BAS") != std::string::npos);
-    assert(output.find("VTESTS.BAS    ANSI and DEC test menu") !=
+    assert(output.find("65,536   512    2  vtests.bas") != std::string::npos);
+    assert(output.find("129     2    1  vtpal.bas") != std::string::npos);
+    assert(output.find("vtests.bas    ANSI and DEC test menu") !=
            std::string::npos);
     output.clear();
     strcpy(ram + inBuf + 2, "LL /A");
     assert(_ccp_ls() == 0);
-    assert(output.find("/a/mbasic\r\n\tMBASIC programs") !=
+    assert(output.find("/a/mbasic     MBASIC programs") !=
            std::string::npos);
     output.clear();
     strcpy(ram + inBuf + 2, "LS / -L");
     assert(_ccp_ls() == 0);
-    assert(output.find("/a\r\n\tCP/M system and programs") !=
+    assert(output.find("/a            CP/M system and programs") !=
            std::string::npos);
     output.clear();
     strcpy(ram + inBuf + 2, "LS /A/MBASIC/*.*");
     assert(_ccp_ls() == 0);
-    assert(output.find("VTESTS.BAS") != std::string::npos);
-    assert(output.find("VTPAL.BAS") != std::string::npos);
+    assert(output.find("vtests.bas") != std::string::npos);
+    assert(output.find("vtpal.bas") != std::string::npos);
     output.clear();
     strcpy(ram + inBuf + 2, "LS *");
     assert(_ccp_ls() == 0);
-    assert(output.find("VTESTS.BAS") != std::string::npos);
-    assert(output.find("VTPAL.BAS") != std::string::npos);
+    assert(output.find("vtests.bas") != std::string::npos);
+    assert(output.find("vtpal.bas") != std::string::npos);
     output.clear();
     strcpy(ram + inBuf + 2, "LS /A/MBASIC/*");
     assert(_ccp_ls() == 0);
-    assert(output.find("VTESTS.BAS") != std::string::npos);
-    assert(output.find("VTPAL.BAS") != std::string::npos);
+    assert(output.find("vtests.bas") != std::string::npos);
+    assert(output.find("vtpal.bas") != std::string::npos);
     output.clear();
     strcpy(ram + inBuf + 2, "LS A7:*");
     assert(_ccp_ls() == 0);
-    assert(output.find("VTESTS.BAS") != std::string::npos);
-    assert(output.find("VTPAL.BAS") != std::string::npos);
+    assert(output.find("vtests.bas") != std::string::npos);
+    assert(output.find("vtpal.bas") != std::string::npos);
     output.clear();
     strcpy(ram + inBuf + 2, "LS VT*");
     assert(_ccp_ls() == 0);
-    assert(output.find("VTESTS.BAS") != std::string::npos);
-    assert(output.find("VTPAL.BAS") != std::string::npos);
-    assert(output.find("DIR.7XF") == std::string::npos);
+    assert(output.find("vtests.bas") != std::string::npos);
+    assert(output.find("vtpal.bas") != std::string::npos);
+    assert(output.find("dir.7xf") == std::string::npos);
     output.clear();
     strcpy(ram + inBuf + 2, "LS /A/MBASIC/VTEST*");
     assert(_ccp_ls() == 0);
-    assert(output.find("VTESTS.BAS") != std::string::npos);
-    assert(output.find("VTPAL.BAS") == std::string::npos);
+    assert(output.find("vtests.bas") != std::string::npos);
+    assert(output.find("vtpal.bas") == std::string::npos);
     output.clear();
     strcpy(ram + inBuf + 2, "LS A7:VT*");
     assert(_ccp_ls() == 0);
-    assert(output.find("VTESTS.BAS") != std::string::npos);
-    assert(output.find("VTPAL.BAS") != std::string::npos);
+    assert(output.find("vtests.bas") != std::string::npos);
+    assert(output.find("vtpal.bas") != std::string::npos);
     output.clear();
     strcpy(ram + inBuf + 2, "LS /A/MBASIC/VTESTS.*");
     assert(_ccp_ls() == 0);
-    assert(output.find("VTESTS.BAS") != std::string::npos);
-    assert(output.find("VTPAL.BAS") == std::string::npos);
+    assert(output.find("vtests.bas") != std::string::npos);
+    assert(output.find("vtpal.bas") == std::string::npos);
     assert(output.find("ANSI and DEC test menu") == std::string::npos);
     output.clear();
     files["A/7/REPORT.7XF"] = "old content";
@@ -314,7 +347,7 @@ int main() {
     assert(_ccp_ls() == 0);
     assert(output.empty());
     assert(pagePauses == pausesBeforeCapture);
-    assert(files["A/7/REPORT.7XF"].find("VTESTS.BAS") !=
+    assert(files["A/7/REPORT.7XF"].find("vtests.bas") !=
            std::string::npos);
     assert(files["A/7/REPORT.7XF"].find("old content") ==
            std::string::npos);
@@ -332,7 +365,7 @@ int main() {
     output.clear();
     strcpy(ram + inBuf + 2, "LS /A/MBASIC/VTESTS.*");
     assert(_ccp_ls() == 0);
-    assert(output.find("VTESTS.BAS") != std::string::npos);
+    assert(output.find("vtests.bas") != std::string::npos);
     assert(files["A/7/REPORT.7XF"] == longResult);
     output.clear();
     strcpy(ram + inBuf + 2, "LS -O DIR.7XF /A/MBASIC");
@@ -342,7 +375,7 @@ int main() {
     output.clear();
     strcpy(ram + inBuf + 2, "LS -L");
     assert(_ccp_ls() == 0);
-    assert(output.find("VTESTS.BAS") != std::string::npos);
+    assert(output.find("vtests.bas") != std::string::npos);
     output.clear();
     strcpy(ram + inBuf + 2, "LS -S");
     assert(_ccp_ls() == 0);
@@ -379,4 +412,80 @@ int main() {
     assert(currentDrive == 0 && currentUser == 7);
     files["A/9/DIR.7XF"] = "MBASIC       Duplicate alias\r\n\x1a";
     assert(_ccp_catTarget("/A/MBASIC", &drive, &user) == -2);
+
+    // '..' lists the current drive's areas without changing the selected DU.
+    for (const char *verb : {"LS", "LL"}) {
+        for (uint8 selectedDrive : {uint8(0), uint8(1)}) {
+            currentDrive = selectedDrive;
+            currentUser = 0;
+            output.clear();
+            snprintf(ram + inBuf + 2, 100, "%s ..", verb);
+            assert(_ccp_ls() == 0);
+            const std::string parentListing = output;
+            output.clear();
+            snprintf(ram + inBuf + 2, 100, "%s /%c", verb, 'A' + selectedDrive);
+            assert(_ccp_ls() == 0);
+            assert(output == parentListing);
+            assert(currentDrive == selectedDrive && currentUser == 0);
+        }
+    }
+
+    // File names remain NAME.EXT; sort by uppercase extension, then filename.
+    currentDrive = 0;
+    currentUser = 7;
+    pageSize = 0;
+    files["A/7/ZZNONE"] = "";
+    files["A/7/ZZ.ASM"] = "";
+    files["A/7/AB.COM"] = "";
+    files["A/7/aa.com"] = "";
+    files["A/7/AA.Z80"] = "";
+    files["A/7/TOOLONG99.COM"] = "ignored invalid guest name";
+    for (const char *command : {"LS", "LL", "LS -L", "LS A7:*.*", "LL /A/7"}) {
+        output.clear();
+        strcpy(ram + inBuf + 2, command);
+        assert(_ccp_ls() == 0);
+        size_t previous = 0;
+        for (const char *name : {"zznone", "dir.7xf", "report.7xf", "zz.asm",
+                 "vtests.bas", "vtpal.bas", "aa.com", "ab.com", "aa.z80"}) {
+            size_t position = output.find(name);
+            assert(position != std::string::npos && position > previous);
+            previous = position;
+        }
+        assert(output.find("TOOLONG99") == std::string::npos);
+    }
+    output.clear();
+    strcpy(ram + inBuf + 2, "LL A7:*.COM -O SORTED.7XF");
+    assert(_ccp_ls() == 0 && output.empty());
+    assert(files["A/7/SORTED.7XF"].find("aa.com") <
+           files["A/7/SORTED.7XF"].find("ab.com"));
+    assert(files["A/7/SORTED.7XF"].find("zz.asm") == std::string::npos);
+
+    // Growing the compact index must not truncate a larger directory.
+    for (unsigned i = 0; i < 70; ++i) {
+        char path[32];
+        snprintf(path, sizeof path, "A/7/VT%02u.COM", i);
+        files[path] = "x";
+    }
+    output.clear();
+    _ccp_catListFiles(0, 7, "VT*.COM", true);
+    assert(output.find("vt00.com") < output.find("vt69.com"));
+    failAllocation = true;
+    output.clear();
+    _ccp_catListFiles(0, 7);
+    assert(output.find("Not enough memory to sort listing") != std::string::npos);
+    assert(output.find("vt00.com") == std::string::npos);
+    failAllocation = false;
+
+    // Width clips, never selects a second-line description layout.
+    for (uint16 columns : {40, 80, 100}) {
+        mockLogicalColumns = columns;
+        output.clear();
+        const std::string detail(80, 'x');
+        _ccp_catCatalogRow(largeTotals, "/a/mbasic", detail.c_str(), nullptr, true);
+        assert(output.find("/a/mbasic     x") != std::string::npos);
+        assert(output.find("\r\n") == size_t(columns - 1));
+        assert(output.find("\r\n") == output.rfind("\r\n"));
+        assert(output.find('\t') == std::string::npos);
+    }
+    puts("7XF catalog: sorting, same-line descriptions, parent-drive, width, capture and paging PASS");
 }

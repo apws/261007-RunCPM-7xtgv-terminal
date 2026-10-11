@@ -1,0 +1,11 @@
+7xtgv        Canonical project helper sources and visual BASIC tests
+GPIX.COM     Small red pixel-block graphics probe
+MBASIC.COM   Microsoft BASIC working interpreter (patched 5.30)
+VTDEMO.BAS   MBASIC terminal demonstration
+VTDEMO2.BAS  Extended MBASIC terminal demonstration
+VTDRV.COM    Read/verify disk fixture; W recreates it; Q quiet timing
+VTESTS.BAS   MBASIC terminal test menu: VT52, scroll, attrs, graphics
+VTG100.COM   Fixed graphics-origin probe
+VTPAL.BAS    MBASIC palette/ink test
+ZOOM.COM     Small legacy zoom command; prefer VTZOOM
+

@@ -29,7 +29,13 @@ The source suffix is intentional: these files contain Z80 mnemonics. SLR
 `Z80ASM NAME` on CP/M defaults to `NAME.Z80` and directly emits `NAME.COM`;
 Digital Research `ASM` defaults to `.ASM` and is not compatible with them.
 
-Build on the host with the z80asm assembler (AlbertVeli/z80asm upstream):
+Canonical guest sources are `cpmcard/C/1/VTGET.Z80`, `VTPUT.Z80` and
+`COMMON.INC` (`7xtgv(C1)`). Installed COM files are in `cpmcard/A/0`;
+this host-tool folder no longer keeps duplicate guest sources/binaries.
+
+Build in a temporary host copy with the z80asm assembler
+(AlbertVeli/z80asm upstream); convert guest CRLF/Ctrl-Z text in that copy
+if the host assembler requires it:
 
 ```
 z80asm -o VTGET.COM VTGET.Z80
@@ -44,7 +50,7 @@ Install both COM files in A0. RunCPM's command lookup can find them from other
 user areas. From the project directory, with the serial console idle at CP/M:
 
 ```
-python3 tools/cpm-transfer/transfer.py --user 1 get BBCBASIC.COM --directory /tmp/bbc-copy
+python3 tools/cpm-transfer/transfer.py --user 0 get VTINFO.COM --directory /tmp/guest-copy
 python3 tools/cpm-transfer/transfer.py --user A put /path/to/FILE.COM
 ```
 

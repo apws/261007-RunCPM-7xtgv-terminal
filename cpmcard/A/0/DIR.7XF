@@ -1,14 +1,56 @@
-cpm-os       CP/M 2.2 OS + 7xtgv-terminal INI+BUF, shared commands
-7XTGVTRM.INI configuration settings
-7XTGVTRM.BUF profiles history buffers
-REBOOT.COM   reboot os/firmware
-REFLASH.COM  reflash os/firmware
-VTCPU.COM    CPU benchmark
-VTDRV.COM    DISK-access benchmark
-VTPUT.COM    tooling send utility
-VTGET.COM    tooling receive utility
-VTINFO.COM   module/display info
-VTINFO.ASM   8080 source code
-
- 
-
+cpm          Shared CP/M commands, installed helpers, INI and history
+7XTGVTRM.BUF Live command-history buffers
+7XTGVTRM.INI Live terminal/display/profile configuration
+ASM.COM      Digital Research 8080 assembler: ASM NAME -> HEX/PRN
+CAL.COM      Imported calendar utility
+CARDMARK.COM Hardware card benchmark; unsupported on desktop
+CLS.COM      Clear terminal screen
+CONSOLE7.COM Select 7-bit console characters
+CONSOLE8.COM Select 8-bit console characters
+DDT.COM      Digital Research debugger
+DRV.7XF      Remembered per-drive selections (runtime state)
+DUMP.COM     Display file bytes in hexadecimal
+ED.COM       CP/M line editor
+EXIT.COM     Exit host RunCPM; desktop closes its session
+FORMAT.COM   RunCPM drive-folder creation; not a raw disk formatter
+INFO.COM     Imported drive-info utility; not the 7XF catalog editor
+LOAD.COM     Convert Intel HEX to COM: LOAD NAME
+LU.COM       Library/archive utility
+MBASIC.COM   Microsoft BASIC working interpreter (patched 5.30)
+MOVCPM.COM   Historical CP/M relocation utility; not firmware installation
+PIP.COM      Copy files; normal CP/M drive/user rules apply
+REBOOT.COM   Request firmware/desktop restart
+REFLASH.COM  Request configured hardware reflash; not for desktop
+RSTAT.COM    RunCPM-specific status utility
+SPEED.COM    RunCPM CPU speed/throttling command
+STAT.COM     CP/M file/device status
+SUBMIT.COM   Run a SUB command script
+SUBMITD.COM  Imported SUBMIT variant; exact differences not audited
+SYSGEN.COM   Historical CP/M system utility; not firmware installation
+TE.COM       TE full-screen text editor
+TINST.COM    Configure Turbo Pascal terminal; modifies installation data
+TURBO.COM    Turbo Pascal 3.01 compiler/editor
+UNARC.COM    Extract ARC archives
+UNCR.COM     Uncrunch compressed files
+UNSUB.COM    Cancel pending SUBMIT queue in the current area
+UNZIP.COM    Extract ZIP archives
+UNZIP157.COM Alternate UNZIP 1.57
+USQ.COM      Unsqueeze compressed files
+VOL.7XF      Global drive descriptions for 7XF
+VT100.COM    Return to ANSI/VT100 mode
+VT52.COM     Enter VT52 mode (VT100 returns to ANSI)
+VTCPU.COM    Active and quiet Z80 interpreter benchmark
+VTCPU8X.COM  8080/8085-compatible instruction-loop benchmark
+VTDRV.COM    Read/verify disk fixture; W recreates it; Q quiet timing
+VTDRV8X.COM  8080/8085-compatible disk benchmark
+VTGET.COM    Read a guest file for host download
+VTINFO.COM   Report board, build, terminal geometry and zoom presets
+VTPAL.COM    Select palette 0..9
+VTPUT.COM    Receive a host upload into a guest file
+VTTERM.COM   Run firmware native text-parser test through private port
+VTZOOM.COM   Set/query logical terminal size and zoom preset
+XMODEM.COM   Historical XMODEM utility
+XSUB.COM     SUBMIT input support
+Z80ASM.COM   SLR Z80 assembler: Z80ASM NAME -> COM from NAME.Z80
+ZOOM.COM     Small legacy zoom command; prefer VTZOOM
+

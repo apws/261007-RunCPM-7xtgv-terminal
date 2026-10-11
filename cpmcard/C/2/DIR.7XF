@@ -1,0 +1,9 @@
+xterm256     Mandelbrot graphics demos and their runtime helpers
+BROT_BS.COM  Bill Shen Mandelbrot variant; see BROTINFO.TXT
+BROT_PS.COM  Phillip Stevens optimized variant; see BROTINFO.TXT
+GCLS.COM     Start xterm256 plot: GCLS zoom x y
+SYNC.COM     Synchronously save terminal history before the demo
+VTPAD.COM    Emit blank-line padding for plot tests
+VTSTART.COM  Start elapsed-time measurement
+VTSTOP.COM   Stop/report elapsed-time measurement
+

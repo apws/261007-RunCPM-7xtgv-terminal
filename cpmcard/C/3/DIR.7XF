@@ -1,0 +1,9 @@
+bench        CPU/disk benchmarks and instruction exercisers
+8085EXER.COM 8085 instruction exerciser; select compatible CPU first
+CPMDHRY.COM  Dhrystone CPU benchmark (imported)
+CPMMAND.COM  Text Mandelbrot CPU benchmark (not xterm256 graphics)
+CPMMAND2.COM Alternate text Mandelbrot benchmark (imported)
+VTDRV.$$$    32 KiB disk-test fixture; VTDRV W replaces it
+ZEXALL.COM   Z80 instruction exerciser incl. undocumented flag checks
+ZEXDOC.COM   Z80 documented-instruction exerciser
+

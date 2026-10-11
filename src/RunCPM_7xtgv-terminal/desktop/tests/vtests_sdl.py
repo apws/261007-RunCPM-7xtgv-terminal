@@ -30,7 +30,7 @@ def scenario(executable, evidence, choice, stage=1):
     work = Path(tempfile.mkdtemp(prefix=f'page-{choice}-{stage}-', dir=evidence))
     area = work / 'card/A/0'
     area.mkdir(parents=True)
-    source = card_root() / 'A/7'
+    source = card_root() / 'C/1'
     require_files(source / 'MBASIC.COM', source / 'VTESTS.BAS')
     for name in ('MBASIC.COM', 'VTESTS.BAS'):
         shutil.copyfile(source / name, area / name)

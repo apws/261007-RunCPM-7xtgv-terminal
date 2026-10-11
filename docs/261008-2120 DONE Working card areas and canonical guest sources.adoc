@@ -1,0 +1,127 @@
+= Working card areas and canonical guest sources
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Decision and scope
+
+Petr approved reorganizing the local working card, placing full language
+packages on B and separating project work on C. This supersedes the layout
+proposal in
+link:261008-1957%20DONE%20Working%20card%20provenance%20and%20area%20organization%20audit.adoc[the earlier provenance audit].
+The reference ZIP comparison and historical findings in that audit still stand.
+
+[cols="1,1,3",options="header"]
+|===
+|Old location |Current name(DU) |Decision
+|A0 |`cpm(A0)` |Shared installed commands, live INI/history and global catalogs.
+|A4 + A5 |`cpmdev(A1)` |Keep historical assemblers, libraries and CCP/BDOS sources together.
+|A7 |`mbasic(B1)` |Full Microsoft BASIC variants and general examples.
+|A1 |`bbcbasic(B2)` |Complete BBC BASIC package.
+|A3 |`comal(B3)` |Placeholder only; runtime/demo not yet installed.
+|A2 |`tp(B4)` |Complete Turbo Pascal package; preserve its own TINST data.
+|A0/A5/A6/A7 and host helper folders |`7xtgv(C1)` |Canonical project guest sources/includes, retained HEX/listings and visual BASIC tests.
+|A6 graphics subset |`xterm256(C2)` |Only Mandelbrot variants, scripts, graphics/timing helpers and provenance.
+|A6 benchmark subset |`bench(C3)` |CPU/text-Mandelbrot benchmarks, instruction exercisers and disk fixture.
+|AD / AF |`dbase(AD)` / `fand(AF)` |Preserve the maintainer's latest database layout and bytes.
+|===
+
+* B0/C0 intentionally remain empty. No extra SDL/MCU target or core change.
+* MBASIC.COM is intentionally available in C1 and A0 as well as its complete
+  B1 package. Shared Turbo/editor files in A0 remain; its TINST configuration
+  is not identical to the full B4 package, so neither configuration was discarded.
+* C1 keeps one source home instead of creating more overlapping source copies.
+  C2 retains imported Brot source dialects and variant names.
+* FAND's bank 7 was preserved. Only the four moved language profile names and
+  their `on_select` DUs changed in the local INI. History bytes were preserved;
+  old commands inside history are not rewritten.
+
+== Catalogs and attribution
+
+* Rebuilt DIR.7XF catalogs for A0/A1, B1-B4 and C1-C3, including descriptions
+  for every COM in those areas. Updated VOL.7XF drive descriptions.
+* DRV.7XF remains the user's per-drive selection state; empty B0/C0 do not
+  acquire fabricated catalog contents.
+* Guest catalog/attribution text uses CRLF, trailing Ctrl-Z and <=80 columns.
+* `C2:BROTINFO.TXT` records the original names from `!BROT_XX.PDF`:
+  Bill Shen's `mandelbrot.z` / `mandelbrot.hex`, and Phillip Stevens'
+  `mandel.asm` / `mandel.hex`. It retains Rosetta Code and J. B. Langston
+  ancestry rather than assigning exclusive authorship to the BS/PS labels.
+* MANDEL.COM matched BROT_BS.COM and was archived. MANDEL.Z and MANDEL.HEX
+  have distinct archival bytes and were retained, not silently deduplicated.
+* Attribution does not establish new redistribution permission. Third-party
+  notices now name the current areas; their licensing qualifications remain.
+
+== Sources, builds and host tooling
+
+* Retired sixteen duplicate guest source/include/binary files from host
+  `tools/vtbench` and `tools/cpm-transfer`; sources now live in C1, installed
+  commands in A0. Python transfer/benchmark tooling and their READMEs remain.
+* Moved the old project ASM/HEX/PRN and VT100/VT52/SPEED sources into C1.
+  Preserved foreign assembler dialects; uppercase COMMON.INC is used by the
+  consolidated transfer sources.
+* Freshly assembled VTDRV with SLR Z80ASM and exercised W/RW/read-only,
+  verification, malformed arguments and quiet-mode rejection on the old
+  POSIX comparator. Installed the tested result in local A0 and C1.
+* Built missing ZOOM.COM from its existing 8080 source; installed local A0/C1
+  and retained its HEX/PRN in C1. Tested its emitted default zoom sequence.
+* Other retained binaries/HEX/listings were not all rebuilt. Their relocation
+  is not proof of source/binary parity or hardware acceptance.
+* Updated BASIC/assembler/SDL/transfer fixture paths. CARDMARK's builder now
+  requires explicit `--install`, consistent with the other guest builders.
+* The historical CLEAN.SUB remains potentially destructive; run old build
+  recipes only in disposable copies. ABDOS.SUB still expects missing
+  ABDOS.Z80; combining dependencies does not make that recipe complete.
+
+== What the tests established
+
+* `test_vtdrv_q.py`: fresh assembly and read/write/verify/options pass.
+* `test_vt_guest_asm.py`: VTINFO/VTZOOM assembly, valid/malformed/timeout replies.
+* `build_vtpal.py`: assembly and sixteen argument/output checks.
+* `build_cardmark.py`: assembly and unsupported-host path, without installation.
+* `test_vtests_basic.py`: five ASCII sources load, SAVE ,A round-trip and all
+  nine menu selections / fourteen pages pass. PROG.BAS remains in B1;
+  terminal-owned tests are read from C1.
+* `test_vtpal_basic.py`: palette matrix, pairs, papers, presets, redraw and exit.
+* `test_console_transfer.py`: nine tests, including real guest binary round-trip.
+* Integrated EP4_10 SDL/dummy VTESTS VT52 page and all five scrolling stages
+  pass from relocated C1 sources, with mirror transcripts and GFX captures.
+* New `desktop/tests/card_layout.py`: nine named areas and actual command
+  selection on a disposable card, using real guest COM marker programs.
+* Rendered current guides/card README and the new checkpoint. Checked 682 local
+  links/images and 153 anchors with no broken targets. Only the known intentional
+  leveloffset heading-sequence warnings remain. Feature registry: 199 valid rows;
+  regenerated its ledger. `git diff --check` passes.
+
+The integrated lookup test confirms:
+
+. Unqualified COM: current DU, then A0, then current drive/user 0 when the
+  original user was nonzero. Explicit drive qualification skips fallback.
+. Named aliases select the intended new areas; B0/C0 may be absent as on a
+  fresh Git clone. This search concerns executables, not their data/includes.
+. A plain uppercase D/5 host directory works without FORMAT, D0 or a catalog;
+  catalogs are needed only for named access. Wrong active root, spelling or
+  permissions can still cause a folder to appear unavailable.
+
+No claim of all imported applications working, complete legacy build coverage,
+hardware qualification or physical SD deployment follows from these tests.
+
+== Recovery and next steps
+
+* Full pre-change card plus host helper snapshot:
+  `../card-reorg-backups/261008-2102/`, outside the repository.
+* `migration.json` records original SHA-256 hashes and moves; `applied.json`
+  records verified apply-time hashes. Displaced working files and retired host
+  files are separately retained there. The later VTPARG.SUB dependency tidy-up
+  moved it from C1 to C2 alongside VTPAD.COM; it is not in the initial apply map.
+  `final-card-sha256.json` records all 282 files after that final tidy-up.
+* The source card was checked against its snapshot before applying; all staged
+  final hashes matched immediately after the apply. No active desktop writer
+  was found at that point. BUF, snapshots and unrelated database bytes stayed intact.
+* Temporary upstream comparison ZIPs were left in the card root, not committed
+  or implicitly approved for publication. No commit/push was performed.
+* Physical SD unchanged. Review the new local layout first; copying it to the
+  shared physical card is a separate action, with its current INI/BUF preserved.
+* Current guides were aligned to the new DUs using `name(DU)`. Continue the
+  link:261007-2317%20PLAN%20Entire%20manuals%20current-state%20review.adoc[manuals review];
+  protocol/settings coverage, remaining readability cleanup and hardware/fresh
+  system acceptance are not completed merely by settling the card layout.

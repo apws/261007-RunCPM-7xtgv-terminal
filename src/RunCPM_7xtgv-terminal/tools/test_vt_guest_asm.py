@@ -15,7 +15,8 @@ ROOT = Path(__file__).resolve().parents[3]
 RUNCPM = ROOT / "build/RunCPM_linux/RunCPM"
 from card_paths import card_root, require_files
 DRIVE = card_root() / "A/0"
-ASM = card_root() / "A/4/ASM.COM"
+SOURCE = card_root() / "C/1"
+ASM = card_root() / "A/1/ASM.COM"
 
 
 def until_bytes(fd, needle, timeout=15):
@@ -38,15 +39,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--install', action='store_true', help='Replace tested local card COM files')
     args = parser.parse_args()
-    require_files(ASM, DRIVE / 'LOAD.COM', DRIVE / 'VTINFO.ASM', DRIVE / 'VTZOOM.ASM')
+    require_files(ASM, DRIVE / 'LOAD.COM', SOURCE / 'VTINFO.ASM', SOURCE / 'VTZOOM.ASM')
     if not RUNCPM.is_file():
         raise SystemExit("Build native RunCPM first: make -C src/RunCPM_linux")
     with tempfile.TemporaryDirectory(prefix="7xtgv-vt-asm-") as temp:
         root = Path(temp)
         drive = root / "A/0"
         drive.mkdir(parents=True)
-        for source in (ASM, DRIVE / "LOAD.COM", DRIVE / "VTINFO.ASM",
-                       DRIVE / "VTZOOM.ASM"):
+        for source in (ASM, DRIVE / "LOAD.COM", SOURCE / "VTINFO.ASM",
+                       SOURCE / "VTZOOM.ASM"):
             shutil.copyfile(source, drive / source.name)
         master, slave = pty.openpty()
         process = subprocess.Popen(

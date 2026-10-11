@@ -1,0 +1,62 @@
+
+
+                ; ZOOM.COM -- set 7xtgv glyph zoom from CP/M.
+                ;
+                ; ZOOM [1|2|3|4] selects an absolute rendered glyph scale. No argument is
+                ; 1x, the normal CP/M-compatible default. The private output event is consumed
+                ; by current 7xtgv firmware; older firmware simply ignores it harmlessly.
+                ;
+                ; Build on CP/M:  ASM ZOOM
+                ;                LOAD ZOOM
+ 0100                   org     0100h
+                
+ 0100 3A8000            lda     0080h                   ; CCP command-tail length
+ 0103 47                mov     b,a
+ 0104 B7                ora     a
+ 0105 CA3201            jz      zoom1                   ; no argument = normal 1x
+ 0108 218100            lxi     h,0081h
+                
+ 010B 78        skipsp: mov     a,b
+ 010C B7                ora     a
+ 010D CA3201            jz      zoom1
+ 0110 7E                mov     a,m
+ 0111 FE20              cpi     ' '
+ 0113 C21B01            jnz     argument
+ 0116 23                inx     h
+ 0117 05                dcr     b
+ 0118 C30B01            jmp     skipsp
+                
+                argument:
+ 011B FE31              cpi     '1'
+ 011D CA3201            jz      zoom1
+ 0120 FE32              cpi     '2'
+ 0122 CA3801            jz      zoom2
+ 0125 FE33              cpi     '3'
+ 0127 CA3E01            jz      zoom3
+ 012A FE34              cpi     '4'
+ 012C CA4401            jz      zoom4
+ 012F C34D01            jmp     usage
+                
+ 0132 115601    zoom1:  lxi     d,one
+ 0135 C34701            jmp     print
+ 0138 115F01    zoom2:  lxi     d,two
+ 013B C34701            jmp     print
+ 013E 116801    zoom3:  lxi     d,three
+ 0141 C34701            jmp     print
+ 0144 117101    zoom4:  lxi     d,four
+                
+ 0147 0E09      print:  mvi     c,9                     ; BDOS print-string
+ 0149 CD0500            call    5
+ 014C C9                ret
+                
+ 014D 117A01    usage:  lxi     d,help
+ 0150 0E09              mvi     c,9
+ 0152 CD0500            call    5
+ 0155 C9                ret
+                
+ 0156 1B5B3E3638one:    db      27,'[>68;1v','$'
+ 015F 1B5B3E3638two:    db      27,'[>68;2v','$'
+ 0168 1B5B3E3638three:  db      27,'[>68;3v','$'
+ 0171 1B5B3E3638four:   db      27,'[>68;4v','$'
+ 017A 5A4F4F4D20help:   db      'ZOOM [1|2|3|4]',13,10,'$'
+

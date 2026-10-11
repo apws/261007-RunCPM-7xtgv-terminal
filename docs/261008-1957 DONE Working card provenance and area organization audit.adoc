@@ -1,0 +1,249 @@
+= Working card provenance and area organization audit
+:leveloffset: +2
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 4
+
+== Scope and decision boundary
+
+The maintainer requested a deep comparison of the working card with supplied
+Mockba and Guido archives, motivated by confusing flat folders and scattered
+project helper sources. The maintainer agrees that combining A4/A5 is sensible.
+This checkpoint records evidence and a proposed layout, *not a completed move*.
+
+* Card contents, catalogs, INI, binaries and host build scripts were not changed.
+* Concurrent maintainer edits are present: new catalogs, Lua removal, dBase
+  relocation from AE to AD, and other removals. These are preserved.
+* Counts describe this working-tree snapshot, not HEAD or a permanent seed.
+* Names below use `name (DU)`. Names are catalog aliases; the actual filesystem
+  remains RunCPM's `A/0` through `A/F` layout.
+
+== Archive provenance and comparison
+
+=== Inputs
+
+The comparison reads ZIP entries directly; no archive was extracted over the card.
+
+[cols="2,1,3",options="header"]
+|===
+|Supplied archive |Files, excluding directories |SHA-256
+|`cpmcard/Mockba_A0.zip` |79 |`52882689181d0ad17acbc113097e92b223395674dd4b16d6d8765f4643c9b518`
+|`cpmcard/guidol70_SDCard_content.zip` |97 |`cf4dc51ec91893e15e38ebbaf852fd36f87739cf4a6244af3390101337897f41`
+|===
+
+Upstream context:
+
+* https://github.com/guidol70/RunCPM_RPi_Pico[Guido's RunCPM_RPi_Pico]
+  documents copying `SDCard_content.zip` to the card. This is the relevant
+  Pico/Pico2 repository; the archive alone does not prove which PicoCalc
+  hardware/firmware was used in January.
+* https://github.com/MockbaTheBorg/RunCPM[Mockba's RunCPM] is the original project.
+  The supplied Mockba ZIP has entries dated June 2026, whereas Guido's supplied
+  ZIP has a 2022 directory snapshot. These are not interchangeable baselines.
+* Archive filenames and dates alone do not authenticate a specific upstream
+  Git revision. The hashes identify exactly the local archives compared here.
+
+=== Results across all current DUs
+
+[cols="2,1,1",options="header"]
+|===
+|Classification |Mockba archive entries |Guido archive entries
+|Exact bytes found anywhere on the card |31 |49
+|Original bytes followed only by NUL/Ctrl-Z record tail |32 |38
+|Same logical text after EOF/line-ending normalization |1 |2
+|Same filename exists, but different content |10 |2
+|No exact-content or same-name candidate |5 |6
+|===
+
+* For the text comparison only known source/document extensions were normalized;
+  binaries and tokenized BASIC were not treated as text.
+* Thus *89 of Guido's 97 entries remain equivalent* despite relocation.
+  This strongly supports the recalled origin, but does not date the import.
+* Guido's six missing entries are the just-removed Lua package:
+  `BDOS.LUA`, `HELLO.LUA`, `LUA.COM`, `LUA.SUB`, `LUA.Z80`, `LUAINFO.LUA`.
+* The two remaining Guido differences are its `A0:INFO.TXT` and `A1:INFO.TXT`;
+  our current INFO.TXT is in MBASIC (A7) and is different.
+* Against Mockba, absent names are `D.COM`, `D.Z80`, `MDIR.COM`, `SLRASM.COM`
+  and `ABDOS.Z80`. An `ABDOS.ORG` source exists locally; it is not automatically
+  a verified substitute for the missing exact-name source.
+* Current TE, DUMP, INFO, UNZIP and MBASIC match Guido's versions. In particular
+  our MBASIC matches Guido's `MBAS530P.COM`; Mockba's MBASIC matches our retained
+  `MBAS529.COM`. Do not overwrite configured/tested programs with newer ZIPs.
+* Mockba also differs in CCPZ/Z80CCP source, INFO source, ABDOS build script,
+  readme and INFO.TXT. A package update is separate from reorganizing folders.
+
+== Current organization
+
+[cols="1,1,3",options="header"]
+|===
+|Catalog name (DU) |Files |Observed role
+|`cpm (A0)` |90 |Shared commands, active terminal state, duplicated applications, some helper sources and build outputs, some ABDOS material.
+|`bbcbasic (A1)` |10 |BBC BASIC package, lowercase variant and user examples.
+|`tp (A2)` |11 |Turbo Pascal package and configuration.
+|`comal (A3)` |1 |DIR.7XF only. No installed COMAL runtime or project demo.
+|`asm (A4)` |18 |Assemblers/debugger, upstream libraries/documents, older VTDRV source/COM and test fixture.
+|`bdosccp (A5)` |36 |Upstream CCP/BDOS/utility sources and SUB files, plus local SPEED/VT100/VT52 sources.
+|`xterm256 (A6)` |49 |Third-party Mandelbrot sources/runners, project graphics/timing helpers, duplicated tools and test fixture.
+|`mbasic (A7)` |28 |BASIC variants, examples, maintained VTESTS/VTPAL, older drafts and fixture.
+|`dbase (AD)` |12 |Maintainer's newly relocated dBase package/data; do not use its former AE location as current advice.
+|`fand (AF)` |19 |FAND package/data; terminal setup remains unfinished.
+|===
+
+Empty user directories are not listed. This snapshot has 274 DU files.
+Root archives/readmes and host INI-history snapshots are additional host content.
+
+== Why A4/A5 should be reunited
+
+=== Concrete dependencies
+
+[cols="2,3",options="header"]
+|===
+|Source/build script in A5 |Dependency currently elsewhere
+|`ZCPR2.ASM` |`MACLIB Z2HDR`; `Z2HDR.LIB` is in A4.
+|`ZCPR3.ASM` |`MACLIB Z3BASE` and `MACLIB Z3HDR`; both libraries are in A4.
+|`BDOS.SUB`, `CCP.SUB`, `Z80CCP.SUB`, `ZCPR2.SUB`, `ZCPR3.SUB` |Invoke MAC and MLOAD; those COM files are in A4, not A0 or A5.
+|`ABDOS.SUB` |Names `ABDOS` as the assembler input and uses MLOAD. There is no current `ABDOS.Z80`; A0 contains `.ORG`, HEX and system images.
+|===
+
+* The CCP's shared-command search checks the current area and A0; it is not
+  a general search of every user area. It does not make A4's tools available
+  from A5 merely because both are on drive A.
+* Program lookup is separate from an assembler opening its include files.
+  Ordinary MACLIB/INCLUDE references need their companion library files in
+  the expected working area; a 7XF alias does not change this.
+* Reuniting the package is therefore functional cleanup, not just naming.
+* `CLEAN.SUB` deletes broad patterns including HEX, PRN, SYM, BAK and BIN.
+  Do not run it on the mixed working card; test builds in disposable copies.
+* These alternate CCP/BDOS sources are guest-side build/reference material.
+  They are not the C++ `ccp7xf.h` used by the current firmware, and moving
+  them does not change the selected firmware CCP.
+
+=== Why VT100/VT52 ended up there
+
+Commit `cf10597` (260918) added A0 executables and A5 sources under the old
+`cpmdrive/A5 - CP-M sources and build files` convention. The placement was
+deliberate at that time, but that broad source bucket was not maintained
+consistently for later helpers.
+
+* `VT52.Z80` emits `ESC[?2l`; `VT100.Z80` emits `ESC<`, then returns to CCP.
+* They are project additions, absent from both supplied archives.
+* The historical record explicitly describes their A0/A5 installation:
+  link:260917-18%20terminal%20legacy%20compatibility%20implementation%20checkpoint.adoc[legacy compatibility checkpoint].
+
+== Project sources and duplicate-version hazards
+
+[cols="2,3",options="header"]
+|===
+|Current source location |Families
+|A0 |CARDMARK, REFLASH, UNSUB, VTINFO, VTPAL, VTZOOM, ZOOM; also obsolete VTDRV.ASM and retained build outputs.
+|A4 |Older VTDRV.Z80 and VTDRV.COM.
+|A5 |VT100.Z80, VT52.Z80; local SPEED.Z80 needs its provenance/build role preserved.
+|A6 |GCLS, GPIX, SYNC, VTG100, VTPAD, VTSTART, VTSTOP; third-party/adapted Brot sources must be distinguished from original project code.
+|`tools/vtbench/` |REBOOT, VTCPU, VTCPU8X, VTDRV, VTDRV8X, VTTERM source files and some built COM copies.
+|`tools/cpm-transfer/` |VTGET/VTPUT sources, `common.inc`, COM copies and the host protocol tool.
+|===
+
+=== VTDRV is a real conflict, not harmless duplication
+
+* A0 `VTDRV.COM` is 1152 bytes; A4 `VTDRV.COM` is 896 bytes. They differ.
+  The A4 copy can shadow the shared command when invoked from A4.
+* A0 `VTDRV.ASM` describes the old cyclic MBASIC-file read test and contains
+  *Z80 mnemonics despite its .ASM name*. DRI ASM is not the right assembler.
+* A4 `VTDRV.Z80` describes retained-fixture RW behaviour without the current
+  quiet-mode options. The current host source has W/RW/Q and capability checks.
+* The checked-in host `tools/vtbench/VTDRV.COM` is yet another different binary
+  (769 bytes). Source currency does not establish binary currency.
+* VTDRV8X's tool/card COM copies also differ beyond simple record padding.
+  Rebuild and compare in isolation before selecting deployment copies.
+
+=== Other duplicates and missing partners
+
+* ASM.COM is identical in A0/A4/A6; Z80ASM.COM is identical in A0/A4.
+* TE.COM is identical in A0/A6; MBASIC.COM is identical in A0/A7.
+* FRAROUND and the two Star Trek examples are duplicated identically in A0/A7.
+* Turbo executable/message/overlay copies match between A0/A2, but
+  *TINST.DTA differs*. Preserve both configurations until their purpose is known.
+  Do not assume shared COM lookup also finds every application's overlays/data.
+* VTGET/VTPUT and VTCPU/VTCPU8X card binaries match their host copies plus
+  record padding. VTTERM matches exactly.
+* A0 has ZOOM.ASM but no ZOOM.COM in this snapshot: the manual cannot assume
+  that every documented helper is currently installed.
+* Repeated `VTDRV.$$$` files are benchmark fixtures, not program sources.
+  They are not automatically unwanted; plain read-only VTDRV uses them.
+
+== Proposed layout, awaiting the complete move decision
+
+Avoid renumbering the established application/test areas. Give each area one role.
+
+[cols="1,3",options="header"]
+|===
+|Proposed name (DU) |Role
+|`cpm (A0)` |Shared installed commands and required configuration/catalog/history state. Deploy approved helper COM outputs here; no helper source/HEX/PRN workspace.
+|`cpmdev (A4)` |Combined upstream assembler/debugger/CCP/BDOS development package, including required libraries, SUB files, source and relevant reference documents.
+|`xtgvsrc (A5)` |One authoritative project guest-helper source/build workspace. Gather sources, includes and build instructions; HEX/PRN/COM here are build products, not an additional public command installation.
+|`xterm256 (A6)` |Runnable graphics/benchmark demonstrations, Brot sources/scripts and their specific assets. Shared project helper commands can resolve from A0 after verified deployment.
+|`mbasic (A7)` |BASIC runtimes/examples and the VTESTS suite; no need to separate these familiar tests during this cleanup.
+|`comal (A3)` |Reserved future demo area. Catalog must say reserved/not installed until a runtime and demo are actually supplied and tested.
+|A1, A2, AD, AF |Keep BBC BASIC, Turbo Pascal, dBase and FAND in their established areas; preserve application-specific configuration/data.
+|===
+
+Names are proposals, each within the eight-character 7XF limit.
+Combining upstream A4/A5 frees A5 for our sources without allocating another DU.
+
+=== One source of truth, explicit deployment
+
+* Prefer card A5 as the authoritative guest-source workspace, matching the
+  maintainer's request. Host Python tools remain in `tools/` but read those
+  sources instead of maintaining separate editable copies.
+* Preserve the transfer helpers' include file and assembler dialect. A suffix
+  is not enough to select arbitrary host z80asm implementations; existing
+  scripts/readmes distinguish SLR, Albert Veli and z88dk usage.
+* Each helper build must identify source, assembler, output and A0 destination.
+  This small build/deployment list is not a new inclusion filter for the card.
+* Default build/test uses a disposable card. Copy approved COM output to A0
+  only with an explicit install action; physical-card transfer stays separate.
+* Reconcile old variants before removal. Do not pick a winner just by mtime,
+  extension or file size, and do not silently overwrite a differing binary.
+
+== Tooling and documentation affected by moves
+
+[cols="2,3",options="header"]
+|===
+|Consumer |Current dependency / required follow-up
+|`tools/test_vt_guest_asm.py` |Reads A0 VTINFO/VTZOOM source, A0 LOAD and A4 ASM. Separate source and installed-command paths.
+|`tools/build_vtpal.py` |Reads A0 VTPAL source and A4 ASM. Update source path while keeping explicit installation semantics.
+|`tools/build_cardmark.py` |Reads A0 CARDMARK source and currently writes the rebuilt COM to A0 without an install flag. Fix that implicit install as part of a later authorized tooling change; it was not run here.
+|`tests/test_vtdrv_q.py` |Reads A4 Z80ASM and host vtbench source; `--install` targets A0. Update source ownership, not the destination blindly.
+|Transfer and benchmark source recipes |Update their READMEs, include paths, binary fixtures and tests when host source copies are retired.
+|Visual-test tools / desktop SDL tests |Use A7 sources and disposable A0 fixtures. Keep A7 stable; temporary A0 paths are not necessarily working-card hardcoding bugs.
+|INI profiles |Current on_select commands target A0, A7, A2, A3, A1 and user 15. Proposed A4/A5 changes do not require renumbering them.
+|Guides and card README |Use `name (DU)` for prose/navigation, retain exact numeric DU where required by command syntax or transfer protocol. Fix removed A9/AA assumptions and mark COMAL as reserved.
+|Third-party notices |Refresh package locations and avoid describing the new dBase AD as the removed old GEEK2350 AD package. Preserve the historical removal record.
+|Chronological docs |Keep old locations as historical evidence; link the migration checkpoint rather than rewriting all old experiments.
+|===
+
+The maintainers' catalog edits also need a small consistency pass: for example
+A0 currently has `vol.7xt` instead of `VOL.7XF`. Do not rewrite catalogs while
+the maintainer is actively naming them; agree final aliases first.
+
+== Safe implementation order
+
+. Agree the A4/A5 roles and aliases; close desktop/card writers before moving.
+. Record hashes and a recoverable snapshot outside the live card. Keep the
+  two reference ZIPs out of any accidental all-card publication commit.
+. Reunite upstream dependencies in A4, retaining notices and comparing any
+  conflicting names rather than overwriting them.
+. Gather/reconcile our sources in A5, with one maintained version and clear
+  assembler instructions for each helper.
+. Update builders/tests to separate source workspace, temporary build output
+  and explicitly installed A0 commands. Remove implicit installation paths.
+. Build/test disputed helper versions on disposable cards; compare results
+  before changing the live A0 command set.
+. Update current catalogs, guides, card README and third-party location notes
+  together. Do not rename DUs in protocol examples where aliases are unsupported.
+. Test named CD/LS, shared-command lookup, transfers, benchmark and VTESTS
+  startup in desktop. Physical-card deployment/retesting is a later action.
+
+No alternate CCP builds or guest programs were executed during this audit.
+Hash/source/dependency checks do not claim that an upstream CCP currently builds
+successfully or that every existing COM matches its colocated source.

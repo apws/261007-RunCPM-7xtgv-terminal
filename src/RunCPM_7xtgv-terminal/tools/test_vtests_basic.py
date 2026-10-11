@@ -14,10 +14,15 @@ import tempfile
 from build_vtpal import ROOT, receive
 
 from card_paths import card_root, require_files
-SOURCE = card_root() / "A/7"
+SOURCE = card_root() / "C/1"
 FILES = ("VTESTS", "PROG", "VTPAL", "VTDEMO", "VTDEMO2")
 ROLES = ("implicit", "red", "green", "blue", "shade", "cyan", "magenta", "yellow")
 SGR = (30, 31, 32, 34, 37, 36, 35, 33)
+
+
+def fixture(name):
+    # The language-package experiment is not a terminal-owned source.
+    return (card_root() / 'B/1' if name == 'PROG.BAS' else SOURCE) / name
 
 
 def check_compact_page(output):
@@ -45,9 +50,9 @@ def check_compact_page(output):
 
 
 def main():
-    require_files(SOURCE / 'MBASIC.COM', *(SOURCE / (name + '.BAS') for name in FILES))
+    require_files(fixture('MBASIC.COM'), *(fixture(name + '.BAS') for name in FILES))
     for name in FILES:
-        data = (SOURCE / (name + ".BAS")).read_bytes()
+        data = fixture(name + ".BAS").read_bytes()
         body, eof, _ = data.partition(b"\x1a")
         assert eof, name
         assert b"\n" not in body.replace(b"\r\n", b""), name
@@ -60,7 +65,7 @@ def main():
         drive = Path(temporary) / "A/0"
         drive.mkdir(parents=True)
         for name in ("MBASIC.COM",) + tuple(n + ".BAS" for n in FILES):
-            shutil.copyfile(SOURCE / name, drive / name)
+            shutil.copyfile(fixture(name), drive / name)
         master, slave = pty.openpty()
         process = subprocess.Popen([str(ROOT / "build/RunCPM_linux/RunCPM")],
             cwd=temporary, stdin=slave, stdout=slave, stderr=slave,
@@ -142,6 +147,18 @@ def main():
                 if choice in (1, 2, 4):
                     assert b"\x1b[14;1HEnter returns to menu: " in result
                     check_compact_page(result)
+                if choice == 8:
+                    assert b"\x1b[22;35m" not in result
+                    for name in (b'greet_users', b'names$', b'count', b'i',
+                                 b'label$', b'total'):
+                        assert b'\x1b[22;30m' + name in result, name
+                    for keyword in (b'defproc', b'local', b'for', b'to', b'if',
+                                    b'then', b'print', b'else', b'endif',
+                                    b'endfor', b'endproc'):
+                        assert b'\x1b[1;30m' + keyword in result, keyword
+                    assert b'  // Mixworx: a small greeting loop' in result
+                    assert b'  // Report how many names were greeted' in result
+                    assert b'  rem ' not in result
                 if choice == 9:
                     for stage in range(1, 5):
                         os.write(master, b"\r")

@@ -1,0 +1,41 @@
+= Compact current-area headings and useful area overviews
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Changes
+
+* Current-DU file listings show the area description from column 2 without
+  repeating `/drive/name`. Listings of another area retain its path.
+* Short and long area overviews omit empty areas and areas containing only
+  `DIR.7XF` plus hidden host dotfiles. Ordinary zero-byte files count as content.
+* This applies equally to explicit drive listings and their `..` aliases.
+  Direct access, catalog alias resolution, file listings and stored files are
+  unchanged. Drive overview behavior and size-total accounting are unchanged.
+* The only product-code seam changed is `ccp_catalog.h`; no submit-queue or
+  other CCP/disk behavior was edited.
+
+== Checks and handoff
+
+* Strict C++11 host catalog test passes, including direct access to hidden
+  catalog-only areas, host placeholders and zero-byte file visibility.
+* Integrated EP4_10 desktop capture passes at 40, 80 and 100 columns, including
+  column-2 descriptions and exclusion from both LS/LL area overviews.
+* Temporary build: `/tmp/xtgv-7xf-listing-build-lIGqtO`.
+  No running session, installed desktop target or physical hardware was changed.
+* Rebuild the desired desktop target and relaunch to use the new behavior.
+  Current guides were updated; continue the
+  link:261007-2317%20PLAN%20Entire%20manuals%20current-state%20review.adoc[manual review].
+
+== Follow-up: short overview descriptions
+
+The maintainer's screenshot clarified that short `LS /drive` overviews must
+retain area descriptions too. Drive/area catalog rows now include descriptions
+in both LS and LL; LL additionally shows record/DEXT counts. Current-folder
+headings still omit only the repeated path. Added host and integrated assertions
+for descriptions in the short overview. File-row short/long behavior is unchanged.
+
+Further clarification: the requested missing description was the whole drive's
+heading from `A0:VOL.7XF`, not its individual area rows. Both LS and LL area
+lists now begin with this description alone at column 2, including `..`.
+Drive lookup shares one parser with the root drive overview. Unit and integrated
+tests explicitly distinguish the drive heading from the area descriptions.

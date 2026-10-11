@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
 """Build CARDMARK with DRI ASM/LOAD in a disposable native RunCPM drive."""
 import os
+import argparse
 from pathlib import Path
 import pty
 import shutil
 import subprocess
 import tempfile
-from test_vt_guest_asm import ROOT, DRIVE, ASM, RUNCPM, until_prompt
+from test_vt_guest_asm import ROOT, DRIVE, SOURCE, ASM, RUNCPM, until_prompt
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--install', action='store_true', help='Replace local card CARDMARK.COM after testing')
+    args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix='xtgv-cardmark-') as temp:
         drive = Path(temp) / 'A/0'
         drive.mkdir(parents=True)
-        for source in (ASM, DRIVE / 'LOAD.COM', DRIVE / 'CARDMARK.ASM'):
+        for source in (ASM, DRIVE / 'LOAD.COM', SOURCE / 'CARDMARK.ASM'):
             shutil.copyfile(source, drive / source.name)
         master, slave = pty.openpty()
         process = subprocess.Popen([str(RUNCPM)], cwd=temp, stdin=slave,
@@ -33,7 +37,8 @@ def main():
             output = until_prompt(master)
             if b'requires supported firmware' not in output:
                 raise RuntimeError(f'Unsupported firmware detection failed: {output!r}')
-            shutil.copyfile(drive / 'CARDMARK.COM', DRIVE / 'CARDMARK.COM')
+            if args.install:
+                shutil.copyfile(drive / 'CARDMARK.COM', DRIVE / 'CARDMARK.COM')
             os.write(master, b'EXIT\r')
             process.wait(timeout=10)
         finally:

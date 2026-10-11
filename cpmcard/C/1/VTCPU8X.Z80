@@ -1,0 +1,53 @@
+; VTCPU8X.COM - common 8080/8085 instruction-subset CPU benchmark.
+; Requires the 7xtgv RunCPM host service on private I/O port 7Bh.
+;
+; Reports loop throughput instead of equivalent MHz because 8080 and 8085
+; assign different cycle counts to some of these shared instructions.
+
+        org     0100h
+
+port:   equ     07bh
+bdos:   equ     0005h
+print:  equ     9
+
+        in      a,(port)
+        cp      'V'
+        jp      nz,unsupported
+
+        ld      a,4
+        out     (port),a
+        call    benchmark
+        ld      a,6
+        out     (port),a
+
+        ld      a,5
+        out     (port),a
+        call    benchmark
+        ld      a,6
+        out     (port),a
+        jp      0
+
+unsupported:
+        ld      de,message
+        ld      c,print
+        call    bdos
+        jp      0
+
+benchmark:
+        ld      de,500
+outer:
+        ld      bc,1000
+inner:
+        dec     bc
+        ld      a,b
+        or      c
+        jp      nz,inner
+        dec     de
+        ld      a,d
+        or      e
+        jp      nz,outer
+        ret
+
+message:
+        db      'VTCPU8X needs newer 7xtgv RunCPM firmware.',13,10,'$'
+

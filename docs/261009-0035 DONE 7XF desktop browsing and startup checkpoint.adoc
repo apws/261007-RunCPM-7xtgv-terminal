@@ -1,0 +1,121 @@
+= 7XF desktop browsing and startup checkpoint
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Purpose and accepted behavior
+
+The maintainer verified the reorganized working card and requested a durable
+checkpoint, desktop browsing checks, a later smaller manuals review, and a note
+about possibly implementing external 8080/Z80 catalog commands for other systems.
+
+* 7XF is the internal `ccp7xf.h` shell integration. The `7XF` command selects
+  named prompt presentation; LS, LL and CD already work from a numeric prompt.
+* LS/LL file rows use lowercase display names sorted by extension then name.
+  Host filenames remain unchanged. Semantic descriptions belong primarily on
+  COM entries, not generic repeated explanations of source/output extensions.
+* A current-area heading shows its DIR.7XF description alone at column 2.
+  A drive-area overview starts with the whole-drive VOL.7XF description at
+  column 2. Both short and long drive/area overviews retain descriptions.
+* Empty/catalog-only areas are hidden from area overviews, not deleted.
+  Direct CD still reaches COMAL's placeholder area. Zero-byte ordinary files
+  count as content; hidden host placeholders do not.
+* `/` is the drive overview, not a selectable root directory. CD /B selects
+  B's remembered area. CD /B/MBASIC explicitly selects a named flat CP/M DU.
+* DIR and LDIR continue to work under named prompts. They retain traditional
+  CP/M output and do not gain LS/LL catalogs, sorting or lowercase presentation.
+
+See the earlier
+link:261008-2212%20DONE%207XF%20sorted%20compact%20listings%20and%20parent-drive%20view.adoc[listing implementation],
+link:261008-2247%20DONE%20Concise%20card%20catalogs%20and%20SUBMIT%20blank-line%20workaround.adoc[card descriptions and script workaround], and
+link:261008-2350%20DONE%20Compact%20current-area%20headings%20and%20useful%20area%20overviews.adoc[heading/overview refinements].
+
+== Desktop evidence
+
+Added opt-in `desktop/tests/catalog_browsing.py`. It snapshots A/B/C into a
+disposable card, excludes live INI/history and pending submit queues, supplies
+its own 80x24 EP4_10 INI and uses automation profile 9. No application binaries
+are executed: the commands exercise the internal CCP and catalog integration.
+
+The integrated desktop runs SDL with its dummy video driver (quiet, but still
+renders the real Arduino_GFX framebuffer), using the PTY mirror for input and
+output. Raw mirror bytes, per-command text and final framebuffer PPMs are retained.
+Both rendered snapshots were visually inspected.
+
+* Passed LL / from A0 before 7XF, followed by named prompt selection.
+* Passed LS/LL root and A/B/C drive-area overviews with whole-drive descriptions.
+* Passed explicit CD and reported DU for eleven aliases: cpm(A0), cpmdev(A1),
+  mbasic(B1), bbcbasic(B2), comal(B3), tp(B4), fand(B5), dbase(B6),
+  7xtgv(C1), xterm256(C2) and bench(C3).
+* Passed LS/LL versus DIR/LDIR for MBASIC.*, checking case/descriptions and
+  returning to the same named prompt.
+* Passed remembered CD /B selection after leaving mbasic for cpm(A0), and
+  LL .. with the catalog-only COMAL placeholder omitted.
+* Separate fresh boot with card-root AUTOEXEC.TXT containing `7XF` produced
+  `/a/cpm>`; CD confirmed A0 without a manually entered 7XF command.
+
+Evidence directories for this run:
+
+* `/tmp/xtgv-browsing-261009/browse-8qhczkb8`
+* `/tmp/xtgv-browsing-261009/autoexec-gm8_csuh`
+* Executable: `/tmp/xtgv-7xf-listing-build-lIGqtO/xtgv_desktop`.
+
+These are transient local artifacts. The reusable test remains in the repository.
+This is desktop acceptance, not physical board retesting. The working INI,
+history, startup file, mounted SD and active session were not modified.
+
+== Startup and profile navigation
+
+* No dedicated 7XF prompt-style INI setting exists. The compiled default is
+  decimal; 7XF selects named style for the running session.
+* Existing RunCPM AUTOEXEC.TXT handles one first-boot command at the card root.
+  `7XF` alone enables named prompts without SUBMIT or a new firmware feature.
+  Preserve any existing startup content. Pending submit work takes precedence.
+  This option was tested only on a copy; not enabled on the working card.
+* The maintainer renamed/reordered INI banks and uses commands such as
+  `on_select=cd /b/mbasic\r`. These are user-defined navigation shortcuts at
+  a live CCP prompt, not filesystem mounts, boot actions or commands sent into
+  an application. Preserve those names, bindings and history.
+* The inspected BBC BASIC profile still used B2:; both numeric and named
+  navigation are valid. No normalization of the maintainer's INI was performed.
+* FAND/dBase have moved to B5/B6. Current VOL.7XF prose still mentions databases
+  on A and describes B as languages only; note this metadata follow-up without
+  silently replacing the maintainer's catalogs.
+
+== Future external 8080/Z80 tools: idea only
+
+An external LS/LL-style catalog viewer could reuse DIR.7XF/VOL.7XF conventions
+through ordinary CP/M BDOS file operations and directory searches, without
+depending on Arduino storage APIs. An 8080-compatible build could be a useful
+baseline, with any Z80-specific work separately justified.
+
+* CP/M file lengths may be available only in 128-byte records; do not promise
+  RunCPM host-byte precision elsewhere.
+* Cross-drive/user searches must preserve the caller's state and respect the
+  target system's BDOS behavior; compatibility needs explicit testing.
+* An external CD-style utility and persistent named prompts are not automatically
+  portable: the resident CCP may restore its own DU state, and it owns its prompt.
+  A catalog viewer, selector and full CCP integration are different scopes.
+* Nothing external is implemented or promised here. Native 7xtgv remains the
+  primary project objective; external catalog tools are a possible later project.
+
+== Manuals handoff
+
+Updated the current user/reference recipes and card layout table. Added a final
+smaller reconciliation pass to the
+link:261007-2317%20PLAN%20Entire%20manuals%20current-state%20review.adoc[manual review plan].
+Recheck named DU recipes, prompt versus command availability, both overview
+headings, default startup, user-configured profiles and traditional commands.
+The entire manual review and physical-board acceptance are still unfinished.
+
+== Subsequent maintainer correction
+
+* Authorized update to working `A0:VOL.7XF`: A is shared commands/system
+  development; B is languages/databases, including FAND and dBase, with COMAL
+  still marked pending. Guest CRLF and Ctrl-Z format retained.
+* Final requested distinction: `LS /drive` and `LS ..` retain the whole-drive
+  description heading, but omit descriptions beside individual user areas.
+  LL retains those area-row descriptions. Root LS/LL drive descriptions and
+  current-folder description headings are unchanged.
+* Added/adjusted host and integrated 40/80/100-column assertions for this
+  distinction. Rebuild/relaunch is needed for the listing-code change, whereas
+  the catalog-text correction is read directly from the working card.

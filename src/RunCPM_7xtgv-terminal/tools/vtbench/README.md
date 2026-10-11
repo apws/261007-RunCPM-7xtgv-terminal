@@ -65,7 +65,18 @@ SLR `Z80ASM NAME` defaults to `NAME.Z80` and directly creates `NAME.COM`.
 Digital Research `ASM NAME` instead defaults to `NAME.ASM`, accepts Intel 8080
 mnemonics, and emits `NAME.HEX`/`NAME.PRN`; it must not be used for these files.
 
-Build on the host with Albert Veli's `z80asm`:
+Canonical sources now live in repository `cpmcard/C/1` (`7xtgv(C1)`), not
+beside this README. Shared installed commands live in `cpmcard/A/0`; the disk
+fixture and imported exercisers live in `bench(C3)`. Old host source/binary
+duplicates were retired. Build in a disposable copy of C1, not the live card.
+
+On CP/M, make `cpmdev(A1)`'s SLR assembler available in that disposable work
+area and run `Z80ASM VTDRV`. The focused host test also assembles and verifies
+it: `python3 tests/test_vtdrv_q.py` from the firmware directory. Add `--install`
+only to replace the local card A0 binary deliberately.
+
+Alternatively, in a temporary host copy of the C1 sources, use Albert Veli's
+`z80asm` (convert guest CRLF/Ctrl-Z text to host text in that copy if needed):
 
 ```sh
 z80asm -o VTCPU.COM VTCPU.Z80

@@ -1,0 +1,10 @@
+cpmdev       Historical CP/M/CCP sources, assemblers and libraries
+ABDOS.SUB    Historical build recipe; expects missing ABDOS.Z80
+ASM.COM      Digital Research 8080 assembler: ASM NAME -> HEX/PRN
+CLEAN.SUB    CAUTION: deletes HEX/PRN/SYM/BAK/BIN; use disposable copy
+MAC.COM      Digital Research macro assembler; used by CCP/BDOS builds
+MLOAD.COM    Load/link Intel HEX files; used by historical SUB builds
+Z80ASM.COM   SLR Z80 assembler: Z80ASM NAME -> COM from NAME.Z80
+ZSID.COM     Z80 symbolic debugger
+ZTRAN.COM    8080 to Z80 source translator; see bundled documentation
+

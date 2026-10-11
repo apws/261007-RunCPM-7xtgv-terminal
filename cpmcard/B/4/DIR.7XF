@@ -1,0 +1,5 @@
+tp           Turbo Pascal 3.01 package and local examples
+PROG.COM     Local compiled Pascal experiment; see PROG.PAS
+TINST.COM    Configure Turbo Pascal terminal; modifies installation data
+TURBO.COM    Turbo Pascal 3.01 compiler/editor
+

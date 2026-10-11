@@ -1,0 +1,25 @@
+Mandelbrot variants in xterm256(C2)
+
+BROT_BS: local short name for the variant shared by Bill Shen.
+Original forum attachment names: mandelbrot.z, mandelbrot.hex.
+BROT_PS: local short name for Phillip Stevens' optimized variant.
+Original forum attachment names: mandel.asm, mandel.hex.
+His optimization includes table-based multiplication.
+
+The sources also credit Rosetta Code's Z80 Mandelbrot example and
+J. B. Langston's CP/M adaptation and colorization. BS/PS identify
+the discussed variants, not exclusive authorship of all their code.
+Preserved source headers remain authoritative for their own credits.
+
+See !BROT_XX.PDF: retro-comp discussion, August 2019, titled
+"K80, another Z80 SBC with RC2014 expansion on 100mmX100mm board".
+Thread: https://groups.google.com/g/retro-comp/c/rFNqRrUsye8
+
+Run SUBMIT BROT_BS or SUBMIT BROT_PS in this area. The scripts use
+GCLS, SYNC, VTPAD and VTSTART/VTSTOP; helper sources live in 7xtgv(C1).
+BROT_PS.ASM is a vendor Z80 dialect, NOT Digital Research 8080 ASM.
+
+MANDEL.HEX and MANDEL.Z retain distinct older archival bytes.
+The redundant MANDEL.COM matched BROT_BS.COM and was archived.
+This attribution note does not establish a redistribution license.
+

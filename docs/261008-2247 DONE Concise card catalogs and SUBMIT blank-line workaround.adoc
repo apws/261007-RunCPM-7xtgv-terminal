@@ -1,0 +1,43 @@
+= Concise card catalogs and SUBMIT blank-line workaround
+:leveloffset: +2
+:source-highlighter: highlight.js
+
+== Card and display changes
+
+* Removed generic extension explanations and catalog-self descriptions from
+  all working-card `DIR.7XF` files. Keep semantic COM descriptions, specific
+  standalone BASIC/configuration notes and actionable safety warnings.
+* LS/LL now display lowercase filenames; host names and lookup remain unchanged.
+  Focused catalog tests and integrated 40/80/100-column captures pass, including
+  assertions that uppercase fixture filenames and contents are untouched.
+* Retain all sixteen A-drive user directories. The maintainer recreated them;
+  host-only `.gitkeep` files preserve the twelve empty areas in Git.
+* Nine named-area and current-DU/A0/drive-user-zero lookup tests still pass.
+  No installed desktop binary, physical card or MCU was changed.
+
+== Two distinct SUBMIT failures
+
+* The supplied patched `A0:SUBMIT.COM` creates `$$$.SUB` on drive A at the
+  current user number. From C2 it needs A2; the migration had removed that
+  empty directory. Its absence reproduced the misleading `Directory Full`.
+  Neither C0 nor C2 needs a copy of SUBMIT.COM; A0 lookup already finds it.
+* With A2 present, the current `BROT_BS.SUB` still produced garbage batch input.
+  It contained a blank CRLF line after `VTSTOP`, before the Ctrl-Z tail.
+  On separate disposable desktop cards, the original failed, removing only
+  that blank line ran through to VTSTOP, and unchanged `BROT_PS.SUB` also ran.
+* With explicit approval, removed only that blank line from the local
+  `C/2/BROT_BS.SUB`. Preserved commands, coordinates, CRLF and Ctrl-Z tail.
+  This is a script workaround, not a fix of general blank-line handling.
+* Earlier queue tracing saw an empty submit queue followed by descending reads
+  from record 255. The exact producer/consumer defect remains unaudited;
+  do not infer that all cross-drive SUBMIT is broken. No CCP/disk-core edits
+  were made; a robust empty-queue/read-error fix requires separate scope.
+
+== Follow-up
+
+* Repeat `SUBMIT BROT_BS` from `xterm256(C2)` in the running desktop;
+  the script/catalog changes do not require rebuilding firmware.
+* Lowercase listing rendering does require rebuilding the selected desktop
+  target and relaunching. Automated checks used only a temporary build.
+* Continue the link:261007-2317%20PLAN%20Entire%20manuals%20current-state%20review.adoc[manual review]
+  with the updated card layout and concise catalog policy.

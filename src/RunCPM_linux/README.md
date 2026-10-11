@@ -59,8 +59,8 @@ may need their own terminal configuration or later host-side adapters.
 interactive data and the device. It runs `DIR`, `VTDRV RW`, a separate
 read-only `VTDRV`, and `EXIT`, checking that the 32 KiB test file survives and
 is unchanged by the read-only pass. `tests/VTDRV.COM` was assembled on 260919
-from the current `tools/vtbench/VTDRV.Z80` using the card's SLR `Z80ASM.COM`;
-the older `tools/vtbench/VTDRV.COM` does not match that source and is not used.
+from the canonical `cpmcard/C/1/VTDRV.Z80` using SLR `Z80ASM.COM` in
+`cpmcard/A/1`; retired host-side helper copies are not used.
 
 For later storage optimizations, this build exercises the shared CP/M core
 but **not** the Arduino `File` adapter. Exact write failure and cache tests

@@ -17,6 +17,7 @@ import time
 ROOT = Path(__file__).resolve().parents[3]
 from card_paths import card_root, require_files
 CORE = card_root() / "A/0"
+SOURCE = card_root() / "C/1"
 
 
 def receive(fd, needle=b"A0>", timeout=10):
@@ -35,16 +36,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--install', action='store_true', help='Replace local card VTPAL.COM after testing')
     args = parser.parse_args()
-    assembler = card_root() / 'A/4/ASM.COM'
-    require_files(assembler, CORE / 'LOAD.COM', CORE / 'VTPAL.ASM')
+    assembler = card_root() / 'A/1/ASM.COM'
+    require_files(assembler, CORE / 'LOAD.COM', SOURCE / 'VTPAL.ASM')
     with tempfile.TemporaryDirectory(prefix="xtgv-vtpal-") as temporary:
         card = Path(temporary)
         drive = card / "A/0"
         drive.mkdir(parents=True)
         shutil.copyfile(assembler, drive / "ASM.COM")
         shutil.copyfile(CORE / "LOAD.COM", drive / "LOAD.COM")
-        source = (CORE / "VTPAL.ASM").read_text()
-        (drive / "VTPAL.ASM").write_bytes(source.replace("\n", "\r\n").encode("ascii") + b"\x1a")
+        shutil.copyfile(SOURCE / "VTPAL.ASM", drive / "VTPAL.ASM")
         master, slave = pty.openpty()
         process = subprocess.Popen([str(ROOT / "build/RunCPM_linux/RunCPM")],
             cwd=card, stdin=slave, stdout=slave, stderr=slave,

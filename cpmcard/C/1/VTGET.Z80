@@ -1,0 +1,110 @@
+; VTGET filename: snapshot-safe 128-byte hex pages, Enter acknowledges each.
+ org 0100h
+ ld sp,stacktop
+ ld de,005ch
+ ld c,15
+ call 5
+ cp 255
+ jp z,error
+ ld de,0080h
+ ld c,26
+ call 5
+ ld de,clear
+ call puts
+readrec:
+ ld de,005ch
+ ld c,20
+ call 5
+ or a
+ jr z,page
+ cp 1
+ jp nz,error
+ ld de,done
+ call puts
+ ld hl,(record)
+ call hexword
+ ld de,newline
+ call puts
+ ld de,005ch
+ ld c,16
+ call 5
+ jp 0
+page:
+ ld de,pagehome
+ call puts
+ ld de,heading
+ call puts
+ ld hl,(record)
+ call hexword
+ ld de,newline
+ call puts
+ ld hl,0080h
+ ld b,4
+row:
+ push bc
+ ld b,32
+byte:
+ ld a,(hl)
+ call hexbyte
+ inc hl
+ djnz byte
+ push hl
+ ld a,':'
+ call putc
+ ld hl,(record)
+ call hexword
+ pop hl
+ ld de,newline
+ call puts
+ pop bc
+ djnz row
+ ld de,ready
+ call puts
+ ld hl,(record)
+ call hexword
+ ld a,' '
+ call putc
+ call putname
+ ld a,' '
+ call putc
+ ld de,pctprompt
+ call puts
+ ld de,input
+ ld c,10
+ call 5
+ ld a,(input+1)
+ or a
+ jr z,acknowledged
+ cp 4
+ jp nz,error
+ ld a,(input+2)
+ call pctdigit
+ ld a,(input+3)
+ call pctdigit
+ ld a,(input+4)
+ call pctdigit
+ ld a,(input+5)
+ cp '%'
+ jp nz,error
+acknowledged:
+ ld hl,(record)
+ inc hl
+ ld (record),hl
+ jp readrec
+record: dw 0
+heading: db 'R2C','$'
+ready: db 'READY','$'
+pctprompt: db 'PCT ','$'
+done: db 13,10,'END','$'
+pctdigit:
+ cp '0'
+ jp c,error
+ cp ':'
+ jp nc,error
+ ret
+input: db 5,0
+ defs 6
+ include 'COMMON.INC'
+ defs 128
+stacktop:
+

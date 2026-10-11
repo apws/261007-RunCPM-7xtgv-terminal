@@ -17,8 +17,8 @@ ROOT = Path(__file__).resolve().parents[3]
 RUNTIME = ROOT / "build/RunCPM_linux/RunCPM"
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
 from card_paths import card_root, require_files
-ASSEMBLER = card_root() / "A/4/Z80ASM.COM"
-SOURCE = ROOT / "src/RunCPM_7xtgv-terminal/tools/vtbench/VTDRV.Z80"
+ASSEMBLER = card_root() / "A/1/Z80ASM.COM"
+SOURCE = card_root() / "C/1/VTDRV.Z80"
 
 
 def read_until(fd, transcript, needle, timeout=15):
