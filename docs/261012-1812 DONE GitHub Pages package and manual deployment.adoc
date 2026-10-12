@@ -70,3 +70,19 @@ Reference: https://docs.github.com/en/pages/getting-started-with-github-pages/us
 The header-injection approach is also demonstrated by
 https://github.com/gzuidhof/coi-serviceworker[coi-serviceworker]; our small
 implementation deliberately waits on updates to protect volatile guest state.
+
+== First GitHub run and permissions correction
+
+Run https://github.com/apws/261007-RunCPM-7xtgv-terminal/actions/runs/38279935807[38279935807]
+at revision `433f2ea` passed dependency installation, the shared runtime build,
+packaging and the headerless Chromium proof. It failed at
+`actions/configure-pages@v5` with `Resource not accessible by integration`;
+the deployment job did not run. The repository Pages API confirms an enabled,
+public, HTTPS site with `build_type: workflow`.
+
+The build job was missing `pages: read`. The correction grants only read access
+there, preserves write/id-token access in the deployment job, and moves the
+configuration check immediately after checkout. `configure-pages@v6` uses
+Node 24 and removes the separate Node 20 deprecation warning. YAML structure
+and permission/order checks pass; a new GitHub run of the corrected revision
+is still required. Re-running the old run would reuse its old workflow.

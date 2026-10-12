@@ -207,7 +207,7 @@ The repository workflow `.github/workflows/pages.yml` is manual-only:
   *GitHub Actions* as the source.
 . In *Actions → Browser emulator Pages → Run workflow*, select `main` (or
   another revision permitted by the `github-pages` environment).
-. The workflow installs the pinned SDK and verified Arduino_GFX 1.6.4,
+. The workflow checks Pages configuration first, then installs the pinned SDK and verified Arduino_GFX 1.6.4,
   rebuilds the shared runtime, packages the card and runs the headerless
   Chromium proof. Only a successful build/test proceeds to deployment.
 
@@ -221,7 +221,12 @@ license notices. Loading a private ZIP in the page remains browser-local.
 The deployment job reports the final URL, expected for this repository to be
 `https://apws.github.io/261007-RunCPM-7xtgv-terminal/` unless a custom domain is
 configured. Local packaging/preview never enables Pages or publishes anything.
-The workflow is prepared; live GitHub deployment remains unverified until run.
+The first GitHub run passed compilation and the browser proof but failed at
+Pages configuration because the build job lacked `pages: read`. The corrected
+workflow grants that read permission and checks configuration before building;
+the deployment job alone has `pages: write`. Successful live deployment remains
+pending. Rerunning an old failed run uses its old workflow: after a fix is
+pushed, use *Run workflow* on the updated `main` instead.
 
 See GitHub's https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages[custom Pages workflow documentation]
 and the link:../../../docs/261012-1812%20DONE%20GitHub%20Pages%20package%20and%20manual%20deployment.adoc[implementation checkpoint].
