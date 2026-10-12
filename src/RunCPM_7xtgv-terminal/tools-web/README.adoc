@@ -1,0 +1,197 @@
+= Browser RunCPM and 7xtgv-terminal
+:source-highlighter: highlight.js
+:toc:
+:experimental:
+
+The default launcher opens a *standalone ES3_35 browser page*: keyboard input,
+real Canvas2D display, selectable screen snapshots and card ZIP import/export.
+RunCPM and 7xtgv-terminal execute as C/C++ compiled to WebAssembly. There is no
+native RunCPM process behind the page and no external terminal requirement.
+
+This is experimental, fixed ES3_35 (480x320). Runtime-selected board profiles
+remain planned. Linux Chromium is the initial qualification environment;
+Windows/macOS browsers and physical keyboard-layout coverage require separate
+acceptance. Native Linux/Windows desktop launchers remain available separately.
+
+== Setup, rebuild and launch
+
+Building requires Bash, Git, Python 3 with venv/pip, CMake, Make and Arduino_GFX
+1.6.4 at `~/Arduino/libraries/GFX_Library_for_Arduino`, or an explicit
+`XTGV_GFX_SOURCE` library directory. Use a current pthread-capable browser.
+
+From `tools-web/`:
+
+[source,bash]
+----
+./setup.sh
+./desktop-rebuild.sh
+./desktop-local.sh --window-scale 2
+----
+
+The matching `targets/ES3_35 -- jc8048w535/` directory contains wrappers with the
+same launcher names. Rebuild and launch remain separate; neither builds nor
+uploads MCU firmware. Launch snapshots the source card without writing it.
+
+`setup.sh` installs Emscripten 6.0.12 and a Python environment under
+`build/RunCPM_7xtgv-terminal/desktop-web/_deps/`, not globally. Its aiohttp and
+Playwright packages support the retained bridge proof and automated checks;
+they are not dependencies of the standalone page. The local standalone launcher
+uses Python's standard-library static HTTP server only.
+
+`desktop-rebuild.sh` builds the existing C++ sketch, terminal, storage and real
+Arduino_GFX into `desktop-web/shared/`, then packages a static bundle in
+`desktop-web/site/`. Configure/build logs stay beside the artifacts.
+Readable frontend sources live in `tools-web/web/`; generated Emscripten glue
+and generated key IDs live in build output. Do not edit generated JS.
+The ZIP dependency is a pinned local, unminified fflate module with its license.
+
+`desktop-local.sh` packages an isolated site in a `standalone-*` session folder,
+opens the default browser and prints its URL. The process serves static files;
+it does not relay keys, own guest execution or receive exported card contents.
+Ctrl+C in its console ends hosting. Stop/download in the page before closing
+if guest changes should be retained. Keep the page visible while using it;
+background-tab throttling is not qualified.
+
+== Using the page
+
+[loweralpha]
+. Click the display or *Keyboard -> display* to type. The green outline means
+  keyboard capture. kbd:[Ctrl+\]] releases focus. Page buttons/settings and the
+  snapshot panel do not send input to the guest.
+. Use familiar bank, glyph zoom and brightness chords. kbd:[Alt+Q] exits the
+  guest application; it does not close the emulator. Use *Stop* for that.
+  Browser/OS-reserved chords may remain unavailable; F11 remains fullscreen.
+. Select display scale 1x through 9x. This changes only integer CSS presentation,
+  with smoothing off; it does not change panel resolution or terminal glyph zoom.
+  Page resizing scrolls/clips rather than stretching. No fractional OS/browser
+  scale compensation is applied.
+. Open *Screen text* for a frozen snapshot of the complete logical text grid.
+  *Refresh snapshot* updates it explicitly. Select/copy text or download `.txt`.
+  This is current screen text, not scrollback; pixel graphics belong in PNG.
+. Use *Copy image* or *Download PNG* for the published display at native 480x320,
+  including graphics and the displayed brightness. Clipboard support/permissions
+  depend on the browser; selectable text and downloads remain fallbacks.
+
+The keyboard module sends existing bytes/CSI into the emulated serial input.
+C++ retains application/profile/history/INI behavior. Screen copying uses a
+small read-only C++ accessor and never changes cells or consumes mirror flags.
+No second ANSI terminal implementation is embedded in JavaScript.
+
+The optional number-row conversion starts from `XTGV_HACK_TOPROW` in the shared
+host configuration at packaging time. *Keyboard settings* can change it for
+this page session; empty disables conversion. It does not edit terminal.conf
+or the guest INI. Ordinary text/paste accepts ASCII, Tab and newlines; unsupported
+composed text is reported rather than silently transliterated. Existing mapped
+key events retain their original byte fallback. Paste is limited to 4096
+characters and rejects embedded control/escape sequences. Use LAlt for chords;
+AltGr stays with text input. Real national-keyboard testing remains necessary.
+
+== Card lifetime
+
+The launcher reads a copy of repository `cpmcard/`, excluding private directories,
+symlinks and desktop ownership locks. It never writes or locks the source card.
+Take the copy while other writers are idle if a consistent starting image is
+important. A host path may be selected with `--card-root /path/to/card`.
+
+The page unpacks the archive into `/card` in MEMFS. All guest file operations,
+INI/history saves and new files affect that memory copy. No FAT image, SdFat
+block layer, host filesystem passthrough or automatic persistence is involved.
+
+[loweralpha]
+. Click *Stop* or use guest `EXIT`, then wait for *Stopped cleanly*.
+. Click *Download card ZIP*. The browser downloads it directly; the static
+  server does not keep a second copy of the export.
+. *Restart current card* starts a fresh runtime with the stopped card.
+  *Load card ZIP* replaces it and starts the selected card after stopping.
+. To start from an earlier export directly, use the command below.
+
+[source,bash]
+----
+./desktop-local.sh --card-zip /path/to/cpmcard-web.zip
+----
+
+ZIP roots must contain `A/0/`, without an enclosing `cpmcard/` directory. The
+browser limits compressed and expanded cards to 32 MiB and 10,000 entries;
+invalid paths, duplicate entries and file/directory conflicts are rejected.
+Browser ZIP entries are materialized as regular files/directories, not symlinks.
+
+Guest `REBOOT` creates a fresh Wasm instance while preserving MEMFS contents.
+Closing/reloading the page discards unexported changes; a browser warning is
+best effort, not persistence. Stop is cooperative and finishes pending saves.
+A busy guest can also be stopped through the page control.
+
+== Static hosting and deployment boundary
+
+`desktop-web/site/` contains the page, readable frontend modules, pinned local
+ZIP module, generated protocol IDs/defaults, Wasm/glue and preload `card.zip`.
+It may be served by another static host supporting these response headers:
+
+[source,text]
+----
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+----
+
+Use HTTPS, or localhost for local development. The worker needs cross-origin
+isolation/SharedArrayBuffer; double-clicking `index.html` with `file://` is not
+supported. Clipboard access also requires a suitable secure context.
+
+No SDK, Python guest bridge or native terminal is needed by a deployed page.
+The local Python launcher is just a convenient packager/server. Package only a
+card whose contents you intend to serve; no site is published by these scripts.
+Input, snapshots and ZIP export work without the server after assets have
+loaded. A fresh runtime/reload may fetch Wasm/glue again, so this is not an
+installed offline application or a service-worker cache.
+
+== Retained native-mirror proof
+
+[source,bash]
+----
+./desktop-local.sh --native-mirror --window-scale 2
+./desktop-local.sh --native-mirror --mirror kitty
+----
+
+This explicitly selects the original Konsole/Kitty + Python TCP/WebSocket
+bridge. It needs the normal native mirror prerequisites and the setup venv.
+Here the browser is passive, mirror quit uses kbd:[Ctrl+\]] then unshifted `q`,
+and the bridge retains raw input/output and exported ZIP evidence. Closing
+its page releases that bridge. These are properties of the retained proof,
+not the default standalone route.
+
+== Logs and automated checks
+
+`desktop-local.log` records launcher output. Standalone session folders contain
+the static site/card copy and URL metadata. Guest output is accessed through
+screen snapshots; there is no continuous raw terminal log by default.
+
+From the repository root:
+
+[source,bash]
+----
+build/RunCPM_7xtgv-terminal/desktop-web/_deps/venv/bin/python \
+  src/RunCPM_7xtgv-terminal/tools-web/tests/standalone.py
+
+# Retained native-mirror proof:
+build/RunCPM_7xtgv-terminal/desktop-web/_deps/venv/bin/python \
+  src/RunCPM_7xtgv-terminal/tools-web/tests/proof.py
+----
+
+Tests use disposable cards and installed `/usr/bin/chromium`. Evidence stays in
+`standalone-proof-*` or `proof-*` session directories. Physical keyboard layout,
+other browsers/hosts and high-DPI monitor appearance need human acceptance.
+
+See the
+link:../../../docs/261012-1347%20PLAN%20Standalone%20browser%20input%20and%20screen%20snapshots.adoc[standalone plan]
+and the
+link:../../../docs/261012-1251%20DONE%20Browser%20Wasm%20ES3_35%20proof%20with%20native%20mirror.adoc[original proof checkpoint].
+
+Current implementation and evidence: link:../../../docs/261012-1602%20DONE%20Standalone%20browser%20input%20snapshots%20and%20card%20ZIPs.adoc[standalone browser checkpoint].
+
+Additional focused checks (from repository root):
+
+[source,bash]
+----
+node src/RunCPM_7xtgv-terminal/tools-web/tests/modules.mjs
+build/RunCPM_7xtgv-terminal/desktop-web/_deps/venv/bin/python \
+  src/RunCPM_7xtgv-terminal/tools-web/tests/input_edges.py
+----

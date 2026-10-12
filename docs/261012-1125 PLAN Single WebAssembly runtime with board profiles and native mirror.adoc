@@ -1,0 +1,292 @@
+= Single WebAssembly runtime with board profiles and a native terminal mirror
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+:experimental:
+
+== Status and agreed objective
+
+Planning requested by Petr on 261012. Implementation, SDK installation,
+rebuilding and deployment have not been requested by this planning step.
+The new host entry layer is explicitly named `tools-web/`.
+
+Follow-up on 261012: Petr subsequently authorized the fixed ES3_35 proof with
+a volatile hierarchical MEMFS card and ZIP import/export. Implementation and
+its actual limits are tracked in
+link:261012-1251%20DONE%20Browser%20Wasm%20ES3_35%20proof%20with%20native%20mirror.adoc[the proof checkpoint].
+The choices below preserve the original plan; that checkpoint records the
+Canvas2D presenter decision and the remaining runtime-profile work.
+
+Build the existing C++ RunCPM and 7xtgv-terminal for WebAssembly, retaining
+separate guest/filesystem and terminal/display execution ownership. Show the
+passive TFT-equivalent display in a browser while keeping ordinary interaction
+in the existing native platform terminal and Python mirror. Text selection,
+clipboard use and established host keyboard mappings remain in that terminal.
+
+The intended result is *one Wasm runtime build for all current display targets*,
+with an immutable board profile chosen at startup. Selecting another target
+must not rebuild C++ or create another target-specific Wasm binary. A fixed
+ES3_35 build is permitted only as the first diagnostic milestone.
+
+Card persistence across browser reloads is not required for the proof. Guest
+files remain writable during a session in a disposable in-memory card.
+There is no requirement for a browser text terminal, browser keyboard UI,
+mounted-card access or a completely installation-free website.
+
+This plan refines the browser/profile options in
+link:261011-2158%20CHAT%20Desktop%20profiles%20browser%20runtime%20and%20common%20host%20terminal.adoc[the earlier discussion].
+It retains the C++ reuse and ownership requirements of
+link:261006-0935%20PLAN%20Desktop%20runtime%20using%20existing%20board%20HALs.adoc[the desktop runtime plan].
+The successful
+link:261012-1043%20DONE%20Windows%20binary%20under%20Wine%20with%20native%20Linux%20mirror.adoc[Wine/native-mirror proof]
+supports the transport separation, but does not establish Wasm compatibility.
+The link:261012-0903%20DONE%20macOS%20desktop%20tooling%20feasibility%20review.adoc[native macOS port]
+remains an independent option.
+
+== Proposed execution and connection model
+
+[source,text]
+----
+Native platform terminal: Konsole / Kitty / Mintty
+    existing keyboard configuration, selectable text, clipboard
+                         |
+                existing Python mirror
+                         |
+             authenticated local byte endpoint
+                         |
+             tools-web session owner / bridge
+             - serves local web files
+             - owns launch and connection lifecycle
+             - relays binary data and control messages
+                         |
+                browser WebSocket client
+                         |
+           WebAssembly integrated C++ runtime
+             +-------------------------------+
+             | RunCPM + filesystem worker    |
+             |              <-> queues       |
+             | 7xtgv-terminal + Arduino_GFX  |
+             +-------------------------------+
+                         |
+              passive browser display canvas
+----
+
+RunCPM stays inside the Wasm runtime. The host bridge does not emulate the CPU,
+own live guest files or interpret the terminal graphics protocol. It relays the
+existing mirror/input bytes. Graphics are interpreted and rendered by the
+shared C++ terminal and Arduino_GFX inside Wasm, independently of the derived
+ANSI text view sent to the native mirror.
+
+Browser pages cannot directly host the existing raw TCP listener. Use an
+explicit binary WebSocket connection initiated by the page to the local helper.
+Expose the existing LoopbackEndpoint contract toward the native mirror where
+practical; do not proxy arbitrary POSIX socket calls. Preserve byte order,
+binary transparency, bounded queues/backpressure and separate control messages.
+The bridge is local-only with a per-session identity/token and origin checking;
+it does not expose a remote shell or device uploader.
+
+The same helper serves the Wasm/JavaScript/page files with the COOP/COEP headers
+required by the threaded build. A served localhost page is the initial launch
+model; double-clicking an HTML file is not the supported proof path.
+
+== Source reuse and adaptation boundaries
+
+[cols="2,4",options="header"]
+|===
+|Existing component |Planned treatment
+|C++ RunCPM, terminal parser/runtime/history and Arduino_GFX
+|Reuse. Do not rewrite terminal semantics in JavaScript or replace the renderer with a generic ANSI widget.
+|`hardware/arduino_7xtgv/runtime_desktop.h`
+|Preserve guest/filesystem worker ownership and existing queues. Qualify Emscripten pthreads and cancellation/save behavior without blocking the browser event loop.
+|`desktop/application.cpp`
+|Separate startup, a bounded terminal/presenter iteration and cooperative shutdown from the native blocking loop. Select an Emscripten callback lifecycle under an explicit web build boundary.
+|`desktop/presenter.cpp`
+|Prefer Emscripten's SDL2 backend for the first proof. A direct HTML canvas presenter is a later measured alternative, not a prerequisite. Retain integer scaling, RGB565 content, brightness and production frame scheduling.
+|`desktop/platform.*`, Serial transport
+|Add a web transport adapter that feeds/drains the existing bounded byte queues. Native PTY and Winsock sources are excluded from the web target; browser networking is explicitly asynchronous.
+|`desktop/storage.*`
+|Use Emscripten's in-memory filesystem through supported C/C++ file APIs where possible. Qualify seek, truncate, rename, directory enumeration and retained handles. Exclude host-specific probes and assumptions rather than bypassing guest filesystem semantics.
+|`tools/terminal.py`, `desktop_connection.py`, keymap generation
+|Reuse the native mirror and host mappings. Adapt its owner/connection entry point as needed, keeping USB/firmware paths separate. No second browser key translator or xterm.js UI is needed for this plan.
+|`desktop/CMakeLists.txt`
+|Add an explicit Emscripten configuration, appropriate sources and thread/SDL link settings. Keep native targets and their tests intact. Isolate web build output and caches.
+|===
+
+The existing worker uses `std::thread`; thread support is a plausible reuse
+route, not a successful compile result. The browser main thread must remain
+available for events and display work. Precreate workers as needed, avoid
+blocking joins on the UI thread, and measure behavior with the tab unfocused.
+If a cooperative CPU-stepping redesign becomes necessary, stop at that finding:
+it changes the scope and may reach protected RunCPM core seams.
+
+== One runtime with startup-selected board profiles
+
+A profile must preserve all terminal-visible board configuration:
+
+* Target and display identity, including the INI section selector.
+* Physical panel dimensions, terminal capacity and visible geometry.
+* Zoom defaults/presets, viewport offsets and indicator clearance.
+* Refresh defaults and desktop rendering policy.
+* Backlight duty table and its interpretation by the simulated display.
+
+Use one authoritative definition shared with the physical boards. Do not
+maintain a parallel JSON geometry catalog or parse C++ source text to recover
+constants. During the first design stage, select a data-only descriptor design
+or a compiled metadata-export mechanism compatible with the existing complete
+board headers; document that choice before modifying them. Physical pin, bus,
+storage-clock and peripheral implementations remain board-specific.
+
+`src/terminal/terminal.h` currently uses board-dependent constexpr MaxCols,
+MaxRows and MaxCells to size arrays and as the indexing stride. A generic
+desktop/web build may allocate the largest supported capacity, with a separate
+selected-profile limit. Audit every use that confuses allocation size with
+active geometry: indexing, tabs, scroll bounds, INI validation, history capture,
+snapshots and framebuffer construction. Keep hardware allocations compile-time
+and board-specific.
+
+Select and validate the profile before constructing terminal/display state.
+Profile changes restart the runtime; changing boards during guest execution is
+outside the first scope. Unknown profiles and unsupported dimensions fail with
+a clear diagnostic rather than falling back to a different board.
+
+All profiles use the same compiled Wasm module and worker/glue files. A profile
+data change can change supplied configuration; a code or supported-capacity
+change still requires rebuilding the shared runtime. The descriptor work can
+later benefit native builds, but this plan does not replace existing native
+per-board builds or their hardware-policy regression coverage.
+
+== tools-web layout and user workflow
+
+Proposed location: `src/RunCPM_7xtgv-terminal/tools-web/`.
+
+[source,text]
+----
+tools-web/
+  README.adoc
+  setup.sh                 explicit web-build prerequisite setup
+  rebuild.sh               builds the shared Wasm artifact once
+  ...                      shared host launch/server/bridge helpers
+  targets/
+    DISPLAY_ID -- target/
+      desktop-local.sh     thin launcher selecting the profile
+      desktop-local.cmd    later Windows host qualification
+
+desktop/web/
+  ...                      web platform adapter/page/presenter glue
+
+build/RunCPM_7xtgv-terminal/desktop-web/
+  shared/                  one build/cache/artifact set for all profiles
+  sessions/<unique-id>/    fixture package, logs and owner state
+----
+
+Target folders contain launchers only. They must not contain copies of the
+bridge, dependencies, board metadata or compiled artifacts. Per-target rebuild
+aliases, if useful for consistency, call the same shared rebuild without
+selecting a compile-time board. They must not create six build caches.
+
+Initially qualify Linux with Konsole and the existing native Python mirror.
+Build with Emscripten on Linux, then reuse the resulting web bundle on other
+hosts. Runtime users need a compatible browser and the native mirror/bridge
+dependencies, not Emscripten or a C++ compiler. Windows may retain MSYS2 Python
+and Mintty for the existing mirror; Wasm does not by itself remove those host
+dependencies. macOS terminal selection and lifecycle still need qualification.
+
+Setup is explicit; rebuild and launch never install tools implicitly. Follow
+the existing concise output, progress where meaningful and adjacent-log style.
+Preserve argument forwarding so user overrides follow launcher defaults.
+Retain the meaning of whole-display integer scale, separate from terminal
+glyph zoom; propose the existing `--window-scale` spelling for the canvas.
+
+Do not introduce a misleading mounted-card `desktop-card` entry point during
+the memory-only proof. `desktop-local` prepares an independent test snapshot;
+its banner must clearly state that browser reload discards session changes.
+This experimental meaning is documented locally before any maintained guide
+advertises web support.
+
+== Card and session lifetime
+
+Preload a disposable card snapshot or small explicit fixture into MEMFS.
+Preserve the drive/user directory structure, including empty areas such as A2
+needed by SUBMIT, and exclude private directories. Never mount or write the
+working cpmcard or a physical card from the proof. In-session INI, history and
+guest file writes remain ordinary filesystem operations; only cross-session
+persistence is deferred.
+
+Distinguish lifetimes explicitly:
+
+* Mirror reconnect requests a fresh screen snapshot without restarting the
+  guest or discarding the in-memory card.
+* Guest REBOOT should recreate runtime state while retaining the session card.
+  A page-owned in-memory checkpoint transferred to a fresh Wasm instance is a
+  candidate implementation; qualify it before claiming REBOOT support.
+* Deliberate mirror quit asks the browser runtime to stop cooperatively and
+  closes the bridge session. The page shows a stopped state; do not rely on
+  scripts being allowed to close a browser tab.
+* Page reload/close ends the volatile session. Browser termination cannot
+  guarantee an orderly guest shutdown; the native owner must detect the lost
+  connection and finish without a stuck mirror or retained live-card lock.
+
+Define startup ready/error messages, STOP acknowledgement and disconnected
+timeouts. Keep a single guest/filesystem owner and distinguish page absence
+from a running guest. No silent restart loop after a browser or worker crash.
+Protect existing native sessions by using separate endpoints, session IDs and
+output directories. Remote access, persistence/export UI and multi-tab sharing
+are future scopes.
+
+== Phased proof and acceptance gates
+
+[cols="1,3,4",options="header"]
+|===
+|Stage |Work |Evidence required before proceeding
+|a |Fixed ES3_35 compile and runtime smoke.
+|Explicit Emscripten setup; original C++ sketch/terminal/GFX compiles; guest boots from MEMFS; passive browser display updates while the UI remains responsive. Record compiler/browser versions and exact source adaptations.
+|b |Existing native terminal connection.
+|Local bridge connects the shared Python mirror to browser Serial queues. DIR, MBASIC, graphics and text output work concurrently; clipboard remains usable in the native terminal. Compare framebuffer and mirror content with native fixtures.
+|c |Transport and lifetime qualification.
+|Exact binary transfer through VTPUT/VTGET, bounded traffic, reconnect/snapshot, mirror quit, page loss, busy-guest stop and REBOOT behavior are checked. Record any deferred behavior explicitly; do not count an unimplemented REBOOT path as passing.
+|d |Shared board descriptors and capacity separation.
+|Document the authoritative descriptor mechanism; add runtime profile selection. Exercise smallest and largest geometries first, then all current profiles with one unchanged Wasm hash. Verify INI identity, zoom, limits, offsets, brightness and rendering fixtures.
+|e |tools-web workflow and host checks.
+|Target folders contain launchers only; selecting another profile performs no compilation. Logs, override precedence and independent session cleanup work. Qualify Windows/macOS hosts separately; Linux success is not cross-host acceptance.
+|===
+
+Stage a is a deliberate diagnostic exception to the single-build objective.
+Do not expand it into six separately compiled web targets. Stage d is required
+before calling the planned generic runtime complete. Persistent card storage,
+a browser text terminal and dynamic board switching are not completion gates.
+
+For each stage, run focused native regression checks only for affected shared
+paths. Preserve Arduino code/allocation boundaries; no firmware build, flash or
+card deployment follows automatically from a web test. Any needed change to
+RunCPM CPU, CCP, BDOS, disk, console or common abstraction requires identifying
+the seam and obtaining the direction required by AGENTS.md.
+
+== Complexity, expected benefit and decision points
+
+This is more work than the Wine proof: the existing native executable cannot
+be reused, and scheduling plus Serial transport need a web adaptation. It is
+smaller than a full browser application with its own terminal/key mappings and
+persistent card UI. The largest uncertainties are threading, runtime shutdown
+and separating terminal capacity from selected-board geometry.
+
+Expected benefits are fewer repeated target builds, one reusable runtime bundle
+and fewer native C++ platform dependencies for users. Do not promise faster
+emulation or lower per-instance memory: allocating maximum terminal capacity
+can cost more than a small-board-only executable, and the browser itself adds
+runtime overhead. Measure build time, artifact size, memory and responsiveness
+at the milestones rather than treating portability as a performance result.
+
+The recommended next step, after implementation is separately chosen, is stage
+a only. Confirm a threaded browser boot with the real rendering path before
+committing to the bridge/profile refactors. Preserve native Linux/Windows and
+Wine as working comparison paths throughout.
+
+== Technical references
+
+* https://wiki.libsdl.org/SDL2/README-emscripten[SDL2 Emscripten backend and event-loop requirements].
+* https://emscripten.org/docs/porting/pthreads.html[Emscripten threads and cross-origin isolation].
+* https://emscripten.org/docs/porting/networking.html[Browser WebSockets and raw TCP limitations].
+* https://emscripten.org/docs/porting/files/file_systems_overview.html[In-memory and persistent filesystem options].
+
+These references and the current source support a plan, not an implementation
+claim. No Emscripten build or browser runtime test was performed for this record.

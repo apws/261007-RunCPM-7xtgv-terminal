@@ -1,0 +1,240 @@
+= Browser Wasm ES3_35 proof with native mirror
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+:experimental:
+
+== Scope and authorization
+
+Petr authorized building the proof on 261012 after clarifying that a simple
+hierarchical, memory-backed card was sufficient: preload a card snapshot/ZIP,
+run the existing code and download the resulting card. FAT32 block emulation,
+SdFat and host-directory passthrough are not required.
+
+This implements the first fixed ES3_35 milestone of
+link:261012-1125%20PLAN%20Single%20WebAssembly%20runtime%20with%20board%20profiles%20and%20native%20mirror.adoc[the single-runtime plan].
+The generic runtime-profile phase is still pending. There is one web build
+configuration and one target launcher folder, not six per-board Wasm builds.
+
+No RunCPM core, CCP, BDOS, CPU, disk, console, common abstraction, terminal
+parser/history/runtime or hardware board definition was edited. Native runtime
+and storage sources are reused. The only shared implementation edit adds an
+`XTGV_WEB`-guarded boot/storage label in `desktop/platform.cpp`; native behavior
+is unchanged. No hardware build, flash, card deployment, commit or push was done.
+
+== What executes where
+
+[source,text]
+----
+Konsole / Kitty
+  existing generated keyboard mappings and ordinary Python terminal mirror
+      |
+      | authenticated local TCP byte connection
+      v
+Python tools-web bridge (loopback only, per-session token)
+      |
+      | binary WebSocket; separate JSON lifecycle messages
+      v
+Browser / WebAssembly instance
+  browser main thread: terminalLoop, real Arduino_GFX, presentation
+  pthread worker:       original runCPM, existing file API and save ownership
+      |
+      +-- /card in MEMFS: writable files and normal drive/user directories
+      +-- passive Canvas2D: published RGB565 image and brightness
+----
+
+The Python bridge does not run RunCPM or interpret graphics. It serves the
+Wasm/page/card snapshot, relays the native mirror byte stream and packages
+stopped card contents as ZIP. The C++ runtime runs in the browser.
+
+The existing C++ `std::thread` becomes a precreated Emscripten pthread worker.
+RunCPM still owns its normal file operations and pending saves. Classic MEMFS
+implements its JavaScript filesystem work on the browser main thread through
+Emscripten's filesystem proxy; this is not a second guest filesystem owner,
+but it does impose cross-thread call overhead. It is not direct host storage.
+
+The UI uses an Emscripten main-loop callback rather than the native blocking
+while loop. Each callback drains runnable terminal work for at most about
+4 ms, then presents. The callback returns so browser events and proxied
+filesystem requests can run. The existing INI refresh policy still controls
+C++ framebuffer publication. The browser samples on animation callbacks,
+so it does not promise arbitrary refresh rates above the browser cadence.
+
+A join is attempted only after the worker reports completion. Stop triggers
+the existing cooperative cancellation and pending history/config/file saves.
+A busy Z80 program therefore remains stoppable without rewriting its dispatcher.
+
+== Presentation decision
+
+The plan initially preferred the SDL2 browser backend. This proof uses a small
+Canvas2D adapter instead: it copies the real Arduino_GFX RGB565 frame when the
+existing runtime publishes it, converts that published frame to RGBA and draws
+it with integer CSS scaling. This avoids bringing native SDL event/window code
+into the first browser target. There is no new font renderer, terminal parser,
+ANSI widget or browser key translator.
+
+A separate published-frame copy preserves the same boundary as the native SDL
+texture: later writes to the drawing canvas remain invisible until publication.
+The existing backlight approximation is reused, including the board duty table.
+The page exposes Stop and Download card ZIP; CP/M interaction stays in the
+native terminal.
+
+Browser background-tab suspension/throttling and arbitrary browsers remain
+unqualified. Keep this page visible while testing. Canvas2D here does not claim
+that the browser itself avoids all GPU/compositor use.
+
+== Build and launcher layout
+
+[cols="2,4",options="header"]
+|===
+|Path |Responsibility
+|`desktop/web/CMakeLists.txt`
+|Independent Emscripten build boundary, fixed ES3_35, `-O2`, pthreads and C++ exceptions; native CMake remains intact.
+|`desktop/web/application.cpp`
+|Original sketch integration, browser main loop, published-frame presentation and completion reporting.
+|`desktop/web/serial.cpp`
+|Web input/output adapter for the existing Serial interface and bounded queues.
+|`tools-web/setup.sh`
+|Explicit project-local Emscripten 6.0.12 and Python environment installation.
+|`tools-web/desktop-rebuild.sh`
+|Compile only, shared output and retained configure/build logs; no dependency installation.
+|`tools-web/desktop-local.sh`, `launch.py`
+|Linux proof launcher, default browser plus native Konsole/Kitty selection and existing keymap generation.
+|`tools-web/server.py`, `mirror.py`
+|Local bridge/session ownership and ordinary native Python mirror entry point.
+|`tools-web/web/`
+|Passive page, Wasm startup, input/output relay, MEMFS import, reboot and stopped-card export.
+|`tools-web/targets/ES3_35 -- jc8048w535/`
+|Launchers only.
+|`tools-web/tests/proof.py`
+|Chromium, PTY and native-mirror integration checks on disposable cards.
+|===
+
+Artifacts live in `build/RunCPM_7xtgv-terminal/desktop-web/`:
+`_deps/` for SDK/venv, `shared/` for the Wasm/JavaScript and logs, and `sessions/`
+for isolated evidence. Emscripten is not installed globally. Existing pinned
+Arduino_GFX 1.6.4 sources are used, without installing any MCU platform.
+
+See link:../src/RunCPM_7xtgv-terminal/tools-web/README.adoc[tools-web README]
+for executable setup/build/launch commands and card ZIP usage.
+
+== Card and lifecycle contract
+
+The initial card is read into a snapshot. `private/`, symlinks and the desktop
+lock are excluded. The source tree is never opened for writing. Snapshotting
+an actively changing card is not an atomic transaction, so start from an idle
+source for a consistent image. The bridge does not acquire a live-card lock.
+
+All guest writes occur in `/card` MEMFS. Empty canonical drive/user directories
+are retained: SUBMIT needs its batch-file destination even when that area has
+no ordinary guest files. The proof has a 32 MiB uncompressed card limit and a
+10,000-entry ZIP limit; parent traversal and symlinks are rejected.
+
+After a clean stop, JavaScript walks MEMFS and sends the stopped snapshot to the
+local bridge. Python produces a ZIP, returns it as a download and retains the
+same archive in the session. `--card-zip` imports it into a new independent
+session. The bridge performs archive conversion, not live guest filesystem I/O.
+There is no FAT image, automatic disk synchronization or browser persistence DB.
+
+Guest `REBOOT` flushes the existing owner, snapshots MEMFS, terminates the old
+pthread pool and creates a fresh instance with that snapshot. The native mirror
+connection remains. Closing the native mirror requests Stop; closing the page
+releases the bridge and native mirror. Abrupt browser closure discards the
+memory card and cannot guarantee final guest saves. Intentional preservation
+uses Stop followed by Download card ZIP.
+
+The bridge binds to loopback, uses random per-session capabilities, checks the
+WebSocket origin and supplies COOP/COEP headers for SharedArrayBuffer. Socket
+and C++ queues are bounded; excessive input stops the proof instead of growing
+memory indefinitely. The source card is not a VTPUT/VTGET destination: those
+host helpers receive a private session transfer tree. Complete transfer
+qualification remains pending.
+
+== Evidence and current limits
+
+Compiler: Emscripten 6.0.12. Browser: Chromium 153.0.8010.52 on Linux.
+The Wasm artifact is approximately 356 KiB and its JavaScript glue 90 KiB,
+excluding the card and browser. The 90 KiB is compiler-generated Emscripten
+loading/thread/filesystem glue, not jterm, xterm.js or another terminal emulator.
+The handwritten page controller is about 6 KiB. Initial linear memory is 128 MiB with growth
+enabled; these download sizes are not total process-memory figures.
+
+The proof uses an actual Python mirror under a PTY, not a JavaScript replacement.
+The browser must boot the integrated sketch, execute guest commands, publish
+pixels and shut down through the existing worker lifecycle.
+
+Passing evidence is retained at
+`build/RunCPM_7xtgv-terminal/desktop-web/sessions/proof-0pg7v2cb/`.
+Its `PASS` record covers four runs: commands/export, exported-card import,
+infinite-loop cancellation, and page closure. The command run also performs
+REBOOT in the same browser/mirror session.
+
+[cols="1,4",options="header"]
+|===
+|Check |Observed result
+|a. Original sketch and native mirror
+|Browser boot, `DIR` and an actual Z80 `VTHELLO.COM` execute. BDOS punch output creates `A/0/PUN.TXT` containing exactly `X`.
+|b. Guest storage
+|`VTDRV RW` verifies its 32 KiB file. This run measured 160.65 KiB/s write and 233.69 KiB/s read; these are one proof sample, not a performance guarantee.
+|c. Real graphics
+|`SUBMIT BROT_BS` completes in 1083 ms in the recorded run. RGB pixel diversity is checked and the full Mandelbrot screenshot was inspected.
+|d. REBOOT
+|Fresh Wasm/pthread instance boots while retaining MEMFS and the native mirror connection. The guest-created file remains present.
+|e. ZIP round trip
+|Stop completes saves; the browser download matches the session archive byte-for-byte. Archive checks find punch output, nonempty history and the 32768-byte test file. Importing that ZIP boots a new session and lists the created file.
+|f. Lifecycle
+|Mirror quit stops normally; a guest infinite loop is cooperatively stopped; page close ends the mirror and bridge. PTY settings are restored. Source fixture hashes remain unchanged.
+|g. Shared native adapter
+|The existing ES3_35 native `xtgv_desktop_gfx` target compiles after the guarded banner change. No native firmware build or full native suite was needed for that label-only branch.
+|===
+
+The visible `desktop-local.sh --window-scale 2` launcher also reaches a running
+browser and native mirror. Petr subsequently confirmed basic VTESTS and
+xterm256 operation and successful Alt+Q in the visible proof. This is scoped
+user acceptance of those checks, not the entire keyboard/browser matrix.
+He also noted that the resizable browser window makes the native panel size
+less obvious. The canvas remains 480x320, displayed at a fixed integer scale
+(960x640 CSS pixels at 2x); browser-window resizing does not change the
+emulated panel geometry. Browser page zoom is an additional display scale.
+A visible native-size/scale label would make that distinction clearer.
+
+The first integration runs exposed test issues: bank-selection overlays needed
+synchronization before the next command, the graphics assertion initially counted
+individual channels rather than RGB colors, and the mirror quit prefix needed
+the unshifted lowercase `q` byte. A scrolling text repaint can erase a retained
+plot, so the graphics fixture leaves room for completion text. No terminal
+semantics were changed to satisfy those tests.
+
+This is an initial Linux/browser proof, not production web support. Native
+Windows/Mintty and macOS launchers, browser matrix coverage, background tabs,
+binary transfer acceptance, runtime board profiles and filesystem performance
+optimization remain separate work. Petr explicitly confirmed that filesystem
+speed need not exceed the native desktop; working behavior and source reuse
+are the proof objectives. The native Linux/Windows desktop paths
+continue to be the established implementation.
+
+== Subsequent user storage sample (261012)
+
+Petr reported this additional successful run in the visible browser proof at
+`/c/7xtgv>`, without an agent rerun:
+
+[source,text]
+----
+VTDRV: 32 KiB BDOS test; default read-only
+VTDRV write: 32768 bytes in 160895 us = 198.89 KiB/s
+VTDRV read : 32768 bytes in 103345 us = 309.64 KiB/s
+VTDRV verify: PASS
+----
+
+This is a user-reported sample, not a controlled native/browser comparison.
+It supports the accepted feasibility boundary: filesystem performance need not
+match native desktop. The next frontend direction is recorded in the
+link:261012-1347%20PLAN%20Standalone%20browser%20input%20and%20screen%20snapshots.adoc[standalone browser input and snapshot plan];
+that frontend remains unimplemented.
+
+== References
+
+* https://emscripten.org/docs/porting/pthreads.html[Emscripten pthreads and main-thread restrictions]
+* https://emscripten.org/docs/porting/files/file_systems_overview.html[Emscripten filesystem overview]
+* https://emscripten.org/docs/api_reference/Filesystem-API.html[MEMFS and filesystem APIs]
+* https://wiki.libsdl.org/SDL2/README-emscripten[SDL2 Emscripten backend, considered alternative]

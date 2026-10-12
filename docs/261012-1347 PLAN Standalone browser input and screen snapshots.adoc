@@ -1,0 +1,313 @@
+= Standalone browser input and screen snapshots
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+:experimental:
+
+== 1. Decision and scope
+
+Prepare a self-contained browser frontend under `tools-web/`, retaining the
+existing C/C++ RunCPM, 7xtgv-terminal and real framebuffer rendering. JavaScript
+handles browser input, presentation, snapshots and card upload/download.
+This document is a plan, not an implementation or a claim of browser support.
+
+It follows the
+link:261012-1326%20CHAT%20Self-contained%20browser%20application%20after%20Wasm%20proof.adoc[standalone discussion]
+and the accepted
+link:261012-1251%20DONE%20Browser%20Wasm%20ES3_35%20proof%20with%20native%20mirror.adoc[fixed ES3_35 proof].
+Petr subsequently clarified that an embedded display is sufficient, input must
+remain a logically separate keyboard module, and an on-demand screen snapshot
+is enough for text access. Continuous logging and a second live terminal are
+not requirements for this first frontend. Copying an image is also desirable.
+
+Start with the existing ES3_35 runtime. Complete this bounded frontend before
+implementing the runtime board profiles from the
+link:261012-1125%20PLAN%20Single%20WebAssembly%20runtime%20with%20board%20profiles%20and%20native%20mirror.adoc[earlier plan].
+That later phase still aims for one binary with board configuration, rather
+than separate full builds or a second manually maintained geometry catalog.
+The native Linux/Windows routes and working native-mirror web proof are retained.
+
+== 2. Architecture and ownership
+
+[source,text]
+----
+One browser page
+  focused display / text capture
+       -> JS keyboard module: events -> existing bytes/CSI
+       -> ordered emulated serial RX queue
+       -> C++ 7xtgv-terminal parser, profiles and INI
+       -> existing RunCPM input
+
+  C++ terminal serial TX -> independent JS drain / optional diagnostics
+  C++ text cells        -> read-only snapshot -> JS Screen text panel
+  C++ published pixels  -> Canvas2D presenter -> screen / PNG / clipboard
+
+  page controls -> runtime lifecycle and MEMFS card import/export
+----
+
+The keyboard module receives browser events, host mapping configuration and a
+byte-output port. It cannot call terminal bank, history, application, graphics
+or INI functions. Its relationship to the terminal is like a separate keyboard
+module connected by UART. Existing C++ decides what the bytes mean.
+This simulates the byte interface, not UART electrical timing or a baud rate.
+
+The output panel is an independent read-only observer. Its snapshot accessor
+does not weaken the UART-only input boundary. No output is echoed into input.
+Page Stop, card loading and whole-runtime restart are lifecycle operations,
+separate from keyboard commands such as application exit.
+
+Initially keep the small JavaScript modules on the page thread. DOM focus and
+composition events originate there; another worker would add messages without
+reducing the initial complexity. Use an asynchronous byte-port boundary so an
+encoder worker remains possible later. The existing RunCPM pthread worker and
+terminal/UI ownership remain as in the proof; this does not merge their tasks.
+
+== 3. Browser keyboard module
+
+=== Focus, layout and text
+
+Capture keys only while the emulator input area has focus. Show that state
+clearly; page controls and the selectable snapshot retain ordinary browser
+navigation and copying. Use a text-input proxy associated with the canvas for
+committed text/composition events; a canvas alone is not an editable text field.
+
+Use `keydown` for recognized special keys and shortcuts, and committed input
+events for ordinary text. Suppress the corresponding default action only when
+handled, and prevent duplicate delivery through both paths. Composition and
+dead keys must finish before text is encoded. Preserve AltGr; do not infer a
+deliberate Ctrl+Alt chord merely from AltGr's modifier representation.
+
+Use `KeyboardEvent.code` where physical position matters, especially top-row
+and keypad identity. Use layout-aware text for ordinary characters. Do not
+turn every physical letter into a US-layout letter. Unsupported guest text
+encoding needs an explicit policy and feedback, not silent transliteration.
+The browser/OS may reserve shortcuts; no page setting guarantees capturing all
+of them. Provide a visible way to leave input capture and reach page controls.
+
+Keep the configured `XTGV_HACK_TOPROW` behavior as an optional host mapping,
+with an empty value disabling it. Build-time tooling can supply the current
+default; browser operation must not read a shell configuration file. Match
+configured characters/positions deliberately rather than assuming Czech or US
+layout everywhere. Preserve keypad decimal normalization and NumLock-off
+navigation. Test the actual Czech keyboard as well as synthetic events.
+
+=== Existing protocol, not a second application keymap
+
+Generate key identifiers from `src/terminal/key_chords.h` using the existing
+`tools/key_event_ids.py` helper at build time. Do not copy enum numbers by hand
+into JavaScript. The versioned event is:
+
+[source,text]
+----
+ESC [ >70;1;<base>;<modifiers>;<fallback-byte-triplets> v
+modifiers: Ctrl=1, Shift=2, Alt=4
+fallback: at most 16 bytes, each represented by three decimal digits
+----
+
+Respect `validKeyChord()` restrictions. Plain text is ordinary input, not an
+invalid plain-letter key event. The existing C++ event path applies INI
+bindings, numeric defaults, keypad decimal and fallback bytes.
+
+Global host chords also use existing explicit CSI controls. Sending a generic
+Alt+Q event alone is not a substitute for the established application-exit
+control. Audit against `tools/terminal.py`, the generated keymaps and C++ decoder
+when implementing; the following are representative acceptance anchors.
+
+[cols="2,3",options="header"]
+|===
+|Input |Existing byte/control mapping
+|Alt+Q |`CSI >60v`: application/profile exit
+|Alt+Backspace |`CSI >61v`: profile clear
+|Alt+PgUp / Alt+PgDn |`CSI >12v` / `CSI >13v`: bank steps
+|Alt+Space |`CSI >14v`: bank notice
+|Ctrl+Shift+PgUp / PgDn |`CSI >67v` / `CSI >66v`: terminal glyph zoom out/in
+|Ctrl+Alt+Shift+PgUp / PgDn |`CSI >63;33v` / `CSI >63;34v`: brightness steps
+|Ctrl+Alt+Shift+0 |`CSI >63;0v`: backlight off, top row and keypad
+|Ctrl+Shift+1 through 9 |`CSI >63;Nv`, levels 4,7,11,14,18,21,25,28,31; both rows
+|Ctrl+Alt+C |Existing emergency key event; distinguish intentional chord from AltGr
+|===
+
+Keep ordinary navigation, application keys and RAW behavior consistent with
+the existing host path. Do not add JS knowledge of MBASIC, WordStar or history
+filtering. Paste is a separate bounded plain-text operation: define encoding,
+newline normalization and control-character handling before enabling it.
+It must not accidentally treat pasted escape sequences as host shortcuts.
+
+=== Ordered serial adapter
+
+Reuse `web_receive()` and the web Serial shim. Honor the accepted-byte count;
+partial writes retain their tail in order. Bound queues and report saturation.
+Prefer submitting complete short key-event frames when capacity allows;
+test partial delivery against the real parser and its timeout behavior.
+Do not silently discard part of a CSI frame or interleave it with another event.
+
+Clear held modifier/repeat state on blur. Finish any already-started frame;
+define cancellation of wholly unsent events without truncating protocol bytes.
+On REBOOT create a new port generation and discard stale queued input for the
+destroyed instance. Keep the existing emergency path usable under guest load.
+
+Always drain terminal TX even when no output viewer is open. A disabled logger
+must not stall the terminal. Exact TX capture can be a later bounded diagnostic
+download; it is not a prerequisite for screen copying and is not an append-only
+transcript of what the user saw.
+
+== 4. Screen text and image snapshots
+
+=== Recommended first interface
+
+Use a button named *Screen text* to reveal a small panel in the same page.
+Opening it takes one frozen snapshot. Provide *Refresh*, *Copy text* and
+*Download .txt*. The emulator may continue running, but selection and copied
+text remain stable until Refresh. A popup adds window ownership and blocking
+issues without helping the first implementation, so defer it.
+
+This is the current text grid, not scrollback or a log. Edited lines, clearing
+and cursor movement are already resolved by the C++ terminal. No JavaScript
+ANSI parser, xterm.js or reconstructed screen model is needed.
+
+Add *Copy image* and *Download PNG* from the latest published framebuffer.
+Export native panel dimensions by default; an optional integer-scaled export
+can follow. Include the displayed brightness treatment so the capture matches
+the panel appearance. The image contains graphics; the text snapshot does not.
+Clipboard actions run from explicit user clicks, with selectable text and file
+downloads as fallbacks when clipboard APIs or permissions are unavailable.
+
+=== Narrow C++ observation seam
+
+The terminal instance is private to `terminal_runtime.cpp`. Add a small
+read-only snapshot function in the terminal runtime and expose it through the
+web adapter. Copy at the terminal/UI ownership boundary, between loop work,
+not concurrently while cells are being edited. JavaScript receives a bounded
+copy and geometry metadata, never a writable pointer to the live terminal.
+
+Use the active `cols`/`rows` and `terminal.index(col,row)`; backing storage has
+`MaxCols` stride, so it is not a tightly packed active-width array. Reuse the
+existing mirror's character conversion, including DEC graphics characters and
+its explicit replacement for unsupported character bytes. Do not consume or
+clear `mirrorDirty`, change cursor flags, or trigger terminal redraws to copy.
+
+Prefer the complete logical text grid, with dimensions and viewport metadata
+clearly labeled; the TFT viewport can show only part of it. A viewport-only
+export may be added without another terminal model. Keep row structure and
+spaces deterministic, omit a synthetic cursor character, and display using
+DOM `textContent`. Colors and selection highlighting are presentation extras.
+Pixel graphics overlays are represented by the image capture, not fabricated
+text. No RunCPM core or guest filesystem change is needed for this accessor.
+
+== 5. Native pixels and integer display scale
+
+Keep the C++ framebuffer at native `W x H`. Provide manual integer scales
+1 through 9, with a label showing native dimensions and chosen scale.
+Terminal glyph zoom remains independent: a 6x10 glyph at terminal zoom Z and
+presentation scale N occupies `6*Z*N` by `10*Z*N` CSS pixels. Resizing the page
+clips or scrolls the display; it must not stretch the panel.
+
+For the first version retain a native-resolution canvas backing image and
+explicit CSS dimensions `W*N` by `H*N`, with `image-rendering: pixelated`.
+Disable `imageSmoothingEnabled` for any scaled Canvas2D drawing and reapply it
+after changing canvas dimensions, which resets context state. Do not introduce
+fractional CSS transforms, responsive width stretching or a smooth fit mode.
+`putImageData` itself writes pixels directly; disabling drawing interpolation
+alone would not control subsequent CSS scaling, hence both settings matter.
+
+At browser zoom 100% and device pixel ratio 1, each source pixel targets an
+exact N-by-N screen-pixel block, with the canvas origin aligned to whole pixels.
+At integer DPR, such as 2, the browser uses extra physical pixels for the same
+apparent CSS size; that is acceptable and desirable on Retina displays.
+Fractional desktop scaling or page zoom may produce uneven pixel-block widths.
+For this first version accept that limitation, retain sharp nearest-neighbor
+presentation and show the selected scale. Do not shrink the apparent display
+by compensating every CSS dimension for DPR.
+
+Petr explicitly accepted relaxing physical-pixel precision on high-density
+screens. Start testing at browser zoom 100%; observe fractional scaling and
+Retina behavior without promising control over every browser compositor or OS
+magnifier. The native framebuffer and exported PNG remain exact regardless of
+window presentation. A strict device-pixel mode can follow only if real testing
+shows a need; it is not part of the initial implementation. Defer automatic fit
+modes; if added, select a whole CSS integer rather than shrink fractionally.
+
+== 6. Card and lifecycle without a local bridge
+
+Replace runtime Python/WebSocket/TCP requirements with static page assets,
+the Wasm module and a preload card archive. Import a user-selected ZIP into
+MEMFS; download the stopped card as ZIP through JavaScript. Choose a small,
+pinned archive library with recorded license rather than implementing ZIP.
+Preserve directory structure, binary contents and the proof's size/path checks.
+Package source cards according to the repository's complete-card/private rules.
+
+Keep clean Stop before full-card export and the established fresh-instance
+REBOOT with memory-card retention. Loading another card requires stopping the
+current owner. Abrupt page closure still does not guarantee saved state.
+Automatic persistence and host-directory access are outside this first step.
+
+Emscripten and any asset-generation Python remain build dependencies only.
+The pthread build still needs suitable COOP/COEP hosting headers and a browser
+with SharedArrayBuffer support. A simple static server can supply those headers;
+standalone does not imply double-clicking a `file://` HTML file. Keep all runtime
+assets local to the served application, with no required external terminal or
+application bridge. Preserve the old proof as a separately selectable route.
+
+== 7. Implementation sequence and changed seams
+
+[cols="1,3,3",options="header"]
+|===
+|Step |Work |Boundary
+|a. Local keyboard path
+|Add `tools-web/web/input.js` and a small serial-port adapter; generate protocol IDs and host defaults at build time. Adapt page lifecycle wiring.
+|JS emits bytes only. Reuse `desktop/web/serial.cpp`; add a capacity query only if necessary for correct framing.
+|b. Display and snapshots
+|Add a canvas presenter and on-demand JS snapshot panel, clipboard/download actions and explicit integer scaling.
+|One read-only accessor in `src/terminal/terminal_runtime.h/.cpp`, exported by `desktop/web/application.cpp`; no parser or application-rule changes.
+|c. Browser card ownership
+|Move ZIP load/export into a JS card module; serve packaged assets without the current bridge.
+|Preserve MEMFS, worker lifecycle and current stop/reboot semantics. Keep build/setup commands under `tools-web/`.
+|d. Qualification and checkpoint
+|Test the complete ES3_35 route, document launch/hosting and record measured behavior.
+|No external terminal required for acceptance. Shared board profiles, multiple sessions and popups follow separately.
+|===
+
+Keep modules small and separate by responsibility; no frontend framework is
+required. A migration stage may reuse the old server to serve assets, but the
+standalone milestone is complete only when its bridge services are unnecessary.
+Do not mark these planned files or behavior implemented in maintained guides.
+
+== 8. Acceptance checklist
+
+[loweralpha]
+. Boot the original ES3_35 runtime using static hosting, with no native terminal,
+  WebSocket/TCP application bridge or Python session owner. Run `DIR`, VTESTS,
+  MBASIC/Alt+Q and the xterm256 Mandelbrot test on a disposable card.
+. Verify navigation, bank/zoom/brightness chords, top-row/keypad digits and OFF,
+  Czech text mapping enabled/disabled, decimal, AltGr and composition. Compare
+  emitted bytes with the real C++ decoder; include a physical keyboard check.
+. Confirm page fields and Screen text selection send no guest keys. Blur,
+  repeat, paste limits, full queues and split CSI frames must not create stuck
+  modifiers, duplicate input or corrupted commands. Exercise emergency input.
+. Copy a screen containing edited text, cleared lines, DEC graphics and a
+  history notice. Verify geometry/stride and stable selection after the guest
+  continues; Refresh updates explicitly. Copying must not alter terminal state.
+. Inspect one-pixel patterns and 6x10 glyphs at 1x, 2x, 3x and 4x. Check DPR 1,
+  fractional scaling and DPR 2 where available. Resizing must preserve geometry;
+  native PNG dimensions and pixel contents must match the published display.
+. Check text/image clipboard success and download fallbacks. Image captures
+  include the plot; text exports do not pretend to encode pixel graphics.
+. Round-trip a card ZIP after verified writes, Stop and REBOOT. Confirm source
+  card isolation, binary preservation and no stale input reaching the next runtime.
+. Retain the existing native-mirror proof; report browser/OS coverage separately.
+  No hardware behavior or untested browser is accepted by inference.
+
+== References
+
+* https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/code[Physical key codes]
+* https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key[Layout-aware key values and input events]
+* https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers[Worker separation and DOM access]
+* https://developer.mozilla.org/en-US/docs/Web/API/Window/devicePixelRatio[CSS/device pixels and zoom changes]
+* https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/imageSmoothingEnabled[Nearest-neighbor canvas enlargement]
+* https://emscripten.org/docs/porting/pthreads.html[Threaded Wasm hosting and main-thread constraints]
+
+== Implementation checkpoint
+
+Petr authorized implementation after reviewing this plan. The bounded ES3_35
+frontend and validation are recorded in link:261012-1602%20DONE%20Standalone%20browser%20input%20snapshots%20and%20card%20ZIPs.adoc[the 261012-1602 checkpoint].
+Runtime board profiles and other-host acceptance remain separate.

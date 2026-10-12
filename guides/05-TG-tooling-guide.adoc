@@ -171,6 +171,16 @@ for process ownership, transports and platform-specific launcher options, and
 the link:../src/RunCPM_7xtgv-terminal/tools-win/README.adoc[Windows tooling notes]
 for logs and diagnostic commands.
 
+=== Experimental browser route
+
+`tools-web/desktop-local.sh` opens a self-contained ES3_35 page with focused
+keyboard input, integer canvas scale, frozen text/image copying and card ZIP
+import/export. It uses a private memory card; Stop and download to keep changes.
+The native terminal bridge is optional via `--native-mirror`. This fixed-target
+route is tested in Linux Chromium; other browsers/hosts and runtime board
+profiles remain separate. Setup, launch and hosting details are in the
+link:../src/RunCPM_7xtgv-terminal/tools-web/README.adoc[tools-web README].
+
 === Retired WezTerm experiment
 
 The optional WezTerm launchers were removed on 261012 after Windows colour

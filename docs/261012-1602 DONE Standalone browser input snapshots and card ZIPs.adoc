@@ -1,0 +1,200 @@
+= Standalone browser input, snapshots and card ZIPs
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+:experimental:
+
+== Scope
+
+Implemented the bounded ES3_35 frontend authorized by Petr after
+link:261012-1347%20PLAN%20Standalone%20browser%20input%20and%20screen%20snapshots.adoc[the standalone plan].
+The default `tools-web/desktop-local.sh` now opens one browser page with input,
+framebuffer display, frozen text snapshots, image/text copying and card ZIP
+import/export. It needs no external terminal or application bridge.
+
+The original C/C++ RunCPM and 7xtgv-terminal still execute in Wasm, with RunCPM
+on the existing pthread worker and terminal/UI work on the browser thread.
+No RunCPM-derived CCP, BDOS/BIOS, CPU, disk, console or common abstraction was
+changed. No MCU build/flash, card deployment, commit or push was performed.
+The existing native-mirror proof remains selectable with `--native-mirror`.
+
+This is a tested fixed ES3_35 browser implementation, not completed generic
+runtime board profiles or acceptance on every browser/OS. Petr subsequently
+accepted the current browser setup; see the follow-up below. Native Linux/Windows
+tooling is unchanged.
+
+== Source boundaries
+
+[cols="2,4",options="header"]
+|===
+|Source |Responsibility
+|`tools-web/web/input.js`
+|Focused DOM events, composition, layout guards and existing byte/CSI encoding. Its guest-facing capability is only a byte-output callback.
+|`web/serial_link.js`
+|Bounded ordered input queue, whole short frames, cancellation of wholly unsent events on blur, and fresh attachment after reboot.
+|`web/display.js`
+|RGB565-to-Canvas2D presentation, integer CSS scale and native-resolution PNG capture/download.
+|`web/screen_text.js`
+|Frozen selectable text panel, refresh/copy/download. No keyboard dispatch or ANSI parser.
+|`web/card.js`
+|Browser ZIP validation, MEMFS installation/snapshot and export using pinned local fflate 0.8.2 (MIT).
+|`web/standalone.js`, `.html`, `.css`
+|Small page controller, controls, lifecycle wiring and layout. These are readable maintained sources.
+|`tools-web/build_assets.py`, `browser.py`
+|Build-time key-ID/config generation and card packaging; optional standard-library static server with isolation headers. No runtime input/output relay.
+|`desktop/web/serial.cpp`
+|Retains serial byte transport; adds atomic acceptance for browser key frames through the existing Serial FIFO.
+|`src/terminal/terminal_runtime.h/.cpp`
+|Adds only an `XTGV_WEB`-guarded, UI-owned, read-only text snapshot. Native builds do not include this accessor.
+|`desktop/web/application.cpp`
+|Copies snapshot text/geometry to JavaScript through the web export. Existing framebuffer publication and guest lifecycle remain.
+|===
+
+The six project JavaScript modules total about 434 lines at this checkpoint.
+Generated Emscripten glue is separate: 92951 bytes, with a 364869-byte Wasm
+module. The vendored unminified ZIP helper is 89198 bytes. These sizes exclude
+card contents and are not browser process-memory figures. Initial Wasm memory
+remains 128 MiB with growth enabled. No frontend framework, jterm or xterm.js
+is used. The SDK remains a build dependency only.
+
+Key IDs are generated from `src/terminal/key_chords.h`; optional number-row
+configuration is read by the existing host configuration helper at packaging
+time. JavaScript does not duplicate application profiles or INI interpretation.
+The snapshot uses active dimensions and `terminal.index()` stride, reuses the
+existing DEC graphics-to-text mapping, and never consumes mirror dirty flags.
+
+== User interaction
+
+Click the display to focus the keyboard; its outline turns green. kbd:[Ctrl+\]]
+releases focus, and page controls remain ordinary browser controls. Use the
+existing bank, zoom, backlight and application-exit chords. kbd:[Alt+Q] sends
+profile exit; *Stop* ends the emulator. These are distinct operations.
+
+Plain guest text/paste accepts ASCII, Tab and normalized newlines. Unsupported
+composed text is reported; it is not silently transliterated. Existing mapped
+key events retain their ordinary fallback bytes. Number-row conversion is
+optional and may be changed for this page session. AltGr is not treated as a
+request for Ctrl+Alt emergency exit. Browser/OS-reserved keys remain a limit.
+
+*Screen text* takes one frozen copy of the complete logical text grid. Refresh
+is explicit, so continuing guest output cannot move the user's selection.
+Copy text and `.txt` download use that same snapshot. It is neither scrollback
+nor a continuous transcript. The optional raw TX logger was deliberately deferred;
+terminal TX is drained even though no live terminal widget consumes it.
+
+*Copy image* and *Download PNG* capture the published framebuffer at 480x320,
+including graphics and displayed brightness. Clipboard actions use browser
+APIs from user clicks; selectable text/downloads are the fallback when access
+is unavailable. No screen reconstruction from CSI is involved.
+
+Display scale 1 through 9 uses whole CSS multiples and disables smoothing.
+The native backing image stays 480x320. Window resizing clips/scrolls the
+panel instead of stretching it. Fractional OS/browser scaling is explicitly
+not compensated; Retina and fractional-DPR appearance are browser presentation
+properties. Native PNG contents remain exact.
+
+== Card and hosting
+
+The local launcher packages a private static site under
+`build/RunCPM_7xtgv-terminal/desktop-web/sessions/standalone-*/`.
+It copies the source card read-only, excluding private directories, symlinks
+and ownership locks. Files are imported into MEMFS; no live host directory
+is mounted. The source card is not locked or written.
+
+Stop completes guest saves. Then Download card ZIP exports directly from the
+browser, with no server-side duplicate. Restart current card starts a fresh
+runtime from that stopped card; Load card ZIP replaces it after stopping.
+Guest REBOOT also restarts with current MEMFS contents. Closing or reloading
+without downloading loses changes; the page warning is best effort only.
+
+The ZIP helper enforces 32 MiB compressed/expanded and 10000-entry bounds,
+root A/0, path validity, uniqueness and file/directory consistency. Imported
+entries become regular files/directories, not host symlinks. The helper and
+its license are bundled locally; no CDN fetch is needed at runtime.
+
+The static bundle can be hosted with COOP/COEP headers and a secure context
+(HTTPS or localhost). There is no requirement for Python on a deployment host;
+`browser.py` is only a local convenience. `file://` is not supported by the
+pthread route. Loaded input/copy/export work without a server, but a fresh
+runtime/reload may fetch module assets again; no service-worker offline cache
+is claimed.
+
+== Validation evidence
+
+[cols="1,4",options="header"]
+|===
+|Check |Result
+|a. Standalone integration
+|`standalone-proof-ct65x132`: original sketch boots, bank 9 selection, Z80 guest program and punch output, VTDRV RW verification, edited command execution, numeric/keypad fallback, focused settings isolation and frozen text all pass.
+|b. Display and clipboard
+|Same run: brightness OFF/on, scales 1..4 with fixed backing geometry, MBASIC profile exit, actual Mandelbrot, native-size PNG, text clipboard and image clipboard pass. Screenshot inspected. Storage sample 143.92 KiB/s write, 211.86 KiB/s read; Mandelbrot 1146 ms. These are single test-run samples, not comparative benchmarks.
+|c. Lifecycle and card
+|Same run: REBOOT retains files; browser ZIP export/import preserves guest-created binary contents and 32 KiB VTDRV file. With the test browser offline, emergency return from an infinite loop, busy-guest Stop and card export pass. Requests were static GETs only; no WebSocket. Disposable source card hashes unchanged.
+|d. DOM and display density
+|`browser-edges-dcy4w8g7` and final `browser-edges-dtzqj7g9`: provisional composition suppressed, committed text delivered once, unsupported text reported, paste newline/control guards, AltGr protection and blur cleanup pass. Real glyph zoom and fixed integer CSS size survive viewport resize at simulated DPR 1, 1.25 and 2. The final run also suppresses Enter during composition even when its key event lacks isComposing. This does not establish appearance on a physical Retina monitor.
+|e. Queue and archive boundaries
+|`node tools-web/tests/modules.mjs` passes whole-frame backpressure, unsent cancellation, fresh-runtime queue reset, saturation, layout guards, binary ZIP round trip, empty-directory preservation and invalid/conflicting ZIP path checks. Run from the repo using the complete source path.
+|f. Retained mirror route
+|`proof-bgwu49qw`: all original native-mirror Chromium/PTY cases pass: commands, storage, Mandelbrot, REBOOT, export/import, infinite-loop stop and page closure. Source card unchanged.
+|g. Native compile
+|Existing ES3_35 `xtgv_desktop_gfx` builds with the snapshot code excluded. No native firmware build or full hardware qualification was needed for this guarded observer.
+|===
+
+Evidence directories are beneath
+`build/RunCPM_7xtgv-terminal/desktop-web/sessions/` and contain PASS records,
+logs/screenshots and relevant exports. Integration automation confines profile
+changes to bank 9 on a disposable card; MBASIC's `SYSTEM` exit was assigned only
+there. Working card INI/BUF changes already present in the workspace were
+preserved and are not part of this implementation.
+
+Initial test corrections included the literal `VTCPU quiet :`/uppercase `OK`
+prompts, opening the collapsed settings panel before filling it, waiting for
+asynchronous clipboard completion, and waiting for boot/configuration before
+zoom assertions. None required a change to guest or terminal semantics.
+
+== Launch and human acceptance
+
+From `src/RunCPM_7xtgv-terminal/tools-web/`, or the ES3_35 target wrapper:
+
+[source,bash]
+----
+./desktop-local.sh --window-scale 2
+----
+
+Setup/build/static-hosting details are in the
+link:../src/RunCPM_7xtgv-terminal/tools-web/README.adoc[tools-web README].
+The previous bridge is available as `desktop-local.sh --native-mirror`.
+
+[loweralpha]
+. On the real Czech keyboard, check ordinary row conversion, keypad decimal,
+  AltGr, bank steps, glyph zoom and backlight presets/OFF. Only focused display
+  input should reach the terminal.
+. Open Screen text, copy some text, continue using the guest and confirm the
+  frozen selection stays unchanged until Refresh. Try Copy image/Download PNG.
+. Check 1x/2x/3x sizing and page/window resizing on the actual monitor. Fractional
+  scaling may make pixel blocks uneven; the page should never smoothly stretch.
+. Stop, download the card, load it again and verify a deliberate guest change.
+
+This is a useful browser implementation checkpoint for review/rollback.
+Other browsers/hosts, the full keyboard-layout matrix, hidden tabs and runtime
+board profiles remain separate work. No commit/push is implied by these checks.
+
+At 261012-1608 Petr saw the opened standalone page and responded positively
+to its appearance. This is initial visual feedback, not yet the complete
+physical keyboard acceptance checklist.
+
+== User acceptance follow-up (261012-1619)
+
+After the page was opened and the keyboard, copying and card checks were
+presented, Petr reported:
+
+[quote,Petr]
+____
+yes :-) it seems that ALL is working here, great :-)
+____
+
+Record this as user acceptance of the current standalone ES3_35 browser setup,
+beyond the earlier appearance-only feedback. No individual key-by-key results
+or additional measurements were supplied; this does not qualify other browsers,
+operating systems or keyboard layouts. The implementation is a useful commit
+checkpoint; commit/push still awaits its own authorization.

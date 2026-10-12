@@ -76,9 +76,19 @@ void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus &status, void (*wr
     write(status.mediaReady ? "Host filesystem ...OK\r\n" : "Host filesystem ...UNAVAILABLE\r\n");
 }
 void xtgvBoardPrintStorageSummary(void (*write)(const char *)) {
+#if defined(XTGV_WEB)
+    write("Storage: browser MEMFS (SD/File compatibility)\r\n");
+#else
     write("Storage: desktop host filesystem (SD/File compatibility)\r\n");
+#endif
 }
-void xtgvBoardPrintBootExtra(void (*write)(const char *)) { write("Backend: desktop\r\n"); }
+void xtgvBoardPrintBootExtra(void (*write)(const char *)) {
+#if defined(XTGV_WEB)
+    write("Backend: browser WebAssembly proof\r\n");
+#else
+    write("Backend: desktop\r\n");
+#endif
+}
 Arduino_GFX *xtgvBoardCreateDisplay() {
     canvas = new (std::nothrow) XtgvDesktopCanvas(XTGV_DISPLAY_DEFAULTS.physicalWidth,
                                                 XTGV_DISPLAY_DEFAULTS.physicalHeight);

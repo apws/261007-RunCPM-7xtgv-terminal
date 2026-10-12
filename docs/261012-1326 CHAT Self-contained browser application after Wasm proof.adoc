@@ -1,0 +1,130 @@
+= Self-contained browser application after the Wasm proof
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+:experimental:
+
+== Discussion status
+
+This is a summary of Petr's direction and Ari's assessment on 261012, not a
+verbatim transcript or authorization to implement another frontend immediately.
+The working native-mirror browser proof is retained. Petr considers that proof
+sufficient initial feasibility evidence and explicitly wants to keep this path.
+He clarified that browser/Wasm is potentially very interesting in its own right;
+it must not be ranked as secondary to Wine or merely a macOS fallback.
+
+Petr has confirmed basic VTESTS, xterm256 and Alt+Q operation in
+link:261012-1251%20DONE%20Browser%20Wasm%20ES3_35%20proof%20with%20native%20mirror.adoc[the fixed ES3_35 proof].
+The earlier
+link:261012-1125%20PLAN%20Single%20WebAssembly%20runtime%20with%20board%20profiles%20and%20native%20mirror.adoc[plan]
+intentionally retained native terminal interaction. This discussion explores a
+separate self-contained frontend, changing that initial requirement while
+preserving the C++ runtime and the existing proof as evidence.
+
+== Proposed user experience
+
+Petr envisages a main page containing target choices, explanatory information,
+useful configuration controls and card upload/download. Selecting a target
+would open a display with that target's native dimensions and focused keyboard
+handling, potentially in a separate popup window. Integer display scaling and
+terminal glyph zoom remain distinct. Several sessions could be useful.
+
+Ari's assessment is that the interface is a plausible next use of the working
+Wasm runtime. A target gallery does not itself deliver runtime board profiles:
+the current binary is fixed ES3_35. Shared authoritative board configuration
+and runtime selection remain a separate implementation task. The frontend
+should not obtain apparent target selection by building six binaries or by
+maintaining an unrelated duplicate geometry catalog.
+
+For independent sessions, each instance needs its own RunCPM, terminal, worker
+and memory card. Several views onto one running guest would instead need a
+single explicit owner; opening another window must not accidentally start a
+second writer against what the UI presents as the same card.
+
+== What removing the native mirror simplifies
+
+The current external-mirror proof adds Python process/session ownership,
+authenticated TCP, binary WebSocket relay, native terminal launch, generated
+terminal configuration and coordination of browser/terminal closure. That was
+a significant part of its integration work. Existing keymap semantics and
+Python mirror code were reused; they were not reimplemented for the proof.
+
+With browser-local input, those bridge and native terminal dependencies can be
+removed from the standalone route. A served page could contain the runtime,
+card loader/exporter and input adapter. ZIP packaging would move from Python
+into browser code or an appropriate archive library. Emscripten remains a build
+dependency, not a runtime installation requirement for the user.
+
+The original native Linux/Windows tooling and the current bridge proof remain
+valid independent paths. This direction does not authorize deleting them.
+
+== Input boundary and configuration
+
+The browser frontend would translate events into the existing C++ keyboard
+protocol, which then applies its current bank, input preset and INI overrides.
+Do not recreate WordStar/ANSI/application behavior independently in JavaScript.
+A small host adapter should handle physical host events and text delivery.
+
+Distinguish:
+
+* Physical key positions and shortcuts: `KeyboardEvent.code`, modifier state
+  and keypad identity where available. For example `Digit1` is a physical row
+  position even when a Czech layout produces `+` from it.
+* Ordinary text: `KeyboardEvent.key` and appropriate text/composition events,
+  preserving layout, AltGr, dead keys and composed text before the deliberate
+  CP/M character-encoding policy.
+* Optional position-based number-row conversion: preserve an explicit setting;
+  do not silently apply US physical-position interpretation to all text.
+* Application semantics: keep existing C++ routing and INI configuration.
+
+This should reduce terminal-specific escape-sequence and configuration
+variation. It does not remove the need to test keyboard layouts or make every
+OS/browser shortcut available. The browser is a common runtime boundary, while
+the host OS still determines layout and can reserve combinations. Focus must
+be visible, and input capture should apply to the focused emulator surface.
+
+== Display, selectable text and popup limits
+
+Canvas2D currently shows the real C++/Arduino_GFX framebuffer. It is already
+independent of SDL and of a browser ANSI terminal widget. A standalone canvas
+with direct input does not require jterm or xterm.js.
+
+Canvas pixels do not automatically provide selectable text. Preserve the
+clipboard requirement explicitly: a Copy screen/text view based on C++ terminal
+state is a possible first implementation, while a richer selectable transcript
+would need its own model and update path. An optional browser terminal widget
+is another choice, not a prerequisite for running the framebuffer. A screen
+snapshot alone does not provide the native mirror's full scrollback history.
+
+Keep the emulated framebuffer fixed at native dimensions, with explicit integer
+presentation scale and a visible resolution label. The browser may resize its
+outer window, retain chrome or choose a tab instead of a popup. Popup creation
+should follow a user click; a request for dimensions is not a portable promise
+of an unresizable desktop window. An embedded display remains a fallback.
+
+The present pthread build needs cross-origin isolation headers. A self-contained
+application can be hosted as static assets on a suitably configured server; it
+is not automatically a double-clickable `file://` page. Removing the Python
+bridge removes a local runtime dependency, not this hosting requirement.
+
+== Suggested next bounded experiment
+
+Before building a target gallery or a multi-window application, retain the
+existing ES3_35 artifact and prove browser-local input plus browser-local card
+ZIP import/export. This isolates the frontend simplification from the runtime
+profile refactor. Add visible geometry/scale and a minimal copy-text facility,
+then qualify the important Czech row/keypad, AltGr, bank, zoom, brightness,
+application-exit and composition paths.
+
+That would establish a truly self-contained browser session. Target selection,
+multiple instances, popup polish and optional persistence can follow once
+ownership and input are clear. This is a proposed sequence, not work started
+in this discussion. Filesystem performance need not exceed native desktop;
+Petr has explicitly accepted that boundary.
+
+== References
+
+* https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/code[Physical key code versus keyboard layout]
+* https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key[Layout-aware key value]
+* https://developer.mozilla.org/en-US/docs/Web/API/Window/open[Popup requests, user activation and browser-controlled window behavior]
+* https://emscripten.org/docs/porting/pthreads.html[Threaded Wasm and cross-origin isolation]

@@ -128,3 +128,12 @@ bundle for every possible compiled binary.
 * Arduino_GFX 1.6.4: [inspected package notice](LICENSES/Arduino_GFX-1.6.4.txt).
 * SdFat 2.3.0: [inspected package notice](LICENSES/SdFat-2.3.0.txt).
 * This workstation's SDL2 compatibility runtime: [sdl2-compat notice](LICENSES/sdl2-compat.txt).
+
+## Browser card ZIP helper
+
+The experimental `tools-web` standalone page bundles **fflate 0.8.2** (MIT),
+by Arjun Barrett, for card ZIP import/export. Its unminified browser ES module
+is vendored at `src/RunCPM_7xtgv-terminal/tools-web/web/vendor/fflate.js`.
+The [preserved MIT license](src/RunCPM_7xtgv-terminal/tools-web/web/vendor/fflate-LICENSE)
+and [pinned source/checksum record](src/RunCPM_7xtgv-terminal/tools-web/web/vendor/README.adoc)
+accompany it. The page loads the local copy; no runtime CDN is required.

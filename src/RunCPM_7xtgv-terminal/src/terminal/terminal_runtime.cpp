@@ -1946,6 +1946,31 @@ static const char *graphicText(uint8_t ch) {
         return "?";
     }
 }
+#if XTGV_WEB
+TerminalScreenSnapshot terminalScreenSnapshot() {
+    TerminalScreenSnapshot result;
+    result.columns = terminal.cols;
+    result.rows = terminal.rows;
+    result.viewport = terminal.viewport;
+    result.rowViewport = terminal.rowViewport;
+    result.visibleColumns = terminal.visibleCols;
+    result.visibleRows = terminal.visibleRows;
+    result.cursorColumn = terminal.x;
+    result.cursorRow = terminal.y;
+    for (int row = 0; row < terminal.rows; ++row) {
+        for (int col = 0; col < terminal.cols; ++col) {
+            const int i = terminal.index(col, row);
+            if (terminal.graphics(i)) result.text += graphicText(terminal.charRAM[i]);
+            else {
+                const uint8_t c = terminal.charRAM[i];
+                result.text += c >= 32 && c < 127 ? char(c) : '?';
+            }
+        }
+        if (row + 1 < terminal.rows) result.text += '\n';
+    }
+    return result;
+}
+#endif
 static void mirrorBuild() {
     mirrorLength = mirrorSent = 0;
     if (mirrorReset) {

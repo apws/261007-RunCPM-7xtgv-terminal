@@ -1,0 +1,17 @@
+:root {font: 16px/1.5 system-ui,sans-serif; color:#26374a; background:#eef2f6; color-scheme:light}
+body {margin:0} header,main {padding:18px 24px} header {background:#073566;color:white}
+h1 {font-size:24px;margin:0} h1 span {font-size:17px;font-weight:400;opacity:.85}
+header p {margin:5px 0 0} h2 {font-size:18px} p {max-width:960px}
+.toolbar {display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+button,select,input {font:inherit} button,select,.file-button {border:1px solid #9baabc;border-radius:5px;background:white;padding:6px 12px;color:inherit}
+button {cursor:pointer} button:disabled {opacity:.5;cursor:default}
+#display-area {position:relative;overflow:auto;max-width:100%;background:#17212c;outline:2px solid #acb8c4;width:max-content}
+#display-area.captured {outline:3px solid #197444}
+canvas {display:block;image-rendering:pixelated;background:black;max-width:none}
+#keyboard {position:absolute;left:0;top:0;width:1px;height:1px;padding:0;border:0;opacity:0;resize:none}
+#geometry,.hint,#text-info {font-size:14px} #status {font-weight:600} #notice {color:#8a3500;min-height:1.5em}
+section {border-top:1px solid #c6d0da;margin-top:24px;padding-top:8px}
+#screen-text {font:14px/1.3 monospace;white-space:pre;overflow:auto;max-height:480px;background:white;padding:14px;border:1px solid #c6d0da;user-select:text}
+#hide-text {font-size:14px;margin-left:12px} details {margin:24px 0} #top-row {width:12em}
+kbd {background:#555;color:white;font:bold .8em sans-serif;border-radius:3px;padding:2px 4px}
+.file-button input {max-width:230px} :focus-visible {outline:3px solid #2675b7;outline-offset:2px}

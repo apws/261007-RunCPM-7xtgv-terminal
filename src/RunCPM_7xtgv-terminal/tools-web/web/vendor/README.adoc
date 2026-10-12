@@ -1,0 +1,16 @@
+= Browser ZIP dependency
+:source-highlighter: highlight.js
+
+`fflate.js` is the unminified browser ES module from fflate 0.8.2, MIT licensed.
+Its license is retained in `fflate-LICENSE`.
+
+Source: https://github.com/101arrowz/fflate/tree/v0.8.2
+Published module: https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js
+
+SHA-256: `8cc1f687e0159e977addb6b85e274dbd11e622cf151f4fcb7b85d49622ea43e7`.
+The asset packager checks this digest. The page loads the bundled local copy;
+it does not fetch library code from a CDN at runtime.
+
+Used only for card ZIP compression/decompression in JavaScript. This is not
+another filesystem or terminal emulator. Maintained project JS stays readable;
+this upstream module should be upgraded as a pinned dependency, not edited.

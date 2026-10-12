@@ -1458,6 +1458,37 @@ pass, including real disposable Make/Ninja builds. Native Windows console
 presentation remains a user check; no emulator rebuild was performed.
 a|link:../docs/261012-0933%20DONE%20Quiet%20desktop%20launchers%20and%20shared%20build%20progress.adoc[quiet output and progress validation]
 
+
+|`++261012-1043++`
+a|An unchanged Windows ES3_35 executable runs under Wine 11.19 with the native
+Linux Konsole/Python mirror through authenticated loopback sockets. Eight
+lifecycle/transfer cases pass; Petr confirms normal interaction and the
+Mandelbrot demo. A missing A2 directory in the reduced test card caused the
+SUBMIT error and was repaired. Storage remains slower by user report. This is
+an experimental one-target Linux result, with macOS untested.
+a|link:../docs/261012-1043%20DONE%20Windows%20binary%20under%20Wine%20with%20native%20Linux%20mirror.adoc[Wine proof and limitations]
+
+
+|`++261012-1251++`
+a|Built an experimental ES3_35 browser runtime from the original C++ RunCPM,
+terminal and Arduino_GFX, with a passive canvas and existing native Python
+mirror through a local WebSocket bridge. Chromium/PTY checks cover guest
+commands, verified memory-card writes, Mandelbrot graphics, reboot preserving
+MEMFS, ZIP export/import, busy-loop stop and page-close lifecycle. Source card
+hashes remain unchanged. Runtime board profiles and Windows/macOS browser
+launchers remain planned; this is a fixed-target Linux proof.
+a|link:../docs/261012-1251%20DONE%20Browser%20Wasm%20ES3_35%20proof%20with%20native%20mirror.adoc[Browser proof and boundaries]
+
+|`++261012-1602++`
+a|Added standalone ES3_35 browser input through the existing byte/CSI protocol,
+frozen text/image copying, integer canvas scaling and browser-local card ZIPs.
+Original C++ terminal/RunCPM remain; one web-only read-only snapshot accessor.
+Chromium checks cover keyboard dispatch, clipboard/PNG, MEMFS reboot/export/import,
+offline input/export and simulated DPR 1/1.25/2. At 261012-1619 Petr reports
+all working in the current setup; other-host and full keyboard-layout coverage
+remain separate. Native-mirror proof remains selectable.
+a|link:../docs/261012-1602%20DONE%20Standalone%20browser%20input%20snapshots%20and%20card%20ZIPs.adoc[Standalone browser checkpoint]
+
 |===
 
 == Command and catalog name lineage

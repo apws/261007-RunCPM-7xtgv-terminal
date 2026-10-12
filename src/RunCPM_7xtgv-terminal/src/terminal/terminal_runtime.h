@@ -54,3 +54,14 @@ void terminalDiscardGuestInput();
 // UI-owner query: work can advance immediately, excluding future frame deadlines.
 bool terminalDesktopWorkPending();
 #endif
+
+#if XTGV_WEB
+#include <string>
+// UI owner only, between terminalLoop calls. Detached copy; no dirty flags consumed.
+struct TerminalScreenSnapshot {
+    std::string text;
+    int columns, rows, viewport, rowViewport, visibleColumns, visibleRows;
+    int cursorColumn, cursorRow;
+};
+TerminalScreenSnapshot terminalScreenSnapshot();
+#endif
