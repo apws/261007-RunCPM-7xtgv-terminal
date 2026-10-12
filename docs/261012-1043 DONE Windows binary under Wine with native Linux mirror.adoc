@@ -1,0 +1,176 @@
+= Windows binary under Wine with a native Linux mirror: ES3_35 proof
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+:experimental:
+
+== Result and scope
+
+An existing Windows ES3_35 executable runs under Wine on the Linux host and
+connects directly to the existing native Python mirror in Konsole. No MSYS2,
+Mintty, Windows Python or native Windows keyboard hook runs inside Wine.
+The C++ emulator, renderer, guest core and production launchers are unchanged.
+
+All eight automated mirror/lifecycle cases pass on disposable cards. Petr
+then reports that the interactive session works normally, including a completed
+xterm256 BROT_BS demonstration shown at 795 ms. The sole reported functional
+quirk was traced to a missing directory in the experimental card copy and
+corrected without changing the executable.
+
+Petr also reports that VTDRV RW storage performance remains comparable to the
+slower Windows VirtualBox local-D: run. No exact new VTDRV figures were supplied.
+Successful interaction does not establish native-Linux storage performance.
+
+This is one-target Linux Wine acceptance, not a supported Wine target family,
+an all-board qualification or a macOS result. No new commit/push is authorized
+by the test. The working cpmcard INI/history and unrelated sessions are preserved.
+
+Controlling architecture:
+link:261006-0935%20PLAN%20Desktop%20runtime%20using%20existing%20board%20HALs.adoc[desktop runtime plan],
+with subsequent Windows implementation and
+link:261012-0903%20DONE%20macOS%20desktop%20tooling%20feasibility%20review.adoc[native macOS feasibility review].
+
+== Tested arrangement
+
+[source,text]
+----
+Native Linux Konsole + existing generated keymap
+    -> native Linux Python terminal.run(LoopbackEndpoint)
+    -> authenticated localhost data socket
+    -> Wine -> existing Windows xtgv_desktop.exe + runtime DLLs
+    -> Windows SDL2 -> Wine graphics -> Linux desktop window
+
+Native Python experimental owner
+    -> separate authenticated control socket: STOP / owner lifetime
+    -> card lock, logs, cooperative cleanup and exit-75 REBOOT relaunch
+----
+
+Wine was already installed: `wine-11.19`. The isolated prefix is
+`/tmp/xtgv-wine-proof-261012-1010`; the user's default Wine prefix is untouched.
+Wine initialization was explicit, with Mono/HTML components disabled for this
+proof; no application dependency downloads or MSYS2 installation were needed.
+
+The binary came from
+`build/RunCPM_7xtgv-terminal/desktop-win/msys2-ucrt64/jc8048w535/`,
+reporting build `261012-0934`. Its SHA-256 is
+`090634ad830c6569983296bdd24a9bf893f664fdb7cfbefa8b2462c4ed9580e1`.
+It was copied unchanged alongside `SDL2.dll`, `libgcc_s_seh-1.dll`,
+`libstdc++-6.dll` and `libwinpthread-1.dll`. No compiler was invoked.
+
+The SDL log reports a fixed 480x320 panel, 960x640 window at scale 2 and
+`renderer=direct3d`. SDL selected a Windows renderer, which Wine handles;
+this is not a native Linux SDL library loaded into the Windows executable.
+The initial short boot used compiled display defaults and brightness multiplier
+128/255. Its darker appearance was not used to diagnose a colour defect.
+The interactive follow-up used a copy of the current working INI.
+
+== Experimental helpers and reproducibility
+
+Two helpers live under `src/RunCPM_7xtgv-terminal/desktop/tests/`:
+
+* `wine_owner.py` starts Wine with an existing EXE, translates host paths using
+  `winepath`, and calls the existing native mirror with a LoopbackEndpoint.
+  It reuses DesktopProcess endpoint parsing and cooperative STOP from the
+  Windows tooling, but does not use its MSYS2/Mintty launch entry point.
+  It maintains a card lease, status, transcripts, framebuffer snapshots and
+  REBOOT generations. It requires an explicitly initialized WINEPREFIX.
+* `wine_proof.py` reuses the existing mirror acceptance cases with a Wine
+  fixture adapter. The transfer-panel test uses the portable Ctrl+] then M
+  prefix instead of Mintty's physical-key encoding. Each case creates its own
+  retained card, including a path with spaces and Czech characters.
+
+Evidence is retained beneath
+`build/RunCPM_7xtgv-terminal/wine-proof/261012-1010/`:
+
+[cols="2,4",options="header"]
+|===
+|Artifact |Purpose
+|`binary/`, `binary-manifest.json` |Exact copied EXE/DLLs and hashes.
+|`smoke.ppm`, `smoke.png` |Framebuffer from the initial 2.5-second visible boot; process exited normally.
+|`proof/` |Initial run; terminal-close cleanup succeeded but owner status was incorrectly reported as failure.
+|`proof-final/` |Eight passing cases, including mirror bytes, process logs, status and final framebuffers.
+|`submit-check/`, `submit-check-final/`, `submit-check.py` |Reproduction and correction of the incomplete card fixture. Initial assertion was too broad because snapshots repeat old screen text; final comparison checks successful computation and VTSTOP after adding A/2.
+|`interactive-card/` |Independent copy of A0, MBASIC B1, xterm256 C2 and benchmarks C3, with the original card's empty user-area directory structure added.
+|`interactive.sh`, `xdg/` |Local experiment launcher and isolated Konsole profile/generated keymap. No installed profile or regular target shortcut was replaced.
+|`interactive-*/session/` |Interactive owner state and per-generation logs/snapshots.
+|===
+
+From the repository root, an initialized prefix and staged binary can be tested
+again with a *new*, non-existing evidence directory:
+
+[source,bash]
+----
+export WINEPREFIX=/tmp/xtgv-wine-proof-261012-1010
+export WINEDEBUG=-all
+export WINEDLLOVERRIDES=mscoree,mshtml=
+python3 src/RunCPM_7xtgv-terminal/desktop/tests/wine_proof.py \
+  --build-dir build/RunCPM_7xtgv-terminal/wine-proof/261012-1010/binary \
+  --evidence build/RunCPM_7xtgv-terminal/wine-proof/retest-new
+----
+
+The retained `interactive.sh` opens the cloned card at scale 2 with a fresh
+session directory. It contains local absolute paths and is an experiment
+artifact, not a portable installer. Close the existing test session before
+launching another writer on that copy. The normal mirror quit is
+kbd:[Ctrl+\]] then kbd:[Q]. Do not delete a running session's card lock.
+
+== Checks and the SUBMIT fixture correction
+
+a. Visible Windows SDL boot: Petr confirms a normal display and blinking
+   cursor; automated timed stop returns zero and saves a framebuffer.
+b. Real native mirror: command execution, Z80/BDOS punch-file output, history
+   save, second-owner rejection and terminal-state restoration pass.
+c. All eight lifecycle/interaction cases pass: mirror quit, guest EXIT,
+   REBOOT with a second generation, shutdown during an infinite guest loop,
+   shutdown during continuous output, SIGHUP, terminal closure and transfer.
+d. Transfer sends and receives 512 bytes containing every byte value twice;
+   the round trip is exact. The emulator uses the same guest transfer commands.
+e. Interactive checklist requested DIR/scrolling, bank/zoom/brightness chords
+   and MBASIC/Alt+Q. Petr reports the session is almost perfect, then entirely
+   normal after the following fixture repair. This is an overall user report,
+   not a separately recorded result for every physical key.
+f. SUBMIT BROT_BS initially reports `Error On Line 006 Directory Full` in C2.
+   The reduced fixture contained A0 but not A2. Existing configuration enables
+   BATCHA and leaves BATCH0 disabled: the queue belongs on drive A in the current
+   user area. A separate disposable comparison reproduces the failure; adding
+   only A/2 makes the same binary/script complete and print VTSTOP. Empty
+   directories are then added to the interactive copy, and Petr's screenshot
+   confirms the completed Mandelbrot plot. No core/storage fix was required.
+
+The first owner prototype omitted the established EIO/ENXIO handling for a
+vanished terminal. The executable already stopped and flushed normally; the
+prototype now recognizes that terminal disappearance as normal closure.
+All eight cases were rerun successfully after that correction.
+
+== Implications for macOS and future tooling
+
+The proof establishes that the Windows process does not require the Windows
+launcher stack for interaction. A native terminal and Python mirror can own
+its existing TCP connection. A macOS experiment could therefore reuse the
+Windows EXE, a compatible Wine distribution, native Python and Kitty.
+
+It would still need actual Mac evidence for Wine availability, CPU architecture
+translation for this x86-64 binary on Apple Silicon, graphics, window/focus
+behavior, Option-key mappings, Wine path conversion and shutdown/reboot.
+macOS has not been tested here. The native Darwin port remains an independent
+option with fewer compatibility layers at runtime.
+
+If promoted beyond the experiment, factor shared owner lifecycle out of the
+Windows-specific module, parameterize process launch/path conversion and reuse
+the existing host terminal selection. Add explicit Wine discovery, dependency
+checks and separate build/runtime directory choices; do not silently install
+MSYS2, rebuild a binary or redirect ordinary desktop launchers through Wine.
+The current experiment intentionally does not introduce tools-mac or permanent
+Wine target wrappers.
+
+Storage remains the Windows executable's C++ runtime/filesystem path translated
+through Wine. Petr's slower VTDRV observation makes VirtualBox alone an
+insufficient explanation, but does not identify whether CRT operations,
+metadata calls, Wine translation or another cost dominates. No performance
+fix or native-Linux parity claim follows from this proof.
+
+Wine also underlies Valve's Proton gaming compatibility tool. Proton adds
+game-oriented components; this proof used plain Wine and did not need Steam
+or a Proton installation:
+https://www.winehq.org/[Wine],
+https://github.com/ValveSoftware/Proton[Valve's Proton project].
