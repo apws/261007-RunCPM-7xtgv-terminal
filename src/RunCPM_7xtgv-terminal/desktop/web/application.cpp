@@ -51,7 +51,12 @@ static void tick() {
         finished(result, xtgvDesktopWorkerError.c_str());
     }
 }
-int main() {
+int main(int argc, char **argv) {
+    if (argc > 1 && !xtgvWebSelectBoard(argv[1])) {
+        finished(1, "Unknown browser target");
+        return 1;
+    }
+    xtgvWebLockBoard();
     std::filesystem::current_path("/card");
     xtgvDesktopSetCardRoot("/card");
     setup();

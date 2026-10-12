@@ -2,14 +2,22 @@
 export class Display {
     constructor(canvas, label, scale = 2) {
         this.canvas = canvas; this.context = canvas.getContext('2d', {alpha: false});
-        this.label = label; this.scale = scale; this.image = null;
+        this.target = ''; this.label = label; this.scale = scale; this.image = null;
         this.setScale(scale);
     }
     setScale(scale) {
         this.scale = Math.max(1, Math.min(9, Number(scale) || 1));
         this.canvas.style.width = this.canvas.width * this.scale + 'px';
         this.canvas.style.height = this.canvas.height * this.scale + 'px';
-        this.label.textContent = `ES3_35 · ${this.canvas.width} × ${this.canvas.height} native pixels · ${this.scale}× display`;
+        this.label.textContent = `${this.target} · ${this.canvas.width} × ${this.canvas.height} native pixels · ${this.scale}× display`;
+    }
+    setProfile(profile) {
+        this.target = profile.id;
+        this.canvas.width = profile.width; this.canvas.height = profile.height;
+        this.canvas.setAttribute('aria-label', profile.id + ' framebuffer');
+        this.context.imageSmoothingEnabled = false;
+        this.image = null;
+        this.setScale(this.scale);
     }
     present(pixels, width, height, brightness) {
         if (!this.image || this.canvas.width !== width || this.canvas.height !== height) {

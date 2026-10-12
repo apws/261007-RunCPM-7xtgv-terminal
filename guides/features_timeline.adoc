@@ -1489,6 +1489,22 @@ all working in the current setup; other-host and full keyboard-layout coverage
 remain separate. Native-mirror proof remains selectable.
 a|link:../docs/261012-1602%20DONE%20Standalone%20browser%20input%20snapshots%20and%20card%20ZIPs.adoc[Standalone browser checkpoint]
 
+|`++261012-1634++`
+a|Browser layout trial moves the heading/controls left and display to the top
+right, with frozen text below both. A 2x ES3_35 display fits a 1280x720 content
+viewport without stretching; narrow windows stack. Runtime behavior unchanged.
+a|link:../docs/261012-1602%20DONE%20Standalone%20browser%20input%20snapshots%20and%20card%20ZIPs.adoc#browser-sidebar-layout[Layout follow-up]
+
+|`++261012-1712++`
+a|One browser Wasm now selects all six displays from compiled board descriptors.
+Switching saves the memory card and restarts with the selected INI identity,
+geometry and backlight table. All-six Chromium switching and standalone
+regression checks pass; native per-board builds and hardware allocation stay
+unchanged. User review of switching remains pending. A 261012-1718 follow-up fixes
+display clicks losing keyboard focus and captures input automatically after
+boot/restart; real-pointer Chromium checks pass.
+a|link:../docs/261012-1712%20DONE%20Shared%20browser%20runtime%20with%20selectable%20display%20targets.adoc[Shared browser target checkpoint]
+
 |===
 
 == Command and catalog name lineage

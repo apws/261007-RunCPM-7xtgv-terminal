@@ -15,15 +15,17 @@ they are not the current setup procedure.
 
 == High-level reading
 
+* link:261012-1712%20DONE%20Shared%20browser%20runtime%20with%20selectable%20display%20targets.adoc[Shared browser targets]: six compiled board descriptors in one Wasm, with card-preserving restart and target selection in the page; automated Chromium checks pass.
+
 * link:261012-1602%20DONE%20Standalone%20browser%20input%20snapshots%20and%20card%20ZIPs.adoc[Standalone browser frontend]: focused JavaScript input through existing bytes/CSI, frozen text/image copying, integer canvas scale and browser-local card ZIPs; fixed ES3_35 tested in Linux Chromium and accepted by Petr in the current browser setup.
 
 * link:261012-1347%20PLAN%20Standalone%20browser%20input%20and%20screen%20snapshots.adoc[Standalone browser frontend plan]: isolated JavaScript keyboard module over the existing byte/CSI protocol, frozen text/image snapshots, integer canvas scaling and browser-local card ZIP handling; bounded ES3_35 implementation recorded above.
 
 * link:261012-1326%20CHAT%20Self-contained%20browser%20application%20after%20Wasm%20proof.adoc[Self-contained browser direction]: target selection, browser-local input, card ZIP handling and optional display windows; discussion after the accepted proof, not implemented.
 
-* link:261012-1251%20DONE%20Browser%20Wasm%20ES3_35%20proof%20with%20native%20mirror.adoc[Browser Wasm proof]: fixed ES3_35, original C++ runtime, passive browser canvas, native Linux mirror and volatile MEMFS card with ZIP import/export; generic board profiles remain planned.
+* link:261012-1251%20DONE%20Browser%20Wasm%20ES3_35%20proof%20with%20native%20mirror.adoc[Browser Wasm proof]: fixed ES3_35, original C++ runtime, passive browser canvas, native Linux mirror and volatile MEMFS card with ZIP import/export; generic profiles are implemented in the shared-target checkpoint above.
 
-* link:261012-1125%20PLAN%20Single%20WebAssembly%20runtime%20with%20board%20profiles%20and%20native%20mirror.adoc[Single WebAssembly runtime plan]: tools-web, runtime board profiles, passive browser display and existing native terminal mirror; volatile card proof implemented for ES3_35; runtime profiles remain planned.
+* link:261012-1125%20PLAN%20Single%20WebAssembly%20runtime%20with%20board%20profiles%20and%20native%20mirror.adoc[Single WebAssembly runtime plan]: tools-web, runtime board profiles, passive browser display and existing native terminal mirror; volatile card proof implemented for ES3_35; runtime profiles are implemented in the shared-target checkpoint above.
 
 * link:261012-1043%20DONE%20Windows%20binary%20under%20Wine%20with%20native%20Linux%20mirror.adoc[Windows binary under Wine]: ES3_35 Linux proof with a native Konsole/Python mirror, eight passing automated cases and user interaction acceptance; macOS remains untested.
 

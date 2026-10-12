@@ -198,3 +198,29 @@ beyond the earlier appearance-only feedback. No individual key-by-key results
 or additional measurements were supplied; this does not qualify other browsers,
 operating systems or keyboard layouts. The implementation is a useful commit
 checkpoint; commit/push still awaits its own authorization.
+
+[[browser-sidebar-layout]]
+== Layout follow-up (261012-1634)
+
+The accepted implementation was committed as `1a99aa4`, alongside the earlier
+Wine proof `7415c37`, then pushed through merge `3d08f8b`, preserving Petr's
+remote documentation-philosophy record. Working-card INI/BUF changes stayed local.
+
+After that checkpoint, Petr requested moving the header and all controls left
+of the display to recover vertical space below browser bars and the KDE taskbar.
+The HTML/CSS trial puts the display at the top right, with the frozen text panel
+below both columns. Narrow windows stack without resizing the native canvas.
+No JS, C++, keyboard or card behavior changed. Board selection still awaits
+runtime board profiles; no nonfunctional selector was added.
+
+Headless preview `desktop-web/sessions/layout-g5_5k6na/` verifies that the
+960x640 display fits vertically at y=12 in a 1280x720 content viewport; snapshot
+placement and narrow-window fixed dimensions also pass. Screenshots inspected.
+The trial was opened separately so the user's previous memory-card session
+could continue untouched. This layout follow-up is not in the pushed checkpoint.
+
+
+Follow-up on 261012: Petr accepted this layout and reported the standalone page
+working in Chromium, Chrome and Edge (individual OS/version combinations not
+specified). Target selection follows in
+link:261012-1712%20DONE%20Shared%20browser%20runtime%20with%20selectable%20display%20targets.adoc[the shared-runtime checkpoint].

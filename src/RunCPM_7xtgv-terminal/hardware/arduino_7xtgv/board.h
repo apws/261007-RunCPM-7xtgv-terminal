@@ -52,7 +52,9 @@ void xtgvBoardBacklightWrite(uint8_t duty);
 void runCPMHardwareReboot();
 
 // One direct selection. No include-path macros or per-feature dispatchers.
-#if defined(RUNCPM_TARGET_JC8048W535)
+#if defined(XTGV_WEB)
+    #include "../../desktop/web/board_profiles.h"
+#elif defined(RUNCPM_TARGET_JC8048W535)
     #include "boards/jc8048w535.h"
 #elif defined(RUNCPM_TARGET_ESP32C6_LCD_1_47)
     #include "boards/waveshare_esp32c6_lcd_1_47.h"

@@ -115,7 +115,7 @@ void Terminal::reset() {
 }
 bool Terminal::setGeometry(int activeCols, int activeRows, int visibleColumns,
                            int visibleRowCount, int scale) {
-    if (activeCols < 1 || activeCols > MaxCols || activeRows < 1 || activeRows > MaxRows ||
+    if (activeCols < 1 || activeCols > columnLimit() || activeRows < 1 || activeRows > rowLimit() ||
         visibleColumns < 1 || visibleColumns > activeCols ||
         visibleRowCount < 1 || visibleRowCount > activeRows || scale < 1 || scale > 4)
         return false;
@@ -469,8 +469,8 @@ void Terminal::dispatchPrivate(uint8_t f) {
             control(LoadPreset, uint8_t(params[1]));
         else if (f == 'v' && count == 4 && params[0] == 73 &&
                  params[1] >= 1 && params[1] <= 4 &&
-                 params[2] >= 2 && params[2] <= MaxCols && !(params[2] & 1) &&
-                 params[3] >= 1 && params[3] <= MaxRows)
+                 params[2] >= 2 && params[2] <= columnLimit() && !(params[2] & 1) &&
+                 params[3] >= 1 && params[3] <= rowLimit())
             control(SetGuestGeometry, uint8_t(params[1]),
                     uint16_t(params[2]), uint16_t(params[3]));
     }

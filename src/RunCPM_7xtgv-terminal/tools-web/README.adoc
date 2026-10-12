@@ -3,15 +3,16 @@
 :toc:
 :experimental:
 
-The default launcher opens a *standalone ES3_35 browser page*: keyboard input,
+The default launcher opens a *standalone browser page*: keyboard input,
 real Canvas2D display, selectable screen snapshots and card ZIP import/export.
 RunCPM and 7xtgv-terminal execute as C/C++ compiled to WebAssembly. There is no
 native RunCPM process behind the page and no external terminal requirement.
 
-This is experimental, fixed ES3_35 (480x320). Runtime-selected board profiles
-remain planned. Linux Chromium is the initial qualification environment;
-Windows/macOS browsers and physical keyboard-layout coverage require separate
-acceptance. Native Linux/Windows desktop launchers remain available separately.
+One shared Wasm build supports ES3_35, ES3_5, EP4_10, EC6_147, RP2_147 and
+RP2_2, selected from the page. Linux Chromium integration checks cover all six.
+Petr also reports the preceding standalone version working in Chromium, Chrome
+and Edge; that report does not yet qualify the new switching UI on each host.
+Native Linux/Windows desktop launchers remain available separately.
 
 == Setup, rebuild and launch
 
@@ -25,11 +26,11 @@ From `tools-web/`:
 ----
 ./setup.sh
 ./desktop-rebuild.sh
-./desktop-local.sh --window-scale 2
+./desktop-local.sh --target ES3_35 --window-scale 2
 ----
 
-The matching `targets/ES3_35 -- jc8048w535/` directory contains wrappers with the
-same launcher names. Rebuild and launch remain separate; neither builds nor
+The existing `targets/ES3_35 -- jc8048w535/` directory contains wrappers with the
+same launcher names; all profiles share the rebuild. Rebuild and launch remain separate; neither builds nor
 uploads MCU firmware. Launch snapshots the source card without writing it.
 
 `setup.sh` installs Emscripten 6.0.12 and a Python environment under
@@ -54,9 +55,21 @@ background-tab throttling is not qualified.
 
 == Using the page
 
+On wide windows the heading and controls are on the left and the native-sized
+display starts at the top right. Screen text expands below both columns. Narrow
+windows stack the display and controls; the canvas is never stretched to fit.
+
+Choose *Target*, then *Switch target*. This saves the current memory card and
+restarts RunCPM with that board configuration; save guest application work first.
+No rebuild or page reload is needed. The selected board uses its own INI section,
+geometry and backlight table. Display scale stays as selected; use 1x for EP4_10.
+`--target` also selects the initial display ID or board identifier. Unknown
+identifiers are reported instead of silently selecting a different board.
+
 [loweralpha]
-. Click the display or *Keyboard -> display* to type. The green outline means
-  keyboard capture. kbd:[Ctrl+\]] releases focus. Page buttons/settings and the
+. Keyboard capture starts automatically after boot, restart and target switching.
+  Click the display or *Keyboard -> display* to return from page controls; repeated
+  clicks keep capture active. The green outline means keyboard capture. kbd:[Ctrl+\]] releases focus. Page buttons/settings and the
   snapshot panel do not send input to the guest.
 . Use familiar bank, glyph zoom and brightness chords. kbd:[Alt+Q] exits the
   guest application; it does not close the emulator. Use *Stop* for that.
@@ -68,7 +81,7 @@ background-tab throttling is not qualified.
 . Open *Screen text* for a frozen snapshot of the complete logical text grid.
   *Refresh snapshot* updates it explicitly. Select/copy text or download `.txt`.
   This is current screen text, not scrollback; pixel graphics belong in PNG.
-. Use *Copy image* or *Download PNG* for the published display at native 480x320,
+. Use *Copy image* or *Download PNG* for the published display at its native resolution,
   including graphics and the displayed brightness. Clipboard support/permissions
   depend on the browser; selectable text and downloads remain fallbacks.
 

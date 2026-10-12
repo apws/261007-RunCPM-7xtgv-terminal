@@ -37,7 +37,7 @@
 
 // Every Arduino firmware build identifies exactly one board. Host-only tests
 // without a target retain RP2_2 geometry as their historical default.
-#if defined(ARDUINO) && \
+#if defined(ARDUINO) && !defined(XTGV_WEB) && \
     (defined(RUNCPM_TARGET_JC8048W535) + defined(RUNCPM_TARGET_JC8048W550) + \
      defined(RUNCPM_TARGET_JC8012P4A1C) + \
      defined(RUNCPM_TARGET_ESP32C6_LCD_1_47) + \

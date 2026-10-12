@@ -28,6 +28,43 @@ async def main():
                     await page.goto(url)
                     await page.wait_for_function('window.xtgvWeb?.phase === "running" && window.xtgvWeb.snapshot().text.includes("A0>")')
                     await page.wait_for_timeout(1200)
+                    captured = 'document.activeElement === document.querySelector("#keyboard") && document.querySelector("#display-area").classList.contains("captured")'
+                    assert await page.evaluate(captured), 'Boot did not capture the keyboard'
+                    await page.select_option('#scale','1')
+                    await page.click('#show-text')
+                    assert not await page.evaluate(captured), 'Controls did not release capture'
+                    for _ in range(2):
+                        await page.locator('#display').click(position={'x':30,'y':30})
+                        assert await page.evaluate(captured), 'Canvas click lost keyboard focus'
+                    await page.keyboard.press('Control+]')
+                    assert not await page.evaluate(captured), 'Release chord retained capture'
+                    await page.locator('#display').click(position={'x':30,'y':30})
+                    assert await page.evaluate(captured), 'Canvas click did not recapture'
+                    # Real guest input after a pointer click (no focus-button helper).
+                    await page.keyboard.press('Alt+9')
+                    await page.wait_for_timeout(1400)
+                    await page.keyboard.insert_text('VTCPU')
+                    await page.keyboard.press('Enter')
+                    await page.wait_for_function('xtgvWeb.snapshot().text.includes("VTCPU quiet")')
+                    if ratio == 1:
+                        await page.keyboard.insert_text('REBOOT')
+                        await page.keyboard.press('Enter')
+                        await page.wait_for_function('xtgvWeb.phase !== "running"')
+                        await page.wait_for_function('xtgvWeb.phase === "running" && xtgvWeb.snapshot().text.includes("A0>")')
+                        assert await page.evaluate(captured), 'Guest REBOOT lost keyboard focus'
+                        await page.click('#stop')
+                        await page.wait_for_function('xtgvWeb.phase === "stopped"')
+                        await page.click('#restart')
+                        await page.wait_for_function('xtgvWeb.phase === "running" && xtgvWeb.snapshot().text.includes("A0>")')
+                        assert await page.evaluate(captured), 'Restart did not capture the keyboard'
+                        await page.select_option('#target','rp2350-touch-lcd-2')
+                        await page.click('#switch-target')
+                        await page.wait_for_function('xtgvWeb.phase === "running" && xtgvWeb.target === "rp2350-touch-lcd-2" && xtgvWeb.snapshot().text.includes("A0>")')
+                        assert await page.evaluate(captured), 'Target switch did not capture the keyboard'
+                        await page.select_option('#target','jc8048w535')
+                        await page.click('#switch-target')
+                        await page.wait_for_function('xtgvWeb.phase === "running" && xtgvWeb.target === "jc8048w535" && xtgvWeb.snapshot().text.includes("A0>")')
+                        assert await page.evaluate(captured)
                     await page.evaluate('''async () => {
                         const {KeyboardModule}=await import('./input.js');
                         const area=document.createElement('div'), input=document.createElement('textarea');
@@ -80,7 +117,7 @@ async def main():
                     await context.close()
                     print(f'DPR {ratio}: composition/AltGr/paste/focus, integer CSS scale, glyph zoom PASS',flush=True)
                 await browser.close()
-            (root/'PASS').write_text('DOM composition once; AltGr/focus/paste guards; integer CSS size at DPR 1, 1.25, 2; real glyph zoom.\n')
+            (root/'PASS').write_text('Canvas click/reclick capture; boot/REBOOT/restart/target-switch autofocus; real guest keyboard input; DOM composition once; AltGr/focus/paste guards; integer CSS size at DPR 1, 1.25, 2; real glyph zoom.\n')
         finally:
             if server.returncode is None:server.terminate();await server.wait()
 

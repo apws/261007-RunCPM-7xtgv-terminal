@@ -7,6 +7,8 @@ import {defaultTopRow} from './protocol.js';
 const $ = id => document.getElementById(id);
 const notice = text => {$('notice').textContent = text;};
 const link = new SerialLink();
+let selectedTarget = new URLSearchParams(location.search).get('target') || 'jc8048w535';
+let pendingTarget = null, profiles = [];
 let runtime = null, phase = 'loading', epoch = 0, lastSnapshot = null, completed = null;
 const scale = Math.max(1, Math.min(9, Number(new URLSearchParams(location.search).get('scale')) || 2));
 const display = new Display($('display'), $('geometry'), scale);
@@ -14,7 +16,7 @@ for (let n=1;n<=9;n++) $('scale').add(new Option(n + '×', n, n === scale, n ===
 $('scale').onchange = () => display.setScale($('scale').value);
 const keyboard = new KeyboardModule($('display-area'), $('keyboard'), bytes => link.send(bytes), notice, defaultTopRow);
 $('keyboard').addEventListener('blur', () => link.cancelPending());
-$('focus').onclick = () => $('keyboard').focus({preventScroll:true});
+$('focus').onclick = () => keyboard.focus();
 $('top-row').value = defaultTopRow;
 $('apply-row').onclick = () => {
     const row = $('top-row').value;
@@ -48,15 +50,18 @@ function setPhase(value, message) {
     $('export').disabled = value !== 'stopped';
     $('restart').disabled = value !== 'stopped';
     $('import').disabled = !['stopped', 'failed'].includes(value);
+    $('target').disabled = !['running', 'stopped'].includes(value);
+    $('switch-target').disabled = !['running', 'stopped'].includes(value);
     for (const id of ['show-text','refresh-text','copy-image','save-image']) $(id).disabled = !runtime || value === 'loading';
 }
 function fail(error) {
     console.error(error);
+    pendingTarget = null;
     link.clear();
     if (runtime && phase === 'running') runtime._web_stop();
     setPhase('failed', 'Failed: ' + error.message);
 }
-async function start(card) {
+async function start(card, target = selectedTarget) {
     setPhase('loading', 'Starting RunCPM…'); link.clear();
     const generation = ++epoch;
     completed = null;
@@ -72,12 +77,15 @@ async function start(card) {
             link.clear();
             // Defer replacing the instance until this C++ callback has returned.
             queueMicrotask(() => {
-                if (code === 75) {
-                    try {start(snapshotCard(instance.FS)).catch(fail);} catch (error) {fail(error);}
-                } else if (code === 0) {
+                if (code === 0 || code === 75) {
                     try {
                         completed = snapshotCard(instance.FS);
                         instance.PThread.terminateAllThreads();
+                        if (pendingTarget || code === 75) {
+                            const next = pendingTarget || selectedTarget; pendingTarget = null;
+                            start(completed, next).catch(fail);
+                            return;
+                        }
                         setPhase('stopped', 'Stopped cleanly. Download the card ZIP to keep changes.');
                     } catch (error) {fail(error);}
                 } else fail(Error(error || 'Guest stopped with an error.'));
@@ -85,14 +93,38 @@ async function start(card) {
         }
     });
     runtime = instance;
+    runtime._web_profiles();
+    profiles = runtime.boardProfiles;
+    const profile = profiles.find(p => p.target === target || p.id === target);
+    if (!profile || !runtime.ccall('web_select_profile', 'number', ['string'], [profile.target]))
+        throw Error('Unknown or unavailable target: ' + target);
+    selectedTarget = profile.target;
+    $('target').replaceChildren(...profiles.map(p => new Option(`${p.id} · ${p.width}×${p.height}`, p.target, p.target === selectedTarget, p.target === selectedTarget)));
+    $('target-title').textContent = profile.id + ' · browser';
+    document.title = '7xtgv-terminal · ' + profile.id;
+    $('target').title = profile.name;
+    display.setProfile(profile);
+    $('text-panel').hidden = true; lastSnapshot = null;
+    const url = new URL(location.href); url.searchParams.set('target', selectedTarget);
+    history.replaceState(null, '', url);
     installCard(runtime.FS, card);
     runtime._web_connect(1);
     runtime.callMain([]);
     link.attach(runtime);
     setPhase('running', 'Running · card changes are in memory. Click the display to type.');
+    keyboard.focus();
 }
 action('stop', () => {setPhase('stopping', 'Stopping and saving…');link.clear();runtime._web_stop();});
 action('restart', () => start(completed));
+action('switch-target', () => {
+    const target = $('target').value;
+    if (target === selectedTarget) return;
+    if (phase === 'stopped') return start(completed, target);
+    if (phase !== 'running') return;
+    pendingTarget = target;
+    setPhase('stopping', 'Saving card and switching target…');
+    link.clear(); runtime._web_stop();
+});
 action('export', () => {if (phase === 'stopped') download(packCard(completed), 'cpmcard-web.zip');});
 $('import').onchange = async () => {
     const file = $('import').files[0]; $('import').value = '';
@@ -108,7 +140,7 @@ window.addEventListener('beforeunload', e => {
     if (['running', 'stopping'].includes(phase)) {e.preventDefault(); e.returnValue = '';}
 });
 // Read-only diagnostics used by the browser integration tests, also useful in DevTools.
-window.xtgvWeb = {get phase() {return phase;}, snapshot: getSnapshot};
+window.xtgvWeb = {get phase() {return phase;}, snapshot: getSnapshot, get target() {return selectedTarget;}, get profiles() {return profiles.map(p => structuredClone(p));}};
 (async () => {
     if (!crossOriginIsolated) throw Error('Hosting needs COOP/COEP headers for the RunCPM worker.');
     const response = await fetch('card.zip');

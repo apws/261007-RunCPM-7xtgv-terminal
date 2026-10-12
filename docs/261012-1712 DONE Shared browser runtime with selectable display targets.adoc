@@ -1,0 +1,96 @@
+= Shared browser runtime with selectable display targets
+:source-highlighter: highlight.js
+:toc:
+
+The standalone page now selects all six current display targets from one
+compiled Wasm runtime. Choose *Target*, then *Switch target*. RunCPM stops
+cleanly, saves its memory card and starts a fresh instance with the selected
+board's identity, INI section, geometry and backlight table. Save guest work
+before switching; application execution state is not migrated.
+
+== Configuration and boundaries
+
+The catalog compiles the data sections of the existing complete board headers
+inside separate namespaces. Desktop guards suppress physical driver code.
+There is no parallel JSON geometry catalog, C++ text extraction or duplicated
+board policy. The page obtains its choices directly from the compiled module.
+
+`desktop/web/board_profiles.h` derives maximum backing capacity from that
+catalog (currently 213 columns by 80 rows). Terminal indexing retains this
+fixed stride, while parser and renderer validation use the selected board's
+logical limits. Native and Arduino builds retain board-specific allocations.
+No physical board header or RunCPM CPU, CCP, BDOS or disk code changed; the
+configuration guard merely permits web runtime selection without a fixed
+compile-time board macro.
+
+The descriptor is locked before startup. Web terminal defaults are rebound
+before display creation, then normal INI loading applies the selected section.
+The existing C++ terminal, Arduino_GFX, worker and storage code remain in use.
+Browser display scale stays an explicit integer; switching does not stretch
+or automatically shrink a panel. Choose 1x for the large EP4_10 display.
+
+[cols="1,2,1",options="header"]
+|===
+|Display |Target |Native pixels
+|ES3_35 |jc8048w535 |480x320
+|EC6_147 |esp32c6-lcd-1-47 |320x172
+|EP4_10 |jc8012p4a1c |1280x800
+|ES3_5 |jc8048w550 |800x480
+|RP2_147 |rp2350-lcd-1-47-a |320x172
+|RP2_2 |rp2350-touch-lcd-2 |320x240
+|===
+
+See link:../src/RunCPM_7xtgv-terminal/tools-web/README.adoc[tools-web usage].
+`--target` accepts a display ID or target identifier; the query string retains
+the selection. Reload still discards the volatile card. Switching, guest REBOOT
+and stopped-card restart preserve it. The retained external-terminal proof
+continues to start ES3_35; native desktop builds remain per-board.
+
+== Checks and evidence
+
+[loweralpha]
+. `tools-web/tests/profiles.py`: all six profiles boot and switch using one
+  unchanged Wasm hash. Distinct INI sections select maximum logical geometry;
+  native canvas dimensions, visible viewport, oversized guest geometry rejection,
+  glyph zoom, backlight OFF/ON, retained punch file, REBOOT, stopped switch,
+  byte-exact ZIP export and unknown-target refusal pass. Evidence:
+  `desktop-web/sessions/profiles-ti8rq_vk/` (results, screenshots and PASS).
+. Existing standalone regression passes with the shared build, including real
+  Mandelbrot graphics, storage verification, keyboard dispatch, clipboard,
+  screen snapshots, ZIP round trip and offline busy-guest stop/export:
+  `desktop-web/sessions/standalone-proof-ccircoas/`.
+. Native parser/history/keyboard/bounds tests and production runtime tests pass;
+  board-HAL cross-translation-unit tests pass. No firmware build or device test.
+
+Wasm is 367395 bytes and generated glue 93832 bytes. The initial memory setting
+remains 128 MiB; larger backing capacity is not a claim of reduced memory use.
+The initial six-profile screenshots were inspected at 1600x1000. The small
+panels preserve their native viewport, including manual panning for larger
+logical grids. No working-card files were written by these tests.
+
+Petr accepted the preceding two-column layout and reported the standalone
+version working in Chromium, Chrome and Edge. That report predates this target
+selector; interactive acceptance of the new switching workflow remains pending.
+A new page was opened separately with its own memory card, leaving existing
+sessions alone. Petr subsequently authorized committing and pushing this checkpoint.
+
+Design: link:261012-1648%20PLAN%20Browser%20target%20selection%20from%20compiled%20board%20descriptors.adoc[descriptor decision].
+
+
+== Keyboard focus correction (261012-1718)
+
+Petr found that clicking the display removed the green capture outline. The
+pointer handler focused the input, but the browser's default mouse action then
+blurred it again. Primary display presses now prevent that default action and
+retain input focus. Startup, guest REBOOT, restart and target switching also
+focus the keyboard automatically; page controls and Ctrl+] still release it.
+
+Focused Chromium checks use real pointer clicks, repeated clicks, release and
+recapture, actual guest typing and all four startup paths. They pass alongside
+composition/AltGr/paste and DPR 1/1.25/2 checks in
+`desktop-web/sessions/browser-edges-dxwuwrn3/`. JavaScript-only correction; no
+C++ rebuild. A fresh corrected page leaves older volatile sessions untouched.
+
+Petr confirmed the keyboard-focus correction with "yes, good now :-)" and
+then authorized commit/push. This confirms focus behavior in the current
+interactive setup; it does not add a separate all-target manual test report.

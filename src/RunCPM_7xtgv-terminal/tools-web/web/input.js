@@ -103,7 +103,13 @@ export class KeyboardModule {
         this.input = input;
         this.send = send;
         this.report = report;
-        area.addEventListener('pointerdown', () => { if (this.enabled) input.focus({preventScroll: true}); });
+        area.addEventListener('pointerdown', e => {
+            if (!this.enabled || e.button !== 0) return;
+            // The default mouse action would blur our input again after this
+            // handler focuses it, because the visible canvas is not editable.
+            e.preventDefault();
+            this.focus();
+        });
         input.addEventListener('keydown', e => {
             if (e.code === 'AltRight') this.rightAlt = true;
             if (!this.enabled || this.composing || e.isComposing) return;
@@ -135,6 +141,7 @@ export class KeyboardModule {
         return {key: e.key, code: e.code, ctrlKey: e.ctrlKey, altKey: e.altKey,
             shiftKey: e.shiftKey, metaKey: e.metaKey, isComposing: e.isComposing};
     }
+    focus() { if (this.enabled) this.input.focus({preventScroll: true}); }
     deliver(bytes) {try {this.send(bytes);} catch (error) {this.report(error.message);}}
     commit() {
         if (this.composing) return;

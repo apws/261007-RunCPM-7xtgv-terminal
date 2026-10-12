@@ -13,13 +13,23 @@ bool decodePrivateKeyEvent(const uint8_t *bytes, size_t length, KeyChord &chord,
                            uint8_t fallback[16], size_t &fallbackLength);
 // Backing allocation comes from the selected board, independently of the
 // currently visible zoom/pan rectangle.
+#if defined(XTGV_WEB)
+constexpr int MaxVisible = xtgvWebBoards::maxVisible(),
+              MaxCols = xtgvWebBoards::maxColumns(),
+              MaxRows = xtgvWebBoards::maxRows(),
+              MaxCells = MaxCols * MaxRows;
+#else
 constexpr int MaxVisible = XTGV_TERMINAL_VISIBLE_COLS,
               MaxCols = XTGV_DISPLAY_DEFAULTS.logicalMaxCols,
               MaxRows = XTGV_DISPLAY_DEFAULTS.logicalMaxRows,
               MaxCells = MaxCols * MaxRows;
+#endif
 // Compatibility names identify backing allocation only.  Parser and renderer
 // code must use Terminal::cols/rows/visibleCols for runtime geometry.
 constexpr int Visible = MaxVisible, Cols = MaxCols, Rows = MaxRows, Cells = MaxCells;
+// Allocation stride is fixed; profile limits remain those of the selected board.
+inline int columnLimit() { return XTGV_DISPLAY_DEFAULTS.logicalMaxCols; }
+inline int rowLimit() { return XTGV_DISPLAY_DEFAULTS.logicalMaxRows; }
 using RGB = mixworx::RGB;
 extern const RGB (&Ink)[16];
 extern const RGB (&Paper)[4];

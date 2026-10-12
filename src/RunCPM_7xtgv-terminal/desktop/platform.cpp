@@ -156,8 +156,7 @@ uint8_t xtgvDesktopBrightness(uint8_t duty) {
     // Physical PWM is not an SDL RGB multiplier. Normalize the board's
     // thermal/electrical ceiling, then lift shadows with one global curve.
     // This is a visual approximation, not measured panel calibration.
-    constexpr auto maximum = XTGV_BACKLIGHT_DUTIES[31];
-    static_assert(maximum > 0, "Board needs a nonzero maximum backlight duty");
+    const auto maximum = XTGV_BACKLIGHT_DUTIES[31];
     if (!duty) return 0;
     if (duty >= maximum) return 255;
     return uint8_t(std::lround(255.0 * std::pow(double(duty) / maximum, 1.0 / 2.2)));

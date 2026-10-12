@@ -1,11 +1,17 @@
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>7xtgv-terminal · browser ES3_35</title><link rel="stylesheet" href="standalone.css"></head>
+<title>7xtgv-terminal · browser</title><link rel="stylesheet" href="standalone.css"></head>
 <body>
-<header><h1>7xtgv-terminal <span>ES3_35 · browser</span></h1>
-<p>RunCPM and the original C++ terminal, running here in your browser.</p></header>
 <main>
+<div id="workspace">
+<aside id="controls" aria-label="Emulator controls">
+<header><h1>7xtgv-terminal <span id="target-title">Browser</span></h1>
+</header>
+<div class="control-body">
+<label class="target-label">Target <select id="target" aria-label="Target board" disabled></select></label>
+<button id="switch-target" disabled>Switch target</button>
+<p class="hint">Switching restarts RunCPM with the current memory card. Save your guest work first.</p>
 <div class="toolbar">
 <label>Display <select id="scale" aria-label="Display scale"></select></label>
 <button id="focus" disabled>Keyboard → display</button>
@@ -14,18 +20,9 @@
 <button id="save-image" disabled>Download PNG</button>
 </div>
 <p id="geometry"></p>
-<div id="display-area" aria-label="Emulated display">
-<canvas id="display" width="480" height="320" aria-label="ES3_35 framebuffer"></canvas>
-<textarea id="keyboard" aria-label="Emulator keyboard input" autocapitalize="off" autocomplete="off" spellcheck="false" disabled></textarea>
-</div>
 <p class="hint">Click the display to type. <kbd>Ctrl</kbd><kbd>]</kbd> releases keyboard focus.
 <kbd>Alt</kbd><kbd>Q</kbd> exits a guest application. Use Stop to end the emulator.</p>
 <p id="status" role="status">Loading…</p><p id="notice" role="status"></p>
-<section id="text-panel" hidden>
-<h2>Screen text <button id="hide-text">Close panel</button></h2>
-<div class="toolbar"><button id="refresh-text">Refresh snapshot</button><button id="copy-text">Copy text</button><button id="save-text">Download .txt</button></div>
-<p id="text-info"></p><pre id="screen-text" tabindex="0" aria-label="Frozen screen text"></pre>
-</section>
 <section><h2>Session card</h2>
 <div class="toolbar"><button id="stop" disabled>Stop</button><button id="restart" disabled>Restart current card</button>
 <button id="export" disabled>Download card ZIP</button>
@@ -43,5 +40,19 @@ Ctrl+Shift+1…9, and Ctrl+Alt+Shift+0 for OFF. F11 remains browser fullscreen.<
 <p>Display scale uses whole CSS multiples with smoothing off. Fractional browser/desktop scaling is not compensated.
 Text snapshots contain the logical text grid; PNG captures include graphics at native resolution.</p>
 </details>
+</div>
+</aside>
+<div id="screen-column">
+<div id="display-area" aria-label="Emulated display">
+<canvas id="display" width="480" height="320" aria-label="Emulated framebuffer"></canvas>
+<textarea id="keyboard" aria-label="Emulator keyboard input" autocapitalize="off" autocomplete="off" spellcheck="false" disabled></textarea>
+</div>
+</div>
+</div>
+<section id="text-panel" hidden>
+<h2>Screen text <button id="hide-text">Close panel</button></h2>
+<div class="toolbar"><button id="refresh-text">Refresh snapshot</button><button id="copy-text">Copy text</button><button id="save-text">Download .txt</button></div>
+<p id="text-info"></p><pre id="screen-text" tabindex="0" aria-label="Frozen screen text"></pre>
+</section>
 </main><script src="xtgv_web.js"></script><script type="module" src="standalone.js"></script>
 </body></html>

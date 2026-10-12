@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import tempfile
 import webbrowser
+from urllib.parse import urlencode
 from build_assets import BUILD, package
 
 
@@ -26,6 +27,7 @@ class StaticHandler(SimpleHTTPRequestHandler):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--window-scale', type=int, choices=range(1, 10), default=2)
+    p.add_argument('--target', default='jc8048w535', help='Display ID or board target; also selectable in the page')
     p.add_argument('--card-root', type=Path)
     p.add_argument('--card-zip', type=Path)
     p.add_argument('--session-dir', type=Path)
@@ -39,9 +41,9 @@ def main():
     package(site, a.card_root, a.card_zip)
     handler = functools.partial(StaticHandler, directory=str(site))
     with ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
-        url = f'http://127.0.0.1:{server.server_port}/?scale={a.window_scale}'
+        url = f'http://127.0.0.1:{server.server_port}/?' + urlencode({'scale': a.window_scale, 'target': a.target})
         (session / 'session.json').write_text(json.dumps({'url':url, 'session':str(session)}, indent=2))
-        print('*** WEB · ES3_35 · standalone ***', flush=True)
+        print(f'*** WEB · {a.target} · standalone ***', flush=True)
         print('Browser keyboard, private memory card, native C++ terminal.', flush=True)
         print('URL:', url, flush=True)
         print('Evidence:', session, flush=True)

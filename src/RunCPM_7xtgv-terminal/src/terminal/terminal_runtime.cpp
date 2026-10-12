@@ -1265,8 +1265,8 @@ static void applyDisplayProfile(const vt::DisplayProfile &profile,
     const int height = displayOK ? gfx->height() : hal.physicalHeight;
     const int fitCols = vt::evenVisibleCols(width, zoom);
     const int fitRows = vt::visibleRows(height, zoom);
-    if (geometry.cols < 2 || geometry.cols > vt::MaxCols || geometry.rows < 1 ||
-        geometry.rows > vt::MaxRows)
+    if (geometry.cols < 2 || geometry.cols > vt::columnLimit() || geometry.rows < 1 ||
+        geometry.rows > vt::rowLimit())
         geometry = hal.zoomGeometry[zoom - 1];
     geometry.cols &= ~1u;
     const int visible = std::min<int>(geometry.cols, fitCols);
@@ -2199,6 +2199,12 @@ void terminalHistorySaveComplete(bool saved) {
 }
 
 void terminalSetup() {
+#if defined(XTGV_WEB)
+    // Globals predate browser target selection. Rebind the defaults before
+    // display setup; the card's matching INI section is loaded afterward.
+    profiles.beginLoad(vt::displayHalDefaults());
+    profiles.finishLoad();
+#endif
     // Do this before allocation and display initialization, not after begin().
     xtgvBacklightInit(true);
     history = xtgvBoardCreateHistory();

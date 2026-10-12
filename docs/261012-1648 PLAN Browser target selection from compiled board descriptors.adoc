@@ -1,0 +1,25 @@
+= Browser target selection from compiled board descriptors
+:source-highlighter: highlight.js
+
+Petr requested target switching after accepting the standalone browser layout.
+This implements the runtime-profile stage of the earlier single-Wasm plan.
+
+Compile the data-only portions of all six existing board headers inside
+separate C++ namespaces, with desktop mode suppressing physical drivers.
+Build the descriptor catalog directly from their constants: no copied geometry
+JSON, source-text parsing or changes to physical board headers. Derive backing
+capacity from the catalog maximum; retain selected-board geometry limits for
+the parser and configuration. Native and Arduino builds keep their present
+compile-time allocation and selection.
+
+Expose the compiled catalog to JavaScript before boot. A selection is immutable
+after startup. Switching in the page requests an orderly stop, saves the MEMFS
+card and creates a fresh instance of the same Wasm with the selected descriptor.
+Keep display scaling explicit and integral. The card, including all board INI
+sections, survives switching; unsaved guest application state does not.
+
+Validate all profiles using one Wasm hash, smallest/largest geometry, INI
+identity, zoom and brightness, card retention and refusal of unknown targets.
+Run focused native terminal regressions for capacity-limit seams. No RunCPM
+CPU/disk/CCP behavior, firmware build, device write or working-card edit belongs
+to this change.
