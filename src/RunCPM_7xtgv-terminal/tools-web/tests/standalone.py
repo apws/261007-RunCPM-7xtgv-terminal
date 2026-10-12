@@ -182,8 +182,8 @@ async def main():
             async with page.expect_download() as dl: await page.click('#export')
             await (await dl.value).save_as(root / 'card.zip')
             with zipfile.ZipFile(root / 'card.zip') as z:
-                assert z.read('A/0/PUN.TXT') == b'X'
-                assert len(z.read('A/0/VTDRV.$$$')) == 32768
+                assert z.read('cpmcard/A/0/PUN.TXT') == b'X'
+                assert len(z.read('cpmcard/A/0/VTDRV.$$$')) == 32768
             await page.set_input_files('#import',str(root / 'card.zip'))
             await until('A0>')
             await command('DIR PUN.TXT','PUN')

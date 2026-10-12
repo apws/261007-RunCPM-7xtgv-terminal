@@ -53,21 +53,29 @@ def snapshot(root):
 def unpack(data):
     files, directories, total = {}, [], 0
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
-        if len(archive.infolist()) > 10000:
+        entries = archive.infolist()
+        wrapped = any(info.filename.startswith('cpmcard/') for info in entries)
+        if sum(info.filename != 'cpmcard/' for info in entries) > 10000:
             raise ValueError('Too many card entries')
-        for info in archive.infolist():
+        for info in entries:
             name = card_path(info.filename.rstrip('/'))
             if stat.S_ISLNK(info.external_attr >> 16):
                 raise ValueError('ZIP symlinks are unsupported')
             total += info.file_size
             if total > LIMIT:
                 raise ValueError('Proof card exceeds 32 MiB')
+            if wrapped:
+                if info.filename == 'cpmcard/':
+                    continue
+                if not info.filename.startswith('cpmcard/'):
+                    raise ValueError('Card ZIP entries must all be inside cpmcard/')
+                name = card_path(info.filename[len('cpmcard/'):].rstrip('/'))
             if info.is_dir():
                 directories.append(name)
             else:
                 files[name] = base64.b64encode(archive.read(info)).decode('ascii')
     if 'A/0' not in directories and not any(n.startswith('A/0/') for n in files):
-        raise ValueError('ZIP must contain A/0 at its root')
+        raise ValueError('ZIP must contain cpmcard/A/0/ (or legacy A/0/)')
     return {'directories': directories, 'files': files}
 
 
@@ -77,14 +85,15 @@ def pack(card):
     if len(entries) > 10000:
         raise ValueError('Too many card entries')
     with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr('cpmcard/', b'')
         for name in card['directories']:
-            archive.writestr(card_path(name) + '/', b'')
+            archive.writestr('cpmcard/' + card_path(name) + '/', b'')
         for name, encoded in card['files'].items():
             value = base64.b64decode(encoded, validate=True)
             total += len(value)
             if total > LIMIT:
                 raise ValueError('Proof card exceeds 32 MiB')
-            archive.writestr(card_path(name), value)
+            archive.writestr('cpmcard/' + card_path(name), value)
     return out.getvalue()
 
 

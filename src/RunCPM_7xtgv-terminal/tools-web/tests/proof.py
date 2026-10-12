@@ -127,9 +127,9 @@ async def run_case(browser, root, name, card, mode='commands'):
                 await (await download.value).save_as(session / 'download.zip')
                 assert (session / 'download.zip').read_bytes() == (session / 'exported-card.zip').read_bytes()
                 with zipfile.ZipFile(session / 'download.zip') as z:
-                    assert z.read('A/0/PUN.TXT') == b'X'
-                    assert z.read('A/0/7XTGVTRM.BUF')
-                    assert len(z.read('A/0/VTDRV.$$$')) == 32768
+                    assert z.read('cpmcard/A/0/PUN.TXT') == b'X'
+                    assert z.read('cpmcard/A/0/7XTGVTRM.BUF')
+                    assert len(z.read('cpmcard/A/0/VTDRV.$$$')) == 32768
                 print(name, 'downloaded ZIP contains guest writes and history PASS', flush=True)
             await page.close()
             page = None

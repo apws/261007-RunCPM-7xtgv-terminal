@@ -90,7 +90,7 @@ async def main():
             await page.click('#stop'); await page.wait_for_function('xtgvWeb.phase === "stopped"',timeout=30000)
             async with page.expect_download() as d: await page.click('#export')
             await (await d.value).save_as(root/'retained.zip')
-            with zipfile.ZipFile(root/'retained.zip') as z: assert z.read('A/0/PUN.TXT') == b'X'
+            with zipfile.ZipFile(root/'retained.zip') as z: assert z.read('cpmcard/A/0/PUN.TXT') == b'X'
             # Selection from stopped state also uses the retained card.
             await page.select_option('#target',profiles[0]['target']); await page.click('#switch-target'); await until('A0>')
             await command('DIR PUN.TXT','PUN')

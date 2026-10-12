@@ -1505,6 +1505,12 @@ display clicks losing keyboard focus and captures input automatically after
 boot/restart; real-pointer Chromium checks pass.
 a|link:../docs/261012-1712%20DONE%20Shared%20browser%20runtime%20with%20selectable%20display%20targets.adoc[Shared browser target checkpoint]
 
+|`++261012-1739++`
+a|Browser card ZIPs now contain a top-level `cpmcard/` directory. Upload also
+accepts older flat-root exports. Binary/empty-directory and browser card
+round-trip checks pass; runtime filesystem paths are unchanged.
+a|link:../src/RunCPM_7xtgv-terminal/tools-web/README.adoc[Browser card ZIP layout]
+
 |===
 
 == Command and catalog name lineage

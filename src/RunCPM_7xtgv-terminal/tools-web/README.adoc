@@ -123,7 +123,9 @@ block layer, host filesystem passthrough or automatic persistence is involved.
 ./desktop-local.sh --card-zip /path/to/cpmcard-web.zip
 ----
 
-ZIP roots must contain `A/0/`, without an enclosing `cpmcard/` directory. The
+Downloaded ZIPs contain one top-level `cpmcard/` folder, with `A/0/` and the
+other card contents inside it. Upload accepts this layout and earlier ZIPs
+with `A/0/` directly at the archive root. Mixed roots are rejected. The
 browser limits compressed and expanded cards to 32 MiB and 10,000 entries;
 invalid paths, duplicate entries and file/directory conflicts are rejected.
 Browser ZIP entries are materialized as regular files/directories, not symlinks.

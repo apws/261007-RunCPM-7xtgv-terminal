@@ -18,17 +18,23 @@ export function unpackCard(bytes) {
         if (names.has(name)) throw Error('Duplicate card path: ' + name);
         names.add(name);
         total += info.originalSize;
-        if (++count > ENTRY_LIMIT || total > CARD_LIMIT) throw Error('Card exceeds 32 MiB or 10000 entries.');
+        if (info.name !== 'cpmcard/') ++count;
+        if (count > ENTRY_LIMIT || total > CARD_LIMIT) throw Error('Card exceeds 32 MiB or 10000 entries.');
         return true;
     }});
     const directories = [], files = Object.create(null);
+    // Keep accepting earlier exports with A/0 directly at the ZIP root.
+    const wrapped = Object.keys(entries).some(name => name.startsWith('cpmcard/'));
     for (const [name, bytes] of Object.entries(entries)) {
-        const path = pathName(name);
+        if (wrapped && name === 'cpmcard/') continue;
+        if (wrapped && !name.startsWith('cpmcard/'))
+            throw Error('Card ZIP entries must all be inside cpmcard/.');
+        const path = pathName(wrapped ? name.slice('cpmcard/'.length) : name);
         if (name.endsWith('/')) directories.push(path);
         else files[path] = bytes;
     }
     if (!directories.includes('A/0') && !Object.keys(files).some(n => n.startsWith('A/0/')))
-        throw Error('Card ZIP must contain A/0 at its root.');
+        throw Error('Card ZIP must contain cpmcard/A/0/ (or legacy A/0/).');
     // Detect file/directory conflicts before touching a running filesystem.
     const all = [...directories, ...Object.keys(files)];
     for (const name of all) {
@@ -71,7 +77,8 @@ export function snapshotCard(FS) {
 }
 export function packCard(card) {
     const entries = Object.create(null);
-    for (const name of card.directories) entries[pathName(name) + '/'] = new Uint8Array();
-    for (const [name, bytes] of Object.entries(card.files)) entries[pathName(name)] = bytes;
+    entries['cpmcard/'] = new Uint8Array();
+    for (const name of card.directories) entries['cpmcard/' + pathName(name) + '/'] = new Uint8Array();
+    for (const [name, bytes] of Object.entries(card.files)) entries['cpmcard/' + pathName(name)] = bytes;
     return new Blob([zipSync(entries, {level: 1})], {type: 'application/zip'});
 }

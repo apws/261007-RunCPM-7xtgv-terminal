@@ -94,3 +94,18 @@ C++ rebuild. A fresh corrected page leaves older volatile sessions untouched.
 Petr confirmed the keyboard-focus correction with "yes, good now :-)" and
 then authorized commit/push. This confirms focus behavior in the current
 interactive setup; it does not add a separate all-target manual test report.
+
+
+== Card ZIP root follow-up (261012-1739)
+
+Petr requested a top-level `cpmcard/` directory in uploaded/downloaded ZIPs.
+Browser exports and packaged preload cards now use `cpmcard/A/0/...`; import
+also accepts earlier flat-root exports. Mixed roots are rejected. The retained
+native-mirror proof uses the same layout. Runtime MEMFS paths stay unchanged.
+
+Browser export/import, guest-write retention and offline export pass in
+`desktop-web/sessions/standalone-proof-uvoifr5c/`. Module checks cover binary
+bytes, empty directories, legacy imports, absent explicit root-directory entries,
+mixed roots and invalid paths; Python pack/unpack and preload checks pass.
+Petr accepted the ZIP layout and authorized a separate commit/push after
+`5fe9c47`.

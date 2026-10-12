@@ -22,12 +22,13 @@ def pack_card(root, output):
     if not (root / 'A/0').is_dir():
         raise ValueError('Card must contain A/0')
     with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr('cpmcard/', b'')
         for folder, dirs, files in os.walk(root, followlinks=False):
             dirs[:] = sorted(d for d in dirs if d not in ('private', '.7xtgv-desktop-lock')
                              and not (Path(folder) / d).is_symlink())
             relative = Path(folder).relative_to(root)
             if relative.parts:
-                archive.writestr(relative.as_posix() + '/', b'')
+                archive.writestr('cpmcard/' + relative.as_posix() + '/', b'')
                 count += 1
             for name in sorted(files):
                 path = Path(folder) / name
@@ -38,7 +39,7 @@ def pack_card(root, output):
                 count += 1
                 if total > 32 * 1024 * 1024 or count > 10000:
                     raise ValueError('Card exceeds 32 MiB / 10000 entries')
-                archive.writestr((relative / name).as_posix(), data)
+                archive.writestr('cpmcard/' + (relative / name).as_posix(), data)
 
 
 def package(output, card_root=None, card_zip=None):
