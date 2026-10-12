@@ -1,0 +1,72 @@
+= GitHub Pages package and manual deployment
+:source-highlighter: highlight.js
+:toc:
+
+The shared six-display browser runtime now has a separate static publishing
+target. Local Pages-style Chromium acceptance passes; live GitHub deployment
+has not been enabled or tested. The earlier launcher documentation was
+committed separately as `fc1bdf4`.
+
+== Sources and artifacts
+
+`tools-web/pages-package.sh` calls `pages.py` to generate
+`build/RunCPM_7xtgv-terminal/desktop-web/pages/`. Readable JS sources remain in
+`tools-web/web/pages-start.js` and `pages-worker.js`; generated files stay
+ignored. The native/local browser launchers and C++ sources are unchanged.
+
+The card is read from Git objects at `HEAD`, never from the dirty working card.
+INI/BUF are the committed versions. Empty A–P/0–F directories are reconstructed;
+private directories and runtime locks are excluded. The package contains the
+whole committed card, runtime/frontend files and license notices. SHA-256
+values and the card commit are recorded in `package.json`.
+
+The preview serves a disposable package copy under a URL subpath without
+COOP/COEP headers. The first visit installs a scoped service worker, then
+reloads once before creating the guest. The worker adds isolation headers
+without caching files or card data. Updates do not use `skipWaiting` or trigger
+guest reloads. Blocked isolation fails visibly before runtime startup.
+
+== Deployment and verification boundary
+
+`.github/workflows/pages.yml` has only `workflow_dispatch`. It installs
+Emscripten 6.0.12 and the existing checksum-verified GFX 1.6.4 dependency,
+builds the shared runtime, packages the selected checkout's card and runs the
+Pages Chromium proof before uploading/deploying the generated folder. The
+existing GFX installer function is reused with an explicit web dependency
+destination; it does not invoke the Windows setup/build entry point.
+
+GitHub Pages must first be configured to use Actions. No repository settings,
+workflow dispatch, public deployment or card publication were performed for
+this checkpoint. The Pages API returned HTTP 404 at the configuration check.
+The workflow is source-reviewed, not a successful GitHub-hosted run.
+
+The canonical link:../src/RunCPM_7xtgv-terminal/tools-web/README.adoc#github-pages[tooling instructions]
+describe packaging, preview, published contents and deployment steps.
+
+== Checks
+
+[loweralpha]
+. Committed INI/BUF match the preload ZIP byte-for-byte; all DU directories
+  exist and no private paths are included. Working card changes remain untouched.
+. Headerless hosting at `/repository/` completes the first-visit reload,
+  enters cross-origin isolation, starts the actual Wasm pthread runtime and
+  accepts `DIR`. Query parameters survive startup (the app normalizes the
+  display ID to its canonical target name).
+. Target switching works; a returning visit boots without an extra reload.
+  A deliberately changed worker waits while the guest remains running.
+. Blocking service workers produces a visible timeout with no guest started.
+  No page JavaScript errors occurred in the successful path.
+
+The shared Emscripten rebuild completed successfully. Final evidence is in
+`desktop-web/sessions/pages-proof-miondqy4/`, with `PASS` and `pages.png`.
+Python/shell/JS syntax, feature-registry and whitespace checks pass; this
+record and the tooling README render successfully as HTML.
+The package is approximately 2.3 MiB
+at this checkpoint. Linux Chromium is the tested browser; HTTPS GitHub
+hosting and other browser/platform service-worker policies remain separate
+acceptance points.
+
+Reference: https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages[GitHub custom Pages workflows].
+The header-injection approach is also demonstrated by
+https://github.com/gzuidhof/coi-serviceworker[coi-serviceworker]; our small
+implementation deliberately waits on updates to protect volatile guest state.

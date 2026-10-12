@@ -32,6 +32,8 @@ displays. Use the common `tools-web/desktop-local.sh` launcher, then select the
 target inside the page. Keyboard input, text/image copying and card ZIP
 import/export are built in; no external terminal is needed. See the linked
 README for web setup, rebuilding and hosting requirements.
+An optional link:src/RunCPM_7xtgv-terminal/tools-web/README.adoc#github-pages[GitHub Pages package and manual deployment workflow]
+publishes the same standalone page with a committed card snapshot.
 
 The same board definitions drive hardware and desktop: display geometry,
 zoom/pan, palettes, profiles, rendering policy and backlight controls.

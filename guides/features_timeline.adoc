@@ -1511,6 +1511,13 @@ accepts older flat-root exports. Binary/empty-directory and browser card
 round-trip checks pass; runtime filesystem paths are unchanged.
 a|link:../src/RunCPM_7xtgv-terminal/tools-web/README.adoc[Browser card ZIP layout]
 
+|`++261012-1812++`
+a|Added a separate GitHub Pages package from the committed card, with a scoped
+isolation worker and manual build/test/deploy workflow. Headerless local
+Chromium boot, input, target switching and safe worker updates pass.
+Live GitHub deployment remains pending.
+a|link:../docs/261012-1812%20DONE%20GitHub%20Pages%20package%20and%20manual%20deployment.adoc[Pages checkpoint]
+
 |===
 
 == Command and catalog name lineage

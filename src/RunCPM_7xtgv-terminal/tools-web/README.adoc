@@ -163,6 +163,69 @@ Input, snapshots and ZIP export work without the server after assets have
 loaded. A fresh runtime/reload may fetch Wasm/glue again, so this is not an
 installed offline application or a service-worker cache.
 
+[[github-pages]]
+=== GitHub Pages package
+
+After the normal setup and shared rebuild, run from `tools-web/`:
+
+[source,bash]
+----
+./pages-package.sh
+./pages-preview.sh
+----
+
+The deployable files are in
+`build/RunCPM_7xtgv-terminal/desktop-web/pages/`, outside Git. Packaging replaces
+that generated folder. Preview serves its own immutable copy under `/preview/`
+and deliberately omits isolation headers, to exercise the Pages startup path.
+Use `--no-open` to print the URL without opening a browser.
+
+The preload ZIP comes from *committed* `cpmcard/` at Git `HEAD`, including its
+committed INI/history; uncommitted card changes are not published. All drive/user
+directories A–P/0–F are created in the ZIP, including empty ones Git cannot
+store. Directories named `private` and runtime card locks are excluded.
+`package.json` records the card commit and every packaged file's SHA-256.
+Local packaging uses the current frontend and previously built Wasm; rebuild
+first after C++ changes. CI builds everything from its selected checkout.
+
+Pages cannot set our required response headers. A small, readable service
+worker adds them to responses within this site's path. On the first visit,
+the page installs it and reloads once *before* loading Wasm or creating the
+guest card. Returning visits normally boot directly. A worker update waits
+for existing tabs to close; it never forces a running guest to reload.
+HTTPS and service-worker/SharedArrayBuffer support are required. Browser modes
+that block these facilities show a startup error. There is no service-worker
+asset cache, automatic card persistence or upload to the server: download a
+changed card before closing or refreshing the page.
+
+==== Deployment
+
+The repository workflow `.github/workflows/pages.yml` is manual-only:
+
+. Commit and push the intended source/card revision.
+. Once, in GitHub *Settings → Pages → Build and deployment*, choose
+  *GitHub Actions* as the source.
+. In *Actions → Browser emulator Pages → Run workflow*, select `main` (or
+  another revision permitted by the `github-pages` environment).
+. The workflow installs the pinned SDK and verified Arduino_GFX 1.6.4,
+  rebuilds the shared runtime, packages the card and runs the headerless
+  Chromium proof. Only a successful build/test proceeds to deployment.
+
+Only `desktop-web/pages/` is uploaded as the Pages artifact. The SDK, build
+logs, test sessions, local files and the rest of the repository are not part of
+the deployed site. Generated binaries stay out of Git; no `gh-pages` branch
+or generated site in the repository's `docs/` is needed. The public download
+does include all committed card files, alongside runtime/frontend assets and
+license notices. Loading a private ZIP in the page remains browser-local.
+
+The deployment job reports the final URL, expected for this repository to be
+`https://apws.github.io/261007-RunCPM-7xtgv-terminal/` unless a custom domain is
+configured. Local packaging/preview never enables Pages or publishes anything.
+The workflow is prepared; live GitHub deployment remains unverified until run.
+
+See GitHub's https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages[custom Pages workflow documentation]
+and the link:../../../docs/261012-1812%20DONE%20GitHub%20Pages%20package%20and%20manual%20deployment.adoc[implementation checkpoint].
+
 == Retained native-mirror proof
 
 [source,bash]
@@ -194,6 +257,11 @@ build/RunCPM_7xtgv-terminal/desktop-web/_deps/venv/bin/python \
 # Retained native-mirror proof:
 build/RunCPM_7xtgv-terminal/desktop-web/_deps/venv/bin/python \
   src/RunCPM_7xtgv-terminal/tools-web/tests/proof.py
+
+# Pages package and headerless-host proof:
+src/RunCPM_7xtgv-terminal/tools-web/pages-package.sh
+build/RunCPM_7xtgv-terminal/desktop-web/_deps/venv/bin/python \
+  src/RunCPM_7xtgv-terminal/tools-web/tests/pages_host.py
 ----
 
 Tests use disposable cards and installed `/usr/bin/chromium`. Evidence stays in
