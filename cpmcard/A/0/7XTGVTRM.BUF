@@ -1,28 +1,5 @@
 # 7xtgv terminal history v2
 [0]
->ll .. 
->cd 7xtgv
->dir
->ll
->ls
->dir
->ldir
->dir
->ll
->type dir.7xf
->dir
->ll
->cd /b
->ll ..
->cd bbcbasic
->dir
->bbclower
->load "prog"
->list
->bbclower 
->cd tp
->turbo
->dir
 >ll
 >prog
 >turbo 
@@ -80,8 +57,6 @@
 >vtinfo
 >dir
 >7xf
->[1exit
->;;;;111++
 >cls
 >cd xterm256 
 >cd /c/xterm256
@@ -100,6 +75,30 @@
 >vtdrv rw
 >wxit
 >exit
+>cls
+>7xf
+>cd /b/mbasic
+>mbasic vtests
+>mbasic 
+>exit
+>dir
+>vtdrv rw
+>reboot
+>dir
+>vtdrv rw
+>exit
+>vtdrv rw
+>exit
+>vtdrv rw
+>exit
+>vtdrv rw
+>exit
+>vtdrv rw
+>exit
+>vtpal 1 
+>vtpal 0 
+>vtpal 1 
+>vtinfo
 [1]
 >Enter returns to menu:5
 >Select:5
@@ -739,4 +738,4 @@
 >1_terminal=132x48
 >zoom2_terminal=80x24
 >zoom3_terminal=44x16
-# crc32=1D13584E
+# crc32=EB232476
