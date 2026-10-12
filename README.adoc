@@ -26,11 +26,12 @@ image::guides/images/desktop-xterm256.png[CP/M Mandelbrot graphics in the ES3_5 
 The ES3_5 board configuration running a CP/M xterm-256 Mandelbrot demo on desktop.
 |===
 
-An experimental link:src/RunCPM_7xtgv-terminal/tools-web/README.adoc[browser ES3_35 version]
-also runs the C++ terminal and RunCPM in WebAssembly, with browser keyboard
-input, text/image copying and card ZIP import/export. This fixed-target route
-has Linux Chromium checks; runtime board profiles and other-host acceptance
-remain separate from the native Linux/Windows desktop support.
+The experimental link:src/RunCPM_7xtgv-terminal/tools-web/README.adoc[browser version]
+runs the C++ terminal and RunCPM in one shared WebAssembly build for all six
+displays. Use the common `tools-web/desktop-local.sh` launcher, then select the
+target inside the page. Keyboard input, text/image copying and card ZIP
+import/export are built in; no external terminal is needed. See the linked
+README for web setup, rebuilding and hosting requirements.
 
 The same board definitions drive hardware and desktop: display geometry,
 zoom/pan, palettes, profiles, rendering policy and backlight controls.

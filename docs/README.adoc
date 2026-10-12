@@ -21,7 +21,7 @@ they are not the current setup procedure.
 
 * link:261012-1347%20PLAN%20Standalone%20browser%20input%20and%20screen%20snapshots.adoc[Standalone browser frontend plan]: isolated JavaScript keyboard module over the existing byte/CSI protocol, frozen text/image snapshots, integer canvas scaling and browser-local card ZIP handling; bounded ES3_35 implementation recorded above.
 
-* link:261012-1326%20CHAT%20Self-contained%20browser%20application%20after%20Wasm%20proof.adoc[Self-contained browser direction]: target selection, browser-local input, card ZIP handling and optional display windows; discussion after the accepted proof, not implemented.
+* link:261012-1326%20CHAT%20Self-contained%20browser%20application%20after%20Wasm%20proof.adoc[Self-contained browser direction]: target selection, browser-local input, card ZIP handling and optional display windows; discussion after the accepted proof; standalone input and target selection are implemented in the checkpoints above.
 
 * link:261012-1251%20DONE%20Browser%20Wasm%20ES3_35%20proof%20with%20native%20mirror.adoc[Browser Wasm proof]: fixed ES3_35, original C++ runtime, passive browser canvas, native Linux mirror and volatile MEMFS card with ZIP import/export; generic profiles are implemented in the shared-target checkpoint above.
 

@@ -20,6 +20,17 @@ link:features_timeline.adoc[Features Timeline].
 [[ug-getting-started]]
 == 1. Getting started
 
+[[browser-session]]
+=== Start a browser session
+
+Launch `src/RunCPM_7xtgv-terminal/tools-web/desktop-local.sh` after the
+link:../src/RunCPM_7xtgv-terminal/tools-web/README.adoc[browser setup and build].
+Choose *Target*, then *Switch target*; switching restarts RunCPM with the current
+memory card. Keyboard input starts automatically; clicking the display restores
+it after using page controls. *Screen text* and *Copy image* provide snapshots.
+Use *Stop*, then *Download card ZIP* to keep changes: closing or reloading the
+page discards its memory card. ZIP contents are rooted at `cpmcard/`.
+
 [[starting-the-pc-mirror]]
 === Start a desktop or hardware session
 

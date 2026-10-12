@@ -15,6 +15,11 @@ The matching commands are `desktop-rebuild`, `desktop-local` and `desktop-card`.
 CP/M commands and terminal INI settings are shared; host mirror/transport and
 some launcher options differ. Hardware build/upload is the Linux workflow.
 
+The experimental link:../src/RunCPM_7xtgv-terminal/tools-web/README.adoc[browser route]
+uses one shared build and the common `tools-web/desktop-local.sh` launcher.
+Select any of the six display targets inside the page; keyboard input and
+card ZIP handling are integrated.
+
 This terminal implements a selected ANSI/VT100 and VT52 subset as a testbed
 for the primary *7xtgv-native* engine objective; the native engine is not yet
 implemented. The selected card's live `A0:7XTGVTRM.INI` and history may differ

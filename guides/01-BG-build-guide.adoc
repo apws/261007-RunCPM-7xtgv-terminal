@@ -19,6 +19,12 @@ Both hosts use the same desktop command names: `desktop-rebuild`,
 Choose the host-specific setup below. Hardware build/upload uses Linux tooling;
 macOS and WSL launch paths remain unvalidated.
 
+For the experimental browser build, follow the separate
+link:../src/RunCPM_7xtgv-terminal/tools-web/README.adoc[tools-web setup and launch instructions].
+Its common `setup.sh`, `desktop-rebuild.sh` and `desktop-local.sh` build/launch
+one Wasm runtime; target selection happens in the page. The native board-folder
+workflow below does not apply to that browser route.
+
 [[quick-start]]
 == 1. Getting started
 

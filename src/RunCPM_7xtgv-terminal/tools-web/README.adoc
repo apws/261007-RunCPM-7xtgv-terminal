@@ -26,12 +26,17 @@ From `tools-web/`:
 ----
 ./setup.sh
 ./desktop-rebuild.sh
-./desktop-local.sh --target ES3_35 --window-scale 2
+./desktop-local.sh
 ----
 
-The existing `targets/ES3_35 -- jc8048w535/` directory contains wrappers with the
-same launcher names; all profiles share the rebuild. Rebuild and launch remain separate; neither builds nor
-uploads MCU firmware. Launch snapshots the source card without writing it.
+These are the common entry points for every display: build once, launch once,
+then choose targets inside the page. `desktop-local.sh` initially selects ES3_35
+at 2x; optional `--target DISPLAY_ID` and `--window-scale N` override those defaults.
+The earlier `targets/ES3_35 -- jc8048w535/` wrappers remain compatibility aliases
+for these same scripts; no board-specific web build is needed.
+
+Rebuild and launch remain separate; neither builds nor uploads MCU firmware.
+Launch snapshots the source card without writing it.
 
 `setup.sh` installs Emscripten 6.0.12 and a Python environment under
 `build/RunCPM_7xtgv-terminal/desktop-web/_deps/`, not globally. Its aiohttp and
@@ -200,13 +205,15 @@ link:../../../docs/261012-1347%20PLAN%20Standalone%20browser%20input%20and%20scr
 and the
 link:../../../docs/261012-1251%20DONE%20Browser%20Wasm%20ES3_35%20proof%20with%20native%20mirror.adoc[original proof checkpoint].
 
-Current implementation and evidence: link:../../../docs/261012-1602%20DONE%20Standalone%20browser%20input%20snapshots%20and%20card%20ZIPs.adoc[standalone browser checkpoint].
+Current implementation and evidence: link:../../../docs/261012-1712%20DONE%20Shared%20browser%20runtime%20with%20selectable%20display%20targets.adoc[shared targets, keyboard focus and card ZIP checkpoint].
 
 Additional focused checks (from repository root):
 
 [source,bash]
 ----
 node src/RunCPM_7xtgv-terminal/tools-web/tests/modules.mjs
+build/RunCPM_7xtgv-terminal/desktop-web/_deps/venv/bin/python \
+  src/RunCPM_7xtgv-terminal/tools-web/tests/profiles.py
 build/RunCPM_7xtgv-terminal/desktop-web/_deps/venv/bin/python \
   src/RunCPM_7xtgv-terminal/tools-web/tests/input_edges.py
 ----
