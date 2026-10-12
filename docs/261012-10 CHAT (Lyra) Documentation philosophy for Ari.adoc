@@ -1,0 +1,82 @@
+= 261012-10 CHAT (Lyra): Documentation Philosophy for Ari
+:toc:
+:toclevels: 2
+
+*Project:* RunCPM 7xtgv-terminal  
+*Date:* 2026-10-12  
+*Type:* CHAT / discussion and recommendations, not an approved implementation plan  
+*From:* Lyra, following discussion with Petr  
+*For:* Ari and future project contributors
+
+== Context
+
+Petr values good technical documentation, particularly a short quick start followed by progressively deeper user, reference, and technical material. His concern is that AI-assisted writing makes it too easy to produce excessively long, repetitive guides. The aim is *as compact as possible, but not more*: preserve useful details, not prose for its own sake.
+
+The dated development records serve a different purpose: documenting exploration, tests, mistakes, decisions, changes of direction, and the actual development process. They should not be evaluated by the same concision criterion as user-facing guides.
+
+== Three different sources of knowledge
+
+[cols="1,2,2",options="header"]
+|===
+|Question |Primary evidence |Documentation responsibility
+|What does the current implementation do? |Code, live configuration, build definitions, and tests |Explain where necessary for readers; avoid maintaining redundant prose inventories
+|What is it *intended* to do? |Specifications, invariants, architectural boundaries, explicit decisions |Preserve clearly and independently of code
+|Why is it this way? |Dated conversations, experiments, measurements, rejected approaches |Preserve historical context without retroactively rewriting it
+|===
+
+Source code is strong evidence of implemented behavior, *not* automatic proof of intended behavior: it can contain bugs, dead branches, obsolete comments, and accidental behavior. Tests are useful evidence but may be incomplete.
+
+== Assessment of the present document structure
+
+The existing separation is sensible and need not be reorganized merely to reduce the count of documents:
+
+* `README.adoc`: inviting, short project orientation and a practical entrance.
+* `guides/01-BG-build-guide.adoc`: setup, first build/run, platform-specific recovery.
+* `guides/02-UG-user-guide.adoc`: task-oriented everyday use, preferably economical and example-driven.
+* `guides/03-RG-reference-guide.adoc`: exact user-visible syntax, commands, controls, and settings; detail is legitimate here.
+* `guides/04-TRG-technical-reference-guide.adoc`: architecture, ownership, interfaces, constraints, provenance and integration boundaries.
+* `guides/05-TG-tooling-guide.adoc`: developer-tooling and workflow map; revisit overlaps only where maintenance becomes burdensome.
+* `guides/06-HG-history-guide.adoc`: Petr's intended personal project account; leave authorship and voice to Petr.
+* `docs/` dated records: development evidence, including ideas later superseded; preserve as historical material.
+
+These are *different audiences*, not six books that must all repeat the same explanation.
+
+== Suggested writing policy
+
+. Prefer *short, executable first steps* before explanatory detail. A new visitor should be able to find the minimum reliable route to a first successful run.
+. Say a fact *once in its authoritative location*. Elsewhere give a brief reminder and link, unless a small amount of duplication materially helps a reader complete a task.
+. Before adding text, ask whether the fact can be read directly and reliably from source, configuration, test output, or an existing canonical reference.
+. Describe decisions, reasons, invariants, caveats, and safety boundaries explicitly: these are often *not* reconstructible from code alone.
+. Favor tables, short examples, and precise commands where they communicate better than paragraphs. Avoid unnecessary preambles and repeated caveats.
+. Do not omit critical limitations simply for brevity. Preserve platform differences, unsupported features, verification status, and hazards at their points of use.
+. Maintain a visible distinction between *currently implemented*, *planned*, *experimental*, and *historical* behavior, especially for the proposed native 7xtgv architecture versus today's RunCPM/ANSI/VT testbed.
+. Do not treat each feature change as a reason to expand every guide. Update the one authoritative section and adjust links or minimal summaries elsewhere.
+. Where worthwhile, prefer generated or test-checked inventories over manually synchronized lists of constants, defaults, command names, and supported options.
+. Avoid documentation-polishing loops with little reader benefit. Prioritize verified correctness and clarity over exhaustive coverage or stylistic uniformity.
+
+== A small test for any new paragraph
+
+Before keeping it, ask:
+
+* Who needs this, and *what will they do* with it?
+* Is it telling them something the surrounding text already says?
+* Is it documenting *current behavior*, *design intent*, or *history*? Is that role clear?
+* Does it belong here, or should this location link to the canonical explanation?
+* Can it be shortened without losing an operational detail or an important qualification?
+
+If a paragraph fails all of these questions, it probably does not belong in the guide.
+
+== Important distinctions for Ari
+
+* *Conciseness is not deletion of knowledge.* Redundant guide prose can be reduced while authoritative technical evidence remains accessible.
+* *Documentation is not the specification by default.* If code and a guide disagree, investigate: the code may be wrong, the guide may be stale, or intended behavior may have changed.
+* *Historical documents should not be silently normalized.* Their value is that they show what was believed, tested, and decided at the time. A later correction or cross-reference is better than erasing the old context.
+* *No sweeping rewrite is requested here.* This is a writing and review principle for future edits, not permission to shorten guides indiscriminately, relocate files, or delete reports.
+
+== Closing thought
+
+The ideal repository is not the largest collection of polished manuals. It combines *verifiable implementation facts*, *explicit design intentions*, *preserved historical evidence*, and *a pleasant, concise human entrance*.
+
+In practical terms: protect the Quick Start, protect architectural intent, protect the history -- and be suspicious of verbose duplicate explanations in between.
+
+-- Lyra, 2026-10-12
