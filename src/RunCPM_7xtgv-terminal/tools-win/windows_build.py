@@ -19,6 +19,7 @@ SKETCH = HERE.parent
 REPO = SKETCH.parents[1]
 sys.path.insert(0, str(SKETCH / 'desktop'))
 from desktop import target_name, TARGETS
+from build_progress import run_build
 from target_config import optimization_level
 from shortcut_log import shortcut_log, append_log
 
@@ -162,32 +163,35 @@ def build(args):
     log_path = directory / 'build.log'
     print(f'Desktop module: {TARGETS[args.target]["display_id"]} ({args.target})', flush=True)
     print(f'Optimization: -{level}', flush=True)
-    print(f'Build details: {native_path(log_path)}', flush=True)
     # UCRT64 first also supplies compiler/SDL transitive DLL dependencies.
     environment = os.environ.copy()
     environment['PATH'] = '/ucrt64/bin:/usr/bin:' + environment.get('PATH', '')
     environment['MSYS2_ARG_CONV_EXCL'] = '*'
     try:
         with log_path.open('w', encoding='utf-8') as log:
+            log.write(f'Build directory: {native_path(directory)}\n')
             for section, command in zip(('CONFIGURE', 'BUILD'), commands):
-                print('Configuring desktop ...' if section == 'CONFIGURE' else 'Building desktop ...', flush=True)
                 log.write(f'\n*** {section} ***\n{command!r}\n'); log.flush()
-                subprocess.run(command, env=environment, stdout=log,
-                               stderr=subprocess.STDOUT, check=True)
+                if section == 'BUILD':
+                    run_build(command, log, env=environment)
+                else:
+                    print('Configuring desktop ...', flush=True)
+                    subprocess.run(command, env=environment, stdout=log,
+                                   stderr=subprocess.STDOUT, check=True)
             print("Staging runtime DLLs ...", flush=True)
             count = stage_runtime(directory, Path('/ucrt64/bin'),
                                   system,
                                   Path('/ucrt64/bin/objdump.exe'), environment, log)
     except subprocess.CalledProcessError as error:
-        raise RuntimeError(f'Windows build failed; see {log_path}') from error
+        hint = host_path(args.log).name if getattr(args, 'log', None) else str(log_path)
+        raise RuntimeError(f'Windows build failed; see {hint}') from error
     finally:
         if getattr(args, 'log', None):
             adjacent = host_path(args.log)
             if adjacent.resolve() != log_path.resolve():
                 append_log(adjacent, '\n*** BUILD DETAILS ***\n' + log_path.read_text(encoding='utf-8', errors='replace'))
     print('Building desktop: OK', flush=True)
-    print(f'Built: {native_path(directory / "xtgv_desktop.exe")}')
-    print(f'Copied {count} runtime DLLs beside the executables.')
+    print(f'Runtime DLLs: {count} ready.')
     print('Ready for desktop-local.cmd or desktop-card.cmd; launch is separate.')
 
 
@@ -210,7 +214,7 @@ def main():
             if args.jobs < 1:
                 raise RuntimeError('--jobs must be positive')
             with shortcut_log(host_path(args.log) if args.log else None):
-                if args.log: print(f'Log: {native_path(host_path(args.log))}', flush=True)
+                if args.log: print(f'Log: {host_path(args.log).name}', flush=True)
                 build(args)
     except (OSError, RuntimeError, ValueError, zipfile.BadZipFile, subprocess.CalledProcessError) as error:
         parser.exit(1, f'{error}\n')

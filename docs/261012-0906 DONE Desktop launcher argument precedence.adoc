@@ -1,0 +1,30 @@
+= Desktop launcher argument precedence
+:source-highlighter: highlight.js
+
+== Correction
+
+The user reported that EC6_147 desktop-local.sh ignored an explicit
+--window-scale. The wrapper appended its configured --window-scale 2 after
+"$@", so argparse took the later default instead of the caller's value.
+
+Move optional scale/card-root defaults before forwarded arguments. Preserve
+all configured values and fixed Linux target selection. The same issue was
+present in three Linux wrappers (EC6_147 local, ES3_35 local/card) and five
+Windows wrappers (EC6_147, ES3_35, RP2_147 and RP2_2 local, plus ES3_35 card).
+Windows CMD line endings remain CRLF. Other wrappers need no change.
+
+== Verification
+
+a. Actual Linux EC6_147 dry runs select scale 2 without an override and scale 3
+   with an explicit option; ES3_35 selects the requested scale 5.
+b. Shell syntax checks pass for all Linux desktop wrappers. Windows forwarding
+   order and CRLF were inspected; native CMD execution was not repeated.
+c. No emulator build/launch, card write or running-session change. Existing
+   launcher customizations are retained; explicit CLI values now take precedence.
+
+Before commit, Petr also sets the Linux RP2_147 and RP2_2 local launchers to
+default scale 2, before forwarded arguments. Those requested defaults are
+included with the launcher changes. A later EC6_147 launch failure was traced
+to its October 6 executable, which predates --window-scale; rebuilding that
+target is needed to use the existing source support. This is separate from
+argument precedence and does not require another parser change.

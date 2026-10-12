@@ -222,7 +222,11 @@ def launch(args, target, build):
     with (directory / 'mintty.log').open('wb') as log:
         subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=log,
                          stderr=subprocess.STDOUT, start_new_session=True, env=environment)
-    print(f'Card: {native_path(card)}\nSession logs: {native_path(directory)}', flush=True)
+    details = f'Card: {native_path(card)}\nSession logs: {native_path(directory)}\n'
+    if args.log:
+        append_log(args.log, details)
+    else:
+        print(details, end='', flush=True)
     deadline = time.monotonic() + 20
     while time.monotonic() < deadline:
         info = json.loads((directory / 'status.json').read_text(encoding='utf-8'))
@@ -238,7 +242,8 @@ def launch(args, target, build):
         if info['state'] == 'failed':
             raise RuntimeError(info['error'])
         time.sleep(.1)
-    raise RuntimeError(f'Mirror startup not confirmed. Inspect {directory / "mintty.log"} and owner.log.')
+    hint = args.log.name if args.log else str(directory / 'mintty.log')
+    raise RuntimeError(f'Mirror startup not confirmed. See {hint}.')
 
 
 def main():
@@ -260,14 +265,15 @@ def main():
     args.log = host_path(args.log) if args.log else None
     try:
         if not executable(build).is_file():
-            raise RuntimeError(f'Desktop executable missing; run desktop-rebuild.cmd first: {executable(build)}')
+            append_log(args.log, f'Missing executable: {executable(build)}\n')
+            raise RuntimeError('Desktop executable missing; run desktop-rebuild.cmd first.')
         if args.action == 'launch':
             if args.card_mode == 'card' and not args.card_root:
                 raise RuntimeError('desktop-card.cmd requires --card-root "DRIVE:\\path\\to\\card".')
             if args.card_mode == 'local' and args.card_root:
                 raise RuntimeError('Use desktop-card.cmd for an explicit card root.')
             with shortcut_log(args.log):
-                if args.log: print(f'Log: {native_path(args.log)}', flush=True)
+                if args.log: print(f'Log: {args.log.name}', flush=True)
                 return launch(args, target, build)
         if not directory or not args.card_root:
             parser.error('serve requires --session-dir and --card-root')

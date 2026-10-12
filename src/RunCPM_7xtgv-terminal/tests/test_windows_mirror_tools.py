@@ -19,6 +19,30 @@ from terminal import Keys, TransferPrompt
 
 
 class WindowsMirrorTools(unittest.TestCase):
+    def test_launch_paths_go_to_adjacent_log(self):
+        import argparse
+        import windows_run
+        with tempfile.TemporaryDirectory(prefix='launch with spaces ') as temp:
+            root = Path(temp)
+            (root/'cpmcard/A/0').mkdir(parents=True)
+            build = root/'build'; build.mkdir()
+            args = argparse.Namespace(card_root=None, card_mode='local', window_scale=2,
+                                      log=root/'desktop-local.log')
+            def started(command, **kwargs):
+                directory = Path(command[command.index('--session-dir') + 1])
+                windows_run.status(directory, 'running')
+            screen = io.StringIO()
+            with patch.object(windows_run, 'REPO', root), patch.object(windows_run, 'require_msys'), \
+                    patch.object(Path, 'is_file', return_value=True), \
+                    patch.object(windows_run, 'write_profile'), \
+                    patch.object(windows_run.subprocess, 'Popen', side_effect=started), \
+                    contextlib.redirect_stdout(screen):
+                windows_run.launch(args, 'jc8048w550', build)
+            self.assertNotIn(temp, screen.getvalue())
+            self.assertIn('Desktop and mirror: running.', screen.getvalue())
+            self.assertIn('Card: ' + str(root/'cpmcard'), args.log.read_text())
+            self.assertIn('Session logs: ' + str(build/'sessions'), args.log.read_text())
+
     def test_adjacent_transcript_preserves_bootstrap_and_records_failure(self):
         from shortcut_log import shortcut_log, append_log
         with tempfile.TemporaryDirectory() as temp:

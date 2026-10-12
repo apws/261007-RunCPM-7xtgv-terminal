@@ -25,6 +25,29 @@ def archive_bytes():
 
 
 class WindowsBuildTools(unittest.TestCase):
+    def test_build_progress_hides_paths_but_keeps_full_adjacent_log(self):
+        with tempfile.TemporaryDirectory(prefix='build with spaces ') as temp:
+            root = Path(temp)
+            args = argparse.Namespace(target='jc8048w550', gfx=temp, optimization='O2',
+                                      jobs=2, dry_run=False, log=str(root/'desktop-rebuild.log'))
+            commands = [[win.sys.executable, '-c', 'print("configured")'],
+                        [win.sys.executable, '-c', 'print("[1/2] compiler detail\\n[2/2] linked")']]
+            screen = io.StringIO()
+            with mock.patch.object(win, 'build_commands', return_value=(root/'build', commands)), \
+                    mock.patch.object(win, 'require_msys'), mock.patch.object(win, 'gfx_valid', return_value=True), \
+                    mock.patch.object(Path, 'is_file', return_value=True), \
+                    mock.patch.dict(win.os.environ, {'SystemRoot': str(root/'Windows')}), \
+                    mock.patch.object(win, 'stage_runtime', return_value=3), \
+                    contextlib.redirect_stdout(screen):
+                win.build(args)
+            self.assertNotIn(temp, screen.getvalue())
+            self.assertNotIn('compiler detail', screen.getvalue())
+            self.assertIn('100%', screen.getvalue())
+            self.assertIn('Building desktop: OK', screen.getvalue())
+            log = Path(args.log).read_text()
+            self.assertIn(str(root/'build'), log)
+            self.assertIn('compiler detail', log)
+
     def test_runtime_closure_refreshes_dlls_and_excludes_windows_libraries(self):
         with tempfile.TemporaryDirectory(prefix='runtime with spaces ') as temp:
             output, runtime, system = [Path(temp)/n for n in ('output', 'ucrt64', 'System32')]
@@ -82,7 +105,9 @@ class WindowsBuildTools(unittest.TestCase):
             self.assertNotIn(b'\n', body.replace(b'\r\n', b''))
             for mode in ('local', 'card'):
                 body = (folder / f'desktop-{mode}.cmd').read_bytes()
-                self.assertIn(f'launch --target {key} --card-mode {mode} %*'.encode(), body)
+                self.assertIn(f'launch --target {key} --card-mode {mode} '.encode(), body)
+                launch = next(line for line in body.splitlines() if b' launch ' in line)
+                self.assertTrue(launch.endswith(b'%*'), launch)
                 self.assertIn(b'"%~dp0..\\..\\windows.cmd"', body)
                 self.assertNotIn(b'\n', body.replace(b'\r\n', b''))
 

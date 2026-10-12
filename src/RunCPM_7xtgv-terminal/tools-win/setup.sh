@@ -23,4 +23,4 @@ printf '%s\n' 'First finish the MSYS2 system update described in README.adoc.' \
 pacman -S --needed "${xtgv_packages[@]}"
 /usr/bin/python3 "$xtgv_tools/windows_build.py" setup-gfx
 printf '%s\n' 'Setup complete. Choose targets/DISPLAY_ID -- target/desktop-rebuild.cmd.' \
-    'Current Windows build uses scripted input; interactive mirror launch is pending.'
+    'After a successful rebuild, run desktop-local.cmd in the same target folder.'

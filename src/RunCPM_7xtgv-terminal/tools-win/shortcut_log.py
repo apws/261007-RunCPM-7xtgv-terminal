@@ -31,6 +31,8 @@ def shortcut_log(path):
                 return len(text)
             def flush(self):
                 self.stream.flush(); log.flush()
+            def isatty(self):
+                return self.stream.isatty()
         with contextlib.redirect_stdout(Tee(sys.stdout)), contextlib.redirect_stderr(Tee(sys.stderr)):
             try:
                 yield

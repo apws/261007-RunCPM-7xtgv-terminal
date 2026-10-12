@@ -17,6 +17,7 @@ sys.path.insert(0, str(SKETCH / 'tools'))
 from target_mirror import mirror_command
 from target_config import OPTIMIZATION_LEVELS, optimization_level
 from desktop_card_lock import card_lock
+from build_progress import run_build
 TARGETS = {p.stem: json.loads(p.read_text()) for p in (SKETCH / 'tools/targets').glob('*.json')}
 
 def target_name(name):
@@ -36,12 +37,15 @@ def build(args, target):
          f'-DXTGV_OPTIMIZATION={optimization}'],
         ['cmake', '--build', str(directory), '-j2'],
     ]
-    if args.quiet: print('Building desktop ...', flush=True)
     print('Optimization: -' + optimization, flush=True)
     with (args.log or directory / 'build.log').open('w') as log:
         for section, command in zip(('CONFIGURE', 'BUILD'), commands):
             log.write('\n\n*** ' + section + ' ***\n' + repr(command) + '\n'); log.flush()
-            subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, check=True)
+            if section == 'BUILD':
+                run_build(command, log)
+            else:
+                print('Configuring desktop ...', flush=True)
+                subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, check=True)
     print('Building desktop: OK' if args.quiet else f"Built {TARGETS[target]['display_id']}: {directory}", flush=True)
     return directory
 

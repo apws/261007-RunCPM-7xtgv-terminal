@@ -1,0 +1,54 @@
+= Quiet desktop launchers and shared build progress
+:source-highlighter: highlight.js
+
+== User request and result
+
+Windows target rebuild/local/card commands should match the concise Linux
+workflow and stop printing full log/build/session paths. Both desktop hosts
+should show useful build progress while keeping compiler details in logs.
+
+The shared desktop/build_progress.py streams merged compiler output to the
+existing build log and reads Make percentage or Ninja completed/total status.
+An interactive terminal rewrites one percentage line; redirected output emits
+roughly five-percentage-point checkpoints. Ninja receives an explicit status
+format. Repeated or out-of-order status never moves the display backwards.
+100 percent is shown only after the build process exits successfully; an
+incremental no-op still completes normally. Percentages are build work items,
+not elapsed-time estimates. Configuration, long single compile/link steps and
+Windows DLL staging can have no intermediate percentage movement.
+
+Linux desktop.py and Windows windows_build.py use the same helper. Windows
+normal console output identifies only the adjacent log filename and short
+module/optimization/stage/result messages. Build paths stay in the compiler
+log and copied adjacent transcript; card and session paths stay in the launch
+transcript. Direct diagnostic launches without an adjacent log still show their
+session paths. The MSYS2 installation announcement is retained for setup and
+installation-selection diagnosis.
+
+The Windows transcript forwards terminal detection so progress can update in
+place. Runtime snapshots include the new imported helper. Existing launcher
+scale/card defaults, build flags, firmware sources and card behavior are unchanged.
+
+== Verification
+
+a. Four shared-progress tests cover full diagnostic retention, monotonic Make/
+   Ninja progress, failure exit propagation without false completion, terminal
+   line replacement, and real disposable CMake Make/Ninja builds plus no-op reruns.
+b. Nine Windows build-tool and fifteen mirror-tool tests pass, including output
+   capture proving absolute fixture paths remain in logs and not console output.
+c. Three runtime snapshot/import-closure checks and seven Linux desktop-tool
+   checks pass. All fixtures are disposable; no live card or session was touched.
+d. Total: 38 focused tests. Native Windows CMD/MSYS rendering of the progress
+   line remains a user check. No project emulator or firmware was rebuilt.
+
+The change is confined to host tooling. It takes effect on the next launcher
+invocation; rebuilding is required only when the selected emulator's source
+features themselves have changed. Commit/push had not been requested at the initial checkpoint.
+
+== User follow-up before commit
+
+Petr reports testing the updated tooling with a good result and observes that
+the Windows build is noticeably slower than Linux. No exact target, transcript
+or timing was supplied, so this is user acceptance of the reported workflow,
+not a new six-target or fresh-machine qualification. He subsequently requests
+committing the work; pushing is not requested.
