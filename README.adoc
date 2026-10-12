@@ -5,7 +5,7 @@
 [cols="1a,1a",frame=none,grid=none,stripes=none]
 |===
 |Run a CP/M machine on a small MCU/TFT board -- or run the same terminal
-firmware in a desktop window. The Linux SDL emulator uses the real
+firmware in a desktop window on *Linux or Windows*. The native SDL emulator uses the real
 Arduino_GFX drawing code and the selected board's display configuration,
 not a separate imitation of its screen.
 
@@ -34,7 +34,14 @@ Supported modules use RP2350, ESP32-S3, ESP32-P4 and ESP32-C6.
 
 == Build and run
 
-=== 1. Set up your Linux machine
+The desktop workflow is the same on both hosts: *setup, rebuild, then launch*.
+Linux uses `tools/` and `.sh` scripts; Windows uses `tools-win/` and matching
+`.cmd` launchers. Linux remains the hardware build/upload environment.
+Windows desktop builds use MSYS2 UCRT64; WSL is not required.
+
+=== 1. Set up your machine
+
+==== Linux
 
 From the cloned repository directory, run setup as your normal user:
 
@@ -43,8 +50,7 @@ From the cloned repository directory, run setup as your normal user:
 ./src/RunCPM_7xtgv-terminal/tools/setup.sh
 ----
 
-The script detects *Arch and derivatives* (including CachyOS and Omarchy),
-*Debian/Ubuntu*, or *Fedora*. It installs system prerequisites, Arduino CLI,
+The script detects *Arch-based*, *Debian-based* and *Fedora-based* distributions. It installs system prerequisites, Arduino CLI,
 pinned board cores/libraries and desktop C++/CMake/SDL2 tools.
 It asks before installation, uses sudo where needed, and offers USB serial
 group access separately. It does not build or flash anything.
@@ -53,13 +59,41 @@ Use `./src/RunCPM_7xtgv-terminal/tools/setup.sh --dry-run` to preview it
 without installing. Arch-family use has been exercised; real fresh-machine
 Debian/Fedora installation remains to be verified. See the
 link:guides/01-BG-build-guide.adoc[Build Guide] for cloning,
-prerequisites and troubleshooting. Windows/macOS launchers are not yet implemented.
+prerequisites and troubleshooting.
+
+==== Windows
+
+a. Clone or extract the repository to a writable local folder, for example
+   `C:\work\7xtgv`. A clone requires an existing Git client; a source ZIP can
+   be extracted without Git. Generated executables are not included.
+b. Install x64 https://www.msys2.org/[MSYS2], for example in `C:\msys64`.
+   Our setup reuses this installation; it does not install MSYS2 itself.
+c. Open that installation's *UCRT64* terminal (`C:\msys64\ucrt64.exe`) and run
+   `pacman -Syu`. If prompted to close its processes, accept, reopen UCRT64
+   and repeat the update to completion. See the
+   https://www.msys2.org/docs/updating/[full-update instructions].
+d. In Explorer or *Windows Command Prompt*, run
+   `src\RunCPM_7xtgv-terminal\tools-win\setup.cmd` from the checkout.
+   It installs the compiler, build tools and mirror prerequisites into MSYS2,
+   plus Arduino_GFX sources under the project's `build/` directory.
+   No Windows PATH change or Arduino MCU-core installation is needed.
+
+The launcher prints the selected MSYS2 directory. For a custom location, use
+`set "XTGV_MSYS2_ROOT=D:\path\to\msys64"` in Command Prompt before setup.
+Use the same installation for the update and setup. Both C: and D: installations
+are supported. Detailed requirements and recovery steps are in the
+link:guides/01-BG-build-guide.adoc#windows-setup[Build Guide] and
+link:src/RunCPM_7xtgv-terminal/tools-win/README.adoc[Windows tooling notes].
+macOS launchers remain unimplemented.
 
 === 2. Open your board's launcher folder
 
-All shortcuts live under
-link:src/RunCPM_7xtgv-terminal/tools/targets/[`src/RunCPM_7xtgv-terminal/tools/targets/`],
-in folders named `++DISPLAY_ID -- target++`:
+Choose the launcher parent for your host:
+
+* Linux: link:src/RunCPM_7xtgv-terminal/tools/targets/[`src/RunCPM_7xtgv-terminal/tools/targets/`].
+* Windows: link:src/RunCPM_7xtgv-terminal/tools-win/targets/[`src/RunCPM_7xtgv-terminal/tools-win/targets/`].
+
+Both contain the same folders named `++DISPLAY_ID -- target++`:
 
 [cols="1,1,3",options="header"]
 |===
@@ -72,37 +106,46 @@ in folders named `++DISPLAY_ID -- target++`:
 |WAVESHARE |`RP2_2` |`++RP2_2 -- rp2350-touch-lcd-2++`
 |===
 
-For example:
+For example, on Linux:
 
 [source,sh]
 ----
 cd "src/RunCPM_7xtgv-terminal/tools/targets/EP4_10 -- jc8012p4a1c"
 ----
 
-Execute a script normally in *Midnight Commander*; in *Double Commander*,
-use *Shift+Enter* to launch it with a terminal. Each script already selects
+Run `.sh` scripts in a Linux terminal; on Windows, double-click the `.cmd`
+launcher or run it from Command Prompt. Each script already selects
 its board. Build/upload and desktop shortcuts show short status messages
 with detailed logs beside the scripts; `mirror.sh` attaches directly.
 
-[cols="1,3",options="header"]
+[cols="2,2,5",options="header"]
 |===
-|Script |What it does
-|`desktop-rebuild.sh` |Builds that board's Linux desktop emulator. No hardware access.
-|`desktop-local.sh` |Launches the last desktop build with the repository's `cpmcard/` by default, plus its mirror.
-|`desktop-card.sh` |Launches the last desktop build with a mounted SD/USB card, plus its mirror. Prompts for the mount path if not supplied.
-|`rebuild.sh` |Builds and stages fresh firmware for the physical board. Does not flash.
-|`reflash.sh` |Uploads staged `new` firmware, falling back to `current` if no candidate exists, then opens the mirror. Does not rebuild.
-|`mirror.sh` |Opens the mirror for the connected physical board. No build or flash.
+|Linux |Windows |Action
+|`desktop-rebuild.sh` |`desktop-rebuild.cmd` |Builds the selected board's desktop emulator. No hardware access.
+|`desktop-local.sh` |`desktop-local.cmd` |Launches its last build with repository `cpmcard/` and a mirror.
+|`desktop-card.sh` |`desktop-card.cmd` |Launches its last build with a selected external card and a mirror. Use `--card-root PATH`.
+|`rebuild.sh` |-- |Builds and stages firmware for the physical board. Does not flash.
+|`reflash.sh` |-- |Uploads staged `new` firmware, falling back to `current`, then opens the mirror. Does not rebuild.
+|`mirror.sh` |-- |Opens the mirror for the connected physical board. No build or flash.
 |===
 
 === 3. Try the desktop, or connect real hardware
 
-For a first desktop run, execute these separately in the selected board folder:
+For a first desktop run, execute these separately in the selected board folder.
+On Linux:
 
 [source,sh]
 ----
 ./desktop-rebuild.sh
 ./desktop-local.sh
+----
+
+On Windows, in Command Prompt (or double-click each launcher in that order):
+
+[source,bat]
+----
+desktop-rebuild.cmd
+desktop-local.cmd
 ----
 
 The SDL window is the emulated display; *type into the mirror*, not SDL.
@@ -118,8 +161,15 @@ or supply it explicitly, for example:
 ./desktop-card.sh --card-root "/run/media/$USER/RunCPM"
 ----
 
-The path must be the mounted filesystem root containing `A/0`.
-Alternatively set `XTGV_DESKTOP_CARD_ROOT` before launching.
+On Windows, pass the card root in Command Prompt, for example:
+
+[source,bat]
+----
+desktop-card.cmd --card-root "E:\"
+----
+
+Use your actual drive letter. The card root must contain `A/0`.
+On Linux, `XTGV_DESKTOP_CARD_ROOT` is an alternative to supplying the path.
 Both desktop launchers use their selected card *read/write*, including
 INI and history updates. Do not run two writers against the same card;
 close the emulator before unmounting it.
@@ -132,7 +182,7 @@ ambiguous-device errors must be resolved, not bypassed.
 After changing source, rebuild before launching or reflashing: launchers
 do not silently rebuild. More options are in the
 link:src/RunCPM_7xtgv-terminal/desktop/README.adoc[desktop guide] and
-link:guides/01-BG-build-guide.adoc[hardware build guide].
+link:guides/01-BG-build-guide.adoc[Build Guide].
 
 == Guides and docs (AsciiDoc)
 

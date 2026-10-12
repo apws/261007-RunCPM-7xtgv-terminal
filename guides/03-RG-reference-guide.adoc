@@ -13,6 +13,12 @@ device INI may differ from compiled defaults and from the local copy.
 The link:features_timeline.adoc[Features Timeline] tracks command and file
 name changes; syntax below is the current reference.
 
+This reference applies to physical boards and the native desktop emulator on
+*Linux and Windows*. CP/M commands, terminal profiles, INI settings and escape
+sequences are shared. Host-specific launch and keyboard differences are stated
+where they apply. For installation and matching `.sh`/`.cmd` desktop launchers,
+use the link:01-BG-build-guide.adoc#quick-start[Build Guide].
+
 [discrete]
 [[_find_details_by_task]]
 === Find details by task
@@ -35,7 +41,7 @@ name changes; syntax below is the current reference.
 [[starting-the-pc-mirror]]
 === Starting the PC mirror
 
-For hardware, launch `mirror.sh` in the selected board folder:
+For hardware on Linux, launch `mirror.sh` in the selected board folder:
 
 [source,sh]
 ----
@@ -45,8 +51,11 @@ cd "src/RunCPM_7xtgv-terminal/tools/targets/EP4_10 -- jc8012p4a1c"
 
 * Choose the folder matching the connected board; the example is EP4_10.
 * This attaches the mirror without rebuilding or uploading firmware.
-* For desktop, `desktop-local.sh` or `desktop-card.sh` launches the emulator
-  with its own mirror. Do not attach a hardware mirror to that session.
+* For desktop on Linux, use `desktop-local.sh` or `desktop-card.sh` under
+  `tools/targets/`. On Windows, use `desktop-local.cmd` or `desktop-card.cmd`
+  under `tools-win/targets/`. Each launches the emulator with its own mirror;
+  the Windows card launcher requires an explicit `--card-root PATH`.
+  Do not attach a hardware mirror to that session.
 * See the link:01-BG-build-guide.adoc[Build Guide] for setup, all board folders and
   launcher options.
 

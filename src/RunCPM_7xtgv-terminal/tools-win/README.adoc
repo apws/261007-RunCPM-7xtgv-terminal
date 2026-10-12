@@ -15,43 +15,71 @@ cover binary communication, guest commands, shared-file storage, reconnect,
 cooperative stop, EXIT/REBOOT and history saving. SDL remains output-only;
 `--pty` fails explicitly on Windows. Linux keeps its existing PTY and launchers.
 
-Interactive Mintty launchers are now available for native acceptance. The shared
-mirror and owner lifecycle pass Linux tests over the same loopback transport,
-including binary VTPUT/VTGET and shutdown while busy. Initial Mintty/SDL boot is confirmed, with slow display updates under investigation.
-Unicode card paths and all eight native mirror lifecycle/transfer cases now pass.
-The Windows high-resolution delay correction is confirmed by native measurements;
-physical Windows keyboard behavior still needs acceptance; see the
-link:../../../docs/261010-1738%20DONE%20Windows%20interactive%20mirror%20ready%20for%20native%20test.adoc[interactive checkpoint].
-`targets/` contains thin launchers only; shared tooling stays outside it.
+Interactive sessions use Mintty for input and an SDL window for the board
+screen. Native mirror lifecycle/transfer checks, Unicode card paths and
+user keyboard checks are recorded in the later sections. `targets/` contains
+thin launchers only; shared tooling stays outside it.
+
+Linux and Windows use the same desktop command names, with `.sh` and `.cmd`
+extensions respectively: `desktop-rebuild`, `desktop-local` and `desktop-card`.
+See the link:../../../guides/01-BG-build-guide.adoc#quick-start[Build Guide]
+for both hosts' setup paths and the launcher comparison.
 
 == Start here on Windows
 
-ES3_5 (`jc8048w550`, 800x480) is the selected target for subsequent Windows
-work because it fits the VirtualBox guest screen. All six diagnostic target proofs have passed; further interactive Windows work
-uses ES3_5.
+Use a writable local checkout, for example `C:\work\7xtgv`. VirtualBox shared
+folders are also supported, but the guest's local disk avoids shared-folder
+latency during card access. The examples below use ES3_5 (`jc8048w550`, 800x480);
+choose another target folder for a different display.
 
-. Install the x64 version of https://www.msys2.org/[MSYS2] using its official
-  installer. No Windows PATH change is needed. Launchers discover `msys64`
-  or `msys2` at a drive root, or MSYS2 installed directly at that root.
-  They check the project drive first, then the system drive, then C: through Z:.
-  Both `usr\bin\bash.exe` and `usr\bin\pacman.exe` must exist.
-  An explicit `XTGV_MSYS2_ROOT` overrides discovery.
-. Open *MSYS2 UCRT64* and run `pacman -Suy` to update MSYS2. If the update
-  requests closing the terminal, close it, reopen UCRT64 and repeat the command
-  until it finishes. Follow the https://www.msys2.org/docs/updating/[MSYS2 update instructions].
-  This updates MSYS2 on Windows, not the Linux host.
-. Copy or check out the project source tree on Windows. Use a revision containing
-  `src/RunCPM_7xtgv-terminal/tools-win/setup.cmd`; the executable alone is not
-  enough to rebuild. For example, place the tree in `C:\work\7xtgv`.
-. Open `src\RunCPM_7xtgv-terminal\tools-win` and double-click *setup.cmd*.
-  This uses the MSYS2 installation from the first step; it does not install
-  another MSYS2. Pacman lists the packages and asks before installing them. Setup installs
-  native UCRT64 GCC/CMake/Ninja/SDL2, MSYS Python and the shell/mirror prerequisites,
-  then downloads the checksum-verified Arduino_GFX 1.6.4 source. It does not
-  install Arduino MCU cores or launch the emulator.
-. Open *targets\ES3_5 -- jc8048w550* and double-click *desktop-rebuild.cmd*.
-  Rebuild checks prerequisites and compiles; it never installs packages or runs
-  against a card. The terminal remains open so errors are visible.
+a. Clone the repository with an existing Git client, or extract a source ZIP.
+   Git is needed for cloning, not for extracting the ZIP. If you prefer MSYS2
+   Git, finish step c first, install it with `pacman -S --needed git`, then clone.
+   The source tree is required; the EXE alone cannot be rebuilt.
+b. Install x64 https://www.msys2.org/[MSYS2] using its official installer, or
+   reuse an existing installation. The default location is `C:\msys64`; other drives also work.
+   No Windows PATH change is needed. Launchers discover `msys64` or `msys2`
+   at a drive root, or MSYS2 installed directly at that root. They check the
+   project drive first, then the system drive, then C: through Z:.
+   Both `usr\bin\bash.exe` and `usr\bin\pacman.exe` must exist.
+   An explicit `XTGV_MSYS2_ROOT` overrides discovery.
+c. Close running project desktop/mirror sessions, open that installation's
+   *UCRT64* terminal (for example `C:\msys64\ucrt64.exe`) and run
+   `pacman -Syu`. If prompted to close MSYS2 processes, accept, reopen UCRT64
+   and repeat the command to finish the full update. `-Suy` and `-Syu` mean
+   the same thing. Follow the https://www.msys2.org/docs/updating/[MSYS2 update instructions].
+d. In *Windows Command Prompt* or Explorer, run
+   `src\RunCPM_7xtgv-terminal\tools-win\setup.cmd` from the checkout.
+   Check its printed `Using MSYS2:` directory matches step c. It reuses this
+   installation; it does not install another MSYS2. Pacman asks before
+   installing the required packages. Setup does not perform the full system
+   update from step c.
+e. Open `tools-win\targets\ES3_5 -- jc8048w550` and run
+   *desktop-rebuild.cmd*. Wait for a successful build; it does not launch.
+f. From the same folder, run *desktop-local.cmd*. The SDL display and Mintty
+   mirror open. Type `DIR` into Mintty. This uses the checkout's `cpmcard/`
+   read/write, including saved INI/history changes. Close the owning mirror
+   or SDL window to end the session.
+
+*What setup installs:* Git, curl, CA certificates, Python, tmux and Mintty in
+MSYS2; GCC, CMake, Ninja and SDL2 in its UCRT64 environment, plus their package
+dependencies. Checksum-verified Arduino_GFX 1.6.4 sources go into the project's
+`build/RunCPM_7xtgv-terminal/desktop-win/_deps/`. No global Windows PATH changes,
+services, drivers or Arduino MCU cores are installed by our setup. It does not
+launch the emulator or modify a card. Rebuild installs no packages.
+
+The examples use the default `C:\msys64` installation. Other drives and custom
+locations are supported through the discovery/override rules above.
+
+Use `pacman` in UCRT64. Run `.cmd` launchers and `set "NAME=value"` examples
+from Windows Command Prompt, not as Bash commands. The `.cmd` wrapper starts
+the selected MSYS2 environment itself.
+
+If setup reports incompatible compiler-library versions, return to step c.
+If a full update still fails, preserve its complete output and use
+`cygpath -w /` in UCRT64 to check which installation was updated. Do not force
+past package dependencies or remove compiler libraries. Reinstalling MSYS2 is
+not a routine prerequisite.
 
 The native build output and full build log are under the repository root:
 
@@ -66,7 +94,8 @@ build/RunCPM_7xtgv-terminal/desktop-win/msys2-ucrt64/jc8048w550/
 
 All six existing targets have a rebuild launcher. All six native builds and diagnostic proofs have passed on the tested Windows guest. Native outputs have a separate
 `msys2-ucrt64` directory so copied Linux cross-build CMake caches are not reused.
-Logs stay in the build directory; target folders contain launchers only.
+Detailed build/session logs stay under `build/`; each launcher also writes
+an adjacent transcript as described below.
 
 For use from a Windows command prompt:
 
@@ -103,6 +132,12 @@ shell, `bash dispatch.sh build --target ES3_5` calls the same adapter.
 
 `desktop-rebuild.cmd`, `desktop-local.cmd` and `desktop-card.cmd` show the module,
 progress and result, and create a same-named `.log` beside the launcher. The
+console identifies that log by its short filename; full executable, card and
+session paths remain in the transcript. Desktop rebuilds on Linux and Windows
+show Make/Ninja build-step percentages. An interactive terminal updates one
+line; redirected output uses occasional progress lines. This is work-item
+progress, not a remaining-time estimate; a long compile/link step may pause it.
+Configure and runtime-DLL staging have their own short status messages. The
 rebuild transcript includes configure/compiler/DLL details when the build ends;
 the live compiler log also remains in the target build directory. Local/card
 transcripts include card/session paths, the embedded build stamp and SDL output,
@@ -141,8 +176,12 @@ contains only these three launchers:
 |Launcher |Card and purpose
 |`desktop-rebuild.cmd` |Build the selected Windows target; does not launch it.
 |`desktop-local.cmd` |Working repository `cpmcard`, opened read/write; changes persist there.
-|`desktop-card.cmd --card-root "W:\path\to\card"` |Explicit existing card root with `A/0`; opened read/write. No drive autodiscovery.
+|`desktop-card.cmd --card-root "C:\path\to\card"` |Explicit existing card root with `A/0`; opened read/write. No drive autodiscovery.
 |===
+
+Use desktop-local for the repository card and desktop-card with an explicit
+path for another card. Platform-specific selection and environment behavior is
+in link:../../../guides/04-TRG-technical-reference-guide.adoc#desktop-host-tooling[TRG: desktop host tooling].
 
 Optional diagnostics remain available from `tools-win` through the shared entry
 point; they have no per-target shortcut files:
@@ -168,7 +207,7 @@ owner requests cooperative emulator shutdown and waits for saving. Guest
 `REBOOT` starts a fresh emulator on the same card inside the same Mintty window.
 A launch does not start tmux or attach to the Linux hardware mirror.
 
-The launch prints the card and session directory. Session logs (and a copied card
+The adjacent launch log records the card and session directory. Session logs (and a copied card
 when test mode is selected) are retained beneath
 `build/RunCPM_7xtgv-terminal/desktop-win/msys2-ucrt64/TARGET/sessions/`.
 `status.json` reports running/finished/failed; `owner.log` contains owner errors;

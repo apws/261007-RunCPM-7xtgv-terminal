@@ -5,7 +5,7 @@
 :toclevels: 3
 :sectnums!:
 
-Use this guide for everyday work on a physical module or its Linux desktop emulator.
+Use this guide for everyday work on a physical module or its Linux/Windows desktop emulator.
 
 * *Mirror:* keyboard input and the complete logical CP/M screen.
 * *TFT or SDL window:* the board-sized viewport; zoom changes cell size,
@@ -27,7 +27,10 @@ For a fresh checkout or machine, first read the
 link:01-BG-build-guide.adoc[Build Guide].
 
 Open your board's folder under
-`src/RunCPM_7xtgv-terminal/tools/targets/`. For example, from the repository root:
+`src/RunCPM_7xtgv-terminal/tools/targets/` on Linux, or
+`src/RunCPM_7xtgv-terminal/tools-win/targets/` on Windows. The desktop launcher
+names match: use `.sh` on Linux and `.cmd` on Windows. For example, on Linux
+from the repository root:
 
 [source,sh]
 ----
@@ -42,10 +45,16 @@ cd "src/RunCPM_7xtgv-terminal/tools/targets/EP4_10 -- jc8012p4a1c"
 |Physical board |Connect the matching module and run `./mirror.sh`; this does not build or flash it.
 |===
 
+On Windows, run `desktop-local.cmd` from Command Prompt or Explorer after
+`desktop-rebuild.cmd` succeeds. For an external card, use
+`desktop-card.cmd --card-root "E:\"`, replacing E: with the actual card drive.
+Windows keyboard input goes to Mintty; CP/M commands and INI settings are the
+same as on Linux. Hardware launch/upload commands use the Linux tools.
+
 * Build the desktop first with `./desktop-rebuild.sh` if no executable exists
   or source has changed. Hardware rebuild/reflash are separate commands.
-* In Double Commander, use Shift+Enter to launch with a terminal; in Midnight
-  Commander, execute normally. The shortcut already selects its board.
+* Run the script in a terminal or the `.cmd` launcher from Command Prompt or
+  Explorer. The shortcut already selects its board.
 * On desktop, *type into the mirror*, not the output-only SDL window.
   Close either owning window, or use guest `EXIT`, to stop the emulator.
 * Both desktop card modes are read/write, including INI/history autosaves.

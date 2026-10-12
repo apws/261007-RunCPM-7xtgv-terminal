@@ -7,7 +7,17 @@ root-level `guides/`.
 Historical notes describe the state at their date; they are not automatically
 current implementation instructions.
 
+For current installation, use the link:../README.adoc[repository README] or
+link:../guides/01-BG-build-guide.adoc[Build Guide]: native desktop builds are
+supported on Linux and Windows, with matching `.sh`/`.cmd` launcher names.
+The early Windows records below preserve their original pending-test status;
+they are not the current setup procedure.
+
 == High-level reading
+
+* link:261012-0903%20DONE%20macOS%20desktop%20tooling%20feasibility%20review.adoc[macOS desktop tooling feasibility]: source audit, proposed tools-mac scope, effort estimate and native acceptance gates; not implemented.
+
+* link:261012-0806%20DONE%20Linux%20and%20Windows%20desktop%20setup%20entry%20points.adoc[Linux and Windows setup entry points]: current guide alignment and the user's successful local Windows fresh-clone setup/build/launch report.
 
 * link:261010-1406%20DONE%20Windows%20setup%20and%20rebuild%20entry%20points.adoc[Windows setup and rebuild entry points]: from-scratch MSYS2 instructions, explicit setup and six target rebuild launchers; offline-tested, native Windows run and interactive launch pending.
 

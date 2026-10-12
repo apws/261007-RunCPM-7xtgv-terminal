@@ -1,0 +1,89 @@
+= Linux and Windows desktop setup entry points
+:source-highlighter: highlight.js
+:toc:
+
+== User evidence and scope
+
+On 261012, Petr reports a fresh repository clone on the internal D: disk of
+VirtualBox Windows 10, a fresh base MSYS2 installation followed by
+`pacman -Syu`, successful `setup.cmd`, and rebuild and launch of one desktop
+target. The target and complete installation logs were not supplied with this
+report. This establishes the reported one-target workflow, not a new six-target
+fresh-machine qualification. Reinstalling MSYS2 is not a normal prerequisite;
+the previous dependency conflict's precise cause remains unverified.
+
+== Reader-facing changes
+
+The repository README and Build Guide now introduce native Linux and Windows
+desktop support at the beginning. Explicit host setup instructions lead to
+matching `desktop-rebuild`, `desktop-local` and `desktop-card` launchers with
+`.sh` and `.cmd` extensions. Linux remains the hardware build/upload workflow.
+Windows uses MSYS2 UCRT64 and needs no WSL.
+
+The Windows sequence distinguishes installing MSYS2, completing its full
+update in UCRT64, running project setup from CMD/Explorer, rebuilding, and
+launching. It explains C:/D: discovery and explicit installation selection,
+package/dependency locations, Git versus source ZIP bootstrap, local guest
+storage versus shared-folder latency, and dependency-mismatch diagnostics.
+`pacman -Syu` and `-Suy` are equivalent. The update procedure follows
+https://www.msys2.org/docs/updating/[the official MSYS2 instructions].
+
+The guide index, source README, User, Reference, Technical Reference and Tooling
+Guides introduce both host paths. Matching Linux and Windows SVG tooling diagrams show the launchers,
+session owners, transports and separate build operations. The Windows diagram
+was checked against windows.cmd, dispatch.sh and windows_run.py, including
+Mintty hosting the session owner and the shared terminal.py bridge. The Linux developer desktop
+README is labelled as such. Card-path differences are explicit: Linux checks
+mounted roots for desktop-card and supports custom desktop-local paths;
+Windows requires an explicit desktop-card path and keeps desktop-local tied
+to the checkout. The obsolete resizable SDL troubleshooting advice is replaced
+with the supported fixed integer window scale.
+
+The only executable-file edit changes setup.sh's final printed instruction
+from the obsolete scripted-input limitation to desktop-local.cmd after rebuild.
+No installation, build, launch, firmware or card behavior changes.
+
+== Follow-up wording review
+
+The user requested general Arch-/Debian-/Fedora-based distro wording,
+`C:\msys64` as the primary Windows setup example, and one optional
+file-manager note in the Build Guide covering Midnight Commander, Double
+Commander and Krusader. Repeated file-manager instructions and distribution-
+specific desktop advice are removed. Historical source/log filenames retain
+their exact names; dated D: storage measurements remain evidence, not default
+installation instructions.
+
+A source check confirms that `--card-root` works on both hosts, but Windows
+currently requires desktop-card.cmd for explicit paths and does not consume
+the Linux card-root environment overrides. At the user's follow-up request, the main guides present the common local/card
+workflow; detailed adapter policies live in TRG. TG uses matching short Linux
+and Windows launch sequences, then describes shared controls once. Its Linux
+mirror-selection note gives the Konsole-first PATH order, explicit --mirror
+choices, and Kitty's more limited interactive acceptance. This documentation
+pass does not change launcher policies.
+
+The user also confirmed launching the Kitty mirror from a Linux terminal.
+This confirms that launch path; it is not a complete physical-key acceptance
+pass.
+
+The Features Timeline now uses Checkpoint / What changed / Evidence tables
+throughout its chronological entries, grouped by date range and sorted oldest
+to newest. Undated follow-ups remain with their checkpoint, and coarse labels
+that need a prerequisite qualifier retain it instead of inventing timestamps.
+All 142 pre-existing link targets are retained; the name-lineage table remains
+a separate reference at the end. The changed tables were rendered and inspected.
+
+== Validation and boundaries
+
+a. Reviewed commands against Linux setup, Windows setup/discovery/build/launch
+   source and actual target launcher filenames.
+b. Rendered the changed AsciiDoc entry points and inspected the first-run layout.
+c. Checked shell syntax and setup dry-run output, local document links and
+   feature registry consistency; no prerequisite installation or emulator build
+   was required for these prose/message changes.
+d. Preserved working card INI/history and the existing card lock/session.
+   No commit, push or deployment was requested for this update.
+
+See link:../README.adoc[repository entry point],
+link:../guides/01-BG-build-guide.adoc[Build Guide] and
+link:../src/RunCPM_7xtgv-terminal/tools-win/README.adoc[Windows setup details].

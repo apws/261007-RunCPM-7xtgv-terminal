@@ -16,6 +16,15 @@ feature and hardware-test status.
 The link:features_timeline.adoc[Features Timeline] gives a shorter history
 of delivered changes and command/file renames.
 
+The shared C++ terminal/RunCPM runtime supports physical Arduino boards and
+native SDL desktop builds on *Linux and Windows*. Desktop launchers expose
+the same setup/build/launch workflow through `.sh` and `.cmd` scripts; Linux
+uses PTYs and Konsole/Kitty (or the current terminal), Windows uses an
+authenticated loopback connection and Mintty through MSYS2. Hardware
+build/upload remains a Linux workflow. See the
+link:01-BG-build-guide.adoc[Build Guide] for prerequisites and
+link:05-TG-tooling-guide.adoc[Tooling Guide] for platform-specific owners.
+
 [[trg-architecture-and-ownership]]
 == 1. Architecture and ownership
 
@@ -36,7 +45,7 @@ to the CPU or guest disk implementation.
 |Parser / cells |`src/terminal/terminal.cpp`: ANSI/VT52/DEC parsing, private CSI, cell state and keyboard decoding.
 |Configuration |`src/terminal/history_profiles.cpp`, `history_profiles.h`, `ini_text.h`: defaults, staged parsing, diagnostics and narrow INI edits.
 |Board / runtime HAL |`hardware/arduino_7xtgv/boards/`: board-local constants and hardware implementation. `board.h` and `runtime.h` select the board and execution environment; `src/terminal/display_policy.h` exposes the selected display policy.
-|Desktop backend |`hardware/arduino_7xtgv/runtime_desktop.h` plus `desktop/`: host lifecycle, Arduino shims, host-file adapter, PTY serial and SDL presentation. Reuses the selected board's constants and production terminal code.
+|Desktop backend |`hardware/arduino_7xtgv/runtime_desktop.h` plus `desktop/`: host lifecycle, Arduino shims, host-file adapter, Linux PTY/Windows loopback serial and SDL presentation. Reuses the selected board's constants and production terminal code.
 |Core integration seams |`hardware/arduino_7xtgv/runcpm_hooks.h`, `abstraction_arduino_7xtgv.h` and `forced_warm_return.h`: tagged product hooks, storage ownership and cooperative COM return.
 |Host tooling |`tools/target_*.py`: quiet wrappers; `tools/terminal.py`: mirror; `tools/cpm-transfer/`: transfer; `tools/reflash.py` / `bootsel_upload.py`: guarded upload; `tools/targets/*.json`: target metadata.
 |===
@@ -312,6 +321,81 @@ and link:../docs/261001-1322%20HAL%20challenge%20and%20readable%20board%20consol
 Use the dated build/acceptance records for evidence on a particular target;
 the HAL structure alone does not establish physical qualification.
 
+[[desktop-host-tooling]]
+=== Linux and Windows desktop host tooling
+
+The public workflow and launcher names are shared; platform adapters own
+process startup, keyboard integration and transport. Paths below are relative
+to `src/RunCPM_7xtgv-terminal/`.
+
+[cols="2,3,3",options="header"]
+|===
+|Responsibility |Linux |Windows
+|Target launch |`tools/target_desktop.py` delegates to `desktop/desktop.py`. |`tools-win/windows.cmd` selects MSYS2; `dispatch.sh` delegates to `windows_run.py`.
+|Mirror |`target_mirror.mirror_command()` selects `kon.sh`, `kit.sh` or `cpm-session.sh`. |The owner starts Mintty and the shared `tools/terminal.py` directly in MSYS2.
+|Transport |Explicit PTY and isolated `7xtgv-desktop-<PID>` tmux session. Hardware serial discovery and uploader commands are bypassed. |Authenticated local data/control sockets; no tmux attachment.
+|Lifetime |The desktop runner coordinates emulator and owning mirror. |The Windows owner coordinates native EXE and owning Mintty session.
+|Build |`desktop.py build` invokes CMake and the native Linux toolchain. |`windows_build.py` invokes CMake/UCRT64 and stages dependent DLLs beside the EXE.
+|===
+
+Closing either owning window requests cooperative shutdown; guest REBOOT
+starts a new emulator generation. Both hosts coordinate through the same
+per-card lock. Preserve a retained lock until the writer is confirmed stopped;
+a missing visible window alone does not prove the process exited.
+
+==== Card selection adapters
+
+The normal workflow is repository `cpmcard/` through desktop-local and an
+explicit external card through desktop-card. Additional adapter behavior is:
+
+* Linux local selection uses explicit `--card-root`, then `XTGV_CARD_ROOT`,
+  then repository `cpmcard/`. Card selection uses explicit `--card-root`, then
+  `XTGV_DESKTOP_CARD_ROOT`, then an interactive prompt. Both require `A/0`;
+  card mode additionally requires a mounted filesystem root.
+* Windows local mode uses repository `cpmcard/` and rejects `--card-root`.
+  Card mode requires explicit `--card-root` and checks `A/0`; ordinary card
+  directories and mounted drives are both accepted. These wrappers do not
+  read the two Linux card-root environment overrides.
+
+These are current wrapper policies, not operating-system filesystem limits.
+For a developer's disposable directory, use the Linux local override or
+Windows card mode. No launch copies or synchronizes card content implicitly.
+
+==== Mirror selection and keyboard configuration
+
+Linux `target_mirror.select_mirror()` uses explicit `--mirror` when supplied.
+Automatic selection checks `DISPLAY`/`WAYLAND_DISPLAY`, then PATH in the order
+Konsole, Kitty; otherwise it selects the current terminal. This is fixed
+preference, not detection of the parent terminal or desktop environment.
+All Linux mirror routes require tmux. Selecting an unavailable terminal
+explicitly fails. Current-terminal mode cannot install a new keymap into the
+already open host terminal.
+
+Konsole/Kitty and Mintty use shared key identifiers and terminal controls.
+`XTGV_HACK_TOPROW='+ěščřžýáíé'` in `tools/terminal.conf` describes unshifted
+positions 1..0. Empty or missing disables ordinary plain/Shift row conversion;
+`XTGV_BANK_KEYS` separately selects Alt-bank characters. Brightness and keypad
+decimal are independent. The common literal reader gives inherited environment
+values, including empty, precedence over the file. Open a new mirror after
+changing this setting; changing its value needs no executable rebuild.
+
+Windows generates a Mintty configuration per session. `xtgv_key_bridge.exe`
+and `xtgv_key_hook.dll`, produced by target rebuild, bind the selected Mintty
+message thread and translate physical keys while its window has focus. They
+check the complete active keyboard layout; punctuation, paste, AltGr and
+unassigned composition retain their normal input paths. Konsole/Kitty generate
+bindings for configured characters and Shift+digits without that full-layout
+guard. Their keymap syntax rejects whitespace, quotes, backslashes, hash
+characters and conflicting bindings. Checked-in static profiles do not
+regenerate an already open terminal's configuration.
+
+Alt+Q is the common application-exit shortcut. Konsole/Kitty retain Alt+Esc as
+an alias; Windows reserves Alt+Esc for window cycling. Native Windows keyboard
+acceptance and probe instructions are in the
+link:../src/RunCPM_7xtgv-terminal/tools-win/README.adoc[Windows tooling notes].
+Konsole is the primary interactive Linux test path; Kitty integration is
+available with less physical-key/user acceptance coverage.
+
 [[_single_core_freertos_and_shared_spi]]
 === Single-core FreeRTOS and shared SPI
 
@@ -490,9 +574,11 @@ real board, retain its INI/display policy, use the existing mirror and an
 output-only SDL presenter. Canonical CP/M names stay uppercase; desktop
 CARDMARK is unsupported. See link:../docs/README.adoc[CHAT/PLAN/DONE navigation].
 
-The Linux desktop implementation now builds all six real-board selections:
+Linux and Windows desktop builds cover all six real-board selections:
 original Arduino sketch/abstraction/7XF, real GFX Canvas, output-only SDL,
-existing mirror over explicit PTY, host SD/File adapter and cooperative quit/reboot.
+host SD/File adapter and cooperative quit/reboot. Linux connects its mirror
+over an explicit PTY; Windows connects through authenticated loopback sockets.
+The common terminal and rendering path is retained on both hosts.
 The desktop uses a RunCPM/storage worker and a terminal/SDL main thread. Desktop
 drawing completes all dirty visible cells per frame at `render_flush_hz`;
 queued output and mirror work run without inter-batch sleeps, while idle/deadline
@@ -502,12 +588,16 @@ descriptors to reduce repeated file-open costs. Logical closes still flush write
 fresh logical streams discard old read buffers, and reuse verifies file identity.
 Path containment checks remain. This is separate from physical-board SdFat; see
 link:../docs/261010-2330%20DONE%20Desktop%20retained%20file%20handles%20design%20and%20validation.adoc[retained-handle design, validation and host coordination limits].
-See the link:../docs/261006-1117%20DONE%20Linux%20desktop%20real-board%20SDL%20and%20mirror%20checkpoint.adoc[current checkpoint]
-and link:../src/RunCPM_7xtgv-terminal/desktop/README.adoc[build/launch instructions].
+See the link:../docs/261006-1117%20DONE%20Linux%20desktop%20real-board%20SDL%20and%20mirror%20checkpoint.adoc[Linux checkpoint],
+link:../docs/261010-1646%20DONE%20All%20six%20Windows%20targets%20pass%20shared-drive%20proofs.adoc[Windows six-target proofs]
+and link:01-BG-build-guide.adoc[Linux/Windows build and launch instructions].
 Normal card-root runs can write INI/history and guest files. Desktop sessions
 are separate from hardware; REFLASH cannot invoke its uploader. Eight tests per
-board and EP4 UBSan pass; complete visual/fault-recovery, fresh-OS and other-OS
-qualification remain pending. The obsolete W535 SD_MMC alternate was removed.
+board and EP4 UBSan pass in the Linux checkpoint. Windows proof scope and
+later acceptance are recorded separately; the
+link:../docs/261012-0806%20DONE%20Linux%20and%20Windows%20desktop%20setup%20entry%20points.adoc[local fresh-clone report]
+covers one unspecified target. Broader fresh-OS and macOS qualification remain
+separate from these results. The obsolete W535 SD_MMC alternate was removed.
 
 [cols="1,3",options="header"]
 |===
@@ -713,7 +803,7 @@ Card-layout status and remaining acceptance work:
 The 261001 naming implementation record documents host checks, target builds
 and Petr's W535 acceptance. Earlier plans showing `RUNCPM_*` hook names or
 pending renames remain historical evidence, not today's naming contract.
-The Linux SDL desktop now runs this same Arduino-oriented product fork;
+The Linux and Windows SDL desktops run this same Arduino-oriented product fork;
 successful desktop emulation does not establish upstream or CP/M 3 parity.
 
 [[_next_upstream_experiment_not_a_completed_port]]

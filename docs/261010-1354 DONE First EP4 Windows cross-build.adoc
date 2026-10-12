@@ -12,7 +12,7 @@ Windows transport/execution gate or the full Windows tooling plan.
 The host initially lacked MinGW-w64. An explicit
 `tools-win/setup-cross.sh` prerequisite script was added; its elevated run
 reached a sudo password prompt and was cancelled. Petr installed the packages
-in his terminal. The configured CachyOS mirror delivered approximately
+in his terminal. The configured distribution mirror delivered approximately
 31 KB/s in a bounded probe; the configured CDN alternative delivered about
 2 MB/s. A temporary `/tmp/xtgv-win-first/pacman-fast.conf` selected that CDN
 without changing normal mirror configuration or signature checks. Petr

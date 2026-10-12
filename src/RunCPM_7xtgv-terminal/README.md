@@ -1,6 +1,12 @@
-# 7xtgv RunCPM terminal sketch
+# RunCPM 7xtgv-terminal sketch
 
-This is the build/test entry point for the current RunCPM-based terminal.
+This is the build/test entry point for the current RunCPM-based terminal,
+with native SDL desktop emulation supported on **Linux and Windows**.
+Start with the [Build Guide](../../guides/01-BG-build-guide.adoc) for each host's
+prerequisites and setup. Desktop commands match across hosts: `desktop-rebuild`,
+`desktop-local` and `desktop-card`, using `.sh` under `tools/targets/` on Linux
+and `.cmd` under `tools-win/targets/` on Windows. Both run the same terminal and
+CP/M code; Windows uses MSYS2 UCRT64 and Mintty. Hardware build/upload uses Linux.
 For operation, use the [User Guide](../../guides/02-UG-user-guide.adoc);
 for exact commands and settings, the [Reference Guide](../../guides/03-RG-reference-guide.adoc);
 for core, HAL, CCP, protocol and licensing boundaries, the
@@ -19,18 +25,20 @@ W535 and W550 use direct SdFat32/SPI. The former W535 SD_MMC bridge and
 its build option were removed; dated comparisons remain historical evidence.
 Hardware starts at requested 20 MHz, then applies the INI `sdfat_spi` value.
 Host launch, transfer, target selection and upload
-tools are in `tools/`. Exact targets and port/upload metadata are in
+tools are in `tools/`; Windows desktop entry points are in `tools-win/`. Exact targets and port/upload metadata are in
 `tools/targets/*.json`; compiled display IDs and default geometry are in
 the selected board header, exposed by `src/terminal/display_policy.h`. The headless
 [Linux RunCPM](../RunCPM_linux/README.md) build shares the CP/M core but not
 the Arduino display/storage stack.
 
-The experimental [Linux desktop runtime](desktop/README.adoc) instead runs
-this original Arduino sketch and terminal, with a selected real board's
-geometry/INI identity, real Arduino_GFX drawing, an output-only SDL window,
-the existing mirror over PTY and an explicit host card directory.
+The desktop runtime runs this original Arduino sketch and terminal, with a
+selected real board's geometry/INI identity, real Arduino_GFX drawing, an
+output-only SDL window and an explicit host card directory. Linux uses the
+mirror over a PTY; Windows uses authenticated loopback transport. See
+[Linux developer commands](desktop/README.adoc) and
+[Windows setup and launch](tools-win/README.adoc).
 
-## Build and flash boundary
+## Linux hardware build and flash boundary
 
 For a new machine, use the [Build Guide](../../guides/01-BG-build-guide.adoc).
 It separates firmware dependencies, native tests, desktop tools and guest COM
@@ -56,7 +64,7 @@ upload method. Libraries and the RP2350 core are version-pinned; ESP32
 currently uses the installed core (working baseline 3.1.0). Dated port
 reports are historical evidence.
 
-## Host-side checks
+## Linux host-side checks
 
 From this sketch directory:
 

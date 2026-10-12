@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1490" viewBox="0 0 1200 1490" role="img" aria-labelledby="title desc">
-<title id="title">7xtgv-terminal host tooling structure</title>
-<desc id="desc">Hardware mirror and desktop launch paths converge on Konsole, Kitty or the current terminal, then cpm-session.sh and terminal.py. Hardware uses the 7xtgv-terminal tmux session and USB serial; desktop uses isolated 7xtgv-desktop PID sessions and a PTY. Separate maintenance operations build, upload and transfer files.</desc>
+<title id="title">7xtgv-terminal Linux host tooling structure</title>
+<desc id="desc">Linux hardware mirror and desktop launch paths converge on Konsole, Kitty or the current terminal, then cpm-session.sh and terminal.py. Hardware uses the 7xtgv-terminal tmux session and USB serial; desktop uses isolated 7xtgv-desktop PID sessions and a PTY. Separate maintenance operations build, upload and transfer files.</desc>
 <defs><marker id="launch" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#3263a3"/></marker><marker id="data" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#19766a"/></marker></defs>
 <style>text{font-family:DejaVu Sans,sans-serif;fill:#20334d}.title{font-size:32px;font-weight:700}.head{font-size:23px;font-weight:700}.body{font-size:20px}.small{font-size:18px}.mono{font-family:DejaVu Sans Mono,monospace;font-size:19px}.launch{fill:none;stroke:#3263a3;stroke-width:2.5;marker-end:url(#launch)}.data{fill:none;stroke:#19766a;stroke-width:2.5;marker-start:url(#data);marker-end:url(#data)}</style>
 <rect width="1200" height="1490" fill="#f7f9fc"/>
-<text x="40" y="52" class="title" text-anchor="start">7xtgv-terminal · host tooling</text>
+<text x="40" y="52" class="title" text-anchor="start">7xtgv-terminal · Linux host tooling</text>
 <text x="40" y="87" class="body" text-anchor="start">Launchers, shared mirror helpers, transport ownership and maintenance</text>
 <rect x="40" y="120" width="1120" height="96" rx="12" fill="#e9eff8" stroke="#bdcbdc" stroke-width="1.5"/>
 <text x="60" y="152" class="head" text-anchor="start">Shared setup and target selection</text>

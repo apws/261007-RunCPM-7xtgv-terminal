@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1490" viewBox="0 0 1200 1490" role="img" aria-labelledby="title desc">
+<title id="title">7xtgv-terminal Windows host tooling structure</title>
+<desc id="desc">Windows desktop launchers select MSYS2 and dispatch to windows_run.py. Mintty runs the session owner, which starts the shared terminal bridge and native SDL emulator. Authenticated loopback sockets carry terminal bytes and lifecycle control. Desktop rebuilding is a separate operation.</desc>
+<defs><marker id="launch" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#3263a3"/></marker><marker id="data" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#19766a"/></marker></defs>
+<style>text{font-family:DejaVu Sans,sans-serif;fill:#20334d}.title{font-size:32px;font-weight:700}.head{font-size:23px;font-weight:700}.body{font-size:20px}.small{font-size:18px}.mono{font-family:DejaVu Sans Mono,monospace;font-size:19px}.launch{fill:none;stroke:#3263a3;stroke-width:2.5;marker-end:url(#launch)}.data{fill:none;stroke:#19766a;stroke-width:2.5;marker-start:url(#data);marker-end:url(#data)}</style>
+
+<rect width="1200" height="1490" fill="#f7f9fc"/>
+<text x="40" y="52" class="title">7xtgv-terminal · Windows host tooling</text>
+<text x="40" y="87" class="body">Desktop launchers, shared mirror helpers, transport ownership and rebuilding</text>
+<rect x="40" y="120" width="1120" height="96" rx="12" fill="#e9eff8" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="60" y="152" class="head">Setup and shared configuration</text>
+<text x="60" y="181" class="body">setup.cmd · MSYS2 UCRT64 tools · pinned Arduino_GFX</text>
+<text x="60" y="207" class="body">tools/terminal.conf · tools/targets/&lt;target&gt;.json · selected board metadata</text>
+<path d="M600 216 V261" class="launch"/>
+<rect x="40" y="265" width="1120" height="90" rx="12" fill="#e8f5f1" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="60" y="297" class="head">Desktop: selected board folder under tools-win/targets/</text>
+<text x="60" y="326" class="body">desktop-local.cmd  /  desktop-card.cmd --card-root PATH</text>
+<path d="M600 355 V391" class="launch"/>
+<rect x="40" y="395" width="1120" height="105" rx="12" fill="#e8f5f1" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="60" y="427" class="head">windows.cmd → dispatch.sh</text>
+<text x="60" y="456" class="body">Select the MSYS2 installation; enter its UCRT64 shell environment.</text>
+<text x="60" y="482" class="body">Dispatch the launch action to windows_run.py using MSYS Python.</text>
+<path d="M600 500 V546" class="launch"/>
+<rect x="40" y="550" width="1120" height="105" rx="12" fill="#f0edfa" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="60" y="582" class="head">windows_run.py launch → Mintty</text>
+<text x="60" y="611" class="body">Select the card and create session logs and a generated mintty.conf.</text>
+<text x="60" y="637" class="body">Open the visible mirror; Mintty starts windows_run.py serve.</text>
+<path d="M600 655 V701" class="launch"/>
+<rect x="40" y="705" width="1120" height="105" rx="12" fill="#f0edfa" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="60" y="737" class="head">windows_run.py serve · session owner inside Mintty</text>
+<text x="60" y="766" class="body">Hold the card lock; start the native EXE and the physical-key helper.</text>
+<text x="60" y="792" class="body">Run the shared bridge; supervise shutdown and guest REBOOT.</text>
+<path d="M310 810 V891" class="launch"/>
+<path d="M890 810 V891" class="launch"/>
+<rect x="40" y="895" width="500" height="145" rx="12" fill="#f0edfa" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="60" y="927" class="head">tools/terminal.py</text>
+<text x="60" y="956" class="body">PC screen and keyboard bridge</text>
+<text x="60" y="982" class="body">Host transfer panel</text>
+<text x="60" y="1008" class="body">Mintty input decoding</text>
+<rect x="660" y="895" width="500" height="145" rx="12" fill="#e8f5f1" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="680" y="927" class="head">xtgv_desktop.exe</text>
+<text x="680" y="956" class="body">RunCPM + terminal + board HAL</text>
+<text x="680" y="982" class="body">SDL displays the board screen.</text>
+<text x="680" y="1008" class="body">Selected host card: read/write</text>
+<path d="M548 961 H652" class="data"/>
+<text x="600" y="925" class="small">TCP</text>
+<text x="40" y="1080" class="body">Green: authenticated loopback data connection (127.0.0.1).</text>
+<text x="40" y="1110" class="body">A separate authenticated control connection lets the owner stop the EXE cleanly.</text>
+<text x="40" y="1140" class="body">Close Mintty or SDL to end the session; guest REBOOT starts a fresh EXE.</text>
+<text x="40" y="1201" class="head">Separate build operation</text>
+<rect x="40" y="1225" width="1120" height="150" rx="12" fill="#fff" stroke="#bdcbdc" stroke-width="1.5"/>
+<text x="60" y="1257" class="head">desktop-rebuild.cmd → windows.cmd → dispatch.sh → windows_build.py</text>
+<text x="60" y="1286" class="body">CMake / Ninja + UCRT64 compiler → native xtgv_desktop.exe and runtime DLLs</text>
+<text x="60" y="1312" class="body">Output: build/RunCPM_7xtgv-terminal/desktop-win/msys2-ucrt64/&lt;target&gt;/</text>
+<text x="60" y="1338" class="body">Rebuild first; desktop-local or desktop-card then launches that target’s build.</text>
+<text x="40" y="1420" class="small">Windows desktop sessions use Mintty and loopback sockets; Linux uses tmux and a PTY.</text>
+<text x="40" y="1463" class="small">Paths are relative to src/RunCPM_7xtgv-terminal/, except the repository build/ output.</text>
+</svg>

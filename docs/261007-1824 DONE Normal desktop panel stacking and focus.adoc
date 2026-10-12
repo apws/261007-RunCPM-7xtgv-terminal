@@ -13,7 +13,7 @@ Normal focus/window switching is restored; guest input still belongs to
 the mirror. SDL keyboard events remain ignored.
 
 Hyprland reload/config validation and presenter C++ syntax checks pass.
-The native change awaits desktop rebuild/relaunch, including on CachyOS.
+The native change awaits desktop rebuild/relaunch, including on Arch-based Linux.
 No running session was stopped or rebuilt. Petr should check switching
 between SDL, mirror and other apps, movement, and mirror-close cleanup.
 
@@ -27,7 +27,7 @@ ordinary stacking across tiled and floating windows.
 
 The settled published default remains focusable SDL without an explicit
 always-on-top request. A proposed normal/workspace-view launcher option is
-discussion only, not implemented. CachyOS retest is next. No claim of verified
+discussion only, not implemented. Arch-based Linux retest is next. No claim of verified
 live mirror-close acceptance is made here.
 
 ThinkPad Hyprland rules are local user configuration, not deployed by this

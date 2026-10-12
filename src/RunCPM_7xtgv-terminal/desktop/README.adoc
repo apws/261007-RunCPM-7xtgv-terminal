@@ -1,5 +1,11 @@
-= Linux desktop runtime
+= Desktop runtime: Linux developer commands
 :source-highlighter: highlight.js
+
+The native desktop emulator is buildable on Linux and Windows. For first setup,
+use the link:../../../guides/01-BG-build-guide.adoc[Build Guide]. Windows uses
+link:../tools-win/README.adoc[MSYS2 UCRT64 tooling]; this page documents the
+Linux developer commands. The target launchers have matching `desktop-rebuild`,
+`desktop-local` and `desktop-card` names, with `.sh` or `.cmd` extensions.
 
 Experimental developer tool: the original Arduino sketch, 7XF shell and
 `abstraction_arduino_7xtgv.h`, with the selected *real board's* geometry,
@@ -30,8 +36,8 @@ macOS transport and packaging are not implemented.
 
 === Simple per-board shortcuts
 
-Open `tools/targets/DISPLAY_ID -- target/` and launch from that directory
-(including Shift+Enter in Double Commander):
+Open `tools/targets/DISPLAY_ID -- target/` and run the scripts from a terminal
+in that directory:
 
 [cols="1,2",options="header"]
 |===
@@ -55,7 +61,7 @@ Inside `tools/targets/EP4_10 -- jc8012p4a1c/`, for example:
 ./desktop-rebuild.sh
 ./desktop-local.sh
 # Or, instead of the local launch:
-./desktop-card.sh --card-root /run/media/falken/RunCPM
+./desktop-card.sh --card-root "/run/media/$USER/RunCPM"
 ----
 
 `--mirror kitty`, `--mirror konsole` or `--mirror terminal` overrides automatic
@@ -105,17 +111,17 @@ Build reconfigures CMake for a fresh stamp; run uses the last build and never
 silently rebuilds. Close either the owning mirror or SDL window, press Ctrl+C
 in the launcher, or use guest `EXIT` to stop the whole desktop session.
 Mirror close requests cooperative emulator shutdown before cleaning up its
-own tmux session. On Omarchy, focus the mirror and use Super+W.
+own tmux session. Use your window manager's close action on the owning mirror.
 A separate read-only monitor attachment does not own the desktop lifecycle. Guest `REBOOT` cleanly exits with code 75 and the launcher
 starts a fresh process and mirror; invoking the native binary directly leaves
 that restart to its caller. Guest `REFLASH` cannot invoke a hardware uploader.
 
-For Petr's mounted reader, explicitly substitute:
+For a mounted reader, supply its actual mount point, for example:
 
 [source,bash]
 ----
 python3 src/RunCPM_7xtgv-terminal/desktop/desktop.py run \
-  --target EP4_10 --card-root /run/media/falken/RunCPM
+  --target EP4_10 --card-root "/run/media/$USER/RunCPM"
 ----
 
 IMPORTANT: These are normal *read/write* runs. Guest programs and INI/history
@@ -139,17 +145,11 @@ running; close first, then unmount normally. No automatic synchronization with a
   policy can still affect its physical size.
 * On Hyprland, SDL prefers libdecor for a draggable title bar (requires libdecor).
   An explicit SDL environment hint takes precedence. Configure the emulator
-  as floating in the user's Hyprland configuration, for example on Lua-based
-  Omarchy:
-+
-[source,lua]
-----
-o.window("^xtgv_desktop$", { float = true, center = true })
-----
-+
+  as floating in your window-manager configuration if needed; use the syntax
+  supported by that configuration.
   SDL remains focusable for normal window switching and movement. Select the
   mirror to type guest input; SDL itself does not translate keyboard input.
-* SDL requests always-on-top again following the CachyOS review. It remains
+* SDL requests always-on-top. It remains
   minimizable and focusable; this does not exclude it from Alt+Tab or prevent
   clicks from taking keyboard focus away from the mirror.
 * SDL uses a fixed-size window: `--window-scale N` selects an integer factor

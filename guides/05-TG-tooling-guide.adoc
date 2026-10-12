@@ -11,16 +11,37 @@ those responsibilities and the files which connect them. Use the
 link:01-BG-build-guide.adoc[Build Guide] for setup and executable launch recipes,
 and the link:03-RG-reference-guide.adoc[Reference Guide] for keyboard and transfer syntax.
 
+Native desktop emulation is buildable on Linux and Windows. Both use the
+same workflow: explicit setup, `desktop-rebuild`, then `desktop-local` or
+`desktop-card`. Linux launchers are under `tools/targets/` with `.sh` extensions;
+Windows launchers are under `tools-win/targets/` with `.cmd` extensions.
+The terminal/CP/M behavior is shared; host mirror and process transport differ.
+Hardware build/upload remains a Linux workflow. For first installation, use
+the link:01-BG-build-guide.adoc#quick-start[Build Guide's setup steps].
+
 Paths below are relative to `src/RunCPM_7xtgv-terminal/`.
 
 [[tooling-structure]]
 == 1. Structure at a glance
 
-image::images/tooling-structure.svg[Hardware and desktop tooling structure,width=1200]
+Both hosts use the same desktop operations: rebuild, launch with the repository
+card, or launch with a selected external card. These diagrams show how each
+host connects those operations to the emulator and its mirror.
+
+=== Linux host tooling
+
+image::images/tooling-structure.svg[Linux hardware and desktop tooling structure,width=1200]
+
+=== Windows host tooling
+
+image::images/tooling-structure-windows.svg[Windows desktop tooling structure,width=1200]
 
 Blue arrows show launch flow. Green arrows show the bidirectional connection
-between the bridge and CP/M. The three maintenance boxes summarize separate
+between the bridge and CP/M. Maintenance/build boxes summarize separate
 operations; they are not additional stages of an ordinary mirror launch.
+Both hosts use `terminal.py` and the shared terminal protocol. Transport and
+process details are described in
+link:04-TRG-technical-reference-guide.adoc#desktop-host-tooling[TRG: desktop host tooling].
 
 [[tooling-names]]
 == 2. Names and their roles
@@ -77,82 +98,78 @@ Desktop launchers supply their own isolated session explicitly.
 [[desktop-tooling-path]]
 == 4. Desktop launch and ownership
 
-. `desktop-local.sh` or `desktop-card.sh` invokes `tools/target_desktop.py`,
-  selecting a local card directory or mounted card root.
-. `desktop/desktop.py` starts `xtgv_desktop`, which runs the selected board's
-  terminal/runtime implementation, opens the card read/write and exposes a PTY.
-  SDL presents the display; keyboard input comes from the mirror.
-. The desktop runner uses `target_mirror.mirror_command()` to select the same
-  mirror launchers, passing the explicit PTY and `7xtgv-desktop-<PID>` session.
-  Desktop selection bypasses hardware serial discovery and removes the uploader
-  command from the mirror environment.
-. The mirror starts `terminal.py` in the isolated tmux session. Closing either
-  owning window ends the desktop session; guest `REBOOT` requests a fresh
-  emulator process and mirror.
+Use the same three operations in the chosen target folder on either host:
+`desktop-rebuild` builds, `desktop-local` opens the repository's `cpmcard/`, and
+`desktop-card --card-root PATH` opens a selected external card. Add `.sh` on
+Linux or `.cmd` on Windows. Setup and first-run commands are in the
+link:01-BG-build-guide.adoc[Build Guide].
 
-Desktop and hardware can use the same Konsole keyboard table without sharing
-transport endpoints, tmux sessions or card ownership. Do not run concurrent
-writers on the same desktop card directory.
+=== Linux desktop mirror
 
-Desktop launchers on both systems accept `--window-scale N` (integer 1..9,
-default 1). For example, `desktop-local.sh --window-scale 3` or
-`desktop-local.cmd --window-scale 3` shows the entire panel at triple size.
-The SDL window is fixed-size, with nearest-neighbour integer scaling. This is
-independent of terminal glyph zoom and does not alter guest geometry or the INI.
-Choose a factor that fits the host screen; arguments also apply after REBOOT.
+a. Run `desktop-local.sh` or `desktop-card.sh --card-root PATH` from the target
+   folder under `tools/targets/`.
+b. The launcher starts the selected emulator and opens Konsole, Kitty or the
+   current terminal as its mirror.
+c. Type CP/M commands into the mirror; the SDL window shows the board display.
+d. Close the owning mirror or SDL window to end the session. Guest `REBOOT`
+   restarts the emulator.
 
 === Windows desktop mirror
 
-Windows entry points are under `tools-win/targets/DISPLAY_ID -- target/`.
-Each folder contains three launchers: `desktop-rebuild.cmd` builds,
-`desktop-local.cmd` selects the working card read/write, and `desktop-card.cmd`
-requires an explicit `--card-root`. Diagnostic commands are available through
-the shared `tools-win/windows.cmd` entry point.
+a. Run `desktop-local.cmd` or `desktop-card.cmd --card-root PATH` from the target
+   folder under `tools-win/targets/`.
+b. The launcher starts the selected emulator and opens Mintty as its mirror.
+c. Type CP/M commands into the mirror; the SDL window shows the board display.
+d. Close the owning mirror or SDL window to end the session. Guest `REBOOT`
+   restarts the emulator.
 
-`tools-win/windows_run.py` opens Mintty, starts the native desktop and runs the
-same `tools/terminal.py` mirror using authenticated local data/control sockets.
-It owns cooperative shutdown and guest REBOOT; the SDL display stays output-only.
-This Windows path runs directly inside Mintty, without a tmux attachment.
-Linux keeps the PTY/tmux path shown above. The new launchers on both platforms
-use a per-card lock to reject a second participating writer.
+=== Shared session controls
 
-Mintty key settings are generated for each session from shared key identifiers.
-It covers special/navigation/function keys, view controls and brightness presets.
-The primary application-exit shortcut is *Alt+Q* in all three supplied profiles (use LAlt in Mintty),
-with Pause then x as a Windows alternative;
-Alt+Esc cycles Windows windows. Printable characters use the active Windows layout,
-with the physical Czech number row and keypad decimal passed to the terminal's
-existing digit/dot defaults and INI overrides by a per-session native helper.
-It attaches to the selected Mintty message thread and translates while that
-window has focus; ordinary punctuation, paste, AltGr and dead-key composition
-retain their normal text path. Rebuild the selected Windows target before launch
-to produce `xtgv_key_bridge.exe` and `xtgv_key_hook.dll`.
-`XTGV_HACK_TOPROW='+ěščřžýáíé'` in `tools/terminal.conf` controls ordinary
-number-row conversion in both Linux Konsole/Kitty launchers and Windows Mintty.
-The ten characters describe unshifted positions 1..0; empty or missing disables
-the plain/Shift row bindings. `XTGV_BANK_KEYS` remains the separate Alt-bank
-setting. Brightness and keypad decimal are independent of this row option.
-All three launchers use the same literal-setting reader; an inherited environment
-value (including empty) overrides the file. Open a new mirror after a change;
-no executable rebuild is needed just to change this setting.
+Both launch modes open their selected card read/write, including guest files,
+INI and history. A per-card lock prevents another participating desktop from
+opening the same card for writing. Close the session before removing the card.
 
-Windows checks the complete active layout through its physical-key helper.
-Konsole/Kitty generate bindings for the configured characters and Shift+digits;
-these terminals do not provide the same full-layout match guard. This retains
-the tested Czech behavior and supports compatible rows, rather than promising
-automatic detection of every national layout. Linux keymap syntax rejects
-whitespace, quotes, backslashes, hash characters and conflicting bindings.
-Existing punctuation mappings are separate. Direct use of a checked-in static
-profile or `--mirror terminal` does not regenerate an already open host terminal.
-Alt+Q, fixed SDL dimensions and integer window scaling have been tested across
-all six Windows desktop variants. Numeric brightness shortcuts include Czech
-number-row aliases and modified numpad reports. Keypad decimal and numeric
-brightness/OFF controls have native acceptance; the explicit configuration
-handoff correction also has ES3_35 plain-row acceptance. The keyboard probe separates typing, top-row and numpad
-tests and defaults to the rebuilt ES3_5 helper; see the Windows tooling notes below. Native owner/mirror
-lifecycle and binary transfers pass the documented ES3_5 proofs.
-See the link:../src/RunCPM_7xtgv-terminal/tools-win/README.adoc[Windows tooling notes]
-for source-folder launchers, test steps, logs and keyboard qualifications.
+Both hosts accept `--window-scale N` (integer 1..9, default 1). For example,
+`desktop-local.sh --window-scale 3` or `desktop-local.cmd --window-scale 3`
+shows the entire fixed-size SDL panel at triple size. This is independent of
+terminal glyph zoom and does not change guest geometry or the INI.
+
+*Alt+Q* is application exit in the supplied Konsole, Kitty and Mintty profiles.
+Bank, brightness and zoom controls use the shared terminal mappings in the
+link:03-RG-reference-guide.adoc#global-terminal-keys[Reference Guide].
+`XTGV_HACK_TOPROW` in `tools/terminal.conf` controls optional number-row conversion;
+open a new mirror after changing it. Keyboard implementation and configuration
+precedence are described in
+link:04-TRG-technical-reference-guide.adoc#desktop-host-tooling[TRG: desktop host tooling].
+
+=== Choosing the Linux mirror
+
+The default `--mirror auto` checks for a graphical session (`DISPLAY` or
+`WAYLAND_DISPLAY`), then chooses Konsole if it is on PATH, otherwise Kitty.
+If neither is available, or there is no graphical session, it uses the current
+terminal. With both installed, Konsole wins; the choice does not depend on
+which terminal launched the script.
+
+Choose explicitly for a session:
+
+[source,sh]
+----
+./desktop-local.sh --mirror konsole
+# Or choose Kitty instead:
+./desktop-local.sh --mirror kitty
+----
+
+`desktop-card.sh` and the hardware `mirror.sh` accept the same option.
+`--mirror terminal` uses the current terminal. An explicitly requested missing
+terminal produces an error; it does not silently select another.
+Konsole has been the primary interactive Linux test path. Kitty has a supplied
+integration and configuration checks, with less physical-key/user testing;
+availability does not imply equal acceptance coverage. Windows uses Mintty.
+
+See link:04-TRG-technical-reference-guide.adoc#desktop-host-tooling[TRG]
+for process ownership, transports and platform-specific launcher options, and
+the link:../src/RunCPM_7xtgv-terminal/tools-win/README.adoc[Windows tooling notes]
+for logs and diagnostic commands.
 
 === Retired WezTerm experiment
 
@@ -169,11 +186,13 @@ in link:../docs/261012-0001%20REJECT%20WezTerm%20colours%20in%20VirtualBox%20Win
 |Entry point |Path and effect
 |`rebuild.sh` |`target_reflash.py --build-only` delegates to `reflash.py --build-only`. Builds/stages the selected MCU target under `build/`; does not stop the mirror or upload.
 |`reflash.sh` |`target_reflash.py --upload-only` selects staged firmware, stops the standard hardware mirror, uploads through `reflash.py` for serial targets or `bootsel_upload.py` for RP2350, then restores the selected visible mirror. Upload restarts the MCU and loses guest application state.
+|`desktop-rebuild.cmd` |`windows.cmd` / `dispatch.sh` delegates to `windows_build.py` and CMake in MSYS2 UCRT64. Produces the native Windows EXE and adjacent runtime DLLs; launch is separate.
 |`desktop-rebuild.sh` |`target_desktop.py build` delegates to `desktop.py build` and CMake. Produces a host executable; launch remains a separate operation.
 |Guest `VTPUT` / `VTGET` |The running mirror opens its transfer panel; `terminal.py` loads `tools/cpm-transfer/transfer.py` and uses the existing connection. No second serial reader is opened.
 |Direct `tools/cpm-transfer/transfer.py` |Owns its direct connection. Stop the hardware mirror first and restore its visible attachment afterward.
 |`tools/fetch-7xtgvtrm-ini.sh` |Stops the standard hardware mirror, downloads device `A0:7XTGVTRM.INI`, archives the preceding local copy, then restores the Konsole mirror. This fetch does not upload the INI.
-|`tools/setup.sh` |Explicit prerequisite installation and host setup. Rebuild/launch tools report missing prerequisites rather than installing them implicitly.
+|`tools-win/setup.cmd` |Explicit Windows prerequisite setup in the selected MSYS2 installation, plus project-local GFX sources. Run the full MSYS2 update separately first.
+|`tools/setup.sh` |Explicit Linux prerequisite installation and host setup. Rebuild/launch tools report missing prerequisites rather than installing them implicitly.
 |===
 
 After a tooling-name update, close a hardware mirror started by the previous

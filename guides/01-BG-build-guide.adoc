@@ -5,7 +5,7 @@
 :toclevels: 3
 :sectnums!:
 
-Start on Linux with the desktop emulator; no physical board is needed.
+Start on *Linux or Windows* with the native desktop emulator; no physical board is needed.
 It runs the integrated RunCPM/terminal and real Arduino_GFX drawing code using
 your chosen board's display definition. The current terminal is a development
 testbed for *7xtgv-native*, not the completed native engine.
@@ -14,6 +14,11 @@ The scripts work without Codex or any AI service. Arduino IDE is optional.
 The workflow below follows the current setup and launcher tools; remaining
 fresh-machine and hardware qualification limits are listed separately.
 
+Both hosts use the same desktop command names: `desktop-rebuild`,
+`desktop-local` and `desktop-card`, with `.sh` on Linux and `.cmd` on Windows.
+Choose the host-specific setup below. Hardware build/upload uses Linux tooling;
+macOS and WSL launch paths remain unvalidated.
+
 [[quick-start]]
 == 1. Getting started
 
@@ -21,13 +26,20 @@ fresh-machine and hardware qualification limits are listed separately.
 === Clone
 
 You need Git and repository access before running its setup script.
-From the directory where you keep projects:
+From the directory where you keep projects, in a Linux shell or Windows
+Command Prompt with Git available:
 
 [source,sh]
 ----
 git clone https://github.com/apws/261007-RunCPM-7xtgv-terminal.git
 cd 261007-RunCPM-7xtgv-terminal
 ----
+
+On Windows, a writable local directory such as `C:\work` is suitable; use
+`cd /d C:\work` in Command Prompt before cloning. If Git is not installed,
+extract a repository source ZIP instead, or install MSYS2 and Git first.
+For the latter route, complete <<windows-setup,the MSYS2 update>> and run
+`pacman -S --needed git` in UCRT64, then use the clone commands there.
 
 * Use a new destination if that directory already exists; do not overwrite a checkout.
 * A clone includes committed `cpmcard/` files, not another machine's
@@ -39,6 +51,9 @@ cd 261007-RunCPM-7xtgv-terminal
 [[_2_run_explicit_setup]]
 === Run explicit setup
 
+[[linux-setup]]
+==== Linux prerequisites and setup
+
 From the repository root, as your *normal user*, not through sudo:
 
 [source,sh]
@@ -49,7 +64,7 @@ From the repository root, as your *normal user*, not through sudo:
 
 The first command only previews; the second asks before installing.
 
-* Detects Arch-family distributions, Debian/Ubuntu or Fedora.
+* Detects Arch-based, Debian-based and Fedora-based distributions.
 * Installs system tools, desktop C++/CMake/SDL2 support, Arduino CLI,
   and pinned cores/libraries for all six boards. There is no desktop-only setup mode.
 * Uses sudo for system packages, but installs Arduino components as your user.
@@ -62,20 +77,69 @@ The first command only previews; the second asks before installing.
 Arch-family use has been exercised. Debian/Fedora package selection has offline
 tests, but real fresh-machine installation remains unverified. The complete
 clean-clone gate is still pending; see <<clean-clone-acceptance>>.
-Windows desktop builds use the separate
-link:../src/RunCPM_7xtgv-terminal/tools-win/README.adoc[MSYS2 Windows workflow].
-All six native build/smoke/connection proofs pass on the tested Windows guest;
-interactive Mintty launchers are available as `desktop-local.cmd` for the working
-card and `desktop-card.cmd --card-root "DRIVE:\path\to\card"` for an explicit card.
-Each Windows target folder also has `desktop-rebuild.cmd`. This does not qualify Windows hardware
-upload. macOS and WSL launcher paths remain unvalidated.
+[[windows-setup]]
+==== Windows prerequisites and setup
+
+a. Install x64 https://www.msys2.org/[MSYS2] on Windows, for example in
+`C:\msys64`. Existing installations can be reused; reinstalling is not a
+normal setup step. No WSL, Linux VM or Arduino IDE is required.
+b. Open *UCRT64* from that installation, for example `C:\msys64\ucrt64.exe`.
+Close any running project desktop/mirror sessions before updating. Run:
++
+[source,sh]
+----
+pacman -Syu
+----
++
+If pacman asks to close MSYS2 processes, accept, reopen UCRT64 and run the
+command again to finish the remaining updates. `-Suy` is equivalent to
+`-Syu`. Complete the full update before installing our packages; see the
+https://www.msys2.org/docs/updating/[MSYS2 update instructions].
+
+c. From your checkout, run `src\RunCPM_7xtgv-terminal\tools-win\setup.cmd`
+in *Windows Command Prompt* or double-click it in Explorer. For example,
+with a clone in `C:\work\261007-RunCPM-7xtgv-terminal`:
++
+[source,bat]
+----
+cd /d C:\work\261007-RunCPM-7xtgv-terminal\src\RunCPM_7xtgv-terminal\tools-win
+setup.cmd --dry-run
+setup.cmd
+----
++
+The preview does not install anything. Setup then asks before installing
+packages into the selected MSYS2. Check the printed `Using MSYS2:` directory
+matches the installation updated in step b. Common C: and D: locations are
+discovered automatically; for a custom location set
+`set "XTGV_MSYS2_ROOT=D:\apps\msys64"` in the same Command Prompt first.
+
+d. Wait for setup to finish successfully, then choose a target folder and
+rebuild/launch as described below. Setup itself does neither.
+
+Setup installs Git, curl, CA certificates, MSYS Python, tmux, Mintty and native
+UCRT64 GCC/CMake/Ninja/SDL2, together with their package dependencies. These
+stay in the selected MSYS2 installation. Checksum-verified Arduino_GFX 1.6.4
+sources go under `build/RunCPM_7xtgv-terminal/desktop-win/_deps/` in the checkout.
+It does not add a global Windows PATH entry, install services/drivers or MCU
+cores, or write to the card. Rebuild creates the EXE and supporting DLLs under
+`build/`; launch uses those artifacts.
+
+MSYS2 Bash and Windows Command Prompt use different syntax: run `pacman` in
+UCRT64, and the `.cmd` examples and `set "NAME=value"` in Command Prompt.
+The launchers start their own MSYS2 environment. A VirtualBox shared checkout
+also works, but local guest storage avoids shared-folder overhead for card I/O.
+See the link:../src/RunCPM_7xtgv-terminal/tools-win/README.adoc[Windows tooling notes]
+for dependency troubleshooting, logs and diagnostic commands.
 
 [[_3_open_a_board_folder]]
 === Open a board folder
 
-The full launcher parent path, relative to the repository root, is
-`src/RunCPM_7xtgv-terminal/tools/targets/`.
-Choose a display ID, even for desktop use:
+Relative to the repository root, choose your host's launcher parent:
+
+* Linux: `src/RunCPM_7xtgv-terminal/tools/targets/`.
+* Windows: `src/RunCPM_7xtgv-terminal/tools-win/targets/`.
+
+Both have the following folders. Choose a display ID, even for desktop use:
 
 [cols="1,1,3",options="header"]
 |===
@@ -88,7 +152,7 @@ Choose a display ID, even for desktop use:
 |WAVESHARE |`RP2_2` |`++RP2_2 -- rp2350-touch-lcd-2++`
 |===
 
-For example, from the repository root:
+For example, from the repository root on Linux:
 
 [source,sh]
 ----
@@ -98,30 +162,48 @@ cd "src/RunCPM_7xtgv-terminal/tools/targets/EP4_10 -- jc8012p4a1c"
 Each shortcut already selects its board; no `terminal.conf` edit is needed
 to choose the target for these shortcuts.
 
-[cols="1,3",options="header"]
+[cols="2,2,5",options="header"]
 |===
-|Script |Action
-|`desktop-rebuild.sh` |Build this board's Linux desktop executable; no MCU access.
-|`desktop-local.sh` |Launch its last desktop build with repository `cpmcard/` and a mirror.
-|`desktop-card.sh` |Launch its last desktop build with an explicitly selected mounted SD/USB card and a mirror.
-|`rebuild.sh` |Build and stage fresh firmware for the physical board; no upload.
-|`reflash.sh` |Upload staged firmware and restore the mirror; no build.
-|`mirror.sh` |Attach to the physical board; no build or upload.
+|Linux |Windows |Action
+|`desktop-rebuild.sh` |`desktop-rebuild.cmd` |Build this board's native desktop executable; no MCU access.
+|`desktop-local.sh` |`desktop-local.cmd` |Launch its last build with repository `cpmcard/` and a mirror.
+|`desktop-card.sh` |`desktop-card.cmd` |Launch its last build with a selected external card and a mirror.
+|`rebuild.sh` |-- |Build and stage firmware for the physical board; no upload.
+|`reflash.sh` |-- |Upload staged firmware and restore the mirror; no build.
+|`mirror.sh` |-- |Attach to the physical board; no build or upload.
 |===
 
-In *Midnight Commander*, execute the script normally. In *Double Commander*,
-use *Shift+Enter* to launch with a terminal. Keep folder spaces quoted in shell paths.
+Run `.sh` scripts from a Linux terminal or `.cmd` files from Windows Command
+Prompt; `.cmd` files can also be double-clicked. Keep folder spaces quoted.
+
+A file manager is optional: Midnight Commander, Double Commander or Krusader
+can make navigating target folders convenient. Use its terminal/run action so
+launcher output and prompts remain visible; keyboard shortcuts depend on the
+file manager's configuration.
 
 [[_4_build_then_launch]]
 === Build, then launch
 
-From the chosen board folder, execute these separately:
+From the chosen board folder, execute these separately on Linux:
 
 [source,sh]
 ----
 ./desktop-rebuild.sh
 ./desktop-local.sh
 ----
+
+On Windows, for example from the repository root in Command Prompt:
+
+[source,bat]
+----
+cd "src\RunCPM_7xtgv-terminal\tools-win\targets\ES3_35 -- jc8048w535"
+desktop-rebuild.cmd
+desktop-local.cmd
+----
+
+Linux opens Konsole/Kitty or the current terminal; Windows opens Mintty.
+The emulator's CP/M commands, INI configuration and desktop controls are shared.
+Native window management and host-terminal options can differ.
 
 * Wait for the build to finish successfully before launching.
 * The SDL window is the board-sized display; *type into the mirror*.
@@ -131,7 +213,7 @@ From the chosen board folder, execute these separately:
 
 IMPORTANT: A normal desktop run is *read/write*. Guest applications and
 INI/history autosaves can modify versioned files in `cpmcard/`.
-For experiments, use a prepared copy via `--card-root`; see <<card-selection>>.
+For experiments, use an isolated checkout or prepared card copy; see <<card-selection>>.
 
 For everyday controls and examples, continue with the
 link:02-UG-user-guide.adoc[User Guide]. For automation and headless tests, use the
@@ -141,39 +223,44 @@ link:../src/RunCPM_7xtgv-terminal/desktop/README.adoc[developer desktop guide].
 == 2. Desktop sessions and cards
 
 [[_local_working_card_or_disposable_copy]]
-=== Local working card or disposable copy
+=== Repository working card
 
-`desktop-local.sh` defaults to repository `cpmcard/`, independent of the shell's
-current directory. `XTGV_CARD_ROOT` overrides that default; an explicit
-`--card-root PATH` takes precedence. For a separately prepared copy:
+Run `desktop-local.sh` on Linux or `desktop-local.cmd` on Windows to use the
+checkout's `cpmcard/`. Its location is independent of the shell's current
+directory. Guest files, INI settings and history changes persist in that card.
 
-[source,sh]
-----
-./desktop-local.sh --card-root /absolute/path/to/my-cpm-test-card
-----
-
-The directory must already contain `A/0`. The
-link:../cpmcard/README.adoc[card guide] describes an export helper which copies
-the complete working card to a new destination. Stop writers before copying.
+For an isolated experiment, use a separate checkout or a prepared card copy.
+The link:../cpmcard/README.adoc[card guide] describes exporting the complete
+working card; stop writers before copying. Developer overrides and platform
+validation details are in
+link:04-TRG-technical-reference-guide.adoc#desktop-host-tooling[TRG: desktop host tooling].
 No launch copies, synchronizes or normalizes card content automatically.
-Use uppercase guest filenames on case-sensitive host filesystems.
 
 [[_mounted_sdusb_card]]
-=== Mounted SD/USB card
+=== External SD/USB card
 
-From the board folder, run `./desktop-card.sh` and enter the mount path,
-or pass it explicitly:
+Run `desktop-card` with the mounted card's root directory containing `A/0`.
+The command name and option are the same on both hosts; use the appropriate
+extension and actual mount path or drive letter.
+
+Linux:
 
 [source,sh]
 ----
 ./desktop-card.sh --card-root "/run/media/$USER/RunCPM"
 ----
 
-That is an example mount path, not an automatically detected reader.
-Selection order is `--card-root`, then `XTGV_DESKTOP_CARD_ROOT`, then an
-interactive prompt. The path must be an actual mounted filesystem root
-containing `A/0`; an ordinary directory or stale unmounted path is rejected.
-Without an interactive terminal, supply the path explicitly.
+Windows Command Prompt:
+
+[source,bat]
+----
+desktop-card.cmd --card-root "E:\"
+----
+
+These paths are examples; the launcher does not guess the reader. Both modes
+open the selected card read/write. Use uppercase guest filenames for
+compatibility with case-sensitive host filesystems. Close the session before
+unmounting or removing the card.
 
 [[_session_ownership_and_shutdown]]
 === Session ownership and shutdown
@@ -306,6 +393,10 @@ dialects; see the link:03-RG-reference-guide.adoc[Reference Guide].
   `mirror.sh` has no dry-run option; use `--help` without opening a connection.
 * Hardware `--verbose` exposes live compiler/uploader output. Desktop shortcuts
   stay quiet; use their log or the developer CLI for diagnostics.
+* Desktop rebuilds on Linux and Windows show build-step percentages from Make
+  or Ninja while compiler details stay in the log. A terminal updates one line;
+  redirected output keeps occasional progress lines. Percentages measure build
+  work items, not remaining time; configuration and DLL staging are separate steps.
 * Reflash, mirror and desktop launch accept `--mirror terminal`,
   `--mirror konsole` or `--mirror kitty`. Automatic selection prefers Konsole,
   then Kitty when a GUI session is available, otherwise the current terminal.
@@ -337,7 +428,7 @@ To experiment, from a board folder:
 [[_prerequisites_and_manual_setup_details]]
 === Prerequisites and manual setup details
 
-Use `setup.sh` first. This inventory is for diagnosing missing components or
+Use the appropriate host setup above first. This *Linux* inventory is for diagnosing missing components or
 preparing a machine manually, not an extra sequence after setup.
 
 [cols="1,2,3",options="header"]
@@ -357,7 +448,7 @@ preparing a machine manually, not an extra sequence after setup.
 |===
 
 Native desktop builds do not use MCU cores, SdFat hardware drivers or USB
-upload tools, even though combined setup installs them. They compile the real
+upload tools, even though combined Linux setup installs them. They compile the real
 GFX library plus the project's host storage adapter.
 
 [[_setup_behavior_and_versions]]
@@ -401,7 +492,8 @@ All paths below are relative to the repository root:
 |Path |Meaning
 |`build/RunCPM_7xtgv-terminal/TARGET/new/` |Successfully staged MCU candidate; `.ino.bin` for ESP32, `.ino.uf2` for RP2350.
 |`build/RunCPM_7xtgv-terminal/TARGET/current/` |Separately promoted hardware-accepted image, if one exists.
-|`build/RunCPM_7xtgv-terminal/desktop/TARGET/xtgv_desktop` |Native executable for that board; never an MCU upload image.
+|`build/RunCPM_7xtgv-terminal/desktop/TARGET/xtgv_desktop` |Linux native executable for that board; never an MCU upload image.
+|`build/RunCPM_7xtgv-terminal/desktop-win/msys2-ucrt64/TARGET/xtgv_desktop.exe` |Windows native executable, with supporting DLLs alongside it. Use the source-folder launchers to run it.
 |===
 
 Here `TARGET` is the long ID after `--` in the folder table, without spaces.
@@ -436,10 +528,11 @@ link:04-TRG-technical-reference-guide.adoc#_build_upload_and_test_boundary[Techn
 |No executable / no staged firmware |Run the matching desktop or hardware rebuild first; clone does not contain build artifacts.
 |Old build still running |Rebuild is separate from launch/reflash. Check embedded stamp and running `VTINFO`; a blocked upload did not install the candidate.
 |Missing compiler, CMake, SDL2 or Arduino CLI |Run explicit setup; check PATH/`ARDUINO_CLI`. For GFX, verify version/path or use build `--gfx`.
+|Windows setup reports conflicting package versions |Complete `pacman -Syu` in the same MSYS2 installation printed by setup. Reopen and repeat after core updates. If it still fails, keep the full update output and check the root with `cygpath -w /`; do not force dependency checks or remove compiler libraries.
 |Core/library download failure |Check network/proxy/CA certificates and disk space; keep pinned versions. Do not change HAL code to fix a download.
-|Mounted-card path rejected |Use the mount root containing `A/0`; mount the card first. For an ordinary directory use `desktop-local.sh --card-root PATH`.
+|Mounted-card path rejected |Mount the card first and pass its root containing `A/0` to desktop-card. Developer directory overrides are described in link:04-TRG-technical-reference-guide.adoc#desktop-host-tooling[TRG].
 |SDL ignores typing |Focus the mirror. SDL is output-only even when its title bar or Alt+Tab gives it focus.
-|SDL too large / too dark |Resize the window or choose another board; resizing does not alter logical geometry. Use terminal backlight controls, not mirror colors.
+|SDL too large / too dark |Choose a smaller board display or adjust `--window-scale 1` through `9` at launch. The SDL window is fixed-size; scale does not alter guest geometry. Use terminal backlight controls for brightness.
 |Missing serial device / permission denied |Check cable, actual port, permissions and competing readers. Use setup's `--serial-only` for group access.
 |Wrong board or multiple candidates |Resolve selection explicitly. Do not bypass a firmware mismatch or guess among BOOTSEL disks.
 |No graphical mirror launcher |Use `--mirror terminal` with tmux installed. Desktop SDL still needs a graphical session.

@@ -70,7 +70,7 @@ Do *not* modify the packaged file under `/usr/share/...` directly.
 
 == Codex task
 
-=== 1. Locate the exact AsciiDoc syntax definition used on this CachyOS/KDE installation
+=== 1. Locate the exact AsciiDoc syntax definition used on this Arch-based Linux/KDE installation
 
 First inspect, do not guess paths.
 

@@ -2,7 +2,7 @@
 :leveloffset: +2
 :source-highlighter: highlight.js
 
-Petr preferred the earlier stacking behavior on CachyOS/KDE and requested
+Petr preferred the earlier stacking behavior on Arch-based Linux/KDE and requested
 restoring it. The shared SDL presenter again requests
 `SDL_WINDOW_ALWAYS_ON_TOP` for every desktop board, including other hosts.
 This supersedes only the stacking decision in

@@ -5,7 +5,7 @@
 == Agreed plan
 
 Keep installation explicit: rebuild/reflash only report missing prerequisites
-and point to `tools/setup.sh`. Implement Arch/CachyOS first, with future
+and point to `tools/setup.sh`. Implement Arch-based Linux first, with future
 OS-specific adapters separated from common Arduino dependencies.
 
 == Implementation
@@ -25,7 +25,7 @@ OS-specific adapters separated from common Arduino dependencies.
 == Testing and remaining gates
 
 Twenty offline workflow tests pass, including fake sudo/Arduino installers
-in a temporary fixture. Dry-run on CachyOS prints the plan without installing.
+in a temporary fixture. Dry-run on Arch-based Linux prints the plan without installing.
 No real sudo, package download, build or flash was performed during verification.
 Docker and Podman are absent here. A disposable Arch VM/container is the next
 real installation gate; a VM or real host is needed for USB/desktop integration.

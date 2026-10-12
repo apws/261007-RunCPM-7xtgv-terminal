@@ -47,7 +47,7 @@ and separate CONFIGURE/BUILD or DESKTOP/MIRROR with blank lines and delimiters.
   to the explicit detected Linux setup. Normal firmware setup stays unchanged;
   no packages were installed during this work. This option is additive, not a
   desktop-only installer, and cannot combine with `--serial-only`.
-* The reported Omarchy keyboard trouble is in the ChatGPT app, not the 7xtgv
+* The reported Linux desktop keyboard trouble is in the ChatGPT app, not the 7xtgv
   mirror. No terminal key mapping was changed in response.
 
 == Verification and limits

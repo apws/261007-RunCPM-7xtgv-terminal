@@ -4,9 +4,16 @@
 
 [#7xtgv-runcpm-terminal-manual]
 Run the current RunCPM-based CP/M terminal on an MCU/TFT board or in its
-Linux SDL desktop emulator. Both use the PC mirror for input and the complete
+*Linux or Windows* native SDL desktop emulator. Hardware and desktop use the PC mirror for input and the complete
 logical screen. Start with the Build Guide for clone/setup, then the User Guide
 for everyday controls.
+
+Desktop setup, rebuild and launch follow the same workflow on both hosts.
+Use `tools/targets/` with `.sh` launchers on Linux and `tools-win/targets/`
+with `.cmd` launchers on Windows, relative to `src/RunCPM_7xtgv-terminal/`.
+The matching commands are `desktop-rebuild`, `desktop-local` and `desktop-card`.
+CP/M commands and terminal INI settings are shared; host mirror/transport and
+some launcher options differ. Hardware build/upload is the Linux workflow.
 
 This terminal implements a selected ANSI/VT100 and VT52 subset as a testbed
 for the primary *7xtgv-native* engine objective; the native engine is not yet
@@ -16,7 +23,7 @@ from the committed repository copy.
 [cols="1,3",options="header"]
 |===
 |Read |For
-|link:01-BG-build-guide.adoc[Build Guide] |Clone, setup, first desktop run; hardware rebuild/reflash, card ownership, prerequisites and troubleshooting. Fresh-machine verification gaps remain explicit.
+|link:01-BG-build-guide.adoc[Build Guide] |Linux/Windows prerequisites, setup and first desktop run; hardware rebuild/reflash, card ownership, prerequisites and troubleshooting. Fresh-machine verification gaps remain explicit.
 |link:02-UG-user-guide.adoc[User Guide] |Starting desktop or hardware sessions, everyday keys, zoom/pan, file transfer, safe INI changes, recovery.
 |link:03-RG-reference-guide.adoc[Reference Guide] |Exact commands, keys, profiles, escape-sequence behavior and INI settings.
 |link:04-TRG-technical-reference-guide.adoc[Technical Reference Guide] |RunCPM/CCP fork, core and HAL ownership, protocols, persistence, build safety and licensing.

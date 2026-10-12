@@ -1,0 +1,216 @@
+= macOS desktop tooling: feasibility review
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+:experimental:
+
+== Conclusion and scope
+
+A native macOS desktop is feasible with a moderate host-porting effort.
+The likely route reuses the Linux POSIX runtime and Kitty mirror, with a thin
+`tools-mac` entry layer. It does not require a new emulator, renderer or guest
+protocol. It is more than copying launchers: the current source explicitly
+rejects Darwin and contains Linux-specific endpoint, setup and test assumptions.
+
+This is a source/documentation review requested on 261012, not implementation
+approval or a macOS build result. No Mac was used for this review. Linux and
+Windows remain the supported desktop hosts until native macOS acceptance.
+The user has confirmed launching Kitty on Linux; that does not qualify its
+macOS window lifecycle or physical-key behavior.
+
+Preserve the architecture from
+link:261006-0935%20PLAN%20Desktop%20runtime%20using%20existing%20board%20HALs.adoc[the desktop runtime plan],
+as implemented and subsequently refined in
+link:../guides/04-TRG-technical-reference-guide.adoc#desktop-host-tooling[TRG].
+The first macOS scope should cover desktop rebuild/local/card only. Arduino
+firmware building, USB discovery, flashing and raw-card operations are separate.
+The board-profile/Wasm ideas remain independent proposals.
+
+== Proposed user workflow
+
+Keep the established command stems in each selected target folder:
+
+[source,text]
+----
+tools-mac/
+  README.adoc
+  setup.sh
+  targets/
+    DISPLAY_ID -- target/
+      desktop-rebuild.sh
+      desktop-local.sh
+      desktop-card.sh
+----
+
+The target folders contain launchers only. Shared Python helpers, target JSON,
+keymap generation and terminal.conf remain authoritative. Avoid a second copy
+of desktop.py, terminal.py or the board HALs. Small host-specific helpers can
+live beside setup.sh; shared helpers need explicit host parameters where
+build paths or mirror discovery differ.
+
+`desktop-local.sh` should select repository cpmcard; `desktop-card.sh
+--card-root "/Volumes/RunCPM"` should select an explicitly mounted card.
+Retain `--window-scale`, optimization selection on rebuild, concise progress,
+adjacent logs, per-card ownership and REBOOT semantics. Quote all paths and
+resolve the repository from the launcher, independent of current directory.
+Finder double-click convenience can be a later thin `.command` entry point;
+first qualify the same `.sh` commands from a terminal.
+
+Proposed output isolation:
+`build/RunCPM_7xtgv-terminal/desktop-mac/<architecture>/<target>/`.
+The current Linux desktop.py hardcodes `desktop/<target>` for both build and
+launch, so a Mac wrapper alone cannot provide this separation. Parameterize
+that shared path; preserve existing Linux defaults. This also avoids mixing
+CMake caches and executables in a shared checkout.
+
+== Source findings and required work
+
+Paths in this table are relative to `src/RunCPM_7xtgv-terminal/`.
+
+[cols="2,4,1",options="header"]
+|===
+|Area |Finding and proposed change |Effort
+|`desktop/CMakeLists.txt`
+|The platform guard permits Linux/Windows only. Add a reviewed APPLE branch, AppleClang validation and an explicit host identity decision. Python/SDL CTests are currently gated on Linux: enable only those adapted and qualified for Darwin. Preserve C++17, real GFX and target selection.
+|Small–medium
+|`desktop/serial_pty.cpp`
+|Uses posix_openpt/grantpt/unlockpt/ptsname, raw termios and poll. This is a plausible shared POSIX path, but check accepted open flags and attach/hangup/reconnect behavior on the chosen SDK. Do not infer Linux POLLHUP semantics from successful compilation.
+|Medium
+|`tools/target_mirror.py`, `desktop/desktop.py`
+|The desktop endpoint guard and preflight placeholder require `/dev/pts/`. Darwin PTY naming needs a host-aware check while retaining explicit desktop endpoints. Mirror auto-selection requires DISPLAY/WAYLAND_DISPLAY and would fall back to the current terminal on an ordinary Mac desktop. Add deliberate Darwin Kitty discovery and preserve Linux selection order.
+|Medium
+|`tools/kit.sh`, `tools/cpm-session.sh`
+|Reuse Kitty configuration and tmux ownership. Discover the actual Kitty application executable and dependency PATH without assuming GUI launch inherits a login shell. Keep the desktop route out of Linux USB permission/group handling (`stat -c`, setfacl and newgrp). Qualify close-last-window behavior.
+|Medium
+|`desktop/serial_loopback.cpp`
+|Compiled even when PTY is selected. Its non-Windows branch unconditionally uses MSG_NOSIGNAL. Check the minimum supported SDK and broken-pipe behavior; if necessary select Darwin socket-level SIGPIPE suppression. This needs review even if macOS does not use loopback for normal launches.
+|Small
+|`desktop/storage.cpp`, `tools/desktop_card_lock.py`
+|POSIX file streams, C++17 filesystem and the directory/token card lock are reusable candidates. Retest retained descriptors, rename/replacement, Unicode paths, canonical uppercase guest names, case-insensitive filesystems and removable volumes. No new SdFat or guest-core changes are expected.
+|Small code change; medium validation
+|`desktop/application.cpp`, `desktop/presenter.cpp`
+|Existing presenter initializes SDL in the application main-thread path and the guest runs separately. Keep that structure; verify Cocoa startup/close events, focus, backlight appearance and fixed integer scaling on Retina. Check library discovery and runtime dylib paths in an actual launch.
+|Medium validation
+|`desktop/tests/storage_reuse_test.cpp` and test harnesses
+|The non-Windows handle-count check reads `/proc/self/fd`, which must be replaced or given a Darwin implementation. Audit remaining PTY/process fixtures and dummy-video registration. Preserve the descriptor-leak check rather than simply dropping it.
+|Small–medium
+|`tools/setup.sh`, GFX lookup
+|Current setup uses Linux distro/package/Arduino assumptions. A Mac desktop setup must be separate and explicit; obtain verified GFX 1.6.4 without installing MCU cores. Current desktop.py defaults GFX to a Linux-style Arduino library directory; supply the setup-owned location explicitly.
+|Medium
+|===
+
+The shared code already provides the major expensive pieces: board HAL
+selection, GFX Canvas rendering, complete-frame scheduling, native storage,
+persistence, the terminal bridge and generated keyboard mappings. The likely
+changes are concentrated in desktop support and host tooling. This assessment
+does not authorize RunCPM core or physical-board changes.
+
+== Dependencies and first supported machine
+
+Start on one available Mac using its native architecture. Prefer an Apple
+Silicon machine if available; record the exact macOS, SDK, compiler and terminal
+versions. Intel support is a separate acceptance result. Do not start with a
+universal binary or Linux-to-macOS cross-compilation.
+
+Apple documents Command Line Tools installation through `xcode-select --install`:
+https://developer.apple.com/documentation/xcode/installing-the-command-line-tools/[Apple instructions].
+Use those tools for AppleClang; a full IDE workflow is unnecessary for the
+proposed command-line build. Homebrew can supply CMake, Ninja, Python and tmux;
+resolve its prefix through `brew --prefix`, not a fixed path. Check its current
+OS/architecture support before selecting an older Mac:
+https://docs.brew.sh/Installation[Homebrew requirements].
+
+SDL needs an explicit dependency decision. The Homebrew formula currently
+lists `sdl2` as an alias of `sdl2-compat`, which implements the SDL2 API using
+SDL3. Do not silently describe that as the same SDL2 implementation used by
+our current builds. For the first comparison, prefer a pinned genuine SDL2
+source build into project build dependencies, or qualify the compatibility
+layer as a deliberate alternative. SDL documents native macOS command-line
+builds and a separate application-bundle distribution path:
+https://formulae.brew.sh/formula/sdl2-compat[Homebrew SDL package],
+https://wiki.libsdl.org/SDL2/README-macos[SDL2 macOS notes].
+
+Kitty publishes native macOS and Linux builds:
+https://sw.kovidgoyal.net/kitty/binary/[Kitty installation].
+Using it here reuses the current Linux keymap work; it does not restart the
+rejected Windows WezTerm experiment. Kitty is still GPU based: this proposal
+does not introduce a software-only terminal requirement.
+
+No packages were installed for this review. Setup implementation and an exact
+copy/paste prerequisite recipe depend on the selected Mac and SDL choice.
+
+== Keyboard and ownership risks
+
+Kitty provides `macos_option_as_alt`; `left` is a reasonable initial proposal
+so Left Option serves the project Alt chords while Right Option remains
+available for national-layout text. Test this against actual generated bindings,
+Czech number-row conversion and keypad behavior; do not impose a US layout.
+Compact Apple keyboards may lack physical PgUp/PgDn, Pause and a keypad, so
+qualify a full keyboard first and document any laptop aliases separately.
+
+Kitty's default macOS behavior leaves the application running after its last
+window closes. Our Linux runner watches the mirror child process, so blindly
+reusing that default could leave the emulator/card lock alive. A dedicated
+per-launch Kitty instance with `macos_quit_when_last_window_closed yes` is the
+first candidate to test; do not join an unrelated existing Kitty instance.
+Actual child lifetime still needs a native close/reboot test. These settings
+are described in
+https://sw.kovidgoyal.net/kitty/conf/#opt-kitty.macos_option_as_alt[Kitty's macOS configuration].
+
+Prefer the current Linux-style PTY + tmux route first. The existing loopback
+transport is an alternative if Darwin PTY behavior proves troublesome, but it
+would require a portable owner adapter: windows_run.py directly owns Mintty
+and its Windows physical-key helper and cannot simply be renamed.
+
+Apple's archived POSIX PTY reference supports the API choice, not our runtime
+acceptance:
+https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/posix_openpt.3.html[posix_openpt reference].
+
+== Effort estimate and recommended sequence
+
+These are source-review estimates for focused engineering work with access to
+a Mac and prompt human keyboard testing, not measured delivery times.
+
+[cols="2,3,1",options="header"]
+|===
+|Stage |Deliverable |Estimate
+|Native proof |Darwin configuration, headless build, storage tests and one SDL boot using ES3_35. |1–2 days
+|Interactive tooling |Shared POSIX fixes, Kitty discovery/lifecycle, setup and the three named launchers with logs. |2–4 days
+|Qualification |Six target builds, persistence/transfer/shutdown tests and physical keyboard/display checks; Linux regression checks. |1–3 days
+|Distribution later |Standalone app packaging, bundled dylibs, signing/notarization and broader OS/architecture support. |Separate estimate after prototype
+|===
+
+Allow roughly 4–9 engineering days for a usable, tested initial host port.
+Compiler/SDL surprises or unavailable Mac access can extend that substantially.
+A booting proof may arrive earlier; it is not enough to label the host supported.
+
+Recommended next step, if separately approved: one ES3_35 native headless/SDL
+proof on an identified Mac, using a disposable card. That resolves compiler,
+SDK, SDL and filesystem uncertainty before filling out all target wrappers.
+Do not combine this with runtime board-profile consolidation or a browser port.
+
+== Acceptance gates
+
+a. Record host/architecture/dependency versions; compile the original sketch,
+   real GFX, terminal and selected HAL without bypassing tests.
+b. Pass native storage and retained-handle checks, including Unicode paths,
+   rename/replacement and a card copy; verify VTDRV read/write content.
+c. Confirm SDL native geometry, fixed integer scale, redraw/scroll and
+   brightness. Keep keyboard input in the mirror.
+d. Confirm Alt+Q, bank/zoom/backlight chords, number-row conversion and keypad
+   decimal; verify Right Option text separately.
+e. Close either window, interrupt a busy guest, run REBOOT and test mirror
+   loss. Verify flush/history persistence, child cleanup and lock release.
+f. Exercise binary VTPUT/VTGET, then build all six configurations. Retest Linux
+   affected paths; require fresh Windows checks if shared behavior changes.
+g. Document the accepted Mac versions and architecture in setup guides only
+   after those results exist. A second architecture remains a separate claim.
+
+== Review evidence and limits
+
+Inspected the current CMake configuration, desktop runner, PTY/loopback code,
+SDL presenter, storage adapter, card lock, mirror selector/session scripts and
+storage tests. Consulted the official upstream references linked above.
+The findings separate definite source assumptions from SDK/runtime checks.
+No native Mac build, runtime experiment, dependency installation, launcher
+creation or card/session mutation was performed.
