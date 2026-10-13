@@ -2,18 +2,21 @@
 #include <cstdio>
 #include <cstdlib>
 
-static void require(bool condition, const char *what) {
-    if (!condition) {
+static void require(bool condition, const char* what)
+{
+    if (!condition)
+    {
         std::fprintf(stderr, "FAIL: %s\n", what);
         std::exit(1);
     }
 }
 
-int main() {
+int main()
+{
     Arduino_Canvas canvas(1280, 800, nullptr);
     require(canvas.begin(), "allocate real 1280x800 canvas");
     require(canvas.width() == 1280 && canvas.height() == 800, "geometry");
-    uint16_t *pixels = canvas.getFramebuffer();
+    uint16_t* pixels = canvas.getFramebuffer();
     canvas.fillScreen(0x1234);
     for (size_t i = 0; i < 1280U * 800U; ++i)
         require(pixels[i] == 0x1234, "full RGB565 fill");
@@ -31,11 +34,11 @@ int main() {
     canvas.setRotation(0);
     canvas.flush(); // no physical output, no SDL dependency
     uint64_t hash = 14695981039346656037ULL;
-    for (size_t i = 0; i < 1280U * 800U; ++i) {
+    for (size_t i = 0; i < 1280U * 800U; ++i)
+    {
         hash = (hash ^ uint8_t(pixels[i])) * 1099511628211ULL;
         hash = (hash ^ uint8_t(pixels[i] >> 8)) * 1099511628211ULL;
     }
     require(hash == 0xb0d514776ca9ac2fULL, "deterministic framebuffer hash");
-    std::printf("Real Arduino_GFX 1.6.4 canvas: PASS; RGB565 hash=%016llx\n",
-                static_cast<unsigned long long>(hash));
+    std::printf("Real Arduino_GFX 1.6.4 canvas: PASS; RGB565 hash=%016llx\n", static_cast<unsigned long long>(hash));
 }

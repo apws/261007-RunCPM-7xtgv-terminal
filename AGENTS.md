@@ -42,6 +42,19 @@
   together with subsequent DONE records, not that plan in isolation.
 - Keep detailed history in linked documents, not this file.
 
+## Project C/C++ formatting
+
+- Follow `src/cpp-style/README.adoc` for maintained project-owned C/C++:
+  Allman braces, four spaces, readable vertical structure and existing names.
+  Use the pinned formatter through `src/cpp-style/format.py`; its explicit
+  `files.txt` scope excludes RunCPM-derived, third-party and historical files.
+  After eligible C/C++ edits, run `python3 src/cpp-style/format.py --check`;
+  use `--write` to apply the project style within that scope.
+- Preserve preprocessor directives and initializer/data-table layout. Keep
+  formatting separate from renaming, declaration splitting or architectural
+  changes. New control bodies use braces; formatting alone does not add them.
+  JavaScript, Python and shell retain their language-specific conventions.
+
 ## Architecture and validation
 
 - Preserve Z80 behavior; measure before retaining emulator optimizations.

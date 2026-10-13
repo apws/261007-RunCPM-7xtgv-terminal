@@ -4,16 +4,21 @@
 #include <iostream>
 #include <stdexcept>
 
-static void require(bool condition, const char *what) {
-    if (!condition) throw std::runtime_error(what);
+static void require(bool condition, const char* what)
+{
+    if (!condition)
+        throw std::runtime_error(what);
 }
-int main() {
+
+int main()
+{
     namespace fs = std::filesystem;
     const auto unique = std::chrono::steady_clock::now().time_since_epoch().count();
     const auto root = fs::temp_directory_path() /
-        fs::u8path("xtgv-storage-fixture-" + std::to_string(unique) + u8" spaces žluťoučký");
+                      fs::u8path("xtgv-storage-fixture-" + std::to_string(unique) + u8" spaces žluťoučký");
     fs::create_directory(root);
-    try {
+    try
+    {
         XtgvHostStorage storage;
         require(storage.begin(root), "mount fixture root");
         require(storage.mkdir("/A/0"), "create card-relative directories");
@@ -48,21 +53,26 @@ int main() {
         auto directory = storage.open("A/0");
         auto entry = directory.openNextFile();
         char name[13];
-        require(bool(entry) && entry.getName(name, sizeof(name)) &&
-                std::strcmp(name, "MOVED.DAT") == 0, "directory enumeration/name");
+        require(bool(entry) && entry.getName(name, sizeof(name)) && std::strcmp(name, "MOVED.DAT") == 0,
+                "directory enumeration/name");
         require(!directory.openNextFile(), "directory exhaustion");
-        entry.close(); directory.close();
+        entry.close();
+        directory.close();
         file = storage.open("A/0/7XTGVTRM.NEW", O_CREAT | O_WRITE);
         require(bool(file) && file.write(binary, sizeof(binary)) == 4 && file.flush(), "save candidate");
         file.close();
         require(storage.rename("A/0/MOVED.DAT", "A/0/7XTGVTRM.BAK") &&
-                storage.rename("A/0/7XTGVTRM.NEW", "A/0/7XTGVTRM.INI"), "NEW/BAK transaction");
+                    storage.rename("A/0/7XTGVTRM.NEW", "A/0/7XTGVTRM.INI"),
+                "NEW/BAK transaction");
         require(!storage.rename("A/0/7XTGVTRM.BAK", "A/0/7XTGVTRM.INI"), "no overwrite on rename");
         std::error_code error;
         fs::create_directory_symlink(root.parent_path(), root / "escape-link", error);
-        if (!error) require(!storage.open("escape-link/outside"), "reject symlink escape");
+        if (!error)
+            require(!storage.open("escape-link/outside"), "reject symlink escape");
         std::cout << "Host File/SD adapter: PASS; isolated fixture=" << root.u8string() << '\n';
-    } catch (const std::exception &error) {
+    }
+    catch (const std::exception& error)
+    {
         std::cerr << "FAIL: " << error.what() << "; fixture retained at " << root.u8string() << '\n';
         return 1;
     }

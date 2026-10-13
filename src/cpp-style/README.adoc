@@ -1,0 +1,69 @@
+= Project C/C++ formatting
+:source-highlighter: highlight.js
+
+We use conservative Allman/Microsoft formatting for maintained project-owned
+C/C++: four spaces, braces on their own lines, expanded function/control bodies,
+type-attached pointers/references, indented namespace contents and a practical
+120-column guide. Existing names, declaration structure and architecture stay
+intact. New control bodies should use braces; the mechanical formatter does
+not insert them into existing code.
+
+This adopts the visual intent of the
+link:../../docs/261001-14_Formatting_Conservative_Embedded_CPP_Style.adoc[261001 proposal].
+It does not adopt its suggested PascalCase renaming instruction. The historical
+proposal remains unchanged; this document and the configuration define the
+current repository policy.
+
+== Scope and commands
+
+link:files.txt[files.txt] explicitly lists eligible sources. It includes our
+terminal, board HAL/runtime headers, desktop/Wasm adapters, Windows key bridge,
+C++ tests and standalone project helpers. Review provenance before adding a file.
+
+RunCPM-derived files remain excluded in their entirety, including the sketch,
+Arduino abstraction and local CCP variant. The POSIX comparator, third-party
+sources, generated/font/palette data, CP/M card content and historical snapshots
+are also excluded. JavaScript, Python and shell retain their own conventions.
+There is deliberately no repository-wide automatic formatter configuration.
+
+From the repository root, with *clang-format 23.1.1* installed:
+
+[source,bash]
+----
+python3 src/cpp-style/format.py --list
+python3 src/cpp-style/format.py --check
+python3 src/cpp-style/format.py --write
+----
+
+Use this wrapper instead of recursively running clang-format. It preserves
+preprocessor logical lines and `= {...}` initializer regions verbatim, including
+hand-arranged data rows and panel command tables. Includes and using declarations
+keep their order. Comments and string literals are not reflowed. It computes
+all outputs before writing, and repeated formatting is stable.
+
+The configuration lives beside the wrapper rather than at the repository root
+so editor defaults cannot accidentally reformat upstream files. New/modified
+code should follow the surrounding eligible file's layout; do not rearrange
+classes, helpers, namespaces or board ownership to satisfy formatting.
+
+== Checking a formatting-only change
+
+With matching *Clang 23.1.1*, compare against the revision before formatting:
+
+[source,bash]
+----
+python3 src/cpp-style/verify.py --base HEAD
+python3 -m unittest discover -s src/cpp-style -p 'test_*.py'
+----
+
+The audit lexes both versions without preprocessing away inactive branches. It
+compares non-comment/non-whitespace tokens, checks preserved regions exactly,
+and requires excluded tracked C/C++ sources to remain byte-identical. For an
+already committed formatting change, supply its parent revision instead of HEAD.
+This is an audit for formatting-only work, not a prohibition on future intended
+functional changes. Source-line diagnostic locations naturally change; fresh
+build stamps and debug information also prevent claims of binary identity.
+
+Run the relevant host tests and platform builds as well. Keep formatting and
+functional changes separate for review. No upload or working-card deployment is
+part of a formatting check.

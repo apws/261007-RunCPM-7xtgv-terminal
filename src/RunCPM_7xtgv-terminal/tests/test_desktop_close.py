@@ -38,7 +38,7 @@ class DesktopCloseTests(unittest.TestCase):
             args = argparse.Namespace(
                 card_root=root, headless=True, input=None, snapshot=None,
                 run_for_ms=0, no_mirror=False, mirror='kitty',
-                run_log=None, quiet=False, log=None)
+                run_log=None, quiet=False, log=None, window_scale=1)
             processes = []
             real_popen = subprocess.Popen
 

@@ -1,12 +1,22 @@
 #define XTGV_HAL_IMPLEMENTATION
 #define XTGV_TERMINAL 1
+
 // The full production runtime, but no device or storage activity.
-bool terminalHistoryStoragePoll() { return true; }
-bool terminalConfigStoragePoll() { return true; }
+bool terminalHistoryStoragePoll()
+{
+    return true;
+}
+
+bool terminalConfigStoragePoll()
+{
+    return true;
+}
+
 #include "../src/terminal/terminal_runtime.cpp"
 #include <cassert>
 
-int main() {
+int main()
+{
     uint8_t level = 0, zoom = 0, palette = 0, dirty = 0;
     configSavePending.store(true);
     configChangedAt.store(millis());

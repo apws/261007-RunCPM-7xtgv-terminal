@@ -109,7 +109,7 @@ class TargetMetadataTests(unittest.TestCase):
                           f'{name}.h').read_text()
                 self.assertIn('constexpr int XTGV_TERMINAL_ROWS', policy)
                 self.assertIn('constexpr int XTGV_TERMINAL_VISIBLE_COLS', policy)
-                self.assertIn('Arduino_GFX *xtgvBoardCreateDisplay()', policy)
+                self.assertRegex(policy, r'Arduino_GFX\s*\*\s*xtgvBoardCreateDisplay\(\)')
 
     def test_compiled_identity_and_display_group_match_host_data(self):
         # Host substitutes for architecture macros supplied by these Arduino cores.

@@ -4,20 +4,28 @@
 
 static bool failAllocation = false;
 static unsigned allocations = 0;
-static void *resize(void *p, size_t n) {
+
+static void* resize(void* p, size_t n)
+{
     ++allocations;
     return failAllocation ? nullptr : realloc(p, n);
 }
-static std::string contents(const vt::IniText &text) {
-    return std::string(reinterpret_cast<const char *>(text.data()), text.size());
+
+static std::string contents(const vt::IniText& text)
+{
+    return std::string(reinterpret_cast<const char*>(text.data()), text.size());
 }
-static void load(vt::IniText &text, const std::string &bytes) {
-    uint8_t *data = text.beginLoad(bytes.size());
+
+static void load(vt::IniText& text, const std::string& bytes)
+{
+    uint8_t* data = text.beginLoad(bytes.size());
     assert(data);
     memcpy(data, bytes.data(), bytes.size());
     text.finishLoad();
 }
-int main() {
+
+int main()
+{
     vt::IniText text(resize);
     assert(!text.valid() && !text.set("global", "x", "1"));
     // force a subsequent growth: 251 data bytes fit the initial 256 capacity

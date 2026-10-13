@@ -60,31 +60,37 @@ SdFat32 SD;
 
 // Preserve RunCPM's historical ESP32-only BDOS extension hook.
 #define board_esp32
-static uint8_t esp32bdos(uint16_t) { return 0; }
 
-XtgvBoardStorageStatus xtgvBoardStorageInit() {
+static uint8_t esp32bdos(uint16_t)
+{
+    return 0;
+}
+
+XtgvBoardStorageStatus xtgvBoardStorageInit()
+{
     SPI.begin(12, 13, 11, 10); // SCK, MISO, MOSI, CS
-    const bool mounted = SD.begin(
-        SdSpiConfig(10, DEDICATED_SPI, XTGV_STORAGE_HZ, &xtgvStorageSpi));
+    const bool mounted = SD.begin(SdSpiConfig(10, DEDICATED_SPI, XTGV_STORAGE_HZ, &xtgvStorageSpi));
     return {true, mounted};
 }
 
 // Called only by the card-owner task, after all configuration handles close.
-bool xtgvBoardStorageSetMHz(uint8_t mhz) {
-    if (mhz < 1 || mhz > 60) return false;
+bool xtgvBoardStorageSetMHz(uint8_t mhz)
+{
+    if (mhz < 1 || mhz > 60)
+        return false;
     const bool idle = SD.card()->syncDevice();
     return idle && xtgvStorageSpi.changeClock(uint32_t(mhz) * 1000000UL);
 }
 
-void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus &status,
-                                void (*write)(const char *)) {
+void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus& status, void (*write)(const char*))
+{
     write("Init SD SPI bus ......");
     write(status.pinsReady ? "CONFIGURED\r\n" : "FAILED\r\n");
     write("Mount MicroSD card ...");
-    if (status.mediaReady) {
+    if (status.mediaReady)
+    {
         char detail[80];
-        snprintf(detail, sizeof(detail),
-                 "OK (SPI, CS=10 MOSI=11 MISO=13 SCK=12, %lu Hz)\r\n",
+        snprintf(detail, sizeof(detail), "OK (SPI, CS=10 MOSI=11 MISO=13 SCK=12, %lu Hz)\r\n",
                  (unsigned long)xtgvStorageSpi.requestedHz());
         write(detail);
     }
@@ -94,60 +100,65 @@ void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus &status,
 
 // No additional startup credit on this board.
 #if defined(ARDUINO)
-void xtgvBoardPrintStorageSummary(void (*write)(const char *)) {
+void xtgvBoardPrintStorageSummary(void (*write)(const char*))
+{
     char message[80];
-    snprintf(message, sizeof(message),
-             "Storage: Arduino SdFat/SPI (%lu MHz)\r\n",
+    snprintf(message, sizeof(message), "Storage: Arduino SdFat/SPI (%lu MHz)\r\n",
              (unsigned long)(xtgvStorageSpi.requestedHz() / 1000000UL));
     write(message);
 }
 #endif
 
-void xtgvBoardPrintBootExtra(void (*)(const char *)) {
+void xtgvBoardPrintBootExtra(void (*)(const char*))
+{
 }
 
 // ============================================================================
 // 5. Display creation, initialization and history memory
 // ============================================================================
 #if XTGV_TERMINAL
-Arduino_GFX *xtgvBoardCreateDisplay() {
+Arduino_GFX* xtgvBoardCreateDisplay()
+{
     // ST7262 RGB; PSRAM framebuffer, two 10-line internal DMA bounce buffers.
-    auto *panel = new Arduino_ESP32RGBPanel(
-        40, 41, 39, 42,          // DE, VSYNC, HSYNC, PCLK
-        45, 48, 47, 21, 14,     // R0..R4
-        5, 6, 7, 15, 16, 4,     // G0..G5
-        8, 3, 46, 9, 1,         // B0..B4
-        0, 8, 4, 8,             // horizontal timing
-        0, 8, 4, 8,             // vertical timing
-        1, 16000000, false, 0, 0, 8000);
+    auto* panel = new Arduino_ESP32RGBPanel(40, 41, 39, 42,     // DE, VSYNC, HSYNC, PCLK
+                                            45, 48, 47, 21, 14, // R0..R4
+                                            5, 6, 7, 15, 16, 4, // G0..G5
+                                            8, 3, 46, 9, 1,     // B0..B4
+                                            0, 8, 4, 8,         // horizontal timing
+                                            0, 8, 4, 8,         // vertical timing
+                                            1, 16000000, false, 0, 0, 8000);
     return new Arduino_RGB_Display(800, 480, panel, 0, false);
 }
 
-bool xtgvBoardBeginDisplay(Arduino_GFX *display) {
+bool xtgvBoardBeginDisplay(Arduino_GFX* display)
+{
     #if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR < 3
-        display->begin();
-        return true;
+    display->begin();
+    return true;
     #else
-        return display->begin();
+    return display->begin();
     #endif
 }
 
-vt::LineHistory *xtgvBoardCreateHistory() {
+vt::LineHistory* xtgvBoardCreateHistory()
+{
     // Ten history banks live in PSRAM, leaving internal RAM for rendering.
-    void *memory = ps_malloc(sizeof(vt::LineHistory));
+    void* memory = ps_malloc(sizeof(vt::LineHistory));
     return memory ? new (memory) vt::LineHistory : nullptr;
 }
 
 // ============================================================================
 // 6. Physical backlight output (logical levels/fade remain terminal behavior)
 // ============================================================================
-void xtgvBoardBacklightInit() {
+void xtgvBoardBacklightInit()
+{
     // Set inactive latch before enabling the active-high output.
     digitalWrite(XTGV_BACKLIGHT_PIN, LOW);
     pinMode(XTGV_BACKLIGHT_PIN, OUTPUT);
 }
 
-void xtgvBoardBacklightWrite(uint8_t duty) {
+void xtgvBoardBacklightWrite(uint8_t duty)
+{
     analogWrite(XTGV_BACKLIGHT_PIN, duty);
 }
 #endif
@@ -155,9 +166,10 @@ void xtgvBoardBacklightWrite(uint8_t duty) {
 // ============================================================================
 // 7. Whole-board reboot
 // ============================================================================
-void runCPMHardwareReboot() {
+void runCPMHardwareReboot()
+{
     #if defined(ARDUINO)
-        ESP.restart();
+    ESP.restart();
     #endif
 }
 

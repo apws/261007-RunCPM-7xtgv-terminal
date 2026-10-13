@@ -6,47 +6,56 @@
 // below contains the complete board implementation in the same section order.
 // Define XTGV_HAL_IMPLEMENTATION in ONE translation unit, before its first
 // inclusion of this header (the sketch). Other users see constants/declarations.
-namespace vt {
+namespace vt
+{
 
-struct Geometry { uint16_t cols, rows; };
+    struct Geometry
+    {
+        uint16_t cols, rows;
+    };
 
-// This is a policy description, not a second graphics abstraction.  The
-// selected board creates the existing Arduino_GFX object.
-struct DisplayHalDefaults {
-    const char *id;
-    const char *name;
-    uint16_t physicalWidth, physicalHeight;
-    // Terminal-RAM limits, independent of how many cells physically fit at
-    // the selected zoom. Larger configured planes use manual viewports.
-    uint16_t logicalMaxCols, logicalMaxRows;
-    uint8_t defaultZoom;
-    Geometry zoomGeometry[4];
-    uint16_t defaultRenderFlushHz;
-    uint16_t defaultRgbRefreshHz;
-    uint16_t diskIndicatorYOffset; // physical pixels; rounded-panel clearance
-    const char *bootWarning; // optional plain text; nullptr means no notice
-};
+    // This is a policy description, not a second graphics abstraction.  The
+    // selected board creates the existing Arduino_GFX object.
+    struct DisplayHalDefaults
+    {
+        const char* id;
+        const char* name;
+        uint16_t physicalWidth, physicalHeight;
+        // Terminal-RAM limits, independent of how many cells physically fit at
+        // the selected zoom. Larger configured planes use manual viewports.
+        uint16_t logicalMaxCols, logicalMaxRows;
+        uint8_t defaultZoom;
+        Geometry zoomGeometry[4];
+        uint16_t defaultRenderFlushHz;
+        uint16_t defaultRgbRefreshHz;
+        uint16_t diskIndicatorYOffset; // physical pixels; rounded-panel clearance
+        const char* bootWarning;       // optional plain text; nullptr means no notice
+    };
 
 } // namespace vt
 
 
 class Arduino_GFX;
-namespace vt { class LineHistory; }
 
-struct XtgvBoardStorageStatus {
+namespace vt
+{
+    class LineHistory;
+}
+
+struct XtgvBoardStorageStatus
+{
     bool pinsReady;
     bool mediaReady;
 };
 
 XtgvBoardStorageStatus xtgvBoardStorageInit();
 bool xtgvBoardStorageSetMHz(uint8_t mhz);
-void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus &status,
-                                void (*write)(const char *));
-void xtgvBoardPrintBootExtra(void (*write)(const char *));
-void xtgvBoardPrintStorageSummary(void (*write)(const char *));
-Arduino_GFX *xtgvBoardCreateDisplay();
-bool xtgvBoardBeginDisplay(Arduino_GFX *display);
-vt::LineHistory *xtgvBoardCreateHistory();
+void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus& status, void (*write)(const char*));
+void xtgvBoardPrintBootExtra(void (*write)(const char*));
+void xtgvBoardPrintStorageSummary(void (*write)(const char*));
+Arduino_GFX* xtgvBoardCreateDisplay();
+bool xtgvBoardBeginDisplay(Arduino_GFX* display);
+vt::LineHistory* xtgvBoardCreateHistory();
 void xtgvBoardBacklightInit();
 void xtgvBoardBacklightWrite(uint8_t duty);
 void runCPMHardwareReboot();
@@ -85,10 +94,13 @@ void runCPMHardwareReboot();
 
 // Header-only identity queries; no hardware access or stored runtime state.
 // Compiled configuration, not a claim to detect the physical board's wiring.
-inline const char *xtgvFirmwareTarget() {
+inline const char* xtgvFirmwareTarget()
+{
     return XTGV_BOARD_TARGET_NAME;
 }
-inline const char *xtgvFirmwareBuild() {
+
+inline const char* xtgvFirmwareBuild()
+{
 #ifdef XTGV_BUILD_STAMP
 #define XTGV_ID_STRING_INNER(value) #value
 #define XTGV_ID_STRING(value) XTGV_ID_STRING_INNER(value)

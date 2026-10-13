@@ -48,10 +48,12 @@ class OptimizationTests(unittest.TestCase):
             for level in ('O2', 'O3', None, 'default'):
                 args = SimpleNamespace(gfx=root, optimization=level, quiet=True, log=None)
                 with patch.object(desktop, 'REPO', root), patch.object(desktop.subprocess, 'run') as run, \
+                        patch.object(desktop, 'run_build') as build, \
                         contextlib.redirect_stdout(io.StringIO()):
                     desktop.build(args, 'jc8012p4a1c')
                 expected = level if level not in (None, 'default') else 'O2'
                 self.assertIn('-DXTGV_OPTIMIZATION=' + expected, run.call_args_list[0].args[0])
+                self.assertEqual(build.call_args.args[0][:2], ['cmake', '--build'])
 
     def test_desktop_simple_rebuild_forwards_optimization(self):
         folder = SKETCH / 'tools/targets/EP4_10 -- jc8012p4a1c'

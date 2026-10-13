@@ -112,6 +112,12 @@ these root-level files in the extension options:
 |`private/`, `docs/private/` |Local-only material; ignored by Git and absent from a fresh clone
 |===
 
+== Source contributions
+
+Our maintained C/C++ uses Allman/Microsoft formatting. See the
+link:src/cpp-style/README.adoc[formatting scope and commands] before editing;
+RunCPM-derived and third-party files keep their existing formatting.
+
 == Licensing
 
 The original *7xtgv-terminal software is MIT-licensed*, for hardware and

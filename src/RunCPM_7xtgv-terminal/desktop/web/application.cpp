@@ -7,52 +7,61 @@
 
 // Canvas2D only presents the real Arduino_GFX RGB565 framebuffer. All glyphs,
 // terminal parsing, graphics commands and board geometry remain C++ code.
-EM_JS(void, present, (const uint16_t *pixels, int width, int height, int brightness), {
-    Module.presentFrame(HEAPU16.subarray(pixels >> 1, (pixels >> 1) + width * height),
-                        width, height, brightness);
+EM_JS(void, present, (const uint16_t* pixels, int width, int height, int brightness), {
+    Module.presentFrame(HEAPU16.subarray(pixels >> 1, (pixels >> 1) + width * height), width, height, brightness);
 });
-EM_JS(void, finished, (int code, const char *error), {
-    Module.guestFinished(code, UTF8ToString(error));
-});
+EM_JS(void, finished, (int code, const char* error), { Module.guestFinished(code, UTF8ToString(error)); });
 static std::vector<uint16_t> published;
-EM_JS(void, deliverSnapshot, (const char *text, int cols, int rows, int x, int y,
-                            int viewX, int viewY, int viewCols, int viewRows), {
-    Module.screenSnapshot({text: UTF8ToString(text), cols, rows, x, y,
-                           viewX, viewY, viewCols, viewRows});
-});
-extern "C" EMSCRIPTEN_KEEPALIVE void web_snapshot() {
+EM_JS(void, deliverSnapshot,
+      (const char* text, int cols, int rows, int x, int y, int viewX, int viewY, int viewCols, int viewRows),
+      { Module.screenSnapshot({text : UTF8ToString(text), cols, rows, x, y, viewX, viewY, viewCols, viewRows}); });
+
+extern "C" EMSCRIPTEN_KEEPALIVE void web_snapshot()
+{
     const auto s = terminalScreenSnapshot();
-    deliverSnapshot(s.text.c_str(), s.columns, s.rows, s.cursorColumn, s.cursorRow,
-                    s.viewport, s.rowViewport, s.visibleColumns, s.visibleRows);
+    deliverSnapshot(s.text.c_str(), s.columns, s.rows, s.cursorColumn, s.cursorRow, s.viewport, s.rowViewport,
+                    s.visibleColumns, s.visibleRows);
 }
-static void publish(XtgvDesktopCanvas &canvas) {
-    const auto *pixels = canvas.getFramebuffer();
+
+static void publish(XtgvDesktopCanvas& canvas)
+{
+    const auto* pixels = canvas.getFramebuffer();
     published.assign(pixels, pixels + size_t(canvas.width()) * canvas.height());
 }
-static void tick() {
+
+static void tick()
+{
     const double until = emscripten_get_now() + 4.0;
-    do {
+    do
+    {
         Serial.pump();
         loop();
     } while (terminalDesktopWorkPending() && emscripten_get_now() < until);
-    auto *canvas = xtgvDesktopCanvas();
+    auto* canvas = xtgvDesktopCanvas();
     static uint64_t previous = UINT64_MAX;
     static int oldBrightness = -1;
     const int brightness = xtgvDesktopBrightness(xtgvDesktopBacklight());
-    if (canvas && !published.empty() && (canvas->generation() != previous || brightness != oldBrightness)) {
-        previous = canvas->generation(); oldBrightness = brightness;
+    if (canvas && !published.empty() && (canvas->generation() != previous || brightness != oldBrightness))
+    {
+        previous = canvas->generation();
+        oldBrightness = brightness;
         present(published.data(), canvas->width(), canvas->height(), brightness);
     }
-    if (xtgvEmulatorFinished.load(std::memory_order_acquire)) {
+    if (xtgvEmulatorFinished.load(std::memory_order_acquire))
+    {
         xtgvEmulatorJoinFinished(); // Only join after the worker has finished.
         emscripten_cancel_main_loop();
         const int result = !xtgvDesktopWorkerError.empty() || !xtgvDesktopSaveOK ? 1
-                         : xtgvDesktopRebootRequested() ? 75 : 0;
+                           : xtgvDesktopRebootRequested()                        ? 75
+                                                                                 : 0;
         finished(result, xtgvDesktopWorkerError.c_str());
     }
 }
-int main(int argc, char **argv) {
-    if (argc > 1 && !xtgvWebSelectBoard(argv[1])) {
+
+int main(int argc, char** argv)
+{
+    if (argc > 1 && !xtgvWebSelectBoard(argv[1]))
+    {
         finished(1, "Unknown browser target");
         return 1;
     }

@@ -4,7 +4,8 @@
 #include <iterator>
 #include <string>
 
-inline std::string profileTestFile(const char *relative) {
+inline std::string profileTestFile(const char* relative)
+{
     const std::string source = __FILE__;
     const std::string directory = source.substr(0, source.find_last_of("/\\") + 1);
     std::ifstream file(directory + relative, std::ios::binary);

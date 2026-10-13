@@ -37,7 +37,7 @@ static constexpr uint8_t XTGV_BACKLIGHT_DUTIES[] = {
 #if defined(XTGV_HAL_IMPLEMENTATION) && !XTGV_DESKTOP
     #include <Arduino.h>
     #if XTGV_TERMINAL
-        // Parse graphics headers before the legacy SD/File compatibility aliases.
+// Parse graphics headers before the legacy SD/File compatibility aliases.
         #include <Arduino_GFX_Library.h>
         #include "../../../src/terminal/line_history.h"
         #include <new>
@@ -57,31 +57,33 @@ static XtgvSdSpiDriver xtgvStorageSpi(SPI1);
 SdFat32 SD;
 typedef File32 File;
 
-XtgvBoardStorageStatus xtgvBoardStorageInit() {
+XtgvBoardStorageStatus xtgvBoardStorageInit()
+{
     SPI1.setSCK(10);
     SPI1.setTX(11);
     SPI1.setRX(12);
-    const bool mounted = SD.begin(
-        SdSpiConfig(15, DEDICATED_SPI, SD_SCK_MHZ(20), &xtgvStorageSpi));
+    const bool mounted = SD.begin(SdSpiConfig(15, DEDICATED_SPI, SD_SCK_MHZ(20), &xtgvStorageSpi));
     return {true, mounted};
 }
 
 // Called only by the card-owner task, after all configuration handles close.
-bool xtgvBoardStorageSetMHz(uint8_t mhz) {
-    if (mhz < 1 || mhz > 60) return false;
+bool xtgvBoardStorageSetMHz(uint8_t mhz)
+{
+    if (mhz < 1 || mhz > 60)
+        return false;
     const bool idle = SD.card()->syncDevice();
     return idle && xtgvStorageSpi.changeClock(uint32_t(mhz) * 1000000UL);
 }
 
-void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus &status,
-                                void (*write)(const char *)) {
+void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus& status, void (*write)(const char*))
+{
     write("Init SD SPI bus ......");
     write("CONFIGURED\r\n");
     write("Mount MicroSD card ...");
-    if (status.mediaReady) {
+    if (status.mediaReady)
+    {
         char detail[48];
-        snprintf(detail, sizeof(detail), "%lu Hz requested\r\n",
-                 (unsigned long)xtgvStorageSpi.requestedHz());
+        snprintf(detail, sizeof(detail), "%lu Hz requested\r\n", (unsigned long)xtgvStorageSpi.requestedHz());
         write(detail);
     }
 }
@@ -90,49 +92,54 @@ void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus &status,
 
 // No additional startup credit on this board.
 #if defined(ARDUINO)
-void xtgvBoardPrintStorageSummary(void (*write)(const char *)) {
+void xtgvBoardPrintStorageSummary(void (*write)(const char*))
+{
     char message[80];
-    snprintf(message, sizeof(message),
-             "Storage: Arduino SdFat/SPI (%lu MHz)\r\n",
+    snprintf(message, sizeof(message), "Storage: Arduino SdFat/SPI (%lu MHz)\r\n",
              (unsigned long)(xtgvStorageSpi.requestedHz() / 1000000UL));
     write(message);
 }
 #endif
 
-void xtgvBoardPrintBootExtra(void (*)(const char *)) {
+void xtgvBoardPrintBootExtra(void (*)(const char*))
+{
 }
 
 // ============================================================================
 // 5. Display creation, initialization and history memory
 // ============================================================================
 #if XTGV_TERMINAL
-Arduino_GFX *xtgvBoardCreateDisplay() {
+Arduino_GFX* xtgvBoardCreateDisplay()
+{
     // ST7789 on hardware SPI0: DC, CS, SCK, MOSI, MISO.
     // RPiPicoSPI touches MISO even though this panel is write-only.
-    auto *bus = new Arduino_RPiPicoSPI(16, 17, 18, 19, 4);
-    return new Arduino_ST7789(
-        bus, 20, 3, true, 172, 320, // reset, rotation, IPS, native size
-        34, 0, 34, 0);                  // controller window offsets
+    auto* bus = new Arduino_RPiPicoSPI(16, 17, 18, 19, 4);
+    return new Arduino_ST7789(bus, 20, 3, true, 172, 320, // reset, rotation, IPS, native size
+                              34, 0, 34, 0);              // controller window offsets
 }
 
-bool xtgvBoardBeginDisplay(Arduino_GFX *display) {
+bool xtgvBoardBeginDisplay(Arduino_GFX* display)
+{
     return display->begin();
 }
 
-vt::LineHistory *xtgvBoardCreateHistory() {
+vt::LineHistory* xtgvBoardCreateHistory()
+{
     return new (std::nothrow) vt::LineHistory;
 }
 
 // ============================================================================
 // 6. Physical backlight output (logical levels/fade remain terminal behavior)
 // ============================================================================
-void xtgvBoardBacklightInit() {
+void xtgvBoardBacklightInit()
+{
     // Set inactive latch before enabling the active-high output.
     digitalWrite(XTGV_BACKLIGHT_PIN, LOW);
     pinMode(XTGV_BACKLIGHT_PIN, OUTPUT);
 }
 
-void xtgvBoardBacklightWrite(uint8_t duty) {
+void xtgvBoardBacklightWrite(uint8_t duty)
+{
     analogWrite(XTGV_BACKLIGHT_PIN, duty);
 }
 #endif
@@ -140,9 +147,10 @@ void xtgvBoardBacklightWrite(uint8_t duty) {
 // ============================================================================
 // 7. Whole-board reboot
 // ============================================================================
-void runCPMHardwareReboot() {
+void runCPMHardwareReboot()
+{
     #if defined(ARDUINO)
-        rp2040.restart();
+    rp2040.restart();
     #endif
 }
 

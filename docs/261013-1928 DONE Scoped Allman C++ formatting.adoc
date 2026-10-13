@@ -1,0 +1,70 @@
+= Scoped Allman C++ formatting
+:source-highlighter: highlight.js
+
+== Decision and scope
+
+The user requested the visual style proposed on 261001, only for our code,
+leaving RunCPM-derived files untouched. The agreed first pass is formal
+formatting with automated checks. No symbol renaming, declaration splitting,
+brace insertion or architectural restructuring is included.
+
+link:../src/cpp-style/README.adoc[Maintained policy and commands] and its explicit
+file list define the boundary. Clang-format 23.1.1 formats 81 eligible files;
+78 change. These are terminal/HAL code, desktop/Wasm adapters, the Windows key
+bridge, C++ tests and standalone project helpers. The sketch, abstraction and
+CCP variant remain excluded as mixed RunCPM-derived files. Fonts, palettes,
+third-party material, generated code, legacy snapshots and the card are unchanged.
+
+The wrapper preserves preprocessor logical lines and initializer bodies,
+including data rows and the adapted P4 panel command table. It disables include
+and using-declaration sorting, namespace-comment insertion, string/comment
+reflow and brace insertion. Namespace contents are indented; names stay as-is.
+A second pass is idempotent. JavaScript/Python/shell are outside this formatter.
+
+An initial audit caught clang-format's default sorting of using declarations.
+That option was disabled and the scoped sources reformatted from the clean
+baseline before builds. Final Clang lexical comparison against `4ad7f31` finds
+identical non-comment/non-whitespace tokens in all 81 files; protected regions
+are exact, and all 62 excluded tracked C/C++ files remain byte-identical.
+
+== Validation
+
+[loweralpha]
+. Two formatter/audit tests pass, covering macro continuations, literal braces,
+  initializer rows, declaration order, Allman indentation, repeatability and
+  rejection of changed literal/operator tokens.
+. All 204 Python host tests pass. Two whitespace-sensitive source checks were
+  adjusted (function-body extraction and pointer spacing). Two older desktop
+  fixtures also needed maintenance: window_scale=1 in the close fixture, and
+  mocking the existing run_build helper in the optimization fixture. Production
+  Python launchers are unchanged.
+. Terminal and runtime suites pass with ASan/UBSan, including profile
+  permutations, bounds/fuzz, queues, disconnected/slow output and query replies.
+  LeakSanitizer required execution outside the traced sandbox.
+. All six Linux desktop configurations build. Their 69 CTest cases pass in
+  aggregate (14 for EP4_10, 11 for each other target). The ES3_5 PTY lifecycle
+  test once encountered EIO while reading a closing PTY under concurrent build
+  load; its isolated rerun passes. No runtime change was made to mask it.
+. Windows ES3_5 MinGW cross-build passes, including the hook DLL and key-bridge
+  executable. Native Windows execution was not repeated.
+. The shared Wasm rebuild and standalone packaging pass. No new interactive
+  browser or physical-device test was needed for this token-preserving change.
+. All six canonical MCU build-only workflows pass and stage fresh `new`
+  candidates. Hardware-proven `current` images remain untouched.
+
+[cols="1,1",options="header"]
+|===
+|Target |Staged build
+|ES3_35 / jc8048w535 |261013-1923
+|ES3_5 / jc8048w550 |261013-1924
+|EP4_10 / jc8012p4a1c |261013-1924
+|EC6_147 / esp32c6-lcd-1-47 |261013-1925
+|RP2_147 / rp2350-lcd-1-47-a |261013-1925
+|RP2_2 / rp2350-touch-lcd-2 |261013-1926
+|===
+
+Build/test logs are retained under
+`build/RunCPM_7xtgv-terminal/formatting-261013-1928/`; ordinary target build logs
+and artifacts also remain in their usual folders. Fresh stamps, debug source
+locations and other build metadata mean this is not a binary-identity claim.
+No flash, card write, firmware promotion, publication or commit was performed.

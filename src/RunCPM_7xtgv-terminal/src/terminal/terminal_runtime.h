@@ -4,7 +4,7 @@ void terminalSetup();
 void terminalLoop();
 void terminalWaitReady();
 uint16_t terminalLogicalColumns();
-void terminalPrintBootModule(void (*write)(const char *));
+void terminalPrintBootModule(void (*write)(const char*));
 // Storage owner calls this even when SD/INI loading failed: show defaults/errors.
 void terminalBootConfigComplete();
 void terminalConfigBegin();
@@ -14,7 +14,7 @@ uint8_t terminalConfiguredConsoleBits();
 uint8_t terminalConfiguredSdSpiMHz();
 unsigned terminalConfigErrorCount();
 uint8_t terminalConfigErrorLineCount();
-bool terminalConfigErrorLine(uint8_t index, uint16_t &number, const char *&section, const char *&text);
+bool terminalConfigErrorLine(uint8_t index, uint16_t& number, const char*& section, const char*& text);
 bool terminalConfigUsesAnsi();
 // History lives beside 7XTGVTRM.INI on the CP/M SD card.  Storage itself stays
 // board-specific; these functions only parse and serialise the text format.
@@ -23,17 +23,22 @@ void terminalHistoryLoadFeed(uint8_t byte);
 void terminalHistoryLoadEnd();
 bool terminalHistorySaveDue();
 void terminalHistoryForceSave();
-typedef bool (*TerminalHistoryWriteByte)(void *context, uint8_t byte);
-bool terminalHistoryWrite(TerminalHistoryWriteByte writeByte, void *context);
+typedef bool (*TerminalHistoryWriteByte)(void* context, uint8_t byte);
+bool terminalHistoryWrite(TerminalHistoryWriteByte writeByte, void* context);
 void terminalHistorySaveComplete(bool saved);
 bool terminalHistoryStoragePoll();
 bool terminalConfigStoragePoll();
 void terminalConfigForceSave();
-enum TerminalConfigDirty : uint8_t {
-    ConfigBacklightDirty = 1, ConfigPaletteDirty = 2, ConfigZoomDirty = 4
+
+enum TerminalConfigDirty : uint8_t
+{
+    ConfigBacklightDirty = 1,
+    ConfigPaletteDirty = 2,
+    ConfigZoomDirty = 4
 };
-bool terminalConfigSaveDue(uint8_t &backlightLevel, uint8_t &zoomLevel,
-                           uint8_t *paletteIndex = nullptr, uint8_t *dirtyFields = nullptr);
+
+bool terminalConfigSaveDue(uint8_t& backlightLevel, uint8_t& zoomLevel, uint8_t* paletteIndex = nullptr,
+                           uint8_t* dirtyFields = nullptr);
 void terminalConfigSaveComplete(bool saved);
 void terminalWaitDisplayProfileApplied();
 void terminalDiskActivity(bool active);
@@ -57,11 +62,14 @@ bool terminalDesktopWorkPending();
 
 #if XTGV_WEB
 #include <string>
+
 // UI owner only, between terminalLoop calls. Detached copy; no dirty flags consumed.
-struct TerminalScreenSnapshot {
+struct TerminalScreenSnapshot
+{
     std::string text;
     int columns, rows, viewport, rowViewport, visibleColumns, visibleRows;
     int cursorColumn, cursorRow;
 };
+
 TerminalScreenSnapshot terminalScreenSnapshot();
 #endif

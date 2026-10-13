@@ -12,8 +12,8 @@ class IniStorageTests(unittest.TestCase):
         persistence = (ROOT / 'src/terminal/terminal_persistence.h').read_text()
         helpers = '//' + persistence.split('// Accessed only by the RunCPM/storage owner.', 1)[1].split(
             'static bool writeTerminalConfigErrorReport', 1)[0]
-        poll = 'bool terminalConfigStoragePoll() {' + persistence.split(
-            'bool terminalConfigStoragePoll() {', 1)[1]
+        signature = 'bool terminalConfigStoragePoll()'
+        poll = signature + persistence.split(signature, 1)[1]
         source = r'''
 #include <algorithm>
 #include <cassert>

@@ -5,15 +5,19 @@
 #include <iostream>
 #include <cmath>
 
-static int physical(uint8_t duty) {
+static int physical(uint8_t duty)
+{
     return duty;
 }
-int main() {
+
+int main()
+{
     expectedBacklightPin = XTGV_BACKLIGHT_PIN;
     xtgvBacklightInit(true);
     assert(backlight == physical(0));
     assert(xtgvBacklightGet() == 16 && xtgvBacklightGetRemembered() == 16);
-    for (uint8_t level = 1; level <= 31; ++level) {
+    for (uint8_t level = 1; level <= 31; ++level)
+    {
         xtgvBacklightSet(level);
         assert(backlight == physical(0));
         assert(xtgvBacklightGet() == level && xtgvBacklightGetRemembered() == level);
@@ -44,21 +48,23 @@ int main() {
     constexpr int minimum = 3;
 #endif
     assert(xtgvBacklightDuty(1) == minimum);
-    for (uint8_t level = 1; level <= 31; ++level) {
-        const int shaped = minimum + int(std::lround(
-            (255 - minimum) * std::pow(double(level - 1) / 30, 2.2)));
+    for (uint8_t level = 1; level <= 31; ++level)
+    {
+        const int shaped = minimum + int(std::lround((255 - minimum) * std::pow(double(level - 1) / 30, 2.2)));
         const int floor = minimum + level - 1;
         assert(xtgvBacklightDuty(level) == (shaped < floor ? floor : shaped));
     }
 #endif
     // Ramp uses HAL table entries; logical/remembered target never traverses
     // transient values. Check all targets and timer wraparound.
-    for (uint8_t target = 1; target <= 31; ++target) {
+    for (uint8_t target = 1; target <= 31; ++target)
+    {
         xtgvBacklightSet(target);
         fakeTime = UINT32_MAX - 50;
         xtgvBacklightRelease(310);
         assert(backlight == physical(0));
-        for (unsigned elapsed = 0; elapsed <= 310; ++elapsed) {
+        for (unsigned elapsed = 0; elapsed <= 310; ++elapsed)
+        {
             xtgvBacklightPoll();
             const uint8_t shown = uint8_t(unsigned(target) * elapsed / 310);
             assert(backlight == physical(xtgvBacklightDuty(shown)));

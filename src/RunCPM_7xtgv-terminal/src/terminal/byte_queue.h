@@ -5,7 +5,8 @@
 
 // One producer and one consumer. Payload becomes visible before the write index;
 // storage is not reused until the consumer publishes its read index.
-template <size_t N> class ByteQueue {
+template <size_t N> class ByteQueue
+{
     static_assert(N && !(N & (N - 1)), "Queue size must be a power of two");
     // Some Xtensa GCC builds conservatively report "sometimes lock-free" for
     // 32-bit atomics. Loads/stores remain atomic and preserve this SPSC queue.
@@ -13,8 +14,9 @@ template <size_t N> class ByteQueue {
     uint8_t bytes_[N] = {};
     std::atomic<uint32_t> read_{0}, write_{0};
 
-  public:
-    bool push(uint8_t c) {
+public:
+    bool push(uint8_t c)
+    {
         uint32_t w = write_.load(std::memory_order_relaxed);
         if (uint32_t(w - read_.load(std::memory_order_acquire)) == N)
             return false;
@@ -22,7 +24,9 @@ template <size_t N> class ByteQueue {
         write_.store(w + 1, std::memory_order_release);
         return true;
     }
-    bool pop(uint8_t &c) {
+
+    bool pop(uint8_t& c)
+    {
         uint32_t r = read_.load(std::memory_order_relaxed);
         if (r == write_.load(std::memory_order_acquire))
             return false;
@@ -30,9 +34,14 @@ template <size_t N> class ByteQueue {
         read_.store(r + 1, std::memory_order_release);
         return true;
     }
-    size_t available() const {
-        return uint32_t(write_.load(std::memory_order_acquire) -
-                        read_.load(std::memory_order_acquire));
+
+    size_t available() const
+    {
+        return uint32_t(write_.load(std::memory_order_acquire) - read_.load(std::memory_order_acquire));
     }
-    size_t free() const { return N - available(); }
+
+    size_t free() const
+    {
+        return N - available();
+    }
 };

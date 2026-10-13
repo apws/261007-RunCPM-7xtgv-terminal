@@ -9,26 +9,38 @@
 #endif
 
 namespace fs = std::filesystem;
-static void require(bool ok, const char *message) {
-    if (!ok) throw std::runtime_error(message);
+
+static void require(bool ok, const char* message)
+{
+    if (!ok)
+        throw std::runtime_error(message);
 }
-static void hostWrite(const fs::path &path, const std::string &text) {
+
+static void hostWrite(const fs::path& path, const std::string& text)
+{
     std::ofstream out(path, std::ios::binary | std::ios::trunc);
     out << text;
     out.close();
     require(bool(out), "external write");
 }
-static std::string hostRead(const fs::path &path) {
+
+static std::string hostRead(const fs::path& path)
+{
     std::ifstream in(path, std::ios::binary);
     require(bool(in), "external read");
     return {std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
 }
-static std::string read(XtgvHostFile &file) {
+
+static std::string read(XtgvHostFile& file)
+{
     std::string text;
-    for (int c; (c = file.read()) >= 0;) text += char(c);
+    for (int c; (c = file.read()) >= 0;)
+        text += char(c);
     return text;
 }
-static size_t handleCount() {
+
+static size_t handleCount()
+{
 #if defined(_WIN32)
     DWORD count = 0;
     require(GetProcessHandleCount(GetCurrentProcess(), &count), "count native handles");
@@ -38,11 +50,15 @@ static size_t handleCount() {
 #endif
 }
 
-int main() {
-    const auto root = fs::temp_directory_path() / fs::u8path(
-        "xtgv-reuse-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + u8" žluťoučký");
+int main()
+{
+    const auto root =
+        fs::temp_directory_path() /
+        fs::u8path("xtgv-reuse-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) +
+                   u8" žluťoučký");
     fs::create_directories(root / "A/0");
-    try {
+    try
+    {
         XtgvHostStorage storage;
         require(storage.begin(root), "mount fixture");
         const auto path = root / "A/0/VTREUSE.DAT";
@@ -55,7 +71,8 @@ int main() {
 
         f = storage.open("A/0/VTREUSE.DAT");
         auto second = storage.open("A/0/VTREUSE.DAT");
-        require(f.read() == 'a' && second.read() == 'a' && f.read() == 'b', "simultaneous opens have independent offsets");
+        require(f.read() == 'a' && second.read() == 'a' && f.read() == 'b',
+                "simultaneous opens have independent offsets");
         f.close();
         require(second.read() == 'b', "closing another open preserves stream");
         second.close();
@@ -121,11 +138,13 @@ int main() {
         fs::remove(path);
         std::error_code error;
         fs::create_symlink(outside, path, error);
-        if (!error) require(!storage.open("A/0/VTREUSE.DAT"), "retained path cannot bypass symlink containment");
+        if (!error)
+            require(!storage.open("A/0/VTREUSE.DAT"), "retained path cannot bypass symlink containment");
 
         require(storage.closeAll(), "close all before handle bound check");
         const auto baseline = handleCount();
-        for (int n = 0; n < 64; ++n) {
+        for (int n = 0; n < 64; ++n)
+        {
             const auto name = "A/0/VT" + std::to_string(n) + ".DAT";
             auto entry = storage.open(name.c_str(), O_CREAT | O_RDWR);
             require(bool(entry), "many file opens");
@@ -149,7 +168,9 @@ int main() {
         require(!survivor, "owner destruction invalidates surviving aliases");
         survivor.close();
         std::cout << "Desktop retained handles: PASS; fixture=" << root.u8string() << '\n';
-    } catch (const std::exception &error) {
+    }
+    catch (const std::exception& error)
+    {
         std::cerr << "FAIL: " << error.what() << "; fixture=" << root.u8string() << '\n';
         return 1;
     }

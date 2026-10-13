@@ -74,57 +74,142 @@ static XtgvSdSpiDriver xtgvStorageSpi(SPI);
 
 // This test build never hands the physical card to the filesystem. Even a
 // write through a File32 or directory handle reaches this rejecting boundary.
-class XtgvReadOnlyCard : public FsBlockDeviceInterface {
+class XtgvReadOnlyCard : public FsBlockDeviceInterface
+{
 public:
-    bool checkHighSpeed(uint8_t *status) {
+    bool checkHighSpeed(uint8_t* status)
+    {
         // Fixed mode-0 query, never expose a caller-selected switch argument.
         return card_.cardCMD6(0x00FFFFFFUL, status);
     }
-    bool readIdentity(cid_t *cid, csd_t *csd) {
+
+    bool readIdentity(cid_t* cid, csd_t* csd)
+    {
         return card_.readCID(cid) && card_.readCSD(csd);
     }
-    uint8_t errorCode() { return card_.errorCode(); }
-    bool begin(SdSpiConfig config) { return card_.begin(config); }
-    bool isBusy() override { return card_.isBusy(); }
-    uint32_t sectorCount() override { return card_.sectorCount(); }
-    bool readSector(uint32_t sector, uint8_t *dst) override {
+
+    uint8_t errorCode()
+    {
+        return card_.errorCode();
+    }
+
+    bool begin(SdSpiConfig config)
+    {
+        return card_.begin(config);
+    }
+
+    bool isBusy() override
+    {
+        return card_.isBusy();
+    }
+
+    uint32_t sectorCount() override
+    {
+        return card_.sectorCount();
+    }
+
+    bool readSector(uint32_t sector, uint8_t* dst) override
+    {
         return card_.readSector(sector, dst);
     }
-    bool readSectors(uint32_t sector, uint8_t *dst, size_t count) override {
+
+    bool readSectors(uint32_t sector, uint8_t* dst, size_t count) override
+    {
         return card_.readSectors(sector, dst, count);
     }
-    bool syncDevice() override { return card_.syncDevice(); }
-    void end() override { card_.end(); }
-    bool writeSector(uint32_t, const uint8_t *) override { return false; }
-    bool writeSectors(uint32_t, const uint8_t *, size_t) override { return false; }
+
+    bool syncDevice() override
+    {
+        return card_.syncDevice();
+    }
+
+    void end() override
+    {
+        card_.end();
+    }
+
+    bool writeSector(uint32_t, const uint8_t*) override
+    {
+        return false;
+    }
+
+    bool writeSectors(uint32_t, const uint8_t*, size_t) override
+    {
+        return false;
+    }
 
 private:
     SdSpiCard card_;
 };
 
-class XtgvReadOnlyStorage : public FatVolume {
+class XtgvReadOnlyStorage : public FatVolume
+{
 public:
-    bool checkHighSpeed(uint8_t *status) { return card_.checkHighSpeed(status); }
-    bool syncCard() { return card_.syncDevice(); }
-    bool readIdentity(cid_t *cid, csd_t *csd) { return card_.readIdentity(cid, csd); }
-    uint32_t cardSectors() { return card_.sectorCount(); }
-    uint8_t cardError() { return card_.errorCode(); }
-    bool readRaw(uint32_t sector, uint8_t *data, size_t count) {
+    bool checkHighSpeed(uint8_t* status)
+    {
+        return card_.checkHighSpeed(status);
+    }
+
+    bool syncCard()
+    {
+        return card_.syncDevice();
+    }
+
+    bool readIdentity(cid_t* cid, csd_t* csd)
+    {
+        return card_.readIdentity(cid, csd);
+    }
+
+    uint32_t cardSectors()
+    {
+        return card_.sectorCount();
+    }
+
+    uint8_t cardError()
+    {
+        return card_.errorCode();
+    }
+
+    bool readRaw(uint32_t sector, uint8_t* data, size_t count)
+    {
         return card_.readSectors(sector, data, count);
     }
-    bool begin(SdSpiConfig config) {
-        return card_.begin(config) &&
-               (FatVolume::begin(&card_) || FatVolume::begin(&card_, true, 0));
+
+    bool begin(SdSpiConfig config)
+    {
+        return card_.begin(config) && (FatVolume::begin(&card_) || FatVolume::begin(&card_, true, 0));
     }
-    File32 open(const char *path, oflag_t flags = O_RDONLY) {
+
+    File32 open(const char* path, oflag_t flags = O_RDONLY)
+    {
         // Whitelist read-only (zero) and no other open flags.
         return flags == O_RDONLY ? FatVolume::open(path, flags) : File32();
     }
-    bool remove(const char *) { return false; }
-    bool rename(const char *, const char *) { return false; }
-    bool mkdir(const char *, bool = true) { return false; }
-    bool rmdir(const char *) { return false; }
-    bool truncate(const char *, uint32_t) { return false; }
+
+    bool remove(const char*)
+    {
+        return false;
+    }
+
+    bool rename(const char*, const char*)
+    {
+        return false;
+    }
+
+    bool mkdir(const char*, bool = true)
+    {
+        return false;
+    }
+
+    bool rmdir(const char*)
+    {
+        return false;
+    }
+
+    bool truncate(const char*, uint32_t)
+    {
+        return false;
+    }
 
 private:
     XtgvReadOnlyCard card_;
@@ -140,14 +225,21 @@ static esp_ldo_channel_handle_t xtgvStoragePower = nullptr;
 
 // Preserve RunCPM's historical ESP32-only BDOS extension hook.
 #define board_esp32
-static uint8_t esp32bdos(uint16_t) { return 0; }
 
-XtgvBoardStorageStatus xtgvBoardStorageInit() {
-    if (!xtgvStoragePower) {
+static uint8_t esp32bdos(uint16_t)
+{
+    return 0;
+}
+
+XtgvBoardStorageStatus xtgvBoardStorageInit()
+{
+    if (!xtgvStoragePower)
+    {
         esp_ldo_channel_config_t power = {};
         power.chan_id = 4;
         power.voltage_mv = 3300;
-        if (esp_ldo_acquire_channel(&power, &xtgvStoragePower) != ESP_OK) {
+        if (esp_ldo_acquire_channel(&power, &xtgvStoragePower) != ESP_OK)
+        {
             return {false, false};
         }
         // Allow card power to settle before driving pins or issuing commands.
@@ -159,14 +251,15 @@ XtgvBoardStorageStatus xtgvBoardStorageInit() {
     digitalWrite(42, HIGH);
     pinMode(42, OUTPUT);
     SPI.begin(43, 39, 44, 42); // SCK, MISO, MOSI, CS
-    const bool mounted = SD.begin(
-        SdSpiConfig(42, DEDICATED_SPI, XTGV_STORAGE_HZ, &xtgvStorageSpi));
+    const bool mounted = SD.begin(SdSpiConfig(42, DEDICATED_SPI, XTGV_STORAGE_HZ, &xtgvStorageSpi));
     return {true, mounted};
 }
 
 // Called only by the card-owner task, after all configuration handles close.
-bool xtgvBoardStorageSetMHz(uint8_t mhz) {
-    if (mhz < 1 || mhz > 60) return false;
+bool xtgvBoardStorageSetMHz(uint8_t mhz)
+{
+    if (mhz < 1 || mhz > 60)
+        return false;
 #if defined(XTGV_STORAGE_READ_ONLY) && XTGV_STORAGE_READ_ONLY
     const bool idle = SD.syncCard();
 #else
@@ -175,8 +268,8 @@ bool xtgvBoardStorageSetMHz(uint8_t mhz) {
     return idle && xtgvStorageSpi.changeClock(uint32_t(mhz) * 1000000UL);
 }
 
-void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus &status,
-                                void (*write)(const char *)) {
+void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus& status, void (*write)(const char*))
+{
 #if defined(XTGV_STORAGE_READ_ONLY) && XTGV_STORAGE_READ_ONLY
     write("*** STORAGE READ-ONLY TEST: all filesystem writes blocked ***\r\n");
 #endif
@@ -185,10 +278,10 @@ void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus &status,
     write("Init SD SPI bus ......");
     write(status.pinsReady ? "CONFIGURED\r\n" : "FAILED\r\n");
     write("Mount MicroSD card ...");
-    if (status.mediaReady) {
+    if (status.mediaReady)
+    {
         char detail[80];
-        snprintf(detail, sizeof(detail),
-                 "OK (SPI, CS=42 MOSI=44 MISO=39 SCK=43, %lu Hz)\r\n",
+        snprintf(detail, sizeof(detail), "OK (SPI, CS=42 MOSI=44 MISO=39 SCK=43, %lu Hz)\r\n",
                  (unsigned long)xtgvStorageSpi.requestedHz());
         write(detail);
     }
@@ -198,16 +291,17 @@ void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus &status,
 
 // No additional startup credit on this board.
 #if defined(ARDUINO)
-void xtgvBoardPrintStorageSummary(void (*write)(const char *)) {
+void xtgvBoardPrintStorageSummary(void (*write)(const char*))
+{
     char message[80];
-    snprintf(message, sizeof(message),
-             "Storage: Arduino SdFat/SPI (%lu MHz)\r\n",
+    snprintf(message, sizeof(message), "Storage: Arduino SdFat/SPI (%lu MHz)\r\n",
              (unsigned long)(xtgvStorageSpi.requestedHz() / 1000000UL));
     write(message);
 }
 #endif
 
-void xtgvBoardPrintBootExtra(void (*)(const char *)) {
+void xtgvBoardPrintBootExtra(void (*)(const char*))
+{
 }
 
 // ============================================================================
@@ -466,41 +560,44 @@ static const lcd_init_cmd_t xtgvP4NewPanelInit[] = {
     {0x00, (uint8_t[]){0x00}, 1, 20},
 };
 
-Arduino_GFX *xtgvBoardCreateDisplay() {
+Arduino_GFX* xtgvBoardCreateDisplay()
+{
     // Preserve NewPanel blanking and rotation; trial 40 MHz pixel clock to
     // reduce PSRAM scanout demand after reported DSI underruns (~34.3 Hz).
-    auto *panel = new Arduino_ESP32DSIPanel(
-        20, 20, 40, 4, 10, 30, 40000000, 1500);
-    return new Arduino_DSI_Display(
-        800, 1280, panel, 1, false, 27,
-        xtgvP4NewPanelInit, sizeof(xtgvP4NewPanelInit) / sizeof(lcd_init_cmd_t));
+    auto* panel = new Arduino_ESP32DSIPanel(20, 20, 40, 4, 10, 30, 40000000, 1500);
+    return new Arduino_DSI_Display(800, 1280, panel, 1, false, 27, xtgvP4NewPanelInit,
+                                   sizeof(xtgvP4NewPanelInit) / sizeof(lcd_init_cmd_t));
 }
 
-bool xtgvBoardBeginDisplay(Arduino_GFX *display) {
+bool xtgvBoardBeginDisplay(Arduino_GFX* display)
+{
     #if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR < 3
-        display->begin();
-        return true;
+    display->begin();
+    return true;
     #else
-        return display->begin();
+    return display->begin();
     #endif
 }
 
-vt::LineHistory *xtgvBoardCreateHistory() {
+vt::LineHistory* xtgvBoardCreateHistory()
+{
     // Ten history banks live in PSRAM, leaving internal RAM for rendering.
-    void *memory = ps_malloc(sizeof(vt::LineHistory));
+    void* memory = ps_malloc(sizeof(vt::LineHistory));
     return memory ? new (memory) vt::LineHistory : nullptr;
 }
 
 // ============================================================================
 // 6. Physical backlight output (logical levels/fade remain terminal behavior)
 // ============================================================================
-void xtgvBoardBacklightInit() {
+void xtgvBoardBacklightInit()
+{
     // Set inactive latch before enabling the active-high output.
     digitalWrite(XTGV_BACKLIGHT_PIN, LOW);
     pinMode(XTGV_BACKLIGHT_PIN, OUTPUT);
 }
 
-void xtgvBoardBacklightWrite(uint8_t duty) {
+void xtgvBoardBacklightWrite(uint8_t duty)
+{
     analogWrite(XTGV_BACKLIGHT_PIN, duty);
 }
 #endif
@@ -508,18 +605,19 @@ void xtgvBoardBacklightWrite(uint8_t duty) {
 // ============================================================================
 // 7. Whole-board reboot
 // ============================================================================
-void runCPMHardwareReboot() {
+void runCPMHardwareReboot()
+{
     #if defined(ARDUINO)
         #if XTGV_TERMINAL
-            // Blank before restarting, not only when terminalSetup runs again.
-            // Stop PWM ownership and drive LOW (this backlight is active-high).
-            // This does not guarantee its state throughout ROM/bootloader reset.
-            ledcWrite(XTGV_BACKLIGHT_PIN, 0);
-            ledcDetach(XTGV_BACKLIGHT_PIN);
-            pinMode(XTGV_BACKLIGHT_PIN, OUTPUT);
-            digitalWrite(XTGV_BACKLIGHT_PIN, LOW);
+    // Blank before restarting, not only when terminalSetup runs again.
+    // Stop PWM ownership and drive LOW (this backlight is active-high).
+    // This does not guarantee its state throughout ROM/bootloader reset.
+    ledcWrite(XTGV_BACKLIGHT_PIN, 0);
+    ledcDetach(XTGV_BACKLIGHT_PIN);
+    pinMode(XTGV_BACKLIGHT_PIN, OUTPUT);
+    digitalWrite(XTGV_BACKLIGHT_PIN, LOW);
         #endif
-        ESP.restart();
+    ESP.restart();
     #endif
 }
 

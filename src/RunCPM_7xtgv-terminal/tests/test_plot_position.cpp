@@ -5,41 +5,56 @@
 #ifndef RUNCPM_TARGET_JC8048W550
     #error "Compile every source in this test with -DRUNCPM_TARGET_JC8048W550"
 #endif
-bool terminalHistoryStoragePoll() { return true; }
-bool terminalConfigStoragePoll() { return true; }
+bool terminalHistoryStoragePoll()
+{
+    return true;
+}
+
+bool terminalConfigStoragePoll()
+{
+    return true;
+}
+
 #include "../src/terminal/terminal_runtime.cpp"
 #include <iostream>
 #include <string>
 
-static void feedOutput(const std::string &bytes) {
-    for (uint8_t byte : bytes) {
-        while (!output.push(byte)) {
+static void feedOutput(const std::string& bytes)
+{
+    for (uint8_t byte : bytes)
+    {
+        while (!output.push(byte))
+        {
             ++fakeTime;
             terminalLoop();
         }
     }
 }
 
-int main() {
+int main()
+{
     expectedBacklightPin = XTGV_BACKLIGHT_PIN;
     terminalSetup();
     assert(displayOK && plotScanline);
     assert(terminal.setGeometry(80, 12, 26, 12, 2));
     presentationGutter = 8;
     Serial.online = true;
-    for (int i = 0; i < 1000; ++i) {
+    for (int i = 0; i < 1000; ++i)
+    {
         ++fakeTime;
         terminalLoop();
     }
 
     feedOutput("\033[2J\033[HA6>VTG100\r\n\033[>4;2;100;100vA6>GPIX\r\n");
-    for (int row = 0; row < 10; ++row) {
+    for (int row = 0; row < 10; ++row)
+    {
         for (int col = 0; col < 10; ++col)
             feedOutput("\033[38;5;196m1");
         feedOutput("\r\n");
     }
     feedOutput("\033[0mA6>\r\n");
-    for (int i = 0; i < 500; ++i) {
+    for (int i = 0; i < 500; ++i)
+    {
         ++fakeTime;
         terminalLoop();
     }
@@ -77,7 +92,8 @@ int main() {
     assert(gfx->framebuffer[100 * 320 + 100] == 0x001f);
     fakeTime += 100;
     terminalLoop();
-    for (int viewZoom = 2; viewZoom <= 4; ++viewZoom) {
+    for (int viewZoom = 2; viewZoom <= 4; ++viewZoom)
+    {
         profile.viewZoom = uint8_t(viewZoom);
         applyDisplayProfile(profile);
         ++fakeTime;

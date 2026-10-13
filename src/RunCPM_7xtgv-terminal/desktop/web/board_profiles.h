@@ -1,35 +1,52 @@
 #pragma once
+
 // Included by board.h after its common value types. Only the existing data
 // sections are compiled; XTGV_DESKTOP suppresses all physical board drivers.
-namespace xtgvWebBoards {
-namespace es335 {
+namespace xtgvWebBoards
+{
+    namespace es335
+    {
 #include "../../hardware/arduino_7xtgv/boards/jc8048w535.h"
-}
-namespace ec6147 {
+    }
+
+    namespace ec6147
+    {
 #include "../../hardware/arduino_7xtgv/boards/waveshare_esp32c6_lcd_1_47.h"
-}
-namespace ep410 {
+    }
+
+    namespace ep410
+    {
 #include "../../hardware/arduino_7xtgv/boards/jc8012p4a1c.h"
-}
-namespace es35 {
+    }
+
+    namespace es35
+    {
 #include "../../hardware/arduino_7xtgv/boards/jc8048w550.h"
-}
-namespace rp2147 {
+    }
+
+    namespace rp2147
+    {
 #include "../../hardware/arduino_7xtgv/boards/pico_rp2350_lcd_1_47_a.h"
-}
-namespace rp22 {
+    }
+
+    namespace rp22
+    {
 #include "../../hardware/arduino_7xtgv/boards/pico_rp2350_touch_lcd_2.h"
+    }
 }
-}
-struct XtgvWebBoardProfile {
-    const char *target;
+
+struct XtgvWebBoardProfile
+{
+    const char* target;
     vt::DisplayHalDefaults display;
     int visibleColumns, offsetX, offsetY;
     bool needsFlush, fullFrameBudget;
     const uint8_t (&duties)[32];
 };
-namespace xtgvWebBoards {
-static constexpr XtgvWebBoardProfile catalog[] = {
+
+namespace xtgvWebBoards
+{
+    static constexpr XtgvWebBoardProfile catalog[] = {
     {es335::XTGV_BOARD_TARGET_NAME, es335::XTGV_DISPLAY_DEFAULTS,
       es335::XTGV_TERMINAL_VISIBLE_COLS, es335::XTGV_DISPLAY_OFFSET_X, es335::XTGV_DISPLAY_OFFSET_Y,
       es335::XTGV_DISPLAY_NEEDS_FLUSH, es335::XTGV_DISPLAY_FULL_FRAME_BUDGET,
@@ -55,24 +72,37 @@ static constexpr XtgvWebBoardProfile catalog[] = {
       rp22::XTGV_DISPLAY_NEEDS_FLUSH, rp22::XTGV_DISPLAY_FULL_FRAME_BUDGET,
       rp22::XTGV_BACKLIGHT_DUTIES},
 };
-static constexpr int maxColumns() {
-    int result = 0;
-    for (const auto &p : catalog) if (p.display.logicalMaxCols > result) result = p.display.logicalMaxCols;
-    return result;
+
+    static constexpr int maxColumns()
+    {
+        int result = 0;
+        for (const auto& p : catalog)
+            if (p.display.logicalMaxCols > result)
+                result = p.display.logicalMaxCols;
+        return result;
+    }
+
+    static constexpr int maxRows()
+    {
+        int result = 0;
+        for (const auto& p : catalog)
+            if (p.display.logicalMaxRows > result)
+                result = p.display.logicalMaxRows;
+        return result;
+    }
+
+    static constexpr int maxVisible()
+    {
+        int result = 0;
+        for (const auto& p : catalog)
+            if (p.visibleColumns > result)
+                result = p.visibleColumns;
+        return result;
+    }
 }
-static constexpr int maxRows() {
-    int result = 0;
-    for (const auto &p : catalog) if (p.display.logicalMaxRows > result) result = p.display.logicalMaxRows;
-    return result;
-}
-static constexpr int maxVisible() {
-    int result = 0;
-    for (const auto &p : catalog) if (p.visibleColumns > result) result = p.visibleColumns;
-    return result;
-}
-}
-const XtgvWebBoardProfile &xtgvWebBoard();
-bool xtgvWebSelectBoard(const char *target);
+
+const XtgvWebBoardProfile& xtgvWebBoard();
+bool xtgvWebSelectBoard(const char* target);
 void xtgvWebLockBoard();
 #define XTGV_BOARD_TARGET_NAME (xtgvWebBoard().target)
 #define XTGV_DISPLAY_DEFAULTS (xtgvWebBoard().display)

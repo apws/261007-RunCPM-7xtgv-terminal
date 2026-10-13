@@ -53,79 +53,90 @@ static SPIClass xtgvSharedSpi(FSPI);
 static XtgvSdSpiDriver xtgvStorageSpi(xtgvSharedSpi);
 SdFat32 SD;
 #define board_esp32
-static uint8_t esp32bdos(uint16_t) { return 0; }
 
-XtgvBoardStorageStatus xtgvBoardStorageInit() {
+static uint8_t esp32bdos(uint16_t)
+{
+    return 0;
+}
+
+XtgvBoardStorageStatus xtgvBoardStorageInit()
+{
     #if !XTGV_TERMINAL
-        // Integrated setup already initialized the display. Do not toggle
-        // its CS here while the terminal task might be drawing.
-        digitalWrite(14, HIGH);
-        pinMode(14, OUTPUT);
+    // Integrated setup already initialized the display. Do not toggle
+    // its CS here while the terminal task might be drawing.
+    digitalWrite(14, HIGH);
+    pinMode(14, OUTPUT);
     #endif
     digitalWrite(4, HIGH);
     pinMode(4, OUTPUT);
     xtgvSharedSpi.begin(7, 5, 6); // SCK, MISO, MOSI; CS is per device.
-    const bool mounted = SD.begin(
-        SdSpiConfig(4, SHARED_SPI, XTGV_STORAGE_HZ, &xtgvStorageSpi));
+    const bool mounted = SD.begin(SdSpiConfig(4, SHARED_SPI, XTGV_STORAGE_HZ, &xtgvStorageSpi));
     return {true, mounted};
 }
 
-bool xtgvBoardStorageSetMHz(uint8_t mhz) {
-    if (mhz < 1 || mhz > 60) return false;
-    return SD.card()->syncDevice() &&
-           xtgvStorageSpi.changeClock(uint32_t(mhz) * 1000000UL);
+bool xtgvBoardStorageSetMHz(uint8_t mhz)
+{
+    if (mhz < 1 || mhz > 60)
+        return false;
+    return SD.card()->syncDevice() && xtgvStorageSpi.changeClock(uint32_t(mhz) * 1000000UL);
 }
 
-void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus &status,
-                                void (*write)(const char *)) {
+void xtgvBoardPrintStorageStatus(const XtgvBoardStorageStatus& status, void (*write)(const char*))
+{
     write("Init shared SD/LCD SPI bus ...CONFIGURED\r\n");
     write("Mount MicroSD card ...");
-    if (status.mediaReady) write("OK\r\n");
+    if (status.mediaReady)
+        write("OK\r\n");
 }
 #endif
 
 // Internal, byte-addressable heap only. Neither flash nor LP SRAM is implied.
-struct XtgvC6HeapSample {
+struct XtgvC6HeapSample
+{
     size_t freeBytes;
     size_t largestBlock;
 };
+
 static XtgvC6HeapSample xtgvC6HeapBeforeTerminal = {};
 static bool xtgvC6HeapCaptured = false;
 
-static XtgvC6HeapSample xtgvC6ReadHeap() {
+static XtgvC6HeapSample xtgvC6ReadHeap()
+{
     const uint32_t caps = MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT;
-    return {heap_caps_get_free_size(caps),
-            heap_caps_get_largest_free_block(caps)};
+    return {heap_caps_get_free_size(caps), heap_caps_get_largest_free_block(caps)};
 }
 
-void xtgvBoardCaptureBootHeap() {
+void xtgvBoardCaptureBootHeap()
+{
     xtgvC6HeapBeforeTerminal = xtgvC6ReadHeap();
     xtgvC6HeapCaptured = true;
 }
 
 #if defined(ARDUINO)
-void xtgvBoardPrintStorageSummary(void (*write)(const char *)) {
+void xtgvBoardPrintStorageSummary(void (*write)(const char*))
+{
     char message[80];
-    snprintf(message, sizeof(message),
-             "Storage: Arduino SdFat/SPI (%lu MHz)\r\n",
+    snprintf(message, sizeof(message), "Storage: Arduino SdFat/SPI (%lu MHz)\r\n",
              (unsigned long)(xtgvStorageSpi.requestedHz() / 1000000UL));
     write(message);
 }
 #endif
 
-void xtgvBoardPrintBootExtra(void (*write)(const char *)) {
+void xtgvBoardPrintBootExtra(void (*write)(const char*))
+{
     // This existing banner hook runs after task creation, SD/INI/history load,
     // but before the boot CPU estimate and CCP. Snapshots are not peak usage.
     const auto after = xtgvC6ReadHeap();
     char line[96];
-    if (xtgvC6HeapCaptured) {
+    if (xtgvC6HeapCaptured)
+    {
         snprintf(line, sizeof(line), "Heap before: free=%lu largest=%lu B\r\n",
                  (unsigned long)xtgvC6HeapBeforeTerminal.freeBytes,
                  (unsigned long)xtgvC6HeapBeforeTerminal.largestBlock);
         write(line);
     }
-    snprintf(line, sizeof(line), "Heap startup: free=%lu largest=%lu B\r\n",
-             (unsigned long)after.freeBytes, (unsigned long)after.largestBlock);
+    snprintf(line, sizeof(line), "Heap startup: free=%lu largest=%lu B\r\n", (unsigned long)after.freeBytes,
+             (unsigned long)after.largestBlock);
     write(line);
 }
 
@@ -133,20 +144,23 @@ void xtgvBoardPrintBootExtra(void (*write)(const char *)) {
 // 5. Display creation, initialization and history memory
 // ============================================================================
 #if XTGV_TERMINAL
-Arduino_GFX *xtgvBoardCreateDisplay() {
+Arduino_GFX* xtgvBoardCreateDisplay()
+{
     // Deselect the card before the panel sends its initialization commands.
     digitalWrite(4, HIGH);
     pinMode(4, OUTPUT);
     // Use Arduino SPI transactions, NOT Arduino_ESP32SPI's private bus object.
-    auto *bus = new Arduino_HWSPI(15, 14, 7, 6, 5, &xtgvSharedSpi, true);
+    auto* bus = new Arduino_HWSPI(15, 14, 7, 6, 5, &xtgvSharedSpi, true);
     return new Arduino_ST7789(bus, 21, 3, true, 172, 320, 34, 0, 34, 0);
 }
 
-bool xtgvBoardBeginDisplay(Arduino_GFX *display) {
+bool xtgvBoardBeginDisplay(Arduino_GFX* display)
+{
     return display->begin(20000000UL);
 }
 
-vt::LineHistory *xtgvBoardCreateHistory() {
+vt::LineHistory* xtgvBoardCreateHistory()
+{
     // C6 has no PSRAM: the shared 100-entry budget uses ordinary SRAM.
     return new (std::nothrow) vt::LineHistory;
 }
@@ -154,12 +168,14 @@ vt::LineHistory *xtgvBoardCreateHistory() {
 // ============================================================================
 // 6. Physical backlight output
 // ============================================================================
-void xtgvBoardBacklightInit() {
+void xtgvBoardBacklightInit()
+{
     digitalWrite(XTGV_BACKLIGHT_PIN, LOW);
     pinMode(XTGV_BACKLIGHT_PIN, OUTPUT);
 }
 
-void xtgvBoardBacklightWrite(uint8_t duty) {
+void xtgvBoardBacklightWrite(uint8_t duty)
+{
     analogWrite(XTGV_BACKLIGHT_PIN, duty > 127 ? 127 : duty);
 }
 #endif
@@ -167,7 +183,8 @@ void xtgvBoardBacklightWrite(uint8_t duty) {
 // ============================================================================
 // 7. Whole-board reboot
 // ============================================================================
-void runCPMHardwareReboot() {
+void runCPMHardwareReboot()
+{
     ESP.restart();
 }
 #endif // XTGV_HAL_IMPLEMENTATION

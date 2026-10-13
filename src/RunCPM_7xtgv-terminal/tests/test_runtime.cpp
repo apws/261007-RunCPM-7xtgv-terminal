@@ -1,60 +1,90 @@
 #define XTGV_HAL_IMPLEMENTATION
 #define XTGV_TERMINAL 1
+
 // Compile the production runtime against fake USB/GFX peripherals. Parser,
 // transport, renderer and mirror code are the same as the RP2350 build.
 // The real implementation is sketch-level because only the RunCPM core owns
 // storage; this runtime-only test supplies the owner poll as a no-op.
-bool terminalHistoryStoragePoll() { return true; }
-bool terminalConfigStoragePoll() { return true; }
+bool terminalHistoryStoragePoll()
+{
+    return true;
+}
+
+bool terminalConfigStoragePoll()
+{
+    return true;
+}
+
 #include "../src/terminal/terminal_runtime.cpp"
 #include "profile_test_fixture.h"
 #include <fstream>
 #include <iostream>
 #include <vector>
-static void emit(const std::string &s) {
-    for (uint8_t c : s) {
+
+static void emit(const std::string& s)
+{
+    for (uint8_t c : s)
+    {
         while (!output.push(c))
             terminalLoop();
     }
 }
-static bool mirrorIdle() {
+
+static bool mirrorIdle()
+{
     for (bool b : terminal.mirrorDirty)
         if (b)
             return false;
     return mirrorSent == mirrorLength && !mirrorReset && !terminal.mirrorCursorDirty;
 }
-static void settle(int limit = 100000) {
-    while (limit-- && (!mirrorIdle() || output.available())) {
+
+static void settle(int limit = 100000)
+{
+    while (limit-- && (!mirrorIdle() || output.available()))
+    {
         fakeTime++;
         terminalLoop();
     }
     assert(limit > 0);
 }
-static void screenshot(const char *path) {
+
+static void screenshot(const char* path)
+{
     for (int i = 0; i < 200; i++)
         terminalLoop();
     std::ofstream f(path, std::ios::binary);
     f << "P6\n320 240\n255\n";
-    for (uint16_t p : gfx->framebuffer) {
+    for (uint16_t p : gfx->framebuffer)
+    {
         char rgb[3] = {char(((p >> 11) & 31) * 255 / 31), char(((p >> 5) & 63) * 255 / 63),
                        char((p & 31) * 255 / 31)};
         f.write(rgb, 3);
     }
 }
-static void testBoot(const std::string &mode) {
+
+static void testBoot(const std::string& mode)
+{
     gfxBeginOK = mode != "display-failure";
     terminalSetup();
     assert(ready && backlight == 0 && xtgvBacklightGetRemembered() == 16);
     // Arbitrarily slow SD mount must not expose the compiled white palette.
-    for (int n = 0; n < 300; ++n) { fakeTime += 10; terminalLoop(); }
+    for (int n = 0; n < 300; ++n)
+    {
+        fakeTime += 10;
+        terminalLoop();
+    }
     assert(backlight == 0);
     const bool configured = mode == "dark" || mode == "ini-errors" || mode == "ramp";
-    if (configured) {
+    if (configured)
+    {
         terminalConfigBegin();
         std::string ini = "[global]\nmode_palette=1\nbacklight_level=7\n";
-        if (mode == "ramp") ini += "crt_rampup_ms=70\n";
-        if (mode == "ini-errors") ini += "not_a_setting=bad\n";
-        for (uint8_t c : ini) terminalConfigFeed(c);
+        if (mode == "ramp")
+            ini += "crt_rampup_ms=70\n";
+        if (mode == "ini-errors")
+            ini += "not_a_setting=bad\n";
+        for (uint8_t c : ini)
+            terminalConfigFeed(c);
         assert(terminalConfigEnd() == (mode == "ini-errors" ? 1u : 0u));
         assert(backlight == 0 && xtgvBacklightGetRemembered() == 7);
     }
@@ -63,28 +93,31 @@ static void testBoot(const std::string &mode) {
     emit(configured ? "BOOT\r\n" : "Boot fallback/error\r\n");
     unsigned flushBefore = gfx->flushCount;
     bool checkedFrame = false;
-    for (int n = 0; n < 500; ++n) {
+    for (int n = 0; n < 500; ++n)
+    {
         fakeTime++;
         terminalLoop();
-        if (bootFrameReady && !checkedFrame) {
+        if (bootFrameReady && !checkedFrame)
+        {
             checkedFrame = true;
             assert(backlight == 0);
             assert(!terminal.compositionDirty);
             for (int y = 0; y < terminal.visibleRows; ++y)
                 for (int x = 0; x < terminal.visibleCols; ++x)
-                    assert(!terminal.dirty[terminal.index(x + terminal.viewport,
-                                                          y + terminal.rowViewport)]);
+                    assert(!terminal.dirty[terminal.index(x + terminal.viewport, y + terminal.rowViewport)]);
             assert(activePalette == (configured ? 1 : 0));
             assert(gfx->framebuffer[319 + 239 * 320] == rgb565(terminal.palette.paper[0]));
             if (XTGV_DISPLAY_NEEDS_FLUSH)
                 assert(gfx->flushCount > flushBefore);
         }
-        if (backlight != 0) {
+        if (backlight != 0)
+        {
             assert(checkedFrame && uint32_t(millis() - bootFrameFlushedAt) >= 33);
             break;
         }
     }
-    if (mode == "ramp") {
+    if (mode == "ramp")
+    {
         assert(backlightRamp.active && backlight == xtgvBacklightDuty(1));
         assert(xtgvBacklightGet() == 7 && xtgvBacklightGetRemembered() == 7);
         fakeTime += 70;
@@ -93,37 +126,50 @@ static void testBoot(const std::string &mode) {
     }
     assert(backlight == (gfxBeginOK ? xtgvBacklightDuty(configured ? 7 : 16) : 0));
     assert(!configSavePending.load()); // startup must not rewrite the INI
-    if (!gfxBeginOK) {
+    if (!gfxBeginOK)
+    {
         Serial.online = true;
         settle();
         assert(!Serial.tx.empty()); // failed TFT leaves the PC mirror usable
-    } else {
+    }
+    else
+    {
         xtgvBacklightSet(0);
         terminalBootConfigComplete(); // completion must never turn OFF back ON
-        for (int n = 0; n < 100; ++n) { fakeTime++; terminalLoop(); }
+        for (int n = 0; n < 100; ++n)
+        {
+            fakeTime++;
+            terminalLoop();
+        }
         assert(backlight == 0);
         xtgvBacklightAdjust(1);
         assert(backlight == xtgvBacklightDuty(configured ? 7 : 16));
     }
     std::cout << "Boot test passed: " << mode << '\n';
 }
-static void testIdentity() {
+
+static void testIdentity()
+{
     terminalSetup();
     terminalBootConfigComplete();
     Serial.online = true;
     settle();
-    for (int i = 0; i < 300; ++i) terminalLoop();
+    for (int i = 0; i < 300; ++i)
+        terminalLoop();
     const std::vector<uint16_t> pixels(std::begin(gfx->framebuffer), std::end(gfx->framebuffer));
-    const std::string expected = std::string("\033P7xtgv-id;1;") + xtgvFirmwareTarget() +
-                                 ";" + xtgvFirmwareBuild() + "\033\\";
-    for (bool raw : {false, true}) {
+    const std::string expected =
+        std::string("\033P7xtgv-id;1;") + xtgvFirmwareTarget() + ";" + xtgvFirmwareBuild() + "\033\\";
+    for (bool raw : {false, true})
+    {
         rawInputMode = raw;
         Serial.tx.clear();
         Serial.capacity = Serial.chunk = 1;
         // An existing partial mirror write must finish before identity begins.
-        mirrorLength = 3; mirrorSent = 1;
+        mirrorLength = 3;
+        mirrorSent = 1;
         memcpy(mirrorBuffer, "XYZ", 3);
-        for (uint8_t c : std::string("\033[>62v")) Serial.rx.push_back(c);
+        for (uint8_t c : std::string("\033[>62v"))
+            Serial.rx.push_back(c);
         for (int n = 0; n < 10000 && Serial.tx.find(expected) == std::string::npos; ++n)
             terminalLoop();
         assert(Serial.tx.rfind("YZ" + expected, 0) == 0);
@@ -134,42 +180,59 @@ static void testIdentity() {
     }
     std::cout << "Firmware identity normal/RAW/partial-write tests passed\n";
 }
-static void testGlobalShortcutNames() {
+
+static void testGlobalShortcutNames()
+{
     terminalSetup();
     terminalBootConfigComplete();
-    struct Case { const char *exit; const char *clear; const char *esc; const char *bs; };
-    for (const auto &test : {
-            Case{"escape_alt", "backspace_alt", "X", "C"},
-            Case{"backspace_alt", "escape_alt", "C", "X"},
-            Case{"lalt+ralt+escape", "lalt+ralt+delete", "X", "C"},
-            Case{"none", "none", "", ""}}) {
+
+    struct Case
+    {
+        const char* exit;
+        const char* clear;
+        const char* esc;
+        const char* bs;
+    };
+
+    for (const auto& test :
+         {Case{"escape_alt", "backspace_alt", "X", "C"}, Case{"backspace_alt", "escape_alt", "C", "X"},
+          Case{"lalt+ralt+escape", "lalt+ralt+delete", "X", "C"}, Case{"none", "none", "", ""}})
+    {
         terminalConfigBegin();
-        const std::string ini = std::string("[global]\nexit_key=") + test.exit +
-            "\nclear_key=" + test.clear +
-            "\n[bank0]\nhistory_clear=\ncommand_new_line=false\n"
-            "exit_command=X\nclear_command=C\n";
-        for (uint8_t c : ini) terminalConfigFeed(c);
+        const std::string ini = std::string("[global]\nexit_key=") + test.exit + "\nclear_key=" + test.clear +
+                                "\n[bank0]\nhistory_clear=\ncommand_new_line=false\n"
+                                "exit_command=X\nclear_command=C\n";
+        for (uint8_t c : ini)
+            terminalConfigFeed(c);
         assert(terminalConfigEnd() == 0);
         uint8_t byte;
-        while (input.pop(byte)) {}
-        for (const auto &event : {std::pair<const char *, const char *>("\033[>60v", test.esc),
-                                 std::pair<const char *, const char *>("\033[>61v", test.bs)}) {
-            for (const char *p = event.first; *p; ++p) keyboard.feed(uint8_t(*p), fakeTime++);
+        while (input.pop(byte))
+        {
+        }
+        for (const auto& event : {std::pair<const char*, const char*>("\033[>60v", test.esc),
+                                  std::pair<const char*, const char*>("\033[>61v", test.bs)})
+        {
+            for (const char* p = event.first; *p; ++p)
+                keyboard.feed(uint8_t(*p), fakeTime++);
             std::string received;
-            while (input.pop(byte)) received.push_back(char(byte));
+            while (input.pop(byte))
+                received.push_back(char(byte));
             assert(received == event.second);
         }
     }
     std::cout << "canonical/legacy exit-clear names, swap, disabled and host events passed\n";
 }
 
-static void testHistoryRecordLengths() {
+static void testHistoryRecordLengths()
+{
     static_assert(vt::LineHistory::MaxEntry + 1 == 80, "history record width");
-    const auto writeByte = [](void *context, uint8_t byte) {
-        static_cast<std::string *>(context)->push_back(char(byte));
+    const auto writeByte = [](void* context, uint8_t byte)
+    {
+        static_cast<std::string*>(context)->push_back(char(byte));
         return true;
     };
-    for (const size_t length : {78u, 79u, 80u, 127u}) {
+    for (const size_t length : {78u, 79u, 80u, 127u})
+    {
         delete history;
         history = new vt::LineHistory();
         // Put the sentinel at the last character which must survive clipping.
@@ -185,19 +248,20 @@ static void testHistoryRecordLengths() {
         for (size_t i = 0; i < serialized.size() - 17; ++i)
             crc = historyCRC32Byte(crc, uint8_t(serialized[i]));
         char footer[24];
-        snprintf(footer, sizeof footer, "# crc32=%08lX\n",
-                 static_cast<unsigned long>(crc ^ 0xffffffffUL));
+        snprintf(footer, sizeof footer, "# crc32=%08lX\n", static_cast<unsigned long>(crc ^ 0xffffffffUL));
         assert(serialized.compare(serialized.size() - 17, 17, footer) == 0);
-        for (const unsigned format : {0u, 1u, 2u}) {
+        for (const unsigned format : {0u, 1u, 2u})
+        {
             // Legacy records may exceed the new retained length. Consume the
             // rest of the line without corrupting the next entry/bank header.
             std::string inputText = serialized;
-            if (format) {
+            if (format)
+            {
                 inputText = "# 7xtgv terminal history v" + std::to_string(format) + "\n";
                 for (uint8_t bank = 0; bank < vt::LineHistory::Banks; ++bank)
-                    inputText += '[' + std::to_string(bank) + "]\r\n>" +
-                                 original + "\r\n>FOLLOWING\r\n";
-                if (format == 2) {
+                    inputText += '[' + std::to_string(bank) + "]\r\n>" + original + "\r\n>FOLLOWING\r\n";
+                if (format == 2)
+                {
                     uint32_t originalCRC = 0xffffffffUL;
                     for (uint8_t byte : inputText)
                         originalCRC = historyCRC32Byte(originalCRC, byte);
@@ -209,14 +273,18 @@ static void testHistoryRecordLengths() {
             delete history;
             history = new vt::LineHistory();
             terminalHistoryLoadBegin();
-            for (uint8_t byte : inputText) terminalHistoryLoadFeed(byte);
+            for (uint8_t byte : inputText)
+                terminalHistoryLoadFeed(byte);
             terminalHistoryLoadEnd();
-            for (uint8_t bank = 0; bank < vt::LineHistory::Banks; ++bank) {
-                char retained[vt::LineHistory::MaxEntry]; uint8_t retainedLength;
+            for (uint8_t bank = 0; bank < vt::LineHistory::Banks; ++bank)
+            {
+                char retained[vt::LineHistory::MaxEntry];
+                uint8_t retainedLength;
                 assert(history->copyEntry(bank, 0, retained, retainedLength));
                 assert(std::string(retained, retainedLength) == expected);
                 assert(retained[retainedLength - 1] == 'Z');
-                if (format) {
+                if (format)
+                {
                     assert(history->copyEntry(bank, 1, retained, retainedLength));
                     assert(std::string(retained, retainedLength) == "FOLLOWING");
                 }
@@ -229,25 +297,35 @@ static void testHistoryRecordLengths() {
     terminalHistoryLoadEnd();
 }
 
-static void testMovableRuntimeProfiles() {
+static void testMovableRuntimeProfiles()
+{
     terminalSetup();
     terminalBootConfigComplete();
     Serial.online = true;
     uint8_t byte;
-    auto drain = [&]() {
+    auto drain = [&]()
+    {
         std::string sent;
-        while (input.pop(byte)) sent.push_back(char(byte));
+        while (input.pop(byte))
+            sent.push_back(char(byte));
         return sent;
     };
     // Reproduce the reported TE cursor/Backspace path in every slot, including
     // the former MBASIC/VTESTS slots and slot 0 with no CCP role assigned.
-    for (unsigned bank = 0; bank < 10; ++bank) {
-        const std::string ini = "[bank" + std::to_string(bank) + "]\nname=TE\n"
-            "editing_surface=screen\nleft=send:\\x13\nright=send:\\x04\n";
-        terminalConfigBegin(); for (uint8_t c : ini) terminalConfigFeed(c);
+    for (unsigned bank = 0; bank < 10; ++bank)
+    {
+        const std::string ini = "[bank" + std::to_string(bank) +
+                                "]\nname=TE\n"
+                                "editing_surface=screen\nleft=send:\\x13\nright=send:\\x04\n";
+        terminalConfigBegin();
+        for (uint8_t c : ini)
+            terminalConfigFeed(c);
         assert(terminalConfigEnd() == 0);
-        selectedBank = uint8_t(bank); history->select(uint8_t(bank)); resetLineSession();
-        terminal.reset(); ccpPromptLive = false;
+        selectedBank = uint8_t(bank);
+        history->select(uint8_t(bank));
+        resetLineSession();
+        terminal.reset();
+        ccpPromptLive = false;
         keyboardKeyEvent(nullptr, {vt::KeyLeft, 0}, nullptr, 0);
         keyboardKeyEvent(nullptr, {vt::KeyBackspace, 0}, nullptr, 0);
         assert(drain() == std::string("\x13\x08", 2));
@@ -255,48 +333,71 @@ static void testMovableRuntimeProfiles() {
         keyboardAction(nullptr, vt::Keyboard::ProfileExit);
         keyboardAction(nullptr, vt::Keyboard::ProfileClear);
         assert(drain().empty()); // no inherited SYSTEM/PRINT commands
-        emit("A0>"); settle(); updateEffectiveBank();
+        emit("A0>");
+        settle();
+        updateEffectiveBank();
         assert(history->activeBank() == bank); // absent ccp_bank disables rerouting
     }
     terminalConfigBegin();
     for (uint8_t c : std::string("[global]\nccp_bank=6\n[bank6]\n"
-                                "home=send:\\x02\nend=send:\\x17\n"
-                                "[bank7]\nname=TE\nleft=send:\\x13\n")) terminalConfigFeed(c);
+                                 "home=send:\\x02\nend=send:\\x17\n"
+                                 "[bank7]\nname=TE\nleft=send:\\x13\n"))
+        terminalConfigFeed(c);
     assert(terminalConfigEnd() == 0);
-    selectedBank = 7; history->select(7); resetLineSession(); terminal.reset();
-    emit("A0>"); settle(); updateEffectiveBank();
+    selectedBank = 7;
+    history->select(7);
+    resetLineSession();
+    terminal.reset();
+    emit("A0>");
+    settle();
+    updateEffectiveBank();
     assert(selectedBank == 7 && history->activeBank() == 6 && !useCpmRecallTransport());
-    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>("TE\r"), 3);
-    drain(); emit("\r\nTE editor\r\n"); settle(); updateEffectiveBank();
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t*>("TE\r"), 3);
+    drain();
+    emit("\r\nTE editor\r\n");
+    settle();
+    updateEffectiveBank();
     assert(history->activeBank() == 7);
-    selectedBank = 6; history->select(6); resetLineSession(); terminal.reset();
-    emit("A0>"); settle(); updateEffectiveBank();
+    selectedBank = 6;
+    history->select(6);
+    resetLineSession();
+    terminal.reset();
+    emit("A0>");
+    settle();
+    updateEffectiveBank();
     assert(useCpmRecallTransport());
     history->replaceCurrent("DIR", 3, 2);
-    profileKey(vt::AppHome); assert(drain() == std::string("\x01\x01", 2));
-    profileKey(vt::AppEnd); assert(drain() == std::string("\x06\x06\x06", 3));
+    profileKey(vt::AppHome);
+    assert(drain() == std::string("\x01\x01", 2));
+    profileKey(vt::AppEnd);
+    assert(drain() == std::string("\x06\x06\x06", 3));
     terminalConfigBegin();
     for (uint8_t c : std::string("[global]\nccp_bank=6\n[bank6]\nhome=none\nend=none\n"))
         terminalConfigFeed(c);
     assert(terminalConfigEnd() == 0 && useCpmRecallTransport());
-    profileKey(vt::AppHome); profileKey(vt::AppEnd);
+    profileKey(vt::AppHome);
+    profileKey(vt::AppEnd);
     assert(drain().empty() && history->currentCursor() == 3);
     history->discardCurrent();
     const auto count = history->bankCount(6);
     const std::string longLine(125, 'X');
-    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(longLine.data()), longLine.size());
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t*>(longLine.data()), longLine.size());
     assert(history->currentLength() == 0 && history->bankCount(6) == count + 1);
     drain();
     // Reload clears the old role; bank 0 then has no CCP line-length behavior.
-    terminalConfigBegin(); terminalConfigEnd();
-    selectedBank = 0; history->select(0); resetLineSession();
-    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(longLine.data()), longLine.size());
+    terminalConfigBegin();
+    terminalConfigEnd();
+    selectedBank = 0;
+    history->select(0);
+    resetLineSession();
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t*>(longLine.data()), longLine.size());
     assert(history->currentLength() == 125);
     drain();
     std::cout << "TE movement/Backspace in all slots and explicit CCP routing passed\n";
 }
 
-static void testExplicitBootProfile() {
+static void testExplicitBootProfile()
+{
     terminalSetup();
     terminalConfigBegin();
     for (uint8_t c : std::string("[global]\nccp_bank=6\n[bank6]\nzoom1_terminal=40x12\n"))
@@ -306,72 +407,107 @@ static void testExplicitBootProfile() {
     terminalLoop();
     assert(selectedBank == 6 && history->activeBank() == 6);
     assert(terminal.cols == 40 && terminal.rows == 12 && bootGeometry.cols == 40);
-    selectedBank = 7; history->select(7); resetLineSession();
-    terminalConfigBegin(); terminalConfigEnd(); terminalLoop();
+    selectedBank = 7;
+    history->select(7);
+    resetLineSession();
+    terminalConfigBegin();
+    terminalConfigEnd();
+    terminalLoop();
     assert(selectedBank == 7 && history->activeBank() == 7);
     std::cout << "Explicit CCP boot profile/geometry and reload preservation passed\n";
 }
 
-int main(int argc, char **argv) {
-    if (argc == 2 && std::string(argv[1]) == "boot-profile") {
-        testExplicitBootProfile(); return 0;
+int main(int argc, char** argv)
+{
+    if (argc == 2 && std::string(argv[1]) == "boot-profile")
+    {
+        testExplicitBootProfile();
+        return 0;
     }
-    if (argc == 2 && std::string(argv[1]) == "movable-profiles") {
-        testMovableRuntimeProfiles(); return 0;
+    if (argc == 2 && std::string(argv[1]) == "movable-profiles")
+    {
+        testMovableRuntimeProfiles();
+        return 0;
     }
-    if (argc == 2 && std::string(argv[1]) == "history-length") {
+    if (argc == 2 && std::string(argv[1]) == "history-length")
+    {
         terminalSetup();
         testHistoryRecordLengths();
         std::cout << "80-character history records: boundary, legacy and CRC checks passed\n";
         return 0;
     }
-    if (argc == 2 && std::string(argv[1]) == "global-shortcuts") { testGlobalShortcutNames(); return 0; }
-    if (argc == 2 && std::string(argv[1]) == "identity") { testIdentity(); return 0; }
-    if (argc == 2) { testBoot(argv[1]); return 0; }
+    if (argc == 2 && std::string(argv[1]) == "global-shortcuts")
+    {
+        testGlobalShortcutNames();
+        return 0;
+    }
+    if (argc == 2 && std::string(argv[1]) == "identity")
+    {
+        testIdentity();
+        return 0;
+    }
+    if (argc == 2)
+    {
+        testBoot(argv[1]);
+        return 0;
+    }
     terminalSetup();
     terminalConfigBegin();
-    for (uint8_t c : profileTestFile("fixtures/application-profiles.ini")) terminalConfigFeed(c);
+    for (uint8_t c : profileTestFile("fixtures/application-profiles.ini"))
+        terminalConfigFeed(c);
     assert(terminalConfigEnd() == 0);
     assert(ready && backlight == 0 && displayOK);
     testHistoryRecordLengths();
     terminalBootConfigComplete();
-    for (int n = 0; n < 300; ++n) { fakeTime++; terminalLoop(); }
+    for (int n = 0; n < 300; ++n)
+    {
+        fakeTime++;
+        terminalLoop();
+    }
     assert(ready && backlight == xtgvBacklightDuty(16) && displayOK);
     // Keep the original regression suite's blink-phase time origin.
     fakeTime = blinkAt = 0;
     cursorPhase = true;
     const int plotBaseX = 0, plotBaseY = 0; // physical panel origin, not text origin
-    xtgvBacklightSet(0); assert(backlight == 0);
+    xtgvBacklightSet(0);
+    assert(backlight == 0);
     xtgvBacklightAdjust(1);
     assert(xtgvBacklightGet() == 16 && backlight == xtgvBacklightDuty(16));
     xtgvBacklightSet(0);
-    xtgvBacklightSet(1); assert(backlight == xtgvBacklightDuty(1));
-    xtgvBacklightSet(32); assert(backlight == 255);
+    xtgvBacklightSet(1);
+    assert(backlight == xtgvBacklightDuty(1));
+    xtgvBacklightSet(32);
+    assert(backlight == 255);
     // 32 states include OFF and 31 strictly increasing lit levels. Only the
     // final level is full-on; one step down skips the near-DC duty 254.
     assert(xtgvBacklightDuty(0) == 0);
-    for (uint8_t level = 1; level <= XTGV_BACKLIGHT_MAX_LEVEL; ++level) {
+    for (uint8_t level = 1; level <= XTGV_BACKLIGHT_MAX_LEVEL; ++level)
+    {
         assert(xtgvBacklightDuty(level) > xtgvBacklightDuty(level - 1));
         xtgvBacklightSet(level);
         assert(backlight == xtgvBacklightDuty(level));
-        if (level < XTGV_BACKLIGHT_MAX_LEVEL) assert(backlight <= 253);
+        if (level < XTGV_BACKLIGHT_MAX_LEVEL)
+            assert(backlight <= 253);
     }
     xtgvBacklightAdjust(-1);
     assert(xtgvBacklightGet() == 30 && backlight == xtgvBacklightDuty(30));
     xtgvBacklightAdjust(1);
     assert(xtgvBacklightGet() == 31 && backlight == 255);
-    for (int i = 0; i < 40; ++i) xtgvBacklightAdjust(1);
+    for (int i = 0; i < 40; ++i)
+        xtgvBacklightAdjust(1);
     assert(xtgvBacklightGet() == 31 && backlight == 255);
     terminalBacklight(32); // legacy protocol full ON
     assert(xtgvBacklightGet() == 31 && backlight == 255);
-    for (int i = 0; i < 40; ++i) xtgvBacklightAdjust(-1);
+    for (int i = 0; i < 40; ++i)
+        xtgvBacklightAdjust(-1);
     assert(xtgvBacklightGet() == 1 && backlight == xtgvBacklightDuty(1));
     xtgvBacklightSet(0);
     assert(backlight == 0 && xtgvBacklightGetRemembered() == 1);
     xtgvBacklightAdjust(-1);
     assert(xtgvBacklightGet() == 1 && backlight == xtgvBacklightDuty(1));
     assert(xtgvBacklightDuty(255) == 255);
-    xtgvBacklightSet(16); assert(backlight == xtgvBacklightDuty(16));
+    xtgvBacklightSet(16);
+    assert(backlight == xtgvBacklightDuty(16));
     // CP/M's A0:REFLASH.COM output event is removed from the TFT terminal
     // stream and forwarded verbatim, between completed mirror updates only.
     Serial.online = true;
@@ -379,7 +515,8 @@ int main(int argc, char **argv) {
     Serial.tx.clear();
     const uint8_t savedCell = terminal.charRAM[0];
     emit("\033[>64v");
-    for (int i = 0; i < 20; ++i) terminalLoop();
+    for (int i = 0; i < 20; ++i)
+        terminalLoop();
     assert(Serial.tx.find("\033[>64v") != std::string::npos);
     assert(terminal.charRAM[0] == savedCell);
     Serial.online = false;
@@ -391,7 +528,8 @@ int main(int argc, char **argv) {
     assert(gfx->framebuffer[6 * 320 + 6] == 0xf800);
     assert(gfx->framebuffer[7 * 320 + 7] != 0xf800);
     fakeTime += 76;
-    for (int i = 0; i < 200; ++i) terminalLoop();
+    for (int i = 0; i < 200; ++i)
+        terminalLoop();
     assert(gfx->framebuffer[1 * 320 + 1] != 0xf800);
     // GCLS only arms the parser: the existing gutter stays untouched. A disk
     // pulse may still appear before plotting, but the first sample retires it.
@@ -399,24 +537,25 @@ int main(int argc, char **argv) {
     terminalDiskActivity(true);
     terminalLoop();
     const uint16_t gutterBeforeGcls = gfx->framebuffer[1 * 320 + 1];
-    const std::vector<uint16_t> screenBeforeArm(std::begin(gfx->framebuffer),
-                                                 std::end(gfx->framebuffer));
-    for (uint8_t c : std::string("\033[>4;2;20;20v")) terminal.feed(c);
-    assert(std::equal(screenBeforeArm.begin(), screenBeforeArm.end(),
-                      std::begin(gfx->framebuffer)));
+    const std::vector<uint16_t> screenBeforeArm(std::begin(gfx->framebuffer), std::end(gfx->framebuffer));
+    for (uint8_t c : std::string("\033[>4;2;20;20v"))
+        terminal.feed(c);
+    assert(std::equal(screenBeforeArm.begin(), screenBeforeArm.end(), std::begin(gfx->framebuffer)));
     terminalLoop();
     assert(gfx->framebuffer[1 * 320 + 1] == gutterBeforeGcls);
     terminalDiskActivity(true);
     terminalLoop();
     assert(gfx->framebuffer[1 * 320 + 1] == 0xf800);
-    for (uint8_t c : std::string("\033[38;5;196m1\r\n\033[0m")) terminal.feed(c);
+    for (uint8_t c : std::string("\033[38;5;196m1\r\n\033[0m"))
+        terminal.feed(c);
     fakeTime += 76;
     terminalLoop();
     assert(gfx->framebuffer[1 * 320 + 1] == gutterUnderlying);
     terminal.reset();
     std::string historyText;
-    auto appendHistoryByte = [](void *context, uint8_t byte) {
-        static_cast<std::string *>(context)->push_back(char(byte));
+    auto appendHistoryByte = [](void* context, uint8_t byte)
+    {
+        static_cast<std::string*>(context)->push_back(char(byte));
         return true;
     };
     assert(terminalHistoryWrite(appendHistoryByte, &historyText));
@@ -444,9 +583,12 @@ int main(int argc, char **argv) {
     std::fill(terminal.mirrorDirty, terminal.mirrorDirty + vt::Rows, false);
     terminal.mirrorCursorDirty = false;
     mirrorReset = false;
-    for (uint8_t c : std::string("\033[>62v")) keyboard.feed(c, fakeTime);
-    for (bool dirty : terminal.dirty) assert(!dirty);
-    for (bool dirty : terminal.mirrorDirty) assert(dirty);
+    for (uint8_t c : std::string("\033[>62v"))
+        keyboard.feed(c, fakeTime);
+    for (bool dirty : terminal.dirty)
+        assert(!dirty);
+    for (bool dirty : terminal.mirrorDirty)
+        assert(dirty);
     assert(terminal.mirrorCursorDirty && mirrorReset);
     terminal.reset();
     mirrorReset = false;
@@ -465,13 +607,11 @@ int main(int argc, char **argv) {
     assert(terminal.charRAM[0] == ' ' && !terminal.plotting());
     // A partly off-screen scaled source sample is clipped rather than wrapped
     // or attempting an out-of-range display write.
-    const std::string clippedGcls = "\033[>4;4;" + std::to_string(319 - plotBaseX) +
-                                    ";" + std::to_string(239 - plotBaseY) +
-                                    "v\033[38;5;196m#\033[0m";
+    const std::string clippedGcls = "\033[>4;4;" + std::to_string(319 - plotBaseX) + ";" +
+                                    std::to_string(239 - plotBaseY) + "v\033[38;5;196m#\033[0m";
     for (uint8_t c : clippedGcls)
         terminal.feed(c);
-    assert(gfx->framebuffer[239 * 320 + 319] == 0xf800 &&
-           gfx->framebuffer[239 * 320 + 318] == 0xffff &&
+    assert(gfx->framebuffer[239 * 320 + 319] == 0xf800 && gfx->framebuffer[239 * 320 + 318] == 0xffff &&
            gfx->framebuffer[238 * 320 + 319] == 0xffff);
     // The extended GCLS parameters scale source samples and place them in
     // physical pixels, without changing logical terminal geometry.
@@ -487,14 +627,17 @@ int main(int argc, char **argv) {
     assert(gfx->framebuffer[(plotBaseY + 100) * 320 + plotBaseX + 9] == 0xffff &&
            gfx->framebuffer[(plotBaseY + 99) * 320 + plotBaseX + 10] == 0xffff);
     assert(plotEndCleanupPending);
-    for (bool dirty : terminal.dirty) assert(!dirty);
+    for (bool dirty : terminal.dirty)
+        assert(!dirty);
     fakeTime += 100;
     plotEndCleanupPoll(fakeTime);
     assert(!plotEndCleanupPending);
     // The plot backlog is discarded, then only the logical status/current
     // rows are scheduled to remove any old active-line/cursor paint.
-    for (int i = 0; i < 2 * vt::Cols; ++i) assert(terminal.dirty[i]);
-    for (int i = 2 * vt::Cols; i < vt::Cells; ++i) assert(!terminal.dirty[i]);
+    for (int i = 0; i < 2 * vt::Cols; ++i)
+        assert(terminal.dirty[i]);
+    for (int i = 2 * vt::Cols; i < vt::Cells; ++i)
+        assert(!terminal.dirty[i]);
     // The active-line paint state also belongs to the suppressed terminal
     // plane.  PlotEnd retires it and dirties only that old row, so a SUB-file
     // GCLS cannot leave a pale strip under the benchmark's status line.
@@ -509,10 +652,14 @@ int main(int argc, char **argv) {
     fakeTime += 100;
     plotEndCleanupPoll(fakeTime);
     assert(activeRow == -1 && activeRowBank == 255 && !plotActiveRows[2] && !plotActiveRows[4]);
-    for (int i = 0; i < vt::Cols; ++i) assert(terminal.dirty[2 * vt::Cols + i]);
-    for (int i = 0; i < vt::Cols; ++i) assert(terminal.dirty[4 * vt::Cols + i]);
-    for (int i = 0; i < vt::Cols; ++i) assert(terminal.dirty[6 * vt::Cols + i]);
-    for (int i = 0; i < vt::Cols; ++i) assert(terminal.dirty[7 * vt::Cols + i]);
+    for (int i = 0; i < vt::Cols; ++i)
+        assert(terminal.dirty[2 * vt::Cols + i]);
+    for (int i = 0; i < vt::Cols; ++i)
+        assert(terminal.dirty[4 * vt::Cols + i]);
+    for (int i = 0; i < vt::Cols; ++i)
+        assert(terminal.dirty[6 * vt::Cols + i]);
+    for (int i = 0; i < vt::Cols; ++i)
+        assert(terminal.dirty[7 * vt::Cols + i]);
     terminal.x = 0;
     terminal.y = 1;
     // A USB mirror reconnect must refresh only the PC, never invalidate the
@@ -527,11 +674,13 @@ int main(int argc, char **argv) {
     Serial.online = false;
     terminalLoop();
     Serial.online = true;
-    for (int i = 0; i < 4; ++i) terminalLoop();
+    for (int i = 0; i < 4; ++i)
+        terminalLoop();
     assert(gfx->framebuffer[(plotBaseY + 100) * 320 + plotBaseX + 10] == 0xf800 &&
            gfx->framebuffer[(plotBaseY + 100) * 320 + plotBaseX + 12] == 0x001f &&
            gfx->framebuffer[0] == untouchedBeforeReconnect);
-    for (bool dirty : terminal.mirrorDirty) assert(dirty);
+    for (bool dirty : terminal.mirrorDirty)
+        assert(dirty);
     assert(terminal.mirrorCursorDirty);
     Serial.capacity = 64;
     Serial.online = false; // preserve the later disconnected-mirror fixture
@@ -539,8 +688,9 @@ int main(int argc, char **argv) {
     Serial.tx.clear();
     terminal.feed('D');
     assert(terminal.dirty[80]); // post-plot text still requests normal rendering
-    terminal.reset(); // Restore the original test fixture after the GCLS transaction.
-    for (int i = 0; i < 200; ++i) terminalLoop();
+    terminal.reset();           // Restore the original test fixture after the GCLS transaction.
+    for (int i = 0; i < 200; ++i)
+        terminalLoop();
     const uint16_t paleGreen = rgb565({205, 255, 205});
     const uint16_t cursorGreen = rgb565({0, 150, 40});
     assert(gfx->framebuffer[5 * 320 + presentationGutter + 5 * 6 + 3] == paleGreen);
@@ -559,82 +709,107 @@ int main(int argc, char **argv) {
     resetLineSession();
     terminal.reset();
     emit("A1>BBCBASIC");
-    while (output.available()) terminalLoop();
+    while (output.available())
+        terminalLoop();
     assert(history->activeBank() == 0); // CP/M prompt silently owns #0
     keyboardAction(nullptr, vt::Keyboard::HistoryBankShow);
-    assert(std::string(reinterpret_cast<char *>(terminal.charRAM), 7) == "[#5 BBC");
+    assert(std::string(reinterpret_cast<char*>(terminal.charRAM), 7) == "[#5 BBC");
     fakeTime += 1000;
     historyNoticePoll();
     emit("\r\nBBC BASIC (Z80)\r\n>");
-    while (output.available()) terminalLoop();
+    while (output.available())
+        terminalLoop();
     assert(history->activeBank() == 5 && lineSessionActive);
     terminal.reset();
     emit(">PRINT 12345");
-    while (output.available()) terminalLoop();
-    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>("\r"), 1);
+    while (output.available())
+        terminalLoop();
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t*>("\r"), 1);
     uint8_t testByte;
-    while (input.pop(testByte)) {}
+    while (input.pop(testByte))
+    {
+    }
     emit("\r\n 12345\r\n>");
-    while (output.available()) terminalLoop();
+    while (output.available())
+        terminalLoop();
     const std::string secondLine = "PRINT 67890\r";
-    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(secondLine.data()), secondLine.size());
-    while (input.pop(testByte)) {}
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t*>(secondLine.data()), secondLine.size());
+    while (input.pop(testByte))
+    {
+    }
     emit("\r\n 67890\r\n>");
-    while (output.available()) terminalLoop();
+    while (output.available())
+        terminalLoop();
     profileKey(vt::AppUp);
     const std::string bbcClear = "\x06\x18";
     std::string bbcActual;
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual == bbcClear && recallStagedValid);
     profileKey(vt::AppUp);
     bbcActual.clear();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual.empty() && recallPendingValid); // coalesced until BBC echoes
     fakeTime += 50;
     recallPoll();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual == "PRINT 67890");
     terminal.reset();
     emit(">PRINT 67890");
-    while (output.available()) terminalLoop();
+    while (output.available())
+        terminalLoop();
     bbcActual.clear();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual == bbcClear && recallStagedValid);
     fakeTime += 50;
     recallPoll();
     bbcActual.clear();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual == "PRINT 12345");
     // An application-generated EDIT line becomes the current history line.
-    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>("\r"), 1);
-    while (input.pop(testByte)) {}
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t*>("\r"), 1);
+    while (input.pop(testByte))
+    {
+    }
     terminal.reset();
     resetLineSession(); // EDIT's numbered row must reactivate history itself.
     emit("   10 PRINT 42");
-    while (output.available()) terminalLoop();
+    while (output.available())
+        terminalLoop();
     assert(lineSessionActive);
-    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>("\r"), 1);
-    while (input.pop(testByte)) {}
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t*>("\r"), 1);
+    while (input.pop(testByte))
+    {
+    }
     emit("\r\n>"); // BBC returns to its immediate prompt after EDIT Enter.
-    while (output.available()) terminalLoop();
+    while (output.available())
+        terminalLoop();
     profileKey(vt::AppUp);
     bbcActual.clear();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual == bbcClear && recallStagedValid);
     fakeTime += 50;
     recallPoll();
     bbcActual.clear();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual == "10 PRINT 42");
     keyboardAction(nullptr, vt::Keyboard::HistoryDelete);
     bbcActual.clear();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual == bbcClear); // native clear includes the EDIT suffix
     // A source operator near column zero is not a prompt. The numbered line
     // and suffix must survive a filtered completion at its inner cursor.
     terminal.reset();
     emit("   10 A>B");
-    while (output.available()) terminalLoop();
+    while (output.available())
+        terminalLoop();
     uint8_t sourceCursor;
     uint8_t sourceLength = readCursorRow(screenRowCapture, sizeof(screenRowCapture), sourceCursor);
     assert(std::string(screenRowCapture, sourceLength) == "10 A>B");
@@ -643,16 +818,19 @@ int main(int argc, char **argv) {
     resetLineSession();
     terminal.reset();
     emit("   10 f i = 1 TO 100\033[1;8H");
-    while (output.available()) terminalLoop();
+    while (output.available())
+        terminalLoop();
     assert(lineSessionActive);
     profileKey(vt::AppUp);
     bbcActual.clear();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual == bbcClear && recallStagedValid);
     fakeTime += 100;
     recallPoll();
     bbcActual.clear();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual == "10 for i = 1 TO 100");
     const uint8_t beforeCompletedLine = history->bankCount(5);
     const uint32_t beforeCompletedGeneration = history->generation();
@@ -660,11 +838,13 @@ int main(int argc, char **argv) {
     keyboardSend(nullptr, &submitCompletedLine, 1);
     assert(history->bankCount(5) == beforeCompletedLine + 1);
     assert(history->generation() == beforeCompletedGeneration + 1);
-    char submittedLine[vt::LineHistory::MaxLine]; uint8_t submittedLength;
+    char submittedLine[vt::LineHistory::MaxLine];
+    uint8_t submittedLength;
     assert(history->copyEntry(5, beforeCompletedLine, submittedLine, submittedLength));
     assert(std::string(submittedLine, submittedLength) == "10 for i = 1 TO 100");
     bbcActual.clear();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual == "\r");
     // MBASIC's EDIT command is deliberately adapted only while it is modal.
     history->select(1);
@@ -672,56 +852,73 @@ int main(int argc, char **argv) {
     resetLineSession();
     terminal.reset();
     const std::string edit = "edit 10\r";
-    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(edit.data()), edit.size());
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t*>(edit.data()), edit.size());
     bbcActual.clear();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual == "edit 10\r" && mbasicEditMode && mbasicEditStartPending);
     fakeTime += 100;
     mbasicEditPoll();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual == "edit 10\rL" && !mbasicEditStartPending);
     emit("10 print 42");
-    while (output.available()) terminalLoop();
+    while (output.available())
+        terminalLoop();
     profileKey(vt::AppLeft);
     bbcActual.clear();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual == "\b");
     profileKey(vt::AppDelete);
     bbcActual.clear();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual == "1D");
     keyboardAction(nullptr, vt::Keyboard::ProfileBackspace);
     bbcActual.clear();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual == "\b1D");
-    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>("\r"), 1);
-    while (input.pop(testByte)) {}
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t*>("\r"), 1);
+    while (input.pop(testByte))
+    {
+    }
     assert(!mbasicEditMode);
     history->discardCurrent();
     terminal.reset();
     lineModelAuthoritative = true;
     const std::string recalled = "abc";
-    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(recalled.data()), recalled.size());
-    while (input.pop(testByte)) {}
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t*>(recalled.data()), recalled.size());
+    while (input.pop(testByte))
+    {
+    }
     profileKey(vt::AppLeft);
     bbcActual.clear();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual == "\x01" && mbasicEditMode && mbasicEditStartPending);
     fakeTime += 100;
     mbasicEditPoll();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual == "\x01  " && !mbasicEditStartPending);
-    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>("\r"), 1);
-    while (input.pop(testByte)) {}
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t*>("\r"), 1);
+    while (input.pop(testByte))
+    {
+    }
     history->discardCurrent();
     terminal.reset();
     lineModelAuthoritative = true;
     const std::string partial = "abc";
-    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(partial.data()), partial.size());
-    while (input.pop(testByte)) {}
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t*>(partial.data()), partial.size());
+    while (input.pop(testByte))
+    {
+    }
     profileCommand(true);
     bbcActual.clear();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual == "\b\b\b\rsystem\r");
     // The launcher row can remain visible after its CR. It must cease to be
     // effective CCP input and must not become MBASIC's first history line.
@@ -730,87 +927,114 @@ int main(int argc, char **argv) {
     resetLineSession();
     terminal.reset();
     emit("A7>");
-    while (output.available()) terminalLoop();
+    while (output.available())
+        terminalLoop();
     assert(ccpPromptLive && history->activeBank() == 0);
     const std::string launch = "mbasic\r";
-    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(launch.data()), launch.size());
-    while (input.pop(testByte)) {}
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t*>(launch.data()), launch.size());
+    while (input.pop(testByte))
+    {
+    }
     terminalLoop();
     assert(!ccpPromptLive && history->activeBank() == 1);
     emit("mbasic"); // stale launcher echo, still on the cursor row
-    while (output.available()) terminalLoop();
+    while (output.available())
+        terminalLoop();
     history->discardCurrent();
     lineModelAuthoritative = false;
     const uint8_t beforeAppCount = history->bankCount(1);
     const std::string appLine = "print 7\r";
-    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(appLine.data()), appLine.size());
-    while (input.pop(testByte)) {}
-    char savedAppLine[vt::LineHistory::MaxLine]; uint8_t savedAppLength;
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t*>(appLine.data()), appLine.size());
+    while (input.pop(testByte))
+    {
+    }
+    char savedAppLine[vt::LineHistory::MaxLine];
+    uint8_t savedAppLength;
     assert(history->bankCount(1) == beforeAppCount + 1);
     assert(history->copyEntry(1, beforeAppCount, savedAppLine, savedAppLength));
     assert(std::string(savedAppLine, savedAppLength) == "print 7");
     history->select(0);
     selectedBank = 0;
     // Numeric, drive-only and bounded named prompts activate CCP history.
-    for (const char *ccpPrompt : {"A15>", "AF>", "A>",
-                                  "/a/mbasic>", "/a/7>"}) {
+    for (const char* ccpPrompt : {"A15>", "AF>", "A>", "/a/mbasic>", "/a/7>"})
+    {
         terminal.reset();
         ccpPromptLive = false;
         emit(ccpPrompt);
-        while (output.available()) terminalLoop();
+        while (output.available())
+            terminalLoop();
         assert(ccpPromptLive && cpmPromptEndColumn() == int(strlen(ccpPrompt) - 1));
         assert(history->activeBank() == 0);
     }
     terminal.reset();
     ccpPromptLive = false;
     emit("AG>");
-    while (output.available()) terminalLoop();
+    while (output.available())
+        terminalLoop();
     assert(!ccpPromptLive && cpmPromptEndColumn() < 0);
     terminal.reset();
     ccpPromptLive = false;
     emit("/a/overlong9>");
-    while (output.available()) terminalLoop();
+    while (output.available())
+        terminalLoop();
     assert(!ccpPromptLive && cpmPromptEndColumn() < 0);
     terminal.reset();
     emit("  A0>");
-    while (output.available()) terminalLoop();
+    while (output.available())
+        terminalLoop();
     assert(ccpPromptLive && history->activeBank() == 0);
     history->discardCurrent();
     lineModelAuthoritative = true;
     const std::string cpmLine = "abc";
-    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(cpmLine.data()), cpmLine.size());
-    while (input.pop(testByte)) {}
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t*>(cpmLine.data()), cpmLine.size());
+    while (input.pop(testByte))
+    {
+    }
     profileKey(vt::AppHome);
     bbcActual.clear();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual == "\x01\x01\x01" && history->currentCursor() == 0);
     profileKey(vt::AppEnd);
     bbcActual.clear();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual == "\x06\x06\x06" && history->currentCursor() == 3);
     // An unmatched whole prefix ending in space leaves the edit intact.
     // Recall at column zero is unfiltered and deletes the entire old line.
     history->discardCurrent();
     const std::string recalledCpm = "OLD\r";
-    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(recalledCpm.data()), recalledCpm.size());
-    while (input.pop(testByte)) {}
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t*>(recalledCpm.data()), recalledCpm.size());
+    while (input.pop(testByte))
+    {
+    }
     emit("\r\nA0>");
-    while (output.available()) terminalLoop();
+    while (output.available())
+        terminalLoop();
     const std::string partialCpm = "A NEW";
-    keyboardSend(nullptr, reinterpret_cast<const uint8_t *>(partialCpm.data()), partialCpm.size());
-    while (input.pop(testByte)) {}
+    keyboardSend(nullptr, reinterpret_cast<const uint8_t*>(partialCpm.data()), partialCpm.size());
+    while (input.pop(testByte))
+    {
+    }
     emit("A NEW");
-    while (output.available()) terminalLoop();
-    history->home(); history->right(); history->right(); // after the separating space
+    while (output.available())
+        terminalLoop();
+    history->home();
+    history->right();
+    history->right(); // after the separating space
     profileKey(vt::AppUp);
     bbcActual.clear();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual.empty() && history->currentLength() == 5);
     profileKey(vt::AppHome);
-    while (input.pop(testByte)) {}
+    while (input.pop(testByte))
+    {
+    }
     profileKey(vt::AppUp);
     bbcActual.clear();
-    while (input.pop(testByte)) bbcActual.push_back(char(testByte));
+    while (input.pop(testByte))
+        bbcActual.push_back(char(testByte));
     assert(bbcActual == std::string("\x07\x07\x07\x07\x07OLD"));
     history->discardCurrent();
     profileKey(vt::AppHome);
@@ -822,41 +1046,41 @@ int main(int argc, char **argv) {
     const int savedX = terminal.x;
     keyboardAction(nullptr, vt::Keyboard::HistoryBankShow);
     assert(history->activeBank() == 0);
-    assert(std::string(reinterpret_cast<char *>(terminal.charRAM), 6) == "[#0 CP");
+    assert(std::string(reinterpret_cast<char*>(terminal.charRAM), 6) == "[#0 CP");
     fakeTime += 1000;
     historyNoticePoll();
     assert(!historyNoticeActive && terminal.x == savedX);
-    assert(std::string(reinterpret_cast<char *>(terminal.charRAM), 16) == "EDIT IN PROGRESS");
+    assert(std::string(reinterpret_cast<char*>(terminal.charRAM), 16) == "EDIT IN PROGRESS");
     // Selecting a bank with empty on_select must show its label temporarily,
     // then restore the prompt rather than clearing its row permanently.
     terminal.reset();
-    for (uint8_t c : std::string("A0>")) terminal.feed(c);
+    for (uint8_t c : std::string("A0>"))
+        terminal.feed(c);
     keyboardAction(nullptr, vt::Keyboard::Action(vt::Keyboard::HistoryBank0 + 2));
     assert(selectedBank == 2 && historyNoticeActive && !historyNoticeSendOnSelect);
     fakeTime += 1000;
     historyNoticePoll();
     assert(!historyNoticeActive && terminal.x == 3);
-    assert(std::string(reinterpret_cast<char *>(terminal.charRAM), 3) == "A0>");
+    assert(std::string(reinterpret_cast<char*>(terminal.charRAM), 3) == "A0>");
     assert(!input.pop(testByte));
     // A profile with on_select may still be chosen while editing inside an
     // application. Neither its command nor history-model backspaces may reach
     // the guest, and the notice must restore the exact row and cursor.
     terminalConfigBegin();
-    for (uint8_t c : std::string("[global]\nccp_bank=0\n[bank0]\nname=CP/M\n[bank2]\nname=TE\n[bank3]\nname=TURBO\non_select=A2:\\r\n")) terminalConfigFeed(c);
+    for (uint8_t c : std::string(
+             "[global]\nccp_bank=0\n[bank0]\nname=CP/M\n[bank2]\nname=TE\n[bank3]\nname=TURBO\non_select=A2:\\r\n"))
+        terminalConfigFeed(c);
     assert(terminalConfigEnd() == 0);
     terminal.reset();
     ccpPromptLive = false;
-    for (uint8_t c : std::string("\033[4;6Hsource line")) terminal.feed(c);
+    for (uint8_t c : std::string("\033[4;6Hsource line"))
+        terminal.feed(c);
     const int appX = terminal.x, appY = terminal.y;
     const int appFirst = terminal.index(0, appY);
-    const std::vector<uint8_t> appChars(terminal.charRAM + appFirst,
-                                        terminal.charRAM + appFirst + terminal.cols);
-    const std::vector<uint8_t> appPaper(terminal.paperRAM + appFirst,
-                                        terminal.paperRAM + appFirst + terminal.cols);
-    const std::vector<uint8_t> appAttrs(terminal.attrRAM + appFirst,
-                                        terminal.attrRAM + appFirst + terminal.cols);
-    const std::vector<uint8_t> appFlags(terminal.flags + appFirst,
-                                        terminal.flags + appFirst + terminal.cols);
+    const std::vector<uint8_t> appChars(terminal.charRAM + appFirst, terminal.charRAM + appFirst + terminal.cols);
+    const std::vector<uint8_t> appPaper(terminal.paperRAM + appFirst, terminal.paperRAM + appFirst + terminal.cols);
+    const std::vector<uint8_t> appAttrs(terminal.attrRAM + appFirst, terminal.attrRAM + appFirst + terminal.cols);
+    const std::vector<uint8_t> appFlags(terminal.flags + appFirst, terminal.flags + appFirst + terminal.cols);
     history->input('x'); // a tracked editor line must not become guest BS
     keyboardAction(nullptr, vt::Keyboard::Action(vt::Keyboard::HistoryBank0 + 3));
     assert(selectedBank == 3 && historyNoticeActive && !historyNoticeSendOnSelect);
@@ -873,19 +1097,21 @@ int main(int argc, char **argv) {
     // A stale launcher prompt can remain painted after the app has begun.
     // Its shape alone must not authorize on_select.
     terminal.reset();
-    for (uint8_t c : std::string("A0>")) terminal.feed(c);
+    for (uint8_t c : std::string("A0>"))
+        terminal.feed(c);
     ccpPromptLive = false;
     keyboardAction(nullptr, vt::Keyboard::Action(vt::Keyboard::HistoryBank0 + 3));
     assert(!historyNoticeSendOnSelect);
     fakeTime += 1000;
     historyNoticePoll();
-    assert(std::string(reinterpret_cast<char *>(terminal.charRAM), 3) == "A0>");
+    assert(std::string(reinterpret_cast<char*>(terminal.charRAM), 3) == "A0>");
     assert(terminal.x == 3 && terminal.y == 0 && !input.pop(testByte));
     // At a freshly emitted CCP prompt, the same profile still runs on_select
     // after restoring its notice; quick profile cycling must not hide CCP.
     terminal.reset();
     emit("A0>");
-    while (output.available()) terminalLoop();
+    while (output.available())
+        terminalLoop();
     assert(ccpPromptLive);
     keyboardAction(nullptr, vt::Keyboard::Action(vt::Keyboard::HistoryBank0 + 3));
     assert(historyNoticeSendOnSelect && terminal.x == 3 && terminal.y == 0);
@@ -894,26 +1120,33 @@ int main(int argc, char **argv) {
     assert(historyNoticeSendOnSelect && terminal.x == 3 && terminal.y == 0);
     fakeTime += 1000;
     historyNoticePoll();
-    assert(std::string(reinterpret_cast<char *>(terminal.charRAM), 3) == "A0>");
+    assert(std::string(reinterpret_cast<char*>(terminal.charRAM), 3) == "A0>");
     std::string selectedCommand;
-    while (input.pop(testByte)) selectedCommand.push_back(char(testByte));
+    while (input.pop(testByte))
+        selectedCommand.push_back(char(testByte));
     assert(selectedCommand == "A2:\r");
     // Transfer host uses Alt+Space to save selected bank, not CCP's effective
     // bank 0. Restoring bank + RAW-state peek in one command burst must cancel
     // its pending on_select (A2:) and leave the current A7 DU untouched.
-    for (bool restoreRaw : {false, true}) {
+    for (bool restoreRaw : {false, true})
+    {
         terminal.reset();
         emit("A7>");
-        while (output.available()) terminalLoop();
+        while (output.available())
+            terminalLoop();
         selectedBank = 3;
         history->select(0);
         rawInputMode = false;
         keyboardAction(nullptr, vt::Keyboard::HistoryBankShow);
-        assert(std::string(reinterpret_cast<char *>(terminal.charRAM), 3) == "[#3");
-        const auto hostControls = [&](const std::string &bytes) {
-            for (uint8_t c : bytes) {
-                if (rawInputMode) rawFeed(c, fakeTime);
-                else keyboard.feed(c, fakeTime);
+        assert(std::string(reinterpret_cast<char*>(terminal.charRAM), 3) == "[#3");
+        const auto hostControls = [&](const std::string& bytes)
+        {
+            for (uint8_t c : bytes)
+            {
+                if (rawInputMode)
+                    rawFeed(c, fakeTime);
+                else
+                    keyboard.feed(c, fakeTime);
             }
         };
         hostControls("\033[>29v\033[>16v");
@@ -926,7 +1159,7 @@ int main(int argc, char **argv) {
         fakeTime += 1100;
         historyNoticePoll();
         assert(!input.pop(testByte));
-        assert(std::string(reinterpret_cast<char *>(terminal.charRAM), 3) == "A7>");
+        assert(std::string(reinterpret_cast<char*>(terminal.charRAM), 3) == "A7>");
     }
     rawInputMode = false;
     terminalConfigBegin();
@@ -934,29 +1167,35 @@ int main(int argc, char **argv) {
     selectedBank = 0;
     history->select(0);
     resetLineSession();
-    for (uint8_t c : std::string("dir\r")) history->input(c);
+    for (uint8_t c : std::string("dir\r"))
+        history->input(c);
     setRawInputMode(true);
     assert(rawInputMode && history->activeBank() == 0);
-    assert(std::string(reinterpret_cast<char *>(terminal.charRAM), 13) == "[## RAW / #0]");
+    assert(std::string(reinterpret_cast<char*>(terminal.charRAM), 13) == "[## RAW / #0]");
     const std::string exact("\0\n\177A\033X\r", 7);
-    for (uint8_t c : exact) rawFeed(c, fakeTime);
+    for (uint8_t c : exact)
+        rawFeed(c, fakeTime);
     std::string received;
     uint8_t rawByte;
-    while (input.pop(rawByte)) received.push_back(char(rawByte));
+    while (input.pop(rawByte))
+        received.push_back(char(rawByte));
     assert(received == exact);
     // RAW bypasses profile remapping, but the host's private key envelope
     // must not leak into a CP/M transfer; send its original byte instead.
     const std::string rawKey = "\033[>70;1;" + std::to_string(vt::KeyNum1) + ";0;043v";
-    for (uint8_t c : rawKey) rawFeed(c, fakeTime);
+    for (uint8_t c : rawKey)
+        rawFeed(c, fakeTime);
     assert(input.pop(rawByte) && rawByte == '+' && !input.pop(rawByte));
     assert(rawInputMode);
-    for (uint8_t c : std::string("\033[>17v")) rawFeed(c, fakeTime);
+    for (uint8_t c : std::string("\033[>17v"))
+        rawFeed(c, fakeTime);
     assert(!rawInputMode && history->activeBank() == 0);
     vt::LineHistory::Recall rawRecall;
     assert(history->recall(true, rawRecall));
     assert(std::string(rawRecall.text, rawRecall.length) == "dir");
     setRawInputMode(true);
-    for (uint8_t c : std::string("\033[>23v")) rawFeed(c, fakeTime);
+    for (uint8_t c : std::string("\033[>23v"))
+        rawFeed(c, fakeTime);
     assert(!rawInputMode && history->activeBank() == 3);
     fakeTime += 1000;
     historyNoticePoll();
@@ -965,14 +1204,16 @@ int main(int argc, char **argv) {
     const std::string forceKey = "\033[>70;1;52;5;v";
     selectedBank = 0;
     history->select(0);
-    for (uint8_t c : forceKey) keyboard.feed(c, fakeTime);
+    for (uint8_t c : forceKey)
+        keyboard.feed(c, fakeTime);
     assert(!forcedWarmReturn().pending() && !input.pop(rawByte));
     for (uint8_t c : std::string("\033[>70;1;52;1;003v"))
         keyboard.feed(c, fakeTime);
     assert(input.pop(rawByte) && rawByte == 3 && !input.pop(rawByte));
     forcedWarmReturn().beginExternal();
     assert(input.push('X'));
-    for (uint8_t c : forceKey) keyboard.feed(c, fakeTime);
+    for (uint8_t c : forceKey)
+        keyboard.feed(c, fakeTime);
     assert(forcedWarmReturn().pending());
     assert(virtualRead() == 'X'); // pre-request input is discarded by CCP
     assert(virtualRead() == 0);   // a blocked BIOS/BDOS read can wake
@@ -986,7 +1227,8 @@ int main(int argc, char **argv) {
     assert(input.push('Y'));
     setRawInputMode(true);
     forcedWarmReturn().beginExternal();
-    for (uint8_t c : forceKey) rawFeed(c, fakeTime);
+    for (uint8_t c : forceKey)
+        rawFeed(c, fakeTime);
     assert(forcedWarmReturn().pending());
     assert(forcedWarmReturn().cpuTakeRequest());
     assert(forcedWarmReturn().finishExternal());
@@ -998,8 +1240,10 @@ int main(int argc, char **argv) {
     // A non-reading infinite COM can saturate the guest queue; the emergency
     // envelope must still be recognized from the host serial stream.
     forcedWarmReturn().beginExternal();
-    while (input.free() >= 320) assert(input.push('Q'));
-    for (uint8_t c : forceKey) Serial.rx.push_back(c);
+    while (input.free() >= 320)
+        assert(input.push('Q'));
+    for (uint8_t c : forceKey)
+        Serial.rx.push_back(c);
     terminalLoop();
     assert(forcedWarmReturn().pending() && Serial.rx.empty());
     assert(forcedWarmReturn().cpuTakeRequest());
@@ -1020,21 +1264,22 @@ int main(int argc, char **argv) {
     assert(terminal.plotting() && terminal.y == 1);
     mirrorReset = false;
     forcedWarmReturn().beginExternal();
-    for (uint8_t c : forceKey) keyboard.feed(c, fakeTime);
+    for (uint8_t c : forceKey)
+        keyboard.feed(c, fakeTime);
     assert(forcedWarmReturn().pending() && output.push('Q'));
     assert(forcedWarmReturn().cpuTakeRequest());
     assert(forcedWarmReturn().finishExternal());
     terminalLoop();
-    assert(forcedWarmReturn().inputCleaned() && !terminal.plotting() &&
-           plotCanvasValid && gfx->framebuffer[retainedPixel] == 0xf800 &&
-           !terminal.compositionDirty && !mirrorReset && output.available() == 0);
+    assert(forcedWarmReturn().inputCleaned() && !terminal.plotting() && plotCanvasValid &&
+           gfx->framebuffer[retainedPixel] == 0xf800 && !terminal.compositionDirty && !mirrorReset &&
+           output.available() == 0);
     terminalDiscardGuestInput();
     forcedWarmReturn().resumeInput();
     emit("\r\nFORCED WARM RETURN\r\nA0>");
     fakeTime += 101;
-    for (int i = 0; i < 30; ++i) terminalLoop();
-    assert(terminal.y == 3 && terminal.x == 3 &&
-           terminal.charRAM[terminal.index(0, 3)] == 'A' &&
+    for (int i = 0; i < 30; ++i)
+        terminalLoop();
+    assert(terminal.y == 3 && terminal.x == 3 && terminal.charRAM[terminal.index(0, 3)] == 'A' &&
            gfx->framebuffer[retainedPixel] == 0xf800);
     forcedWarmReturn().beginExternal();
     assert(!forcedWarmReturn().finishExternal());
@@ -1068,8 +1313,7 @@ int main(int argc, char **argv) {
     emit("\033[HSTALLED PC STILL DRAWS");
     for (int i = 0; i < 200; i++)
         terminalLoop();
-    assert(output.available() == 0 && terminal.charRAM[0] == 'S' &&
-           backlight == xtgvBacklightDuty(16));
+    assert(output.available() == 0 && terminal.charRAM[0] == 'S' && backlight == xtgvBacklightDuty(16));
     // Deliberately hostile report flood: replies bounded, output still drains.
     for (int i = 0; i < 400; i++)
         emit("\033[6n");
@@ -1077,9 +1321,11 @@ int main(int argc, char **argv) {
         terminalLoop();
     assert(replyOverruns > 0 && output.available() == 0);
     uint8_t c;
-    while (input.pop(c)) {
+    while (input.pop(c))
+    {
     }
-    while (replies.pop(c)) {
+    while (replies.pop(c))
+    {
     }
     Serial.capacity = 64;
     Serial.chunk = 64;
@@ -1107,13 +1353,16 @@ int main(int argc, char **argv) {
     // Exact host key path: PgUp/PgDn use private 33/34. From off, the first
     // adjustment restores the saved level; later presses move every time.
     xtgvBacklightSet(16);
-    for (uint8_t b : std::string("\033[>63;33v")) Serial.rx.push_back(b);
+    for (uint8_t b : std::string("\033[>63;33v"))
+        Serial.rx.push_back(b);
     terminalLoop();
     assert(xtgvBacklightGet() == 17 && backlight == xtgvBacklightDuty(17));
-    for (uint8_t b : std::string("\033[>63;34v")) Serial.rx.push_back(b);
+    for (uint8_t b : std::string("\033[>63;34v"))
+        Serial.rx.push_back(b);
     terminalLoop();
     assert(xtgvBacklightGet() == 16 && backlight == xtgvBacklightDuty(16));
-    for (uint8_t b : std::string("\033[>63;0v\033[>63;33v")) Serial.rx.push_back(b);
+    for (uint8_t b : std::string("\033[>63;0v\033[>63;33v"))
+        Serial.rx.push_back(b);
     terminalLoop();
     assert(xtgvBacklightGet() == 16 && backlight == xtgvBacklightDuty(16));
     Serial.rx.push_back('D');
@@ -1121,7 +1370,8 @@ int main(int argc, char **argv) {
     assert(virtualRead() == 'D');
     // Worst-case per-cell color transitions must fit the fixed mirror row buffer.
     terminal.reset();
-    for (int i = 0; i < vt::Cells; i++) {
+    for (int i = 0; i < vt::Cells; i++)
+    {
         terminal.charRAM[i] = 'X';
         terminal.attrRAM[i] = i % 64;
         terminal.flags[i] = i % 4;
@@ -1153,15 +1403,16 @@ int main(int argc, char **argv) {
     assert(!displayProfileApplied.load());
     terminalLoop();
     assert(displayProfileApplied.load());
-    assert(terminal.zoom == 2 && terminal.cols == 40 && terminal.rows == 12 &&
-           terminal.visibleCols == 26 && terminal.viewport == 0);
+    assert(terminal.zoom == 2 && terminal.cols == 40 && terminal.rows == 12 && terminal.visibleCols == 26 &&
+           terminal.viewport == 0);
     // Shift a line that begins outside the 2x viewport. Its text, paper and
     // framebuffer pixels must all appear at the panned destination row.
     terminal.reset();
     terminal.pan(10);
     for (uint8_t byte : std::string("\033[2J\033[3;11H\033[41m P\033[0m\033[3;11H\033[L"))
         terminal.feed(byte);
-    for (int i = 0; i < 100; ++i) terminalLoop();
+    for (int i = 0; i < 100; ++i)
+        terminalLoop();
     assert(terminal.x == 0 && terminal.y == 2 && terminal.viewport == 10);
     assert(terminal.charRAM[terminal.index(11, 3)] == 'P');
     assert((terminal.attrRAM[terminal.index(10, 3)] >> 4) == 1);
@@ -1206,8 +1457,7 @@ int main(int argc, char **argv) {
     // backing cells or mirror rows beyond its active geometry.
     emit(std::string(200, 'X'));
     settle();
-    assert(terminal.x >= 0 && terminal.x < terminal.cols && terminal.y >= 0 &&
-           terminal.y < terminal.rows);
+    assert(terminal.x >= 0 && terminal.x < terminal.cols && terminal.y >= 0 && terminal.y < terminal.rows);
     requestZoom(-1);
     fakeTime += 150;
     terminalLoop();
@@ -1219,7 +1469,8 @@ int main(int argc, char **argv) {
     terminal.flags[terminal.index(0, 0)] = 0;
     drawCell(terminal.index(0, 0));
     for (int y = 0; y < 20; y += 2)
-        for (int x = 0; x < 12; x += 2) {
+        for (int x = 0; x < 12; x += 2)
+        {
             const uint16_t pixel = gfx->framebuffer[y * 320 + x];
             assert(gfx->framebuffer[y * 320 + x + 1] == pixel);
             assert(gfx->framebuffer[(y + 1) * 320 + x] == pixel);
@@ -1233,12 +1484,14 @@ int main(int argc, char **argv) {
     terminal.attrRAM[lowerCell] = 0x10;
     terminal.dirty[lowerCell] = true;
     terminal.panVertical(1);
-    for (int i = 0; i < 1000; ++i) terminalLoop();
+    for (int i = 0; i < 1000; ++i)
+        terminalLoop();
     assert(terminal.rowViewport == 12);
-    assert(gfx->framebuffer[(XTGV_DISPLAY_OFFSET_Y + 5) * 320 + presentationGutter +
-                            XTGV_DISPLAY_OFFSET_X + 5] == rgb565(terminal.palette.paper[1]));
+    assert(gfx->framebuffer[(XTGV_DISPLAY_OFFSET_Y + 5) * 320 + presentationGutter + XTGV_DISPLAY_OFFSET_X + 5] ==
+           rgb565(terminal.palette.paper[1]));
     keyboardKeyEvent(nullptr, {vt::KeyUp, uint8_t(vt::KeyCtrl | vt::KeyShift)}, nullptr, 0);
-    for (int i = 0; i < 1000; ++i) terminalLoop();
+    for (int i = 0; i < 1000; ++i)
+        terminalLoop();
     assert(terminal.rowViewport == 0);
     assert(terminal.setGeometry(40, 12, 26, 12, 2));
     terminal.reset();
@@ -1247,129 +1500,162 @@ int main(int argc, char **argv) {
     selectedBank = 0;
     history->select(0);
     terminalConfigBegin();
-    const std::string legacyConfig =
-        "[global]\nmode=vt52\nconsole_bits=8\nnum1=send:9\n"
-        "[display:RP2_2]\nview_zoom=1\n"
-        "[bank2]\nmode=ansi\ninput=wordstar\nzoom1_terminal=40x12\n"
-        "num1=send:7\nkp_decimal=send:,\n"
-        "[bank3]\nmode=vt52\ninput=vt52\nzoom1_terminal=20x12\n";
-    for (uint8_t c : legacyConfig) terminalConfigFeed(c);
+    const std::string legacyConfig = "[global]\nmode=vt52\nconsole_bits=8\nnum1=send:9\n"
+                                     "[display:RP2_2]\nview_zoom=1\n"
+                                     "[bank2]\nmode=ansi\ninput=wordstar\nzoom1_terminal=40x12\n"
+                                     "num1=send:7\nkp_decimal=send:,\n"
+                                     "[bank3]\nmode=vt52\ninput=vt52\nzoom1_terminal=20x12\n";
+    for (uint8_t c : legacyConfig)
+        terminalConfigFeed(c);
     assert(terminalConfigEnd() == 0 && terminalConfiguredConsoleBits() == 8);
     terminalLoop();
     assert(!terminal.ansi && terminal.cols == 80 && terminal.rows == 24);
     keyboardAction(nullptr, vt::Keyboard::Action(vt::Keyboard::HistoryBank0 + 2));
-    assert(terminal.ansi && selectedBank == 2 && terminal.cols == 40 &&
-           terminal.rows == 12 && terminal.visibleCols == 40 &&
-           presentationGutter == 8);
+    assert(terminal.ansi && selectedBank == 2 && terminal.cols == 40 && terminal.rows == 12 &&
+           terminal.visibleCols == 40 && presentationGutter == 8);
     fakeTime += 1100;
     terminalLoop();
     uint8_t presetByte;
-    while (input.pop(presetByte)) {}
-    for (uint8_t c : std::string("\033[>70;1;28;0;043v")) keyboard.feed(c, fakeTime++);
+    while (input.pop(presetByte))
+    {
+    }
+    for (uint8_t c : std::string("\033[>70;1;28;0;043v"))
+        keyboard.feed(c, fakeTime++);
     assert(input.pop(presetByte) && presetByte == '7' && !input.pop(presetByte));
-    keyboardKeyEvent(nullptr, {vt::KeyNum2, 0}, reinterpret_cast<const uint8_t *>("ě"), 2);
+    keyboardKeyEvent(nullptr, {vt::KeyNum2, 0}, reinterpret_cast<const uint8_t*>("ě"), 2);
     assert(input.pop(presetByte) && presetByte == '2' && !input.pop(presetByte));
-    keyboardKeyEvent(nullptr, {vt::KeyKpDecimal, 0}, reinterpret_cast<const uint8_t *>(","), 1);
+    keyboardKeyEvent(nullptr, {vt::KeyKpDecimal, 0}, reinterpret_cast<const uint8_t*>(","), 1);
     assert(input.pop(presetByte) && presetByte == ',' && !input.pop(presetByte));
-    keyboardKeyEvent(nullptr, {vt::KeyKpDelete, 0}, reinterpret_cast<const uint8_t *>("\033[3~"), 4);
+    keyboardKeyEvent(nullptr, {vt::KeyKpDelete, 0}, reinterpret_cast<const uint8_t*>("\033[3~"), 4);
     assert(input.pop(presetByte) && presetByte == 0x07 && !input.pop(presetByte));
     profileKey(vt::AppUp);
     assert(input.pop(presetByte) && presetByte == 0x05 && !input.pop(presetByte));
-    for (int i = 0; i < 1000; ++i) terminalLoop();
+    for (int i = 0; i < 1000; ++i)
+        terminalLoop();
     const uint16_t defaultPaper = rgb565(vt::Paper[0]);
     assert(gfx->framebuffer[100 * 320 + 300] == defaultPaper);
     gfx->framebuffer[100 * 320 + 300] = 0xf800;
-    for (uint8_t c : std::string("\033[2J")) terminal.feed(c);
-    for (int i = 0; i < 1000; ++i) terminalLoop();
+    for (uint8_t c : std::string("\033[2J"))
+        terminal.feed(c);
+    for (int i = 0; i < 1000; ++i)
+        terminalLoop();
     assert(gfx->framebuffer[100 * 320 + 300] == defaultPaper);
     keyboardAction(nullptr, vt::Keyboard::Action(vt::Keyboard::HistoryBank0 + 3));
-    assert(!terminal.ansi && selectedBank == 3 && terminal.cols == 20 &&
-           terminal.rows == 12 && presentationGutter == 8);
+    assert(!terminal.ansi && selectedBank == 3 && terminal.cols == 20 && terminal.rows == 12 &&
+           presentationGutter == 8);
     fakeTime += 1100;
     terminalLoop();
-    keyboardKeyEvent(nullptr, {vt::KeyNum1, 0}, reinterpret_cast<const uint8_t *>("+"), 1);
+    keyboardKeyEvent(nullptr, {vt::KeyNum1, 0}, reinterpret_cast<const uint8_t*>("+"), 1);
     assert(input.pop(presetByte) && presetByte == '9' && !input.pop(presetByte));
-    keyboardKeyEvent(nullptr, {vt::KeyKpDecimal, 0}, reinterpret_cast<const uint8_t *>(","), 1);
+    keyboardKeyEvent(nullptr, {vt::KeyKpDecimal, 0}, reinterpret_cast<const uint8_t*>(","), 1);
     assert(input.pop(presetByte) && presetByte == '.' && !input.pop(presetByte));
     profileKey(vt::AppLeft);
     assert(input.pop(presetByte) && presetByte == 27);
     assert(input.pop(presetByte) && presetByte == 'D' && !input.pop(presetByte));
-    for (uint8_t c : std::string("\033<")) terminal.feed(c);
+    for (uint8_t c : std::string("\033<"))
+        terminal.feed(c);
     assert(terminal.ansi);
     selectEffectiveBank(0); // CCP history heuristic must not switch output.
     assert(terminal.ansi && selectedBank == 3 && history->activeBank() == 0);
-    for (uint8_t c : std::string("\033[?2l")) terminal.feed(c);
+    for (uint8_t c : std::string("\033[?2l"))
+        terminal.feed(c);
     assert(!terminal.ansi);
     keyboardAction(nullptr, vt::Keyboard::Action(vt::Keyboard::HistoryBank0 + 2));
     assert(terminal.ansi); // explicit selection reapplies bank 2's default.
     // Palette startup, TFT/mirror colors, live selection and lazy save.
     terminalConfigBegin();
-    const char *themeIni = "[global]\nmode_palette=1\n"
-        "[palette1]\npaper0=8,16,24\nink00=120,200,120\n"
-        "active_line_rgb=16,32,48\ncursor_rgb=80,96,112\nviewport_gutter_rgb=40,48,56\n"
-        "[palette2]\npaper0=24,16,8\nink00=200,120,80\n"
-        "[bank0]\nactive_line=false\n";
-    for (const char *s=themeIni; *s; ++s) terminalConfigFeed(uint8_t(*s));
-    assert(terminalConfigEnd()==0);
+    const char* themeIni = "[global]\nmode_palette=1\n"
+                           "[palette1]\npaper0=8,16,24\nink00=120,200,120\n"
+                           "active_line_rgb=16,32,48\ncursor_rgb=80,96,112\nviewport_gutter_rgb=40,48,56\n"
+                           "[palette2]\npaper0=24,16,8\nink00=200,120,80\n"
+                           "[bank0]\nactive_line=false\n";
+    for (const char* s = themeIni; *s; ++s)
+        terminalConfigFeed(uint8_t(*s));
+    assert(terminalConfigEnd() == 0);
     terminalLoop();
-    assert(activePalette==1 && terminal.palette.paper[0].r==8);
-    terminal.reset(); activeRow=-1; terminal.cursorVisible=false;
+    assert(activePalette == 1 && terminal.palette.paper[0].r == 8);
+    terminal.reset();
+    activeRow = -1;
+    terminal.cursorVisible = false;
     selectEffectiveBank(0);
-    emit("\033[2J\033[HPALETTE"); settle();
-    for (int n=0;n<1000;++n) terminalLoop();
-    assert(Serial.tx.find("38;2;120;200;120;48;2;8;16;24m")!=std::string::npos);
-    assert(gfx->framebuffer[200*320+100]==rgb565(terminal.palette.paper[0]));
-    const int oldX=terminal.x, oldY=terminal.y;
-    const uint8_t oldChar=terminal.charRAM[0];
-    configSavePending=false;
-    emit("\033[>69;2v"); settle(); terminalLoop(); settle();
-    assert(activePalette==2 && terminal.x==oldX && terminal.y==oldY && terminal.charRAM[0]==oldChar);
-    uint8_t savedLight=0, themeZoom=0, savedPalette=0;
-    assert(!terminalConfigSaveDue(savedLight,themeZoom,&savedPalette));
-    fakeTime+=1501;
-    assert(terminalConfigSaveDue(savedLight,themeZoom,&savedPalette) && savedPalette==2);
+    emit("\033[2J\033[HPALETTE");
+    settle();
+    for (int n = 0; n < 1000; ++n)
+        terminalLoop();
+    assert(Serial.tx.find("38;2;120;200;120;48;2;8;16;24m") != std::string::npos);
+    assert(gfx->framebuffer[200 * 320 + 100] == rgb565(terminal.palette.paper[0]));
+    const int oldX = terminal.x, oldY = terminal.y;
+    const uint8_t oldChar = terminal.charRAM[0];
+    configSavePending = false;
+    emit("\033[>69;2v");
+    settle();
+    terminalLoop();
+    settle();
+    assert(activePalette == 2 && terminal.x == oldX && terminal.y == oldY && terminal.charRAM[0] == oldChar);
+    uint8_t savedLight = 0, themeZoom = 0, savedPalette = 0;
+    assert(!terminalConfigSaveDue(savedLight, themeZoom, &savedPalette));
+    fakeTime += 1501;
+    assert(terminalConfigSaveDue(savedLight, themeZoom, &savedPalette) && savedPalette == 2);
     terminalConfigSaveComplete(true);
     // Theme must survive an independently requested zoom/profile geometry change.
-    requestZoomLevel(2); fakeTime+=200; terminalLoop();
-    assert(activePalette==2);
+    requestZoomLevel(2);
+    fakeTime += 200;
+    terminalLoop();
+    assert(activePalette == 2);
     terminal.beginPlot();
-    terminalControl(nullptr,vt::Terminal::Palette,1); terminalLoop();
-    assert(activePalette==2 && requestedPalette==1);
-    terminal.abortPlot(); fakeTime+=200; terminalLoop(); terminalLoop();
-    assert(activePalette==1);
+    terminalControl(nullptr, vt::Terminal::Palette, 1);
+    terminalLoop();
+    assert(activePalette == 2 && requestedPalette == 1);
+    terminal.abortPlot();
+    fakeTime += 200;
+    terminalLoop();
+    terminalLoop();
+    assert(activePalette == 1);
     configSavePending.store(false);
     configSaveDirty.store(0);
-    for (uint8_t c : std::string("\033[>73;2;80;24v")) terminal.feed(c);
+    for (uint8_t c : std::string("\033[>73;2;80;24v"))
+        terminal.feed(c);
     assert(terminal.zoom == 2 && terminal.cols == 80 && terminal.rows == 24);
-    for (uint8_t c : std::string("\033[>73;2;79;24v\033[>73;2;80;999v")) terminal.feed(c);
+    for (uint8_t c : std::string("\033[>73;2;79;24v\033[>73;2;80;999v"))
+        terminal.feed(c);
     assert(terminal.zoom == 2 && terminal.cols == 80 && terminal.rows == 24);
-    while (replies.available()) { uint8_t discard; replies.pop(discard); }
-    for (uint8_t c : std::string("\033[>72v")) terminal.feed(c);
+    while (replies.available())
+    {
+        uint8_t discard;
+        replies.pop(discard);
+    }
+    for (uint8_t c : std::string("\033[>72v"))
+        terminal.feed(c);
     std::string info;
     uint8_t replyByte;
-    while (replies.pop(replyByte)) info.push_back(char(replyByte));
+    while (replies.pop(replyByte))
+        info.push_back(char(replyByte));
     assert(info.find("\033P7xtgv-info;1;RP2_2;rp2350-touch-lcd-2;") == 0);
     assert(info.find(";2;80;24;26;12;") != std::string::npos);
     assert(std::count(info.begin(), info.end(), ';') == 22);
     assert(info.size() > 2 && info.substr(info.size() - 2) == "\033\\");
     // A guest polling for VTINFO must receive the answer in the pass that
     // parses its query, without waiting for the next browser/display frame.
-    while (input.pop(replyByte)) {}
+    while (input.pop(replyByte))
+    {
+    }
     emit("\033[>72v");
     terminalLoop();
     std::string deliveredInfo;
-    while (input.pop(replyByte)) deliveredInfo.push_back(char(replyByte));
+    while (input.pop(replyByte))
+        deliveredInfo.push_back(char(replyByte));
     assert(deliveredInfo == info && replies.available() == 0);
     // Standard cursor reports need the same scheduling guarantee.
     emit("\033[6n");
     terminalLoop();
     std::string cursorReply;
-    while (input.pop(replyByte)) cursorReply.push_back(char(replyByte));
-    assert(cursorReply == "\033[" + std::to_string(terminal.y + 1) + ";" +
-                          std::to_string(terminal.x + 1) + "R");
-    for (uint8_t c : std::string("\033[>73;0v")) terminal.feed(c);
-    assert(terminal.zoom == bootDisplayProfile.viewZoom &&
-           terminal.cols == bootGeometry.cols && terminal.rows == bootGeometry.rows);
+    while (input.pop(replyByte))
+        cursorReply.push_back(char(replyByte));
+    assert(cursorReply == "\033[" + std::to_string(terminal.y + 1) + ";" + std::to_string(terminal.x + 1) + "R");
+    for (uint8_t c : std::string("\033[>73;0v"))
+        terminal.feed(c);
+    assert(terminal.zoom == bootDisplayProfile.viewZoom && terminal.cols == bootGeometry.cols &&
+           terminal.rows == bootGeometry.rows);
     assert(!terminalConfigSaveDue(savedLight, themeZoom, &savedPalette));
     std::cout << "runtime render/mirror, slow/disconnected USB, queue saturation, and reconnect "
                  "tests passed\n";

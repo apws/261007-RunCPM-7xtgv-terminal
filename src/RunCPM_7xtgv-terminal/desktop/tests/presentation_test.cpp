@@ -4,17 +4,28 @@
 #include <cstdlib>
 #include <vector>
 static std::vector<uint16_t> published;
-static void require(bool ok, const char *why) {
-    if (!ok) { std::fprintf(stderr, "%s\n", why); std::exit(1); }
+
+static void require(bool ok, const char* why)
+{
+    if (!ok)
+    {
+        std::fprintf(stderr, "%s\n", why);
+        std::exit(1);
+    }
 }
-static void capture(XtgvDesktopCanvas &canvas) {
+
+static void capture(XtgvDesktopCanvas& canvas)
+{
     published.assign(canvas.getFramebuffer(), canvas.getFramebuffer() + canvas.width() * canvas.height());
 }
-int main() {
+
+int main()
+{
     require(xtgvDesktopBrightness(0) == 0, "off must stay fully black");
     require(xtgvDesktopBrightness(XTGV_BACKLIGHT_DUTIES[31]) == 255, "board maximum must reach full SDL brightness");
     uint8_t previous = 0;
-    for (unsigned duty = 1; duty < 256; ++duty) {
+    for (unsigned duty = 1; duty < 256; ++duty)
+    {
         const auto brightness = xtgvDesktopBrightness(uint8_t(duty));
         require(brightness >= previous && brightness >= duty, "brightness curve must lift and never reverse");
         previous = brightness;
@@ -27,7 +38,8 @@ int main() {
     XtgvDesktopCanvas canvas(32, 24);
     require(canvas.begin(), "Canvas allocation");
     canvas.publish = capture;
-    canvas.fillScreen(0x1234); canvas.flush();
+    canvas.fillScreen(0x1234);
+    canvas.flush();
     const auto generation = canvas.generation();
     canvas.fillRect(0, 0, 4, 4, 0xffff);
     require(published[0] == 0x1234 && canvas.generation() == generation, "unflushed drawing leaked");
