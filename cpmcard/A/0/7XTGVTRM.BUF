@@ -1,21 +1,5 @@
 # 7xtgv terminal history v2
 [0]
->dir
->cd cpmdev
->dir
->cd cpm
->cd /b
->cd /c
->ll ..
->dir
->vtinfo
->vtpal 2 
->dir
->vtdrv rw 
->vtcpu
->vtdrv rw  
->7xf
->cd /c/xterm256  
 >cd 7xtgv
 >dir
 >dir *.bas
@@ -100,6 +84,22 @@
 >tinst
 >s6
 >y[0m
+>7xf
+>cd /c/7xtgv
+>vtterm
+>cls
+>dir
+>Great news to finally see progress on recreating sz and rz source listing
+>Are there any other CP/M programs in RomWBW lacking source that could be recrea
+>Much appreciated!
+>Great news to finally see progress on recreating sz and rz source listing
+>Are there any other CP/M programs in RomWBW lacking source that could be recrea
+>Much appreciated!
+>Great news to finally see progress on recreating sz and rz source listing
+>Are there any other CP/M programs in RomWBW lacking source that could be recrea
+>Much appreciated!
+>reboot
+>exit
 [1]
 >Enter returns to menu:5
 >Select:5
@@ -740,4 +740,4 @@
 >1_terminal=132x48
 >zoom2_terminal=80x24
 >zoom3_terminal=44x16
-# crc32=E4354FE0
+# crc32=B0ABECBE
