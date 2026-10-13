@@ -2909,11 +2909,21 @@ static void terminalTextBenchmarkPoll()
     }
     if (!active)
         return;
-    static const char* colors[] = {"31", "32", "33", "34", "35", "36", "91", "94"};
-    static const char* fixtures[] = {
-        "7xtgv RED", "7xtgv GREEN", "7xtgv YELLOW", "7xtgv BLUE",
-        "7xtgv MAGENTA", "7xtgv CYAN", "7xtgv BRIGHT RED", "7xtgv BRIGHT BLUE"
+
+    static const struct
+    {
+        const char* color;
+        const char* text;
+    } fixtures[] = {
+        {"31", "7xtgv NORMAL RED"}, {"32", "7xtgv NORMAL GREEN"},
+        {"33", "7xtgv NORMAL YELLOW"}, {"34", "7xtgv NORMAL BLUE"},
+        {"35", "7xtgv NORMAL MAGENTA"}, {"36", "7xtgv NORMAL CYAN"},
+        {"91", "7xtgv ALT RED"}, {"94", "7xtgv ALT BLUE"}
     };
+
+    // ANSI backgrounds selecting native paper slots 0, 1, 2, 3.
+    static const char paperCodes[] = {'7', '1', '2', '4'};
+
     const uint32_t rows = 29, items = 96;
     // One frame per terminal loop lets the normal renderer show the redraws.
     terminal.feed(0x1b);
@@ -2923,10 +2933,13 @@ static void terminalTextBenchmarkPoll()
     for (uint32_t i = 0; i < items; ++i)
     {
         seed = seed * 1664525UL + 1013904223UL;
-        const char* fixture = fixtures[(seed >> 24) & 7];
+        // Select the label and its SGR together, so the printed name agrees
+        // with its ink. ALT is a palette variant, not necessarily brighter.
+        const auto& item = fixtures[(seed >> 24) & 7];
+        const char* fixture = item.text;
         uint32_t row = 1 + ((seed >> 16) % rows);
         uint32_t col = 1 + ((seed >> 8) % (80 - strlen(fixture)));
-        const char* color = colors[(seed >> 28) & 7];
+        const char* color = item.color;
         auto emit = [&](uint8_t c)
         {
             terminal.feed(c);
@@ -2936,6 +2949,9 @@ static void terminalTextBenchmarkPoll()
         emit('[');
         emit(color[0]);
         emit(color[1]);
+        emit(';');
+        emit('4');
+        emit(paperCodes[(seed >> 28) & 3]);
         emit('m');
         emit(0x1b);
         emit('[');

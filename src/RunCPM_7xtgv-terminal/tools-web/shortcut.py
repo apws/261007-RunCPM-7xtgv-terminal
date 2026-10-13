@@ -23,6 +23,11 @@ def rebuild(log):
     sdk = BUILD / '_deps/emsdk/emsdk_env.sh'
     if not sdk.is_file():
         raise RuntimeError('Run tools-web/setup.sh first')
+    python = BUILD / '_deps/venv/bin/python'
+    if not python.is_file():
+        raise RuntimeError('Run tools-web/setup.sh first')
+    print('Checking guide PDFs ...', flush=True)
+    logged([str(python), str(HERE / 'print_guides.py')], log, stdout=log)
     print('Configuring browser ...', flush=True)
     # Source the SDK in a child shell. NUL-delimited environment values stay
     # intact (including spaces/newlines), and never appear in the log.

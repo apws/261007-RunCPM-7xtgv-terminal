@@ -1,4 +1,25 @@
-# VTCPU and VTDRV CP/M benchmarks
+# VTCPU, VTDRV and VTTERM CP/M benchmarks
+
+`VTTERM` exercises the native terminal parser and normal redraw loop for at
+least three seconds, scattering 96 coloured text items per pass. NORMAL/ALT
+labels are paired with their actual SGR inks; ALT need not be brighter. Each
+item chooses native paper 0..3 randomly through SGR 47/41/42/44. Corrected
+labels and random papers change the workload relative to older builds. Its current
+launcher source is `cpmcard/C/1/VTTERM.Z80` (`7xtgv(C1)`); the installed COM
+is in `cpmcard/A/0`. The workload lives in `terminal_runtime.cpp`, and the
+private port `79h` reporting hook uses `src/terminal/benchmark_report.h`.
+The COM needs no rebuild for a result-format change.
+
+Total characters use decimal `kChars`/`MChars` with three fractional digits.
+Time is integer milliseconds, without commas; rates still use the original
+microsecond measurement. Decimal `kChars/s` and `kB/s` switch independently
+to `MChars/s`/`MB/s` at a million units/s. Scaled totals and rates have three
+truncated fractional digits, with comma-grouped integer parts. Bytes include fixture escape sequences,
+but exclude frame clears and final result positioning. The native fixture
+does not travel over USB; this is not serial-link throughput or a pure panel
+bandwidth measurement. Keep geometry, zoom, target and mirror/output setup
+the same when comparing. `PASS` reports completion, not pixel verification.
+See the [Reference Guide](../../../../guides/03-RG-reference-guide.adoc#vtterm-benchmark).
 
 `VTCPU.COM` runs the same fixed Z80 instruction loop twice. The active result
 includes normal terminal/TFT/USB contention. The quiet result pauses the

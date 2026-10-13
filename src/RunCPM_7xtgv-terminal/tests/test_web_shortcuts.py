@@ -51,12 +51,32 @@ class WebShortcutTests(unittest.TestCase):
             self.assertFalse((root/'build').exists())
 
     @unittest.skipUnless(shutil.which('bash'), 'SDK activation uses Bash')
+    def test_pdf_failure_stops_before_configure(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); build = root/'build'
+            sdk = build/'_deps/emsdk/emsdk_env.sh'; sdk.parent.mkdir(parents=True)
+            sdk.write_text('exit 99\n')
+            python = build/'_deps/venv/bin/python'; python.parent.mkdir(parents=True)
+            python.symlink_to(sys.executable)
+            (root/'print_guides.py').write_text('raise SystemExit("PDF fixture failed")\n')
+            output, errors = io.StringIO(), io.StringIO()
+            with patch.object(shortcut, 'HERE', root), patch.object(shortcut, 'BUILD', build), contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+                self.assertEqual(shortcut.main(['rebuild']), 1)
+            self.assertNotIn('Configuring', output.getvalue())
+            self.assertNotIn('PDF fixture failed', output.getvalue() + errors.getvalue())
+            self.assertIn('PDF fixture failed', (root/'desktop-rebuild.log').read_text())
+            self.assertFalse((build/'shared').exists())
+
+    @unittest.skipUnless(shutil.which('bash'), 'SDK activation uses Bash')
     def test_build_progress_stage_failure_and_packaging(self):
         for code in (7, 0):
             with self.subTest(code=code), tempfile.TemporaryDirectory(prefix='web shortcut ') as folder:
                 root = Path(folder); build = root/'build'; binaries = root/'bin'; binaries.mkdir()
                 sdk = build/'_deps/emsdk/emsdk_env.sh'; sdk.parent.mkdir(parents=True)
                 sdk.write_text('export PATH=' + shlex.quote(str(binaries)) + ':"$PATH"\n')
+                python = build/'_deps/venv/bin/python'; python.parent.mkdir(parents=True)
+                python.symlink_to(sys.executable)
+                (root/'print_guides.py').write_text('print("guide PDF detail")\n')
                 for name, script in [('emcmake', 'print("configure detail")'), ('cmake', f'print("[ 25%] compile\\ncompiler warning\\n[100%] link"); raise SystemExit({code})')]:
                     path = binaries/name
                     path.write_text('#!' + sys.executable + '\n' + script + '\n'); path.chmod(0o755)
@@ -66,6 +86,8 @@ class WebShortcutTests(unittest.TestCase):
                     self.assertEqual(shortcut.main(['rebuild']), code)
                 log = (root/'desktop-rebuild.log').read_text()
                 self.assertIn('configure detail', log); self.assertIn('compiler warning', log)
+                self.assertIn('guide PDF detail', log)
+                self.assertNotIn('guide PDF detail', output.getvalue())
                 self.assertNotIn('compiler warning', output.getvalue())
                 self.assertIn('Building browser:  25%', output.getvalue())
                 if code:

@@ -1,0 +1,72 @@
+= Incremental guide PDFs in the web rebuild
+:source-highlighter: highlight.js
+:toc:
+
+== Result
+
+The common `tools-web/desktop-rebuild.sh` now refreshes stale numbered guide
+PDFs before compiling and packaging the browser application. Normal launch,
+native desktop/MCU builds and direct Pages packaging retain the saved PDFs.
+The six PDF files remain intentionally versioned in `guides/pdf/`, together
+with `print-manifest.json`; readers need no printing tools.
+
+`print_guides.py` converts embedded AsciiDoc into the Live Preview content
+wrapper, applies the shared root CSS/JS, then prints in Chromium via
+Playwright. Settings are portrait A4, scale 1, 0.4-inch default-sized margins,
+background graphics enabled and browser headers/footers disabled. Liberation
+Sans/Mono are required. Images load locally; no remote rendering resources
+are fetched. Code uses the shared monospace style without CDN highlighting.
+Relative document links point to GitHub; fragment/TOC destinations remain
+inside the PDF. No workstation-local file URLs are allowed in saved links.
+
+== Freshness and failure behavior
+
+* Per-guide source hashes and shared CSS, JS, guide-image, printer and Python
+  requirement hashes select stale output. Edited/missing PDF files are
+  refreshed too. Shared formatting/image changes conservatively reprint all.
+* The manifest records settings, input/output hashes, page counts and renderer
+  versions. Renderer upgrades alone do not invalidate reviewed snapshots;
+  `--force` adopts a new renderer explicitly.
+* A no-change rebuild preserves saved PDF bytes and modification times. It
+  does not launch Chromium or require the print-only system tools.
+* All pending prints are staged and checked for loaded images, A4 dimensions,
+  readable text and absence of local file links before any replacement.
+  Render/validation failure preserves the saved PDFs and manifest.
+* Concurrent input/output edits abort printing. Destination-local staging
+  permits preview folders on another filesystem; individual PDF replacement
+  is atomic, and the manifest is replaced last.
+* `--output-dir` provides isolated previews; `--check` writes nothing and
+  returns 1 for stale output. Web shortcut details go to its adjacent log.
+* Explicit setup installs the Playwright browser, with documented external
+  Asciidoctor/Poppler/font prerequisites. The manual Pages workflow supplies
+  these before rebuilding. No workflow was dispatched for this change.
+
+== Validation and visual comparison
+
+[loweralpha]
+. Four isolated incremental/failure tests cover single-guide/shared changes,
+  missing/edited files, force, unchanged bytes/mtime, failed render/validation
+  and concurrent edits. Five shortcut tests cover logging, build stages,
+  failure propagation and stopping before configure when PDF printing fails.
+. Chromium printed all six guides. A4, text, images and public/internal link
+  checks passed. All-page contact sheets and detailed title/TOC, pale-red
+  table/keycap and SVG pages were visually inspected.
+. The embedded content wrapper matches the extension's title and shaded TOC
+  styling. Automatic page counts BG/UG/RG/TRG/TG/HG are 18/16/45/25/11/31;
+  the manual reference prints were 19/16/46/25/11/31. Exact pagination across
+  the Ruby converter and extension/browser renderer is not guaranteed.
+. Two real common web rebuilds passed. The first printed and packaged all
+  six PDFs; the second skipped printing. SHA-256 hashes and nanosecond mtimes
+  of all six PDFs and the manifest were identical before/after the second
+  build. Packaged PDFs match saved files exactly. Freshness check, frontend
+  module checks, shell syntax, feature registry and documentation rendering
+  also passed.
+
+The supplied manual PDFs were copied before replacement to
+`build/RunCPM_7xtgv-terminal/guide-pdf/verification-261013-2033/manual-before/`.
+Proof logs and no-change comparison are stored beside that copy. Source card,
+running desktop sessions and hardware were not changed by this workflow.
+
+See link:../src/RunCPM_7xtgv-terminal/tools-web/README.adoc#_saved_guide_pdfs[usage
+and prerequisites]. This is a local build/print checkpoint, not publication
+or native/hardware requalification.

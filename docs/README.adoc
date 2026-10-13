@@ -15,6 +15,14 @@ observations keep their original test scope; they are not universal acceptance.
 
 == High-level reading
 
+* link:261013-2229%20DONE%20Mobile%20PDF%20profile%20and%20RG%20table%20widths.adoc[Mobile PDF guides]: Legal/140% screen-reading profile, RG table widths and shared local/Pages regeneration.
+
+* link:261013-2116%20DONE%20VTTERM%20rates%20and%20matching%20ink%20labels.adoc[VTTERM benchmark]: grouped decimal kilo-rates, correct NORMAL/ALT ink labels and source/measurement guide notes.
+
+* link:261013-2033%20DONE%20Incremental%20guide%20PDFs%20in%20web%20rebuild.adoc[Saved guide PDFs]: incremental A4 printing with shared CSS/JS during the web rebuild, validation and unchanged-file preservation.
+
+* link:261013-1928%20DONE%20Scoped%20Allman%20C%2B%2B%20formatting.adoc[Project C/C++ formatting]: scoped Allman layout, token-equivalence audit and MCU/desktop/Wasm build checks.
+
 * link:261013-1703%20DONE%20Browser%20focus%20and%20shortcut%20panel%20update.adoc[Browser focus and shortcuts]: Ctrl+] stays with guest input, shortcut placement updated, and user Turbo/TINST card changes verified without alteration.
 
 * link:261013-1628%20DONE%20Browser%20VTINFO%20and%20VTZOOM%20reply%20timing.adoc[Browser VTINFO/VTZOOM fix]: timely query replies, six-target Chromium proof and unchanged guest helpers.

@@ -20,6 +20,13 @@ Input delivery, host commands and card lifetime differ by route. For first use,
 see the link:02-UG-user-guide.adoc#browser-session[browser introduction]; for
 native setup, use the link:01-BG-build-guide.adoc#quick-start[Build Guide].
 
+The saved PDF uses our *mobile PDF (mpdf)* profile: Legal portrait, 140% scale,
+zero left/right margins and 0.1-inch top/bottom margins, with backgrounds.
+It is intended for reading on phones and comfortably enlarged monitor text.
+For physical printing, render the AsciiDoc with A4/Letter, normal printer
+margins and a smaller scale. See the link:README.adoc#mobile-pdf-guides[guide
+index] for the shared profile and regeneration workflow.
+
 [[browser-input-differences]]
 [discrete]
 === Browser and native input routes
@@ -458,7 +465,7 @@ They do not replace the original VOL command's `INFO.TXT` input.
 [[_project_files_by_du]]
 ==== Project files by DU
 
-[cols="1,6",options="header"]
+[cols="27,73",options="header"]
 |===
 |Name(DU) |Contents
 |`cpm(A0)` |Shared installed helpers listed below, ordinary CP/M tools, INI and history.
@@ -495,7 +502,7 @@ reorganized with the repository.
 |`++VTDRV++` |Plain invocation read-tests and verifies a retained 32 KiB `++VTDRV.$$$++` fixture. `++VTDRV W++` recreates it, then reads/verifies; old `++RW++` remains an alias. `++VTDRV Q++` quietly reads without writing. `++VTDRV W Q++` (or `++Q W++`) pauses the terminal during both timed write and read passes. Quiet modes require matching firmware; options are case-insensitive whole tokens.
 |`++VTDRV8X++` |Write, read, and verify 32 KiB in the current DU, then remove its temporary test file. Uses the 8080/8085 instruction subset.
 |`++CARDMARK++` |Native raw SD read diagnostic on direct-SdFat/SPI targets, launched by A0:CARDMARK.COM. Prints CID/CSD identity and compares repeated raw sector reads; see below. Does not write a test file.
-|`++VTTERM++` |Run the firmware-native terminal/parser benchmark.
+|`++VTTERM++` |Run the native terminal/parser and display redraw benchmark; report decimal kChars/s and kB/s (M at one million units/s). See <<vtterm-benchmark,measurement details>>.
 |`++VTGET++` / `++VTPUT++` |CP/M ends of the host `++tools/cpm-transfer/transfer.py++` protocol; normally use the host tool rather than type their protocol manually.
 |`++UNZIP157 FILE.ZIP A:++` |Extract a Linux ZIP/Deflate archive to drive A in the current user area. Omitting the destination lists/checks only. Installed separately from old `UNZIP.COM`.
 |===
@@ -529,6 +536,55 @@ query/reply bytes are in the link:04-TRG-technical-reference-guide.adoc#private-
 
 Detailed diagnostic procedures and demonstration recipes are in
 <<rg-diagnostics-and-demonstrations,Appendix A>>.
+
+[[vtterm-benchmark]]
+==== VTTERM display benchmark
+
+Run `VTTERM` from the CP/M prompt. The shared command lives in `cpm(A0)`;
+its current source is link:../cpmcard/C/1/VTTERM.Z80[VTTERM.Z80] in
+`7xtgv(C1)` (`cd /c/7xtgv`). The short assembly program is a launcher:
+private port `79h` starts the native test, reports completion and requests
+the result. Its small size and old source date do not imply an obsolete
+benchmark. The workload is in `terminal_runtime.cpp`; the result formatting
+is supplied by the host runtime. Formatting changes require rebuilding that
+runtime, with no replacement COM.
+
+Labels use NORMAL and ALT ink names, paired with their actual SGR colour.
+ALT means the configured alternative ink, which need not be brighter.
+Each item also chooses a random native paper slot 0..3.
+The corrected labels and random papers change the workload, so compare runs using the
+same benchmark revision.
+
+The test resets the terminal, clears each frame and places 96 coloured text
+items per terminal-loop pass, continuing for at least three seconds. Normal
+render work between passes contributes to elapsed time. This is a combined
+parser/render-loop benchmark, not isolated panel bandwidth, a Z80 benchmark
+or USB serial throughput: the fixture feeds the native parser directly.
+The last pass ends timing before its subsequent render completes.
+
+Illustrative output:
+
+[source,text]
+----
+VTTERM native: 27.029 kChars in 3086 ms
+  = 8.757 kChars/s (20.591 kB/s)
+VTTERM: PASS
+----
+
+* The total counts printable fixture characters, shown as `kChars` or
+  `MChars` with three decimal places. `ms` is elapsed whole milliseconds,
+  without fractional digits or thousands separators. Rates are still
+  calculated from the original microsecond measurement.
+* `kChars/s` counts those characters per second; `kB/s` also counts the
+  fixture's colour, position and reset escape sequences. The per-frame clear
+  and final result-position sequences are outside the byte counter.
+* `k` means 1,000, not 1,024. Each rate switches independently to `MChars/s`
+  or `MB/s` at 1,000,000 units/s. Rates retain exactly three decimal places
+  (truncated); commas group thousands in the integer part. Older runtimes
+  print microseconds and plain chars/s and B/s.
+* `PASS` means the native workload completed. It does not check pixels or
+  establish visual correctness. Compare identical geometry, zoom, target,
+  mirror/output configuration and runtime build; inspect the display too.
 
 [[boot-autoexec-and-pending-submit-work]]
 === Boot, AUTOEXEC, and pending SUBMIT work
@@ -659,7 +715,7 @@ link:../docs/260923-20%20CP-M%20UNZIP%20compatibility%20and%20download.adoc[the 
 desktop alike. Reload edited definitions with REBOOT. The desktop uses the
 chosen real board's display ID, not a separate SDL configuration section.
 
-[cols="1,3",options="header"]
+[cols="35,65",options="header"]
 |===
 |Section |Scope
 |`[global]` |Output mode, console width in bits, SPI request, palette, brightness, cursor blink, gutter colours and common key policy.
@@ -718,12 +774,18 @@ mappings remain the reference for those specific installations.
 [[_independent_choices]]
 ==== Independent choices
 
-[cols="1,3",options="header"]
+[cols="40,60",options="header"]
 |===
 |Setting |What it changes
-|`input=custom\|ansi\|vt52\|wordstar` |Shared default navigation bindings. It does not select an application, output mode, adapter, commands, prompt tracking or history timing.
-|`mode=ansi\|vt52` |Interpretation of guest output. A VT52 output application can still receive explicitly configured WordStar-style input.
-|`input_adapter=none\|mbasic_native\|local_compose` |Local handling of editing keys and, for the BASIC adapters, MBASIC EDIT. This can consume a key instead of sending its configured bytes.
+a|`input` +
+Values: `custom`, `ansi`, `vt52`, `wordstar`
+|Shared default navigation bindings. It does not select an application, output mode, adapter, commands, prompt tracking or history timing.
+a|`mode` +
+Values: `ansi`, `vt52`
+|Interpretation of guest output. A VT52 output application can still receive explicitly configured WordStar-style input.
+a|`input_adapter` +
+Values: `none`, `mbasic_native`, `local_compose`
+|Local handling of editing keys and, for the BASIC adapters, MBASIC EDIT. This can consume a key instead of sending its configured bytes.
 |`screen_line`, `trim_left`, prefixes, numbered-line activation and history clear/delay |How the terminal tracks and retypes the application's visible input line. A preset does not enable these settings.
 |`[global] ccp_bank` |Which profile handles a recognized CP/M shell prompt; no application role is inferred from a slot number or name.
 |===
@@ -790,7 +852,7 @@ an explicit `home=none` or `end=none` remains inactive there.
 The following cells give the bytes using the same escapes accepted after
 `send:` in INI. `none` means inactive; it can be replaced by an explicit binding.
 
-[cols="1,2,2,2",options="header"]
+[cols="25,25,25,25",options="header"]
 |===
 |Key |`ansi` |`vt52` |`wordstar`
 |`up` |`\e[A` |`\eA` |`\^E`
@@ -803,10 +865,12 @@ The following cells give the bytes using the same escapes accepted after
 |`page_down` |`\e[6~` |`none` |`\^C`
 |`insert` |`\e[2~` |`none` |`\^V`
 |`delete` |`\e[3~` |`none` |`\^G`
-|`up_alt` |`history_previous` |`history_previous` |`history_previous`
-|`down_alt` |`history_next` |`history_next` |`history_next`
+|`up_alt` 3+|`history_previous` (all three presets)
+|`down_alt` 3+|`history_next` (all three presets)
 |===
 
+[.mx-keep-together]
+--
 ANSI's modifier variants are exactly:
 
 [cols="2,2,2",options="header"]
@@ -823,6 +887,7 @@ ANSI's modifier variants are exactly:
 |`insert` |`\e[2;5~` |`\e[2;3~`
 |`delete` |`\e[3;5~` |`\e[3;3~`
 |===
+--
 
 Presets do not supply kbd:[Shift] variants, letter/function-key macros, or kbd:[Backspace]
 bindings. kbd:[Ctrl] / kbd:[Alt] variants of the navigation keys not listed by a preset are
@@ -840,7 +905,7 @@ An explicit binding equal to a preset is valid and useful as a tested, visible
 mapping; it is simply redundant if that preset is later selected. Selecting a
 preset alone leaves every explicit binding in place.
 
-[cols="2,3",options="header"]
+[cols="32,68",options="header"]
 |===
 |Working profile |Relationship to the shared presets
 |CP/M and GENERAL |Keep CCP controls explicit; their kbd:[Ctrl] navigation differs from ANSI.
@@ -906,7 +971,7 @@ num1_shift=send:1
 
 The left side is `++<key>[_ctrl][_shift][_alt]++`, with the base key first and modifier suffixes in exactly that order. Use `++f5_ctrl_shift_alt++`, not `++f5_alt_ctrl_shift++`; names are case-insensitive. `++_alt++` is intended for kbd:[Alt]. RAlt/AltGr is reserved for the Czech layout's symbol entry, and is not a separate INI modifier.
 
-[cols="1,1",options="header"]
+[cols="34,66",options="header"]
 |===
 |Key group |Available base names
 |Cursor and editing |`++left++`, `++right++`, `++up++`, `++down++`, `++home++`, `++end++`, `++insert++`, `++delete++`, `++page_up++`, `++page_down++`
@@ -935,7 +1000,7 @@ Tooling Guide for configuration precedence and layout-specific limits.
 
 The right side has five forms:
 
-[cols="1,1",options="header"]
+[cols="40,60",options="header"]
 |===
 |Value |Effect
 |`++send:<bytes>++` |Send the specified bytes in ordinary routing; adapter/CCP handling follows the rules above.
@@ -1073,16 +1138,32 @@ INI. `++VTINFO++` shows the running target and resolved presets. The logical
 maximum is the backing-store limit, not the visible TFT width; odd configured
 columns round down to even.
 
-[cols="2,1,1,1,2",options="header"]
+[cols="40,20,20,20",options="header"]
 |===
-|Exact target |Display ID |Panel px |Logical max |Compiled 1x / 2x / 3x / 4x presets
-|`++jc8048w550++` |`++ES3_5++` |800x480 |133x48 |132x48 / 80x24 / 44x16 / 32x12
-|`++jc8048w535++` |`++ES3_35++` |480x320 |80x32 |80x32 / 40x16 / 26x10 / 20x8
-|`++rp2350-touch-lcd-2++` |`++RP2_2++` |320x240 |80x24 |80x24 / 40x12 / 26x8 / 20x6
-|`++rp2350-lcd-1-47-a++` |`++RP2_147++` |320x172 |80x24 |80x16 / 40x8 / 26x5 / 20x4
-|`jc8012p4a1c` |`EP4_10` |1280x800 |213x80 |212x80 / 106x40 / 70x26 / 52x20
-|`esp32c6-lcd-1-47` |`EC6_147` |320x172 |80x24 |80x16 / 40x8 / 26x5 / 20x4
+|Exact target |Display ID |Panel px |Logical max
+|`jc8048w550` |`ES3_5` |800x480 |133x48
+|`jc8048w535` |`ES3_35` |480x320 |80x32
+|`rp2350-touch-lcd-2` |`RP2_2` |320x240 |80x24
+|`rp2350-lcd-1-47-a` |`RP2_147` |320x172 |80x24
+|`jc8012p4a1c` |`EP4_10` |1280x800 |213x80
+|`esp32c6-lcd-1-47` |`EC6_147` |320x172 |80x24
 |===
+
+[.mx-keep-together]
+--
+Compiled logical geometry for each zoom preset:
+
+[cols="20,20,20,20,20",options="header"]
+|===
+|Display ID |1x |2x |3x |4x
+|`ES3_5` |132x48 |80x24 |44x16 |32x12
+|`ES3_35` |80x32 |40x16 |26x10 |20x8
+|`RP2_2` |80x24 |40x12 |26x8 |20x6
+|`RP2_147` |80x16 |40x8 |26x5 |20x4
+|`EP4_10` |212x80 |106x40 |70x26 |52x20
+|`EC6_147` |80x16 |40x8 |26x5 |20x4
+|===
+--
 
 * Compiled boot zoom is 2 for EP4_10 and 1 for the other five boards.
 * Compiled `render_flush_hz` is 30 for EP4_10, ES3_35 and ES3_5; 0 for
@@ -1405,7 +1486,7 @@ older INK/SILVER labels; that help is not the current preset definition.
 [[a6-graphics-and-timing-helpers]]
 === Graphics and timing helpers in xterm256(C2)
 
-[cols="1,1",options="header"]
+[cols="38,62",options="header"]
 |===
 |Command |Purpose
 |`++GCLS [zoom [x y]]++` |Arm local xterm256 plotting without clearing or redrawing the screen. `++zoom++` is 1…4; `++x,y++` are unscaled physical pixel coordinates from the display's top-left corner, independent of terminal zoom, gutter, or pan. Bare `++GCLS++` retains `++ESC[>4v++` and defaults to 1× at `++(0,0)++`. Use `++CLS++` separately when wanted.

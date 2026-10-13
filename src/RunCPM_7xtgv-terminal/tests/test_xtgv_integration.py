@@ -36,6 +36,7 @@ class XtgvIntegrationTests(unittest.TestCase):
 #include <cstdint>
 #include <cstdio>
 #include <string>
+#include "src/terminal/benchmark_report.h"
 using uint8 = uint8_t;
 using uint32 = unsigned long;
 using uint64 = unsigned long long;
@@ -44,6 +45,7 @@ static uint32 now = 0;
 static bool paused = false;
 static unsigned pauseCalls = 0;
 static bool historyOK = true, configOK = true;
+static bool termDone = true;
 uint32 micros() { return now; }
 void _putch(uint8 ch) { printed += char(ch); }
 void terminalPause(bool value) { paused = value; ++pauseCalls; }
@@ -53,7 +55,7 @@ void terminalHistoryForceSave() {}
 void terminalConfigForceSave() {}
 bool terminalHistoryStoragePoll() { return historyOK; }
 bool terminalConfigStoragePoll() { return configOK; }
-bool terminalTextBenchmarkDone() { return true; }
+bool terminalTextBenchmarkDone() { return termDone; }
 uint32_t terminalTextBenchmarkElapsedUs() { return 1000; }
 uint32_t terminalTextBenchmarkBytes() { return 100; }
 uint32_t terminalTextBenchmarkChars() { return 100; }
@@ -88,12 +90,54 @@ int main() {
     configOK = false;
     _HardwareOut(0x7d, 1);
     assert(_HardwareIn(0x7d) == 0xff);
+    printed.clear();
+    _HardwareOut(0x79, 1);
+    termDone = false;
+    _HardwareOut(0x79, 2);
+    assert(printed.empty());
+    termDone = true;
+    _HardwareOut(0x79, 2);
+#if XTGV_TERMINAL
+    assert(printed == "VTTERM native: 0.100 kChars in 1 ms\r\n  = 100.000 kChars/s (100.000 kB/s)\r\n");
+    const std::string once = printed;
+    _HardwareOut(0x79, 2);
+    assert(printed == once);
+#else
+    assert(printed.empty());
+#endif
     if (!XTGV_TERMINAL) assert(pauseCalls == 0);
 }
 '''
         for mode in (0, 1):
             with self.subTest(terminal=mode):
                 self.compile_run(harness, mode)
+
+    def test_terminal_benchmark_number_format(self):
+        self.compile_run(r'''
+#include <cassert>
+#include <cstdint>
+#include <cstring>
+#include "src/terminal/benchmark_report.h"
+int main() {
+    char output[160];
+    terminal_benchmark::report(output, sizeof(output), 27029, 63552, 3086387);
+    assert(!strcmp(output, "VTTERM native: 27.029 kChars in 3086 ms\r\n  = 8.757 kChars/s (20.591 kB/s)\r\n"));
+    terminal_benchmark::report(output, sizeof(output), 999, 1000, 1000000);
+    assert(!strcmp(output, "VTTERM native: 0.999 kChars in 1000 ms\r\n  = 0.999 kChars/s (1.000 kB/s)\r\n"));
+    terminal_benchmark::report(output, sizeof(output), 1234567, 2000000, 1000000);
+    assert(!strcmp(output, "VTTERM native: 1.234 MChars in 1000 ms\r\n  = 1.234 MChars/s (2.000 MB/s)\r\n"));
+    terminal_benchmark::report(output, sizeof(output), 999999, 1000000, 1000000);
+    assert(!strcmp(output, "VTTERM native: 999.999 kChars in 1000 ms\r\n  = 999.999 kChars/s (1.000 MB/s)\r\n"));
+    terminal_benchmark::report(output, sizeof(output), 1000000, 999999, 1000000);
+    assert(!strcmp(output, "VTTERM native: 1.000 MChars in 1000 ms\r\n  = 1.000 MChars/s (999.999 kB/s)\r\n"));
+    terminal_benchmark::report(output, sizeof(output), UINT32_MAX, UINT32_MAX, 1);
+    assert(!strcmp(output, "VTTERM native: 4,294.967 MChars in 0 ms\r\n  = 4,294,967,295.000 MChars/s (4,294,967,295.000 MB/s)\r\n"));
+    terminal_benchmark::report(output, sizeof(output), 105538986, 228692917, 3000038);
+    assert(!strcmp(output, "VTTERM native: 105.538 MChars in 3000 ms\r\n  = 35.179 MChars/s (76.230 MB/s)\r\n"));
+    terminal_benchmark::report(output, sizeof(output), 0, 0, 0);
+    assert(!strcmp(output, "VTTERM native: 0.000 kChars in 0 ms\r\n  = 0.000 kChars/s (0.000 kB/s)\r\n"));
+}
+''', 1)
 
     def test_external_lifecycle_in_both_modes(self):
         ccp = (ROOT / 'ccp7xf.h').read_text()

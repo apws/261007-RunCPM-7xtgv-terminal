@@ -1584,7 +1584,40 @@ a|link:../docs/261013-1703%20DONE%20Browser%20focus%20and%20shortcut%20panel%20u
 a|Browser rebuild/local shortcuts now show concise stages, build percentages
 and the ready URL, with full details in adjacent desktop-rebuild.log and
 desktop-local.log. Actual rebuild, HTTP logging and Ctrl+C cleanup pass.
+The obsolete web target aliases were subsequently removed; shared launchers
+serve all six displays.
 a|link:../docs/261013-1822%20DONE%20Quiet%20browser%20shortcuts%20and%20adjacent%20logs.adoc[Quiet browser shortcuts]
+
+|`++261013-1928++`
+a|Maintained project-owned C/C++ adopts scoped Allman/Microsoft layout.
+Tokens, directives and initializer tables are preserved; RunCPM-derived and
+other excluded C/C++ files are byte-identical. Six MCU and Linux desktop builds,
+Windows cross-build, Wasm, host and sanitizer checks pass. No hardware upload.
+a|link:../docs/261013-1928%20DONE%20Scoped%20Allman%20C%2B%2B%20formatting.adoc[Scoped C/C++ formatting]
+
+|`++261013-2033++`
+a|Web rebuild maintains all six versioned guide PDFs with A4/100% printing,
+shared CSS/JS, background graphics, staged validation and input/output hashes.
+Unchanged prints retain their bytes and timestamps; native builds and normal
+launch do not print. Chromium layouts and failure/cache tests checked.
+a|link:../docs/261013-2033%20DONE%20Incremental%20guide%20PDFs%20in%20web%20rebuild.adoc[Incremental guide PDFs]
+
+|`++261013-2116++`
+a|VTTERM reports integer milliseconds, scaled kChars/MChars totals and decimal
+k/MChars/s and k/MB/s with three decimal places. Native fixtures pair
+their NORMAL/ALT labels with the actual ink, correcting independent random
+colour selection, with random paper slots 0..3. UG/RG explain its current C1
+source and measurement limits.
+The unchanged COM uses the updated host runtime; longer labels alter workload.
+a|link:../docs/261013-2116%20DONE%20VTTERM%20rates%20and%20matching%20ink%20labels.adoc[VTTERM report and inks]
+
+|`++261013-2229++`
+a|Saved PDFs adopt the mobile reading profile: Legal, 140%, zero side margins
+and 0.1-inch top/bottom margins. An editable JSON profile drives both local web
+and Pages builds. RG tables give identifiers and explanations suitable widths;
+the dense target table separates geometry and zoom presets. Other guide
+layouts remain unchanged; physical A4/Letter printing is a manual option.
+a|link:../docs/261013-2229%20DONE%20Mobile%20PDF%20profile%20and%20RG%20table%20widths.adoc[Mobile PDF guides]
 
 |===
 

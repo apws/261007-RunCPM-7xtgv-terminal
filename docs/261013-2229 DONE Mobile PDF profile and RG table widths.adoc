@@ -1,0 +1,85 @@
+= Mobile PDF profile and Reference Guide table widths
+:source-highlighter: highlight.js
+:toc:
+
+== Reader-facing purpose and printing profile
+
+The saved guide PDFs are primarily for phone and monitor reading. This
+supersedes the A4/100% automatic print profile introduced earlier on 261013.
+The user supplied fresh manual prints of all six guides as the mobile-layout
+reference. Before replacement they were copied to
+`build/RunCPM_7xtgv-terminal/guide-pdf/mobile-review/manual-before/`.
+
+The maintained settings now live in
+`src/RunCPM_7xtgv-terminal/tools-web/guide-print-profile.json`:
+
+* Legal portrait (8.5 by 14 inches; 612 by 1008 points).
+* Scale 1.4 (140%).
+* Left/right margins zero; top/bottom margins 0.1 inch.
+* Background graphics enabled; browser headers/footers disabled.
+
+The guide index, Reference Guide introduction and web tooling README explain
+this purpose and the regeneration workflow. For physical printing, readers
+can render AsciiDoc manually with A4/Letter, suitable printer margins and a
+smaller scale. Source/CSS font sizes and other guides' table layouts remain
+unchanged. The existing CSS content inset is retained even with zero printer
+side margins, matching the supplied manual prints.
+
+The output `guides/pdf/print-manifest.json` records the effective settings,
+hashes and renderer versions; it is not the editable profile. The profile
+participates in freshness/concurrent-edit checks. Paper validation follows
+the selected Legal/A4/Letter dimensions instead of assuming A4.
+
+== Reference Guide changes
+
+* Widened Name(DU), INI Section and preset Key columns so identifiers fit.
+* Independent choices separates each setting from its list of allowed values;
+  individual enum values wrap naturally without breaking a long pipe chain.
+* Identical history mappings span the three preset columns, explicitly saying
+  they apply to all three. Mapping bytes and behavior are unchanged.
+* Narrowed Working profile, Key group, Value and graphics Command columns to
+  give their explanatory columns more useful space.
+* Split the dense target/geometry/presets table into hardware geometry and
+  zoom-preset tables keyed by the same Display ID. All six targets, dimensions
+  and preset values are retained; identifiers and pixel sizes remain intact.
+* Kept the modifier/preset introductions with their tables across page breaks.
+* Left the additional-bank-settings table from screenshot 9 unchanged.
+
+== Build integration and verification
+
+The local common web rebuild and manual GitHub Pages workflow use the same
+printer and JSON profile. Pages explicitly checks PDF freshness after its
+rebuild, then packages the resulting PDFs before the existing browser proof
+and deployment steps. No Pages workflow was dispatched for this change.
+Normal launches, native builds and direct packaging still use saved PDFs.
+
+The preview was compared with the manual mobile prints and all ten supplied
+RG problem areas. The five other guides retain the manual page counts:
+BG 22, UG 19, TRG 32, TG 13, HG 36. Minor browser/converter differences in
+pagination remain possible. Test evidence and page renders live in
+`build/RunCPM_7xtgv-terminal/guide-pdf/mobile-review/`.
+
+The focused regression suite checks profile changes invalidate all guides,
+profile-aware paper validation, unchanged outputs, source/image invalidation,
+missing/modified PDFs and failure preservation. Existing shortcut tests cover
+printing failure before configure and quiet adjacent logging.
+
+Final checks passed:
+
+* Six PDF regression tests and five web-shortcut tests.
+* The actual common web rebuild printed all six guides and built the runtime
+  and static site successfully; the local Pages package also completed.
+* All saved PDFs validate as portrait Legal, contain extractable text and have
+  no workstation-local links. Page counts are BG 22, UG 19, RG 57, TRG 32,
+  TG 13 and HG 36. RG gains one page compared with the manual reference.
+* A repeated printer invocation leaves every PDF and the manifest byte-identical
+  with unchanged modification times; the subsequent freshness check passes.
+* Both static-site and Pages-package PDF copies match the saved PDFs exactly.
+* Reviewed all-guide page overviews and detailed RG table renders, including
+  the final page-break adjustments on pages 32/33 and 42/43.
+* Changed documentation renders, the feature registry and whitespace checks
+  pass. No commit, push or deployment was performed.
+
+Evidence includes `final-verification.txt`, `unchanged.json`, rendered page
+overviews, detailed RG pages and copied build/package/test logs in the review
+directory above.

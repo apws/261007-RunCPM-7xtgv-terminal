@@ -1,0 +1,95 @@
+= VTTERM rates and matching ink labels
+:source-highlighter: highlight.js
+:toc:
+
+== Source and implementation
+
+`cpmcard/C/1/VTTERM.Z80` remains the current launcher source, in `7xtgv(C1)`
+(`/c/7xtgv`). The unchanged `cpmcard/A/0/VTTERM.COM` uses private port 79h to
+request the firmware-native workload, wait for completion and request its
+report. The measured workload is in `src/terminal/terminal_runtime.cpp`.
+Its old source date and short assembly body do not indicate an obsolete test.
+
+The requested result format is implemented in the project-owned
+`src/terminal/benchmark_report.h`, called by the existing private benchmark
+reporting block in `abstraction_arduino_7xtgv.h`. That narrow adapter edit
+only replaces the VTTERM formatter; other benchmark ports and RunCPM core
+behavior are unchanged. The abstraction retains its existing formatting.
+The new helper is included in the scoped Allman formatter file list.
+
+Example with the originally reported counts/rates:
+
+[source,text]
+----
+VTTERM native: 27,029 chars in 3,086.387 ms
+  = 8.757 kChars/s (20.591 kB/s)
+VTTERM: PASS
+----
+
+Counts, elapsed milliseconds and rate integer parts use comma grouping.
+Time has exactly three fractional places, retaining microsecond resolution.
+Decimal k means 1,000; each rate switches independently to M at 1,000,000
+units/s. Rates have three truncated decimal places. Arithmetic is integer-only,
+with 64-bit intermediate rates and a zero-time guard. No new COM or guest-file installation is required.
+Existing firmware/native/browser artifacts need rebuilding before displaying
+this format; no physical device was reflashed.
+
+== Ink-label correction
+
+The old workload independently selected a label from one portion of the
+random seed and its SGR colour from another. Thus a RED label could actually
+be blue. Each fixture now pairs one SGR with its label and is selected once.
+The six normal samples explicitly say NORMAL, and the former BRIGHT RED/BLUE
+samples say ALT RED/BLUE. ALT refers to the configured alternative palette
+ink, not an assumption that it is brighter. Each item also chooses a random
+native paper slot 0..3 through SGR 47/41/42/44, from separate seed bits.
+Those extra background-control bytes participate in the byte counter.
+
+The sample set, 96 items per pass, deterministic seed and approximately
+three-second timing window remain. Longer labels and random papers change byte/character counts
+and placements; before/after throughput is not an identical workload.
+
+UG and RG now explain invocation, source location, counts and comparison
+limits. Native parser input bypasses USB; normal render-loop work between
+passes contributes to elapsed time, but timing stops before the last pass's
+subsequent render. Bytes count fixture escapes but not frame clear/final
+positioning sequences. PASS indicates completion, not pixel verification.
+
+== Checks
+
+[loweralpha]
+. Strict host integration tests exercise terminal-enabled/disabled private
+  port handling, report-once behavior, exact sample formatting, separators,
+  sub-kilo rates, independent k/M boundary transitions, large rates and zero
+  elapsed time. Results use two lines to keep units intact at 80 columns.
+. The production-runtime regression checks all eight complete NORMAL/ALT
+  labels against actual parsed ink attributes across deterministic frames,
+  verifies all four paper slots, then counters and completion/restart. Address/undefined-behavior
+  sanitizer checks cover this case and the existing runtime suite.
+. ES3_35 native desktop rebuild and execution of the unchanged real COM pass
+  on a disposable card. Its final framebuffer was inspected for the corrected
+  labels and result. Evidence: `build/RunCPM_7xtgv-terminal/vtterm-261013-2116/`.
+
+. Shared Wasm rebuild passes. Its PDF stage refreshes only the changed UG/RG;
+  their generated benchmark pages were visually inspected. The other four
+  guide PDFs stay unchanged.
+
+No physical SD writes, upload, working-card edits, commit or publication were
+performed for this change. Physical display timing/appearance remains a
+separate acceptance check.
+
+== Follow-up: scaled totals and integer milliseconds
+
+After reviewing the live result, we changed the first line to scale the total
+character count to kChars/MChars with three truncated decimal places. Elapsed
+time is now whole milliseconds without commas or decimals. Rate calculation
+retains its microsecond precision and existing k/M selection. For example:
+
+[source,text]
+----
+VTTERM native: 105.538 MChars in 3000 ms
+  = 35.179 MChars/s (76.230 MB/s)
+----
+
+The formatter regression includes that displayed example, both sides of the
+k/M threshold, sub-kilo totals, zero time and maximum uint32 counts.

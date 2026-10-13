@@ -33,6 +33,13 @@ retained native-mirror proof is explicitly optional.
 Building requires Bash, Git, Python 3 with venv/pip, CMake, Make and Arduino_GFX
 1.6.4 at `~/Arduino/libraries/GFX_Library_for_Arduino`, or an explicit
 `XTGV_GFX_SOURCE` library directory. Use a current pthread-capable browser.
+Guide printing also requires Asciidoctor 2.x, Poppler (`pdfinfo` and
+`pdftotext`), Fontconfig and Liberation Sans/Mono fonts. On Debian/Ubuntu:
+
+[source,bash]
+----
+sudo apt-get install asciidoctor poppler-utils fontconfig fonts-liberation
+----
 
 From `tools-web/`:
 
@@ -46,23 +53,70 @@ From `tools-web/`:
 These are the common entry points for every display: build once, launch once,
 then choose targets inside the page. `desktop-local.sh` initially selects ES3_35
 at 2x; optional `--target DISPLAY_ID` and `--window-scale N` override those defaults.
-The earlier `targets/ES3_35 -- jc8048w535/` wrappers remain compatibility aliases
-for these same scripts; no board-specific web build is needed.
+No board-specific web build or launcher folder is needed; use these shared
+scripts for all six displays.
 
 Rebuild and launch remain separate; neither builds nor uploads MCU firmware.
 Launch snapshots the source card without writing it.
 
 `setup.sh` installs Emscripten 6.0.12 and a Python environment under
 `build/RunCPM_7xtgv-terminal/desktop-web/_deps/`, not globally. Its aiohttp and
-Playwright packages support the retained bridge proof and automated checks;
+Playwright packages support guide printing, the retained bridge proof and automated checks;
 they are not dependencies of the standalone page. The local standalone launcher
 uses Python's standard-library static HTTP server only.
+Setup also downloads Playwright Chromium. Printing prefers installed
+`chromium` or `google-chrome`; set `XTGV_PDF_BROWSER` to an executable path to
+select it explicitly, or to an empty string to use Playwright Chromium.
 
 `desktop-rebuild.sh` builds the existing C++ sketch, terminal, storage and real
 Arduino_GFX into `desktop-web/shared/`, then packages a static bundle in
 `desktop-web/site/`. The console shows build percentages and brief stage/status
 messages. Full configure, compiler, linker and packaging output goes to
 `tools-web/desktop-rebuild.log`, beside the shortcut.
+
+=== Saved guide PDFs
+
+Before compilation, the web rebuild checks the six numbered guides and
+updates stale prints in `guides/pdf/`. The mobile PDF (mpdf) profile uses
+Legal portrait, 140% scale, zero left/right margins and 0.1-inch top/bottom
+margins, background graphics and no browser headers/footers. It is optimized
+for phone/monitor reading. For physical paper, render the AsciiDoc manually
+with A4/Letter, suitable printer margins and a smaller scale.
+The editable settings live in link:guide-print-profile.json[guide-print-profile.json];
+the JSON manifest below records generated results, not user configuration. Embedded AsciiDoc uses the same content wrapper,
+root CSS and keycap/heading JavaScript as Live Preview. Fonts and images are
+local; relative document links point to the public repository and TOC links
+remain internal. Code listings retain the shared monospace styling without
+fetching a syntax-highlighting CDN.
+
+Commit `guides/pdf/print-manifest.json` with the PDFs. It records source and
+PDF hashes, print settings and renderer versions. A changed guide refreshes
+its PDF; the print profile, shared CSS, JS, guide images or printer code refresh all six.
+Missing/edited PDFs are regenerated too. Unchanged builds preserve PDF bytes
+and timestamps and need no running browser. Upgrading Chromium alone does
+not invalidate reviewed prints; use `--force` when adopting a new renderer.
+Pagination can vary slightly between browser/converter versions.
+
+All pending PDFs must pass image, profile paper-size, readable-text and local-link checks
+before any saved print is replaced. Printing failure stops the web rebuild
+and leaves the saved PDFs intact; details are in `desktop-rebuild.log`.
+The manual GitHub Pages workflow runs this same rebuild/profile before site
+packaging and deployment. Normal launch, native desktop/MCU builds and direct site packaging only use
+the saved files. They do not regenerate PDFs or install print dependencies.
+
+For an optional preview or freshness check, from the repository root:
+
+[source,bash]
+----
+build/RunCPM_7xtgv-terminal/desktop-web/_deps/venv/bin/python \
+  src/RunCPM_7xtgv-terminal/tools-web/print_guides.py --output-dir /tmp/guide-preview
+build/RunCPM_7xtgv-terminal/desktop-web/_deps/venv/bin/python \
+  src/RunCPM_7xtgv-terminal/tools-web/print_guides.py --check
+----
+
+`--check` returns 1 when printing is needed and writes nothing. `--force`
+reprints all guides. Saved PDFs remain versioned, so readers can download
+them without installing any rendering tools.
 Readable frontend sources live in `tools-web/web/`; generated Emscripten glue
 and generated key IDs live in build output. Do not edit generated JS.
 The ZIP dependency is a pinned local, unminified fflate module with its license.
@@ -92,8 +146,8 @@ by prefix history with Up/Down, the linked named prompt,
 `ll /`, `ll ..`, `ll`, `ls`, and `cd /x` / `cd /x/area`.
 Packaging copies the six numbered AsciiDoc guides and the available prints
 from `guides/pdf/`; a missing PDF has an
-unavailable badge instead of a broken link. The current HG has no PDF.
-These are copies of the supplied prints, not regenerated PDFs. Private source
+unavailable badge instead of a broken link. All six guides now have saved PDFs;
+the web rebuild maintains them as described above. Private source
 directories are not packaged. Keycap CSS is extracted at build time from
 `asciidoctorjs-crx-mixworx.css`, including the lighter modifier backgrounds.
 

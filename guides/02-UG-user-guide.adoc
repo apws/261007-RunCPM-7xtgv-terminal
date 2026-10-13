@@ -527,6 +527,7 @@ link:04-TRG-technical-reference-guide.adoc[Technical Reference Guide].
 |Command |Use
 |VTINFO |Module, build, logical screen, viewport and zoom presets.
 |VTCPU |Compare emulator speed with terminal active and quiet.
+|VTTERM |Run about three seconds of coloured text/parser and display redraw work; report kChars/s and kB/s (M above the million threshold).
 |VTDRV |Read/verify its existing 32 KiB test fixture.
 |VTDRV W |Create/write the fixture, then read/verify; writes the current DU.
 |VTDRV W Q |Quiet timed write/read passes; matching firmware required.
@@ -538,6 +539,17 @@ link:04-TRG-technical-reference-guide.adoc[Technical Reference Guide].
 
 CARDMARK clocks are requests, not measured SCK. Read agreement is not write
 qualification; use a backed-up/spare card for experimental clocks.
+
+For a quick display comparison, run `VTTERM` at the CP/M prompt. It clears
+the screen and scatters NORMAL/ALT coloured text on random paper slots 0..3
+using the normal terminal render loop.
+Compare the same target, logical geometry, glyph zoom and output/mirror setup.
+Elapsed time is in integer milliseconds without grouping. Total characters
+and rates use decimal thousands (`k` = 1,000) or millions (`M` = 1,000,000),
+with three decimal places; this measures native
+terminal work, not USB link throughput. See
+link:03-RG-reference-guide.adoc#vtterm-benchmark[VTTERM measurement details
+and source location].
 
 [[_try_the_mbasic_terminal_tests]]
 === Try the MBASIC terminal tests

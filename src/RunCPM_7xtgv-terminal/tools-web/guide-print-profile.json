@@ -1,0 +1,13 @@
+{
+  "format": "Legal",
+  "scale": 1.4,
+  "print_background": true,
+  "display_header_footer": false,
+  "prefer_css_page_size": false,
+  "margin": {
+    "top": "0.1in",
+    "right": "0in",
+    "bottom": "0.1in",
+    "left": "0in"
+  }
+}

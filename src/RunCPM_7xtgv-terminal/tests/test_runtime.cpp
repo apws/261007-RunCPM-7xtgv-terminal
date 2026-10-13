@@ -417,8 +417,75 @@ static void testExplicitBootProfile()
     std::cout << "Explicit CCP boot profile/geometry and reload preservation passed\n";
 }
 
+static void testTextBenchmark()
+{
+    terminalSetup();
+    terminalTextBenchmarkRequest();
+    assert(!terminalTextBenchmarkDone());
+    const char* labels[] = {"7xtgv NORMAL RED", "7xtgv NORMAL GREEN",
+        "7xtgv NORMAL YELLOW", "7xtgv NORMAL BLUE", "7xtgv NORMAL MAGENTA",
+        "7xtgv NORMAL CYAN", "7xtgv ALT RED", "7xtgv ALT BLUE"};
+    const uint8_t inks[] = {1, 2, 7, 3, 6, 5, 9, 11};
+    unsigned seen = 0, papers = 0;
+    for (unsigned frame = 0; frame < 20; ++frame)
+    {
+        terminalTextBenchmarkPoll();
+        for (int row = 0; row < terminal.rows; ++row)
+        {
+            const int start = terminal.index(0, row);
+            std::string line(reinterpret_cast<char*>(terminal.charRAM + start), terminal.cols);
+            for (int col = 0; col < terminal.cols; ++col)
+            {
+                if (terminal.charRAM[start + col] != ' ')
+                {
+                    papers |= 1U << ((terminal.attrRAM[start + col] >> 4) & 3);
+                }
+            }
+            assert(line.find("BRIGHT") == std::string::npos);
+            for (unsigned label = 0; label < 8; ++label)
+            {
+                size_t at = 0;
+                while ((at = line.find(labels[label], at)) != std::string::npos)
+                {
+                    // Overlapping items can splice an otherwise readable label.
+                    // Check complete labels whose ink is uniform throughout.
+                    const unsigned ink = terminal.attrRAM[start + at] & 15;
+                    bool uniform = true;
+                    for (size_t i = 1; i < strlen(labels[label]); ++i)
+                    {
+                        uniform &= (terminal.attrRAM[start + at + i] & 15) == ink;
+                    }
+                    if (uniform)
+                    {
+                        assert(ink == inks[label]);
+                        seen |= 1U << label;
+                    }
+                    ++at;
+                }
+            }
+        }
+        fakeTime += 20;
+    }
+    assert(seen == 255);
+    assert(papers == 15);
+    fakeTime += 3000;
+    terminalTextBenchmarkPoll();
+    assert(terminalTextBenchmarkDone());
+    assert(terminalTextBenchmarkElapsedUs() >= 3000000);
+    assert(terminalTextBenchmarkChars() > 0);
+    assert(terminalTextBenchmarkBytes() > terminalTextBenchmarkChars());
+    terminalTextBenchmarkRequest();
+    assert(!terminalTextBenchmarkDone());
+    std::cout << "VTTERM NORMAL/ALT inks, all four papers, counters and completion: PASS\n";
+}
+
 int main(int argc, char** argv)
 {
+    if (argc == 2 && std::string(argv[1]) == "text-benchmark")
+    {
+        testTextBenchmark();
+        return 0;
+    }
     if (argc == 2 && std::string(argv[1]) == "boot-profile")
     {
         testExplicitBootProfile();

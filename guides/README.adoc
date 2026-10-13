@@ -47,6 +47,31 @@ Use a short reference such as *RG 4* for a chapter, and a section link for an
 exact topic. Section anchors are independent of the displayed chapter numbers.
 The filename prefixes order the guides; they are not chapter numbers.
 
+[[mobile-pdf-guides]]
+[discrete]
+=== Mobile PDF guides
+
+The six saved PDFs in link:pdf/[guides/pdf] are versioned alongside their
+sources. Their primary purpose is comfortable reading on phones and enlarged
+monitor text, rather than physical printing. The *mobile PDF (mpdf)* profile
+uses *Legal portrait, 140% scale, left/right margins 0, top/bottom margins
+0.1 inch*, background graphics enabled and browser headers/footers disabled.
+Our shared CSS/JS supplies the same colours, keycaps and headings as Live Preview.
+
+The local web rebuild and GitHub Pages build refresh changed guides with this
+profile before packaging. Unchanged PDFs retain their bytes and timestamps;
+native builds and normal web launch do not print. The editable profile is
+link:../src/RunCPM_7xtgv-terminal/tools-web/guide-print-profile.json[guide-print-profile.json];
+`pdf/print-manifest.json` records the resulting settings, source/PDF hashes
+and renderer versions. See the
+link:../src/RunCPM_7xtgv-terminal/tools-web/README.adoc#_saved_guide_pdfs[PDF workflow]
+for prerequisites, previews and regeneration.
+
+For paper copies, render the AsciiDoc manually and select *A4 or Letter*,
+printer-appropriate margins and a smaller scale (for example 100%, then check
+preview). The saved mobile layout deliberately avoids space for physical
+binding or printer margins.
+
 [cols="1,3",options="header"]
 |===
 |Guide |Main chapters

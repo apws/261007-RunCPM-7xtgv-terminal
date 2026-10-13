@@ -7,7 +7,8 @@ for (const key of document.querySelectorAll('kbd')) {
 
 // Keep source headings portable. Split the first prose ": " at any rendered
 // heading level, independent of the document's :leveloffset: setting.
-if (location.pathname.endsWith('.adoc')) {
+if (location.pathname.endsWith('.adoc') ||
+    document.querySelector('meta[name="generator"][content^="Asciidoctor"]')) {
   const headings = document.querySelectorAll(
     '#header :is(h1,h2,h3,h4,h5,h6), #content :is(h1,h2,h3,h4,h5,h6)'
   )

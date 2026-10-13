@@ -45,6 +45,7 @@ src/RunCPM_7xtgv-terminal/hardware/arduino_7xtgv/runtime_serial_runcpm.h
 src/RunCPM_7xtgv-terminal/hardware/arduino_7xtgv/sdfat_spi_driver.h
 src/RunCPM_7xtgv-terminal/runcpm-config.h
 src/RunCPM_7xtgv-terminal/src/terminal/backlight.h
+src/RunCPM_7xtgv-terminal/src/terminal/benchmark_report.h
 src/RunCPM_7xtgv-terminal/src/terminal/boot_warning.h
 src/RunCPM_7xtgv-terminal/src/terminal/byte_queue.h
 src/RunCPM_7xtgv-terminal/src/terminal/display_policy.h

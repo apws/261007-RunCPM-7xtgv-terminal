@@ -541,6 +541,8 @@ uint8 _sys_makedisk(uint8 drive) {
 /*===============================================================================*/
 // Private RunCPM guest/host benchmark ports. BIOS and BDOS use interrupt
 // handoff in this build, so ordinary guest I/O reaches here.
+#include "src/terminal/benchmark_report.h"
+
 static const uint8 XTGV_DRV_PORT = 0x7a;
 static const uint8 XTGV_DRV_QUIET_CAP_PORT = 0x7e;
 static const uint8 XTGV_CPU_PORT = 0x7b;
@@ -762,15 +764,11 @@ void _HardwareOut(const uint32 Port, const uint32 Value) {
     } else if (port == XTGV_TERM_PORT && value == 2) {
 #if XTGV_TERMINAL
         if (terminalTextBenchmarkDone() && !xtgvTermReported) {
-            char buffer[96];
+            char buffer[160];
             uint32_t elapsed = terminalTextBenchmarkElapsedUs();
             uint32_t bytes = terminalTextBenchmarkBytes();
             uint32_t chars = terminalTextBenchmarkChars();
-            uint32_t rate = elapsed ? uint32_t((uint64_t(bytes) * 1000000ULL) / elapsed) : 0;
-            uint32_t charRate = elapsed ? uint32_t((uint64_t(chars) * 1000000ULL) / elapsed) : 0;
-            snprintf(buffer, sizeof(buffer), "VTTERM native: %lu chars in %lu us = %lu chars/s (%lu B/s)\r\n",
-                     (unsigned long)chars, (unsigned long)elapsed, (unsigned long)charRate,
-                     (unsigned long)rate);
+            terminal_benchmark::report(buffer, sizeof(buffer), chars, bytes, elapsed);
             _xtgvHardwarePrint(buffer);
             xtgvTermReported = true;
         }

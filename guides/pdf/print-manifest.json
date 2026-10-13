@@ -1,0 +1,58 @@
+{
+  "guides": {
+    "RunCPM 7xtgv-terminal - 01 BG Build Guide.pdf": {
+      "input_sha256": "8e5ac5193d2fcd5e8832c0f2a52995b3736c325bd3412c4645b36c88d606034b",
+      "pages": 22,
+      "pdf_sha256": "c2101d128fee37103084efb62fd7398cf4426998000aad6fea4221dd0d4afa67",
+      "source": "guides/01-BG-build-guide.adoc"
+    },
+    "RunCPM 7xtgv-terminal - 02 UG User Guide.pdf": {
+      "input_sha256": "b5000072a18e9a002160c752f3db0fe591384aad8e1938ba0404b54e7e5ecc41",
+      "pages": 19,
+      "pdf_sha256": "b6dd9901d3af13ae9d9c09056eca706c17989d68d5a7d55c2c1afa5403466fca",
+      "source": "guides/02-UG-user-guide.adoc"
+    },
+    "RunCPM 7xtgv-terminal - 03 RG Reference Guide.pdf": {
+      "input_sha256": "698e0afd1ef2aa9ad98e1f4e2b6a75cab32d89fb8c8d579acea76505d47fe94d",
+      "pages": 57,
+      "pdf_sha256": "243a9a1dfd84abef86b46c847680de13bd87f906bf94f05b4342d406ea067459",
+      "source": "guides/03-RG-reference-guide.adoc"
+    },
+    "RunCPM 7xtgv-terminal - 04 TRG Technical Reference Guide.pdf": {
+      "input_sha256": "3fc534c4c071afa4b0918016d8d6bf28920cfe8dbaff085c81eaa25868f27028",
+      "pages": 32,
+      "pdf_sha256": "568a76511fb94cde0beedb2e0ad0278345ce0d9ab66b942ec776cdc5c39c7ab7",
+      "source": "guides/04-TRG-technical-reference-guide.adoc"
+    },
+    "RunCPM 7xtgv-terminal - 05 TG Tooling Guide.pdf": {
+      "input_sha256": "4a5c0446d9b2a3b5c10f9fe9ec000350526b24b392cbf724886a6bdb559f9842",
+      "pages": 13,
+      "pdf_sha256": "9eac2cb4392b1e28bd1ef6e65e5b666aaaef21b90d810d60ca169fad5dae2fe0",
+      "source": "guides/05-TG-tooling-guide.adoc"
+    },
+    "RunCPM 7xtgv-terminal - 06 HG History Guide.pdf": {
+      "input_sha256": "59c57f9d1a29e5031d46abdfcac0e486e4d97854fe738542574cf5872e1aa945",
+      "pages": 36,
+      "pdf_sha256": "c6e0dee9de3ad4ac8a7ff1787521de295e12864ff4db57b3c37a63be5943b4b8",
+      "source": "guides/06-HG-history-guide.adoc"
+    }
+  },
+  "renderer": {
+    "asciidoctor": "Asciidoctor 2.0.26 [https://asciidoctor.org]",
+    "chromium": "153.0.8010.52"
+  },
+  "schema": 1,
+  "settings": {
+    "display_header_footer": false,
+    "format": "Legal",
+    "margin": {
+      "bottom": "0.1in",
+      "left": "0in",
+      "right": "0in",
+      "top": "0.1in"
+    },
+    "prefer_css_page_size": false,
+    "print_background": true,
+    "scale": 1.4
+  }
+}

@@ -33,3 +33,12 @@
 The host check uses an isolated site/card snapshot and opens no GUI browser.
 The native-mirror GUI route was not exercised again. No MCU build/upload,
 working-card write, dependency installation or publication was performed.
+
+== 261013-1945 follow-up: remove obsolete web target aliases
+
+Removed the two tools-web/targets/ES3_35 -- jc8048w535 shortcut wrappers. They
+only forwarded to the shared desktop-rebuild.sh and desktop-local.sh and did
+not select a board. The workflow already uses the shared scripts; all six
+displays are selected in the page or with the launcher's --target option.
+The web README now points only to those shared entry points. Native hardware
+and Linux/Windows desktop target launchers remain applicable and unchanged.
