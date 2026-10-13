@@ -113,9 +113,6 @@ export class KeyboardModule {
         input.addEventListener('keydown', e => {
             if (e.code === 'AltRight') this.rightAlt = true;
             if (!this.enabled || this.composing || e.isComposing) return;
-            if (e.ctrlKey && !e.altKey && e.code === 'BracketRight') {
-                e.preventDefault(); input.blur(); report('Keyboard released. Click the display to resume.'); return;
-            }
             const bytes = encodeKey({...this.event(e), altGraph: this.rightAlt || e.getModifierState('AltGraph')}, this.topRow);
             if (bytes) {e.preventDefault(); this.deliver(bytes);}
         });

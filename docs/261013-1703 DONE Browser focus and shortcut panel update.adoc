@@ -1,0 +1,61 @@
+= Browser focus and shortcut panel update
+:source-highlighter: highlight.js
+
+== Requested behaviour
+
+* Remove the browser Ctrl+] focus-release interception. It now follows normal
+  control-key encoding into the guest (0x1d), retaining keyboard capture.
+  Clicking/tapping a page control leaves capture; clicking/tapping the display
+  resumes it. The separate native mirror prefix is unchanged.
+* Guides starts with Alt+Backspace clear screen and Alt+Q exit app, followed by
+  backlight Alt+Ctrl+Shift+PgUp/PgDn and profile Alt+Space/PgUp/PgDn controls.
+  Existing history, named prompt, browse/change reference and guide links follow.
+* Controls no longer repeats clear/exit or profile instructions, including the
+  profile line formerly in expanded keyboard help. Glyph-zoom and keyboard
+  configuration help remain there.
+* The user reports usable Android mobile operation. Device/browser versions
+  and a complete touch/keyboard matrix were not supplied; UG records the report
+  without claiming complete Android qualification.
+
+Ctrl+] had supplied a keyboard-only route out of capture. Its removal is the
+explicitly requested behaviour; no substitute browser escape chord is added.
+
+== Working-card review
+
+The user reported Turbo Pascal TINST changes. Read-only comparison against HEAD
+found these five modified files; none was rewritten by this task:
+
+* `cpmcard/A/0/TINST.DTA`: 4736 bytes, three changed positions.
+* `cpmcard/A/0/TURBO.COM` and `cpmcard/B/4/TURBO.COM`: 30720 bytes each,
+  two changed positions each, identical current contents. SHA-256:
+  `de29701291624309e05eea47f07d30404bbe0102afdcbb3019a4cd4e727e8b84`.
+* `cpmcard/A/0/7XTGVTRM.BUF`: 12912 to 12919 bytes.
+* `cpmcard/A/0/DRV.7XF`: 108 to 104 bytes.
+
+The new local standalone card.zip contains all five current files byte-for-byte.
+Pages packaging retains its documented committed-HEAD card policy, so those
+uncommitted edits are not in its preload. No commit or deployment was requested.
+
+== Checks
+
+[loweralpha]
+. Updated browser input-edge tests pass at DPR 1, 1.25 and 2: Ctrl+] retains
+  capture and encodes byte 29, mouse controls release capture, canvas recaptures,
+  and composition/AltGr/paste guards, guest input, lifecycle and zoom pass.
+. Frontend module checks pass. Source-card files were read only; local-package
+  byte comparisons passed. The separate full standalone test's focus expectation
+  was updated; that full suite was not rerun for this focused change.
+. Updated guides/record render, feature-registry and whitespace checks accompany
+  the refreshed standalone and Pages packages. C++ and Wasm need no rebuild.
+
+Evidence: `build/RunCPM_7xtgv-terminal/desktop-web/sessions/browser-edges-mw9_swge/`.
+
+== 261013 follow-up: remove stale guide wording
+
+Corrected the remaining browser/native comparison-table entry in RG: Ctrl+]
+is ordinary guest input and keeps display focus; clicking or tapping a page
+control leaves display input. Regenerated the linked UG and RG PDF snapshots
+from the current sources with the shared CSS/JS. Text checks find no remaining
+focus-release instruction in either PDF, and the affected pages were rendered
+and visually checked. Native mirror prefix documentation remains applicable.
+Standalone and local Pages packages were refreshed without publication.

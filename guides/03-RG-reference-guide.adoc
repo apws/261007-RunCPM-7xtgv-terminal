@@ -1,6 +1,7 @@
 = RunCPM 7xtgv-terminal: Reference Guide
 :leveloffset: +1
 :source-highlighter: highlight.js
+:experimental:
 :toc:
 :toclevels: 3
 :sectnums!:
@@ -13,11 +14,33 @@ device INI may differ from compiled defaults and from the local copy.
 The link:features_timeline.adoc[Features Timeline] tracks command and file
 name changes; syntax below is the current reference.
 
-This reference applies to physical boards and the native desktop emulator on
-*Linux and Windows*. CP/M commands, terminal profiles, INI settings and escape
-sequences are shared. Host-specific launch and keyboard differences are stated
-where they apply. For installation and matching `.sh`/`.cmd` desktop launchers,
-use the link:01-BG-build-guide.adoc#quick-start[Build Guide].
+CP/M commands, terminal profiles, INI settings and output escape sequences
+are shared by the browser, physical boards and native Linux/Windows desktops.
+Input delivery, host commands and card lifetime differ by route. For first use,
+see the link:02-UG-user-guide.adoc#browser-session[browser introduction]; for
+native setup, use the link:01-BG-build-guide.adoc#quick-start[Build Guide].
+
+[[browser-input-differences]]
+[discrete]
+=== Browser and native input routes
+
+[cols="1,2,2",options="header"]
+|===
+|Operation |Standalone browser |Native mirror (hardware or SDL desktop)
+|Where to type |Click the display or *Keyboard -> display*. |Type into the mirror; SDL is output-only.
+|kbd:[Ctrl+&#93;] |Ordinary guest input; focus stays on the display. Click or tap a page control to leave display input. |Introduces the <<_ascii_prefix_fallbacks,prefix commands>> below.
+|Application exit |kbd:[Alt+Q] and kbd:[Alt+Esc] are encoded when delivered. The Intel MacBook Air check found only kbd:[Alt+Esc] working. |kbd:[Alt+Q]; Konsole/Kitty also supply kbd:[Alt+Esc]. Windows reserves the latter.
+|Transfer panel / kbd:[Ctrl+Shift+X] |No native host panel or VTPUT/VTGET host service; use card ZIP controls. |Panel available at an idle CCP prompt.
+|GCLS shortcut / kbd:[Pause] prefix |No explicit browser mapping for kbd:[Alt+Shift+Backspace] or kbd:[Pause]. Use the guest graphics helpers/scripts. |Supplied keymaps/prefix commands provide these controls.
+|Card changes |Memory copy; save in the guest, Stop, then download the ZIP. |Writes directly to the selected host or physical card.
+|===
+
+The browser sends existing terminal key events; it does not reproduce the
+native host bridge. A key in the tables below requires the browser/OS to deliver
+it. Browser kbd:[F11] is left to the host. See
+link:02-UG-user-guide.adoc#browser-compatibility[MacBook observations and compact-keyboard notes],
+including the unsuccessful kbd:[Alt+Space] check. Native prefix commands and
+transfer shortcuts below are explicitly native-only.
 
 [discrete]
 [[_find_details_by_task]]
@@ -74,7 +97,7 @@ configuration file; it is separate from the device INI. `XTGV_TARGET` selects
 the hardware target, `XTGV_PORT` its serial node, and `XTGV_TRANSFER_ROOT` the
 local transfer-folder root. No second serial reader should run during a transfer.
 
-`++Ctrl+] q++` leaves the host bridge. `++Ctrl+]++` followed by `++Ctrl+]++` sends a literal `++Ctrl+]++` byte to CP/M.
+kbd:[Ctrl+&#93;] then kbd:[q] leaves the host bridge. kbd:[Ctrl+&#93;] followed by kbd:[Ctrl+&#93;] sends a literal kbd:[Ctrl+&#93;] byte to CP/M.
 
 [cols="2,3",options="header"]
 |===
@@ -97,90 +120,94 @@ host target or port configuration.
 
 `CSI` means ESC followed by `[`. These controls are not CP/M command
 strings. Supplied host keymaps deliver them; desktop shortcuts may intercept them.
-*Alt+Q* invokes configured application exit in Konsole, Kitty and Windows Mintty.
-Alt+Q is the primary shortcut; Konsole/Kitty retain Alt+Esc as a compatibility alias. Both send `CSI >60v`;
-Windows reserves Alt+Esc for window cycling.
-Pause then x is the existing prefix alternative.
+kbd:[Alt+Q] invokes configured application exit in Konsole, Kitty and Windows Mintty.
+Konsole/Kitty retain kbd:[Alt+Esc] as an alias; Windows reserves it for window cycling.
+The browser encoder also accepts both, subject to host delivery; the MacBook
+observation above found only kbd:[Alt+Esc] working. Both encode `CSI >60v`.
+kbd:[Pause] then kbd:[x] is a native prefix alternative, not a browser mapping.
 
 [cols="2,2,3",options="header"]
 |===
 |Physical chord |Internal control / route |Meaning
-|Alt+PgUp / Alt+PgDn |CSI >12v / >13v |Previous / next profile, with immediate label redraw.
-|Alt+0 through 9 |CSI >20v through >29v |Select profile 0 through 9.
-|Alt+Space |CSI >14v |Show selected profile.
-|Alt+# |CSI >15v |Toggle RAW input (CZ: Alt+AltGr+X; US: Alt+Shift+3).
-|Alt+Backspace / Alt+Q |CSI >61v / >60v |Configured clear / exit action.
-|Alt+Up / Alt+Down |CSI >38v / >39v |Profile key events, normally alternate history.
-|Up / Down |Profile key events |History or app navigation, according to profile.
-|Ctrl+Shift+Backspace |CSI >65v |Delete recalled history entry.
-|Ctrl+Shift+PgDn / Ctrl+Shift+PgUp |CSI >66v / >67v |Zoom in (toward 4x) / out (toward 1x) without resizing logical screen.
-|Ctrl+Shift+arrows |Versioned CSI >70 key events |Pan by axis, not ordinary guest arrows.
-|Ctrl+Shift+Home / Ctrl+Shift+End |Versioned CSI >70 key events |Scan viewports backward / forward, left to right then top to bottom.
-|Alt+Shift+Home / Alt+Shift+End |CSI 1;3H / 1;3F |Legacy horizontal-only pan aliases.
-|LAlt+Ctrl+Shift+PgUp / LAlt+Ctrl+Shift+PgDn |CSI >63;33v / >63;34v |Backlight up / down one level.
-|LAlt+Ctrl+Shift+0 |CSI >63;0v |Backlight OFF.
-|Ctrl+Shift+1 through 9 |CSI >63;Nv; N=4,7,11,14,18,21,25,28,31 |Still-supported coarse brightness.
-|LAlt+Ctrl+Shift+1 / LAlt+Ctrl+Shift+2 |CSI >1v / >2v |ANSI/VT100 / VT52 interpretation.
-|Alt+Shift+Backspace |CSI >4v |Arm GCLS graphics without clearing the screen.
-|Ctrl+Alt+C |CSI >70;1;52;5;v |Emergency COM return, not guest Ctrl+C.
-|Ctrl+Shift+X |Host bridge interception |Transfer panel, no firmware key action.
+|kbd:[Alt+PgUp] / kbd:[Alt+PgDn] |CSI >12v / >13v |Previous / next profile, with immediate label redraw.
+|kbd:[Alt+0] through kbd:[Alt+9] |CSI >20v through >29v |Select profile 0 through 9.
+|kbd:[Alt+Space] |CSI >14v |Show selected profile.
+|kbd:[Alt+#] |CSI >15v |Toggle RAW input (CZ: kbd:[Alt+AltGr+X]; US: kbd:[Alt+Shift+3]).
+|kbd:[Alt+Backspace] / kbd:[Alt+Q] |CSI >61v / >60v |Configured clear / exit action.
+|kbd:[Alt+Up] / kbd:[Alt+Down] |CSI >38v / >39v |Profile key events, normally alternate history.
+|kbd:[Up] / kbd:[Down] |Profile key events |History or app navigation, according to profile.
+|kbd:[Ctrl+Shift+Backspace] |CSI >65v |Delete recalled history entry.
+|kbd:[Ctrl+Shift+PgDn] / kbd:[Ctrl+Shift+PgUp] |CSI >66v / >67v |Zoom in (toward 4x) / out (toward 1x) without resizing logical screen.
+|kbd:[Ctrl+Shift] with an arrow key |Versioned CSI >70 key events |Pan by axis, not ordinary guest arrows.
+|kbd:[Ctrl+Shift+Home] / kbd:[Ctrl+Shift+End] |Versioned CSI >70 key events |Scan viewports backward / forward, left to right then top to bottom.
+|kbd:[Alt+Shift+Home] / kbd:[Alt+Shift+End] |CSI 1;3H / 1;3F |Legacy horizontal-only pan aliases.
+|kbd:[Alt+Ctrl+Shift+PgUp] / kbd:[Alt+Ctrl+Shift+PgDn] |CSI >63;33v / >63;34v |Backlight up / down one level.
+|kbd:[Alt+Ctrl+Shift+0] |CSI >63;0v |Backlight OFF.
+|kbd:[Ctrl+Shift+1] through kbd:[Ctrl+Shift+9] |CSI >63;Nv; N=4,7,11,14,18,21,25,28,31 |Still-supported coarse brightness.
+|kbd:[Alt+Ctrl+Shift+1] / kbd:[Alt+Ctrl+Shift+2] |CSI >1v / >2v |ANSI/VT100 / VT52 interpretation.
+|kbd:[Alt+Shift+Backspace] |CSI >4v |Native supplied keymaps: arm GCLS graphics without clearing the screen.
+|kbd:[Ctrl+Alt+C] |CSI >70;1;52;5;v |Emergency COM return, not guest kbd:[Ctrl+C].
+|kbd:[Ctrl+Shift+X] |Native host bridge interception |Native transfer panel; unavailable in the standalone browser.
 |===
 
 Exact generated key-event payloads/modifiers are maintained in
 `tools/7xtgv-terminal.keytab` and `tools/kitty-cpm.conf`; see also the
 link:04-TRG-technical-reference-guide.adoc#private-protocol-boundaries[protocol reference].
-Intended LAlt use does not imply Konsole can distinguish both Alt keys.
+Intended kbd:[Alt] use does not imply Konsole can distinguish both kbd:[Alt] keys.
 
 [[_profile_digits_and_reserved_controls]]
 ===== Profile digits and reserved controls
 
-* Alt+0 through Alt+9 work with both the main row and numeric keypad.
+* kbd:[Alt+0] through kbd:[Alt+9] work with both the main row and numeric keypad.
   The host bridge also recognizes Czech `+ěščřžýáíé` as those row positions.
   Selection briefly displays the `#n name` label.
-* Alt+Q and Alt+Backspace invoke the global exit/clear policy, configured as
-  `exit_key=escape_alt` and `clear_key=backspace_alt`. Use Left Alt; Right Alt
-  (AltGr) belongs to keyboard-layout character entry, not a required second Alt.
-* These controls and the Ctrl+Shift view controls precede profile bindings
+* kbd:[Alt+Q] and kbd:[Alt+Backspace] invoke the global exit/clear policy, configured as
+  `exit_key=escape_alt` and `clear_key=backspace_alt`. Use Left kbd:[Alt]; Right kbd:[Alt]
+  (kbd:[AltGr]) belongs to keyboard-layout character entry, not a required second kbd:[Alt].
+* These controls and the kbd:[Ctrl+Shift] view controls precede profile bindings
   and are not saved in history.
 * Backlight and palette selections persist. Ordinary zoom/pan neither changes
   the INI nor resizes the logical terminal.
 
 [[_emergency_return_ctrlaltc]]
-===== Emergency return: Ctrl+Alt+C
+===== Emergency return: kbd:[Ctrl+Alt+C]
 
 * Forces a warm return from an external COM, including in RAW input mode.
-  It does not send guest Ctrl+C.
+  It does not send guest kbd:[Ctrl+C].
 * Cancels remaining `$$$.SUB` work and ends plotting without forcing a
   full-screen clear. Unsaved work is lost; open files may be incomplete.
 * Does not wait for an application keyboard read, but waits for an active
   host SD operation. A stopped MCU, terminal task or SD driver needs reset.
-* Konsole cannot distinguish LAlt from AltGr here. If AltGr+C produces
-  Ctrl+Alt+C on your layout, it is unsafe during a COM. Verify the chord on
+* Konsole cannot distinguish kbd:[Alt] from kbd:[AltGr] here. If kbd:[AltGr+C] produces
+  kbd:[Ctrl+Alt+C] on your layout, it is unsafe during a COM. Verify the chord on
   your host/target before relying on it.
 
 [[_ascii_prefix_fallbacks]]
 ==== ASCII prefix fallbacks
 
+These are *native mirror* prefix commands. In the standalone browser, kbd:[Ctrl+&#93;]
+is ordinary guest input; none of these sequences opens a native command.
+Click or tap a page control to leave display input.
 The commands below are intercepted by the host bridge or terminal before ordinary profile bindings. They do not become CP/M keystrokes; some deliberately invoke a profile's configured command.
 
 [cols="1,1",options="header"]
 |===
 |Key |Action
-|`++Ctrl+] 1++` |Select ANSI/VT100 interpretation.
-|`++Ctrl+] 2++` |Select VT52 interpretation.
-|`++Ctrl+] r++` |Repaint normal terminal text on the TFT and PC. This also ends an active xterm256 plot.
-|`++Ctrl+] g++` |GCLS: arm the direct xterm256 graphics canvas below terminal cells.
-|`++Ctrl+] a++` / `++e++` |Move to the previous / next calculated horizontal viewport position.
-|`++Ctrl+] p++` / `++n++` |Previous / next history entry of the active effective bank. Text before the cursor filters entry prefixes, including spaces; a word fallback supports inline completion.
-|`++Ctrl+] d++` |Delete the currently recalled history entry, when one is selected.
-|`++Ctrl+] +++` / `++Ctrl+] -++` |Increase / decrease glyph zoom.
-|`++Ctrl+] [++` / `++]++` |Select preceding / next application profile.
-|`++Ctrl+] #++` |Toggle `++## RAW++` direct-input mode.
-|`++Ctrl+] x++` |Send the selected profile's configured exit command.
-|`++Ctrl+] c++` |Send the selected profile's configured clear command.
-|`++Ctrl+] m++` |Open the host-only VTPUT/VTGET transfer panel.
-|`++Ctrl+] b 0++` … `++9++` |Backlight off, then coarse module-specific levels up to full ON.
-|`++Ctrl+] b +++` / `++-++` |Raise / lower one of 32 backlight levels.
+|kbd:[Ctrl+&#93;] then kbd:[1] |Select ANSI/VT100 interpretation.
+|kbd:[Ctrl+&#93;] then kbd:[2] |Select VT52 interpretation.
+|kbd:[Ctrl+&#93;] then kbd:[r] |Repaint normal terminal text on the TFT and PC. This also ends an active xterm256 plot.
+|kbd:[Ctrl+&#93;] then kbd:[g] |GCLS: arm the direct xterm256 graphics canvas below terminal cells.
+|kbd:[Ctrl+&#93;] then kbd:[a] / kbd:[Ctrl+&#93;] then kbd:[e] |Move to the previous / next calculated horizontal viewport position.
+|kbd:[Ctrl+&#93;] then kbd:[p] / kbd:[Ctrl+&#93;] then kbd:[n] |Previous / next history entry of the active effective bank. Text before the cursor filters entry prefixes, including spaces; a word fallback supports inline completion.
+|kbd:[Ctrl+&#93;] then kbd:[d] |Delete the currently recalled history entry, when one is selected.
+|kbd:[Ctrl+&#93;] then kbd:[&#43;] / kbd:[Ctrl+&#93;] then kbd:[-] |Increase / decrease glyph zoom.
+|kbd:[Ctrl+&#93;] then kbd:[&#91;] / kbd:[Ctrl+&#93;] then kbd:[&#93;] |Select preceding / next application profile.
+|kbd:[Ctrl+&#93;] then kbd:[#] |Toggle `++## RAW++` direct-input mode.
+|kbd:[Ctrl+&#93;] then kbd:[x] |Send the selected profile's configured exit command.
+|kbd:[Ctrl+&#93;] then kbd:[c] |Send the selected profile's configured clear command.
+|kbd:[Ctrl+&#93;] then kbd:[m] |Open the host-only VTPUT/VTGET transfer panel.
+|kbd:[Ctrl+&#93;] then kbd:[b], then kbd:[0] through kbd:[9] |Backlight off, then coarse module-specific levels up to full ON.
+|kbd:[Ctrl+&#93;] then kbd:[b], then kbd:[&#43;] / kbd:[-] |Raise / lower one of 32 backlight levels.
 |===
 
 [[rg-applications-and-input]]
@@ -220,7 +247,7 @@ recall handling; it does not prevent ordinary typing at the CP/M prompt.
   `mbasic(B1)` because CCP executes it; bank numbers do not identify DUs.
 * The temporary label restores its saved row and cursor without requiring an
   application redraw. Wait for it to disappear before normal input.
-* Alt+Space only shows the label; it never emits `on_select`.
+* kbd:[Alt+Space] only shows the label; it never emits `on_select`.
 
 [[histories-banks-and-the-active-line]]
 === Histories, banks, and the active line
@@ -236,7 +263,7 @@ save writes the shortened entries, so archive an older BUF separately if its
 longer entries are needed.
 
 * Up/Down normally recall entries; profiles may reserve them for the app and
-  use Alt+Up/Down for history.
+  use kbd:[Alt+Up] / kbd:[Alt+Down] for history.
 * Recall first matches the entire text before the cursor against history-entry
   prefixes, ignoring ASCII letter case and retaining spaces and parameters:
   `cd /` selects entries starting with `cd /`, and `cd ` includes the space.
@@ -249,7 +276,7 @@ longer entries are needed.
   It inserts the retained entry exactly, subject to the line-length limit:
   no space is appended or inserted. Spaces already in the entry or surrounding
   text are preserved.
-* Return stores the submitted line, including an unchanged filtered recall
+* kbd:[Enter] stores the submitted line, including an unchanged filtered recall
   or a completion within a prefix such as `10 PR`. Merely browsing or
   cancelling a recall does not add an entry.
 * An exact repeat of the newest entry in that bank is not appended again.
@@ -257,7 +284,7 @@ longer entries are needed.
   deduplication. A recalled older command becomes recent again on submission.
 * Spaces/tabs are literal in a full-prefix filter and delimit the word fallback;
   prefer spaces in authored CP/M text.
-* Ctrl+Shift+Backspace deletes the selected recalled entry.
+* kbd:[Ctrl+Shift+Backspace] deletes the selected recalled entry.
 * Separate editable keyword lists remain planned, not implemented.
 
 [[_persistence]]
@@ -284,20 +311,20 @@ link:04-TRG-technical-reference-guide.adoc#configuration-and-persistence[Technic
 [[editing-details]]
 === Editing details
 
-The normal terminal is a line model, not a generic editor. It records a line when Return completes it and can recall it into line-oriented interpreters.
+The normal terminal is a line model, not a generic editor. It records a line when kbd:[Enter] completes it and can recall it into line-oriented interpreters.
 
 [[_mbasic_two_adapter_choices]]
 ==== MBASIC: two adapter choices
 
 * `++EDIT n++` enters MBASIC's modal editor; it needs application-specific handling.
 * Select `input_adapter=mbasic_native` explicitly for native EDIT operations:
-  rubout/space movement, `L`, `X Esc` and `1D`.
-* The working MBASIC profile selects `local_compose`: local left/right/home/end,
-  insert/delete/backspace and line submission.
+  rubout and kbd:[Space] movement, kbd:[L], kbd:[X] then kbd:[Esc], and kbd:[1] then kbd:[D].
+* The working MBASIC profile selects `local_compose`: local kbd:[Left] / kbd:[Right], kbd:[Home] / kbd:[End],
+  kbd:[Insert], kbd:[Delete], kbd:[Backspace] and line submission.
 * The composer's line-buffer machinery could be reused, but its current
-  adapter also recognizes `EDIT n` and bridges MBASIC's modal editor: issue `X`,
-  capture the displayed numbered line, then Escape and `Q` before local editing.
-  It assumes compatible Backspace/echo/submission behavior; other applications
+  adapter also recognizes `EDIT n` and bridges MBASIC's modal editor: issue kbd:[X],
+  capture the displayed numbered line, then kbd:[Esc] and kbd:[Q] before local editing.
+  It assumes compatible kbd:[Backspace]/echo/submission behavior; other applications
   are not qualified by that implementation. It is not a full-screen editor.
 * Adapter-owned keys are consumed before their configured bytes are sent; see
   <<profile-loading-and-key-priority,loading order and key priority>>. Changing
@@ -317,7 +344,7 @@ The normal terminal is a line model, not a generic editor. It records a line whe
 * `++## RAW++` bypasses normal profile/history translation for direct application input.
 * Use it for diagnostic tools or unusual full-screen programs; return to normal
   input for ordinary command work.
-* Direct `Alt+0` through `Alt+9` selection leaves RAW mode; previous/next profile
+* Direct kbd:[Alt+0] through kbd:[Alt+9] selection leaves RAW mode; previous/next profile
   browsing does not. The RAW toggle can switch it off without selecting another bank.
 
 [[rg-cpm-commands-and-files]]
@@ -412,7 +439,7 @@ the remembered B-drive area; `CD /B/MBASIC` selects that named DU explicitly.
   Width affects clipping, not the choice of a one-line/two-line layout.
 * CP/M record writes may already have rounded a host file to 128 bytes.
   Its host-file length is not necessarily the original payload length;
-  text Ctrl-Z is not a reliable binary end marker.
+  text `Ctrl-Z` is not a reliable binary end marker.
 
 [[_catalog_files]]
 ===== Catalog files
@@ -425,7 +452,7 @@ the remembered B-drive area; `CD /B/MBASIC` selects that named DU explicitly.
 |`A0:DRV.7XF` |Last selected area per drive, one `/d/name` line per drive. CD reloads it before selection and saves after a new explicit selection.
 |===
 
-The working card keeps these files as CRLF text ending with Ctrl-Z.
+The working card keeps these files as CRLF text ending with `Ctrl-Z`.
 They do not replace the original VOL command's `INFO.TXT` input.
 
 [[_project_files_by_du]]
@@ -513,7 +540,10 @@ Detailed diagnostic procedures and demonstration recipes are in
 [[vtput--vtget-from-the-mirror]]
 === VTPUT / VTGET from the mirror
 
-Leave CP/M idle at its CCP prompt. Open the host panel with `++Ctrl+Shift+X++` (or `++Ctrl+] m++`). It invokes the appropriate helper automatically; do not start XMODEM or another application first. An idle-prompt check precedes commands, but this is a screen heuristic, not a firmware state guarantee.
+This section requires the *native mirror*; the standalone browser uses
+link:02-UG-user-guide.adoc#browser-card[card ZIP import/export] instead.
+
+Leave CP/M idle at its CCP prompt. Open the host panel with kbd:[Ctrl+Shift+X] (or kbd:[Ctrl+&#93;] then kbd:[m]). It invokes the appropriate helper automatically; do not start XMODEM or another application first. An idle-prompt check precedes commands, but this is a screen heuristic, not a firmware state guarantee.
 
 [cols="1,1,1",options="header"]
 |===
@@ -541,16 +571,16 @@ Leave CP/M idle at its CCP prompt. Open the host panel with `++Ctrl+Shift+X++` (
 [[_editing_and_overwrite_approval]]
 ==== Editing and overwrite approval
 
-* Use Left/Right, Home/End, Backspace/Delete to edit; Ctrl+U clears the field.
-  Enter submits it. Konsole's encoded editing keys are handled locally.
+* Use kbd:[Left] / kbd:[Right], kbd:[Home] / kbd:[End], kbd:[Backspace] / kbd:[Delete] to edit; kbd:[Ctrl+U] clears the field.
+  kbd:[Enter] submits it. Konsole's encoded editing keys are handled locally.
 * Send always asks permission to create/replace the device target; it does
   not probe remote existence. Receive asks only if the local target exists.
-* `Y` proceeds; `N` returns to Target; `C` or Escape cancels.
-  *Enter is not overwrite consent.*
+* kbd:[Y] proceeds; kbd:[N] returns to Target; kbd:[C] or kbd:[Esc] cancels.
+  *kbd:[Enter] is not overwrite consent.*
 * A replacement is committed only after the complete download and temporary
   write. A changed destination invalidates earlier approval; new local files
   use exclusive creation.
-* The result remains visible until Enter or Escape.
+* The result remains visible until kbd:[Enter] or kbd:[Esc].
 
 [[_bytes_and_profile_recovery]]
 ==== Bytes and profile recovery
@@ -559,7 +589,7 @@ Leave CP/M idle at its CCP prompt. Open the host panel with `++Ctrl+Shift+X++` (
   no automatic text conversion or compression. CLI `--cpm-text` is for
   deliberate external host-text imports.
 * Transfers temporarily select profile #9 and RAW input. The profile query
-  behind Alt+Space captures the original state first.
+  behind kbd:[Alt+Space] captures the original state first.
 * Success and failure both restore the original profile and RAW state,
   without executing `on_select`. Unconfirmed restoration reports an error.
 * If CP/M is still running a transfer helper after failure, reset before
@@ -587,7 +617,7 @@ on fetch failure: an older local INI can overwrite unrelated on-device edits.
 See link:../docs/260924-21%20live%20INI%20preservation%20and%20narrow%20transfer%20limitation.adoc[live INI and transfer-width notes].
 
 Guest text in the local `cpmcard/` working tree is maintained as CRLF with a final
-Ctrl-Z, ready for byte-preserving Send/Receive. No upload conversion is needed.
+`Ctrl-Z`, ready for byte-preserving Send/Receive. No upload conversion is needed.
 The CLI text-conversion option is only for deliberate external host-text imports.
 Tokenized BASIC, binaries, disk images and checksummed history are not text;
 host-only JSON metadata, Markdown readmes and Makefiles retain host format.
@@ -655,14 +685,14 @@ Line numbers are one-based and right-aligned in four positions. The report
 contains the section and source line, not an elaborate error explanation.
 ANSI boot highlights each detail row with red paper; VT52 uses a `***` prefix.
 The total can exceed the ten retained details. The same report is written to
-`A0:7XTGVTRM.ERR` when storage permits, with CRLF and trailing Ctrl+Z. A clean
+`A0:7XTGVTRM.ERR` when storage permits, with CRLF and trailing `Ctrl+Z` (0x1A). A clean
 INI load removes a stale ERR file. If no INI is loaded, the banner reports
 `COMPILED DEFAULTS`. Application banks are neutral in that case; no application
 key map, launch/exit/clear command or BASIC adapter is enabled automatically.
 
 Use one setting per line and comments on separate lines. The line buffer holds
 191 characters excluding its terminator; longer lines are diagnosed, not
-silently accepted. Physical line breaks count even in comments. Ctrl+Z ends
+silently accepted. Physical line breaks count even in comments. `Ctrl+Z` (0x1A) ends
 the logical INI, so anything after it is not parsed.
 
 For Boolean settings prefer `true` / `false`. The parser also accepts lowercase
@@ -728,7 +758,7 @@ For an ordinary profile key, look up the binding in this order:
 . An explicit binding under `[global]`.
 . That bank's selected preset, or its neutral navigation binding.
 . For keys outside the navigation table, normal terminal/host fallback handling
-  when no binding exists. Ordinary Backspace, text, Return, main-row digits and
+  when no binding exists. Ordinary kbd:[Backspace], text, kbd:[Enter], main-row digits and
   keypad decimal have their normal handling; a preset does not redefine them.
 
 Explicit `none` wins the binding lookup just like `send:...`. For navigation
@@ -740,9 +770,9 @@ Bank sections do not inherit one another, and names do not select presets.
 such as forced return and viewport pan have their own routing before ordinary
 profile bindings. An enabled editing adapter can consume ordinary editing keys
 before their resolved binding is sent. Thus `left=send:...`, or `left=none`, does
-not disable a local composer's Left-key handling. Use `input_adapter=none` when
+not disable a local composer's kbd:[Left] key handling. Use `input_adapter=none` when
 ordinary key-to-byte routing is wanted. The explicitly assigned CCP profile also
-uses native in-place Home/End handling for a send binding at a live CCP prompt;
+uses native in-place kbd:[Home] / kbd:[End] handling for a send binding at a live CCP prompt;
 an explicit `home=none` or `end=none` remains inactive there.
 
 [[input-preset-mappings]]
@@ -752,9 +782,9 @@ an explicit `home=none` or `end=none` remains inactive there.
 |===
 |`input` value |Coverage before explicit overrides
 |`custom` (also when omitted) |No preset. Missing navigation bindings are inactive in every bank.
-|`ansi` |30 bindings: ten ordinary navigation keys, ten Ctrl variants, eight Alt variants, and Alt+Up/Down history.
-|`vt52` |Six bindings: four ordinary arrows and Alt+Up/Down history. Other navigation keys are inactive.
-|`wordstar` |12 bindings: ten ordinary navigation keys and Alt+Up/Down history. Ctrl/Alt navigation variants are inactive except Alt+Up/Down.
+|`ansi` |30 bindings: ten ordinary navigation keys, ten kbd:[Ctrl] variants, eight kbd:[Alt] variants, and kbd:[Alt+Up] / kbd:[Alt+Down] history.
+|`vt52` |Six bindings: four ordinary arrows and kbd:[Alt+Up] / kbd:[Alt+Down] history. Other navigation keys are inactive.
+|`wordstar` |12 bindings: ten ordinary navigation keys and kbd:[Alt+Up] / kbd:[Alt+Down] history. Ctrl/Alt navigation variants are inactive except kbd:[Alt+Up] / kbd:[Alt+Down].
 |===
 
 The following cells give the bytes using the same escapes accepted after
@@ -781,7 +811,7 @@ ANSI's modifier variants are exactly:
 
 [cols="2,2,2",options="header"]
 |===
-|Base key |Ctrl variant (`_ctrl`) |Alt variant (`_alt`)
+|Base key |kbd:[Ctrl] variant (`_ctrl`) |kbd:[Alt] variant (`_alt`)
 |`up` |`\e[1;5A` |History previous, as above
 |`down` |`\e[1;5B` |History next, as above
 |`left` |`\e[1;5D` |`\e[1;3D`
@@ -794,8 +824,8 @@ ANSI's modifier variants are exactly:
 |`delete` |`\e[3;5~` |`\e[3;3~`
 |===
 
-Presets do not supply Shift variants, letter/function-key macros, or Backspace
-bindings. Ctrl/Alt variants of the navigation keys not listed by a preset are
+Presets do not supply kbd:[Shift] variants, letter/function-key macros, or kbd:[Backspace]
+bindings. kbd:[Ctrl] / kbd:[Alt] variants of the navigation keys not listed by a preset are
 inactive unless configured explicitly. Other supported chords can use their
 normal host fallback; reserved terminal shortcuts still have their own routing.
 There are no `input=mbasic`, `bbc`, `comal`, `adm3a`, `mz821` or `fand` presets.
@@ -813,25 +843,25 @@ preset alone leaves every explicit binding in place.
 [cols="2,3",options="header"]
 |===
 |Working profile |Relationship to the shared presets
-|CP/M and GENERAL |Keep CCP controls explicit; their Ctrl navigation differs from ANSI.
+|CP/M and GENERAL |Keep CCP controls explicit; their kbd:[Ctrl] navigation differs from ANSI.
 |MBASIC |Uses `input_adapter=local_compose`. Cursor/editing behavior is adapter-owned; an ANSI preset would not replace that adapter.
 |BBC BASIC |ANSI can supply modifier fallbacks; preserve BBC cursor/edit controls and history clear/retype settings explicitly.
 |COMAL |The current ANSI template matches `input=ansi`; actual COMAL installation and guest acceptance remain pending.
-|Turbo Pascal |Keep the TINST-defined private 8-bit controls explicit. ANSI matches only shared fallback bindings; it does not configure TINST or replace its map. The current Left/Right Alt fallbacks match ANSI.
-|FAND |All 12 active WordStar preset bindings match the configured bytes/actions. Retain its additional Ctrl/Shift navigation and save macro explicitly. This is a comparison of the current map, not proof of every FAND version's requirements.
-|TE |Nine of the 12 active WordStar bindings match. Home, End and Insert differ; retain those exceptions and the four explicit Ctrl bindings.
+|Turbo Pascal |Keep the TINST-defined private 8-bit controls explicit. ANSI matches only shared fallback bindings; it does not configure TINST or replace its map. The current kbd:[Alt+Left] / kbd:[Alt+Right] fallbacks match ANSI.
+|FAND |All 12 active WordStar preset bindings match the configured bytes/actions. Retain its additional kbd:[Ctrl] / kbd:[Shift] navigation and save macro explicitly. This is a comparison of the current map, not proof of every FAND version's requirements.
+|TE |Nine of the 12 active WordStar bindings match. kbd:[Home], kbd:[End] and kbd:[Insert] differ; retain those exceptions and the four explicit kbd:[Ctrl] bindings.
 |ANSI APP |The current navigation map matches `input=ansi`.
 |DDT |Keep its limited explicit controls; no application preset is inferred.
 |===
 
-TE's configured Home is bytes `11 53`: Ctrl-Q then *printable* S. The generic
-WordStar preset sends `11 13`: Ctrl-Q then Ctrl-S. End similarly differs as
+TE's configured kbd:[Home] is bytes `11 53`: `Ctrl-Q` then *printable* S. The generic
+WordStar preset sends `11 13`: `Ctrl-Q` then `Ctrl-S`. kbd:[End] similarly differs as
 `11 44` versus `11 04`. These are not interchangeable encodings. TE also explicitly
-disables Insert while the generic preset sends Ctrl-V. The installed TE help
+disables kbd:[Insert] while the generic preset sends `Ctrl-V`. The installed TE help
 and tested keyboard behavior take precedence over a generic style name.
 
 For example, a TE section could explicitly select the shared preset while keeping
-these exceptions and the application-specific Ctrl bindings (other settings in
+these exceptions and the application-specific kbd:[Ctrl] bindings (other settings in
 the complete section still apply):
 
 [source,ini]
@@ -853,7 +883,7 @@ end_ctrl=send:\x11C
 This is an optional equivalent key-map example, not a change to the working INI.
 FAND's 12 base/history bindings could likewise come from `input=wordstar`; its
 additional controls must remain explicit. The repeated ANSI modifier bindings
-in BBC/COMAL/ANSI APP, and the two Alt-arrow fallbacks in Turbo, can come from
+in BBC/COMAL/ANSI APP, and the two kbd:[Alt]-arrow fallbacks in Turbo, can come from
 explicit `input=ansi` selections if that cleanup is chosen. Keep original tested
 exceptions when consolidating; do not remove a line merely because its app is
 called WordStar-like or ANSI.
@@ -874,7 +904,7 @@ f5_ctrl_shift=none
 num1_shift=send:1
 ----
 
-The left side is `++<key>[_ctrl][_shift][_alt]++`, with the base key first and modifier suffixes in exactly that order. Use `++f5_ctrl_shift_alt++`, not `++f5_alt_ctrl_shift++`; names are case-insensitive. `++_alt++` is intended for LAlt. RAlt/AltGr is reserved for the Czech layout's symbol entry, and is not a separate INI modifier.
+The left side is `++<key>[_ctrl][_shift][_alt]++`, with the base key first and modifier suffixes in exactly that order. Use `++f5_ctrl_shift_alt++`, not `++f5_alt_ctrl_shift++`; names are case-insensitive. `++_alt++` is intended for kbd:[Alt]. RAlt/AltGr is reserved for the Czech layout's symbol entry, and is not a separate INI modifier.
 
 [cols="1,1",options="header"]
 |===
@@ -882,24 +912,24 @@ The left side is `++<key>[_ctrl][_shift][_alt]++`, with the base key first and m
 |Cursor and editing |`++left++`, `++right++`, `++up++`, `++down++`, `++home++`, `++end++`, `++insert++`, `++delete++`, `++page_up++`, `++page_down++`
 |Common keys |`++backspace++`, `++escape++`, `++enter++`, `++space++`, `++f1++` … `++f12++`
 |Main number row |`++num0++` … `++num9++` (separate from the keypad)
-|Numeric keypad |`++kp_decimal++`, `++kp_delete++` (the latter is NumLock-off Delete)
-|Czech physical positions |`++bs2++`, `++bs1++` before Backspace; `++p1++`, `++p2++` after P; `++l1++`, `++l2++`, `++l3++` after L; `++z1++` before Z; `++m1++`, `++m2++`, `++m3++` after M
-|Letters |`++a++` … `++z++`, only with Ctrl or Alt; plain and Shift-only letters remain normal typing
+|Numeric keypad |`++kp_decimal++`, `++kp_delete++` (the latter is kbd:[NumLock]-off Delete)
+|Czech physical positions |`++bs2++`, `++bs1++` before kbd:[Backspace]; `++p1++`, `++p2++` after kbd:[P]; `++l1++`, `++l2++`, `++l3++` after kbd:[L]; `++z1++` before kbd:[Z]; `++m1++`, `++m2++`, `++m3++` after kbd:[M]
+|Letters |`++a++` … `++z++`, only with kbd:[Ctrl] or kbd:[Alt]; plain and kbd:[Shift]-only letters remain normal typing
 |===
 
-Any subset of the three modifier words is syntactically accepted for the non-letter names. Plain and Shift-only `++bs1++` and `++l3++` are deliberately excluded because these are dead-accent positions on the current Czech keyboard: their normal composition must continue to work. `++num1++` … `++num0++` send ASCII digits by default even when the unshifted Czech keycap produces `+++ěščřžýáíé++`; `++kp_decimal++` sends `++.++` by default even when the host emits `++,++`. Shifted main-row digits are separate names such as `++num1_shift++`.
+Any subset of the three modifier words is syntactically accepted for the non-letter names. Plain and kbd:[Shift]-only `++bs1++` and `++l3++` are deliberately excluded because these are dead-accent positions on the current Czech keyboard: their normal composition must continue to work. `++num1++` … `++num0++` send ASCII digits by default even when the unshifted Czech keycap produces `+++ěščřžýáíé++`; `++kp_decimal++` sends `++.++` by default even when the host emits `++,++`. Shifted main-row digits are separate names such as `++num1_shift++`.
 
 The Windows Mintty launcher supplies these number-row and decimal events through
 its per-session physical-key helper. Rebuild the selected desktop target and
 open a new mirror to load it. Keypad decimal and brightness controls have native
 acceptance; the corrected plain Czech number-row detection still needs a native retest.
-It recognizes the Czech number row and the NumLock-on decimal key without
+It recognizes the Czech number row and the kbd:[NumLock]-on decimal key without
 converting ordinary commas or pasted text. See
 link:05-TG-tooling-guide.adoc[Tooling Guide] for setup and the keyboard probe.
-Plain/Shift row conversion for Linux Konsole/Kitty and Windows Mintty is
+Plain/kbd:[Shift] row conversion for Linux Konsole/Kitty and Windows Mintty is
 selected by `XTGV_HACK_TOPROW` in
 host `tools/terminal.conf`; its default is `+ěščřžýáíé`, and empty disables it.
-This host option is separate from application INI bindings and Alt-bank selection.
+This host option is separate from application INI bindings and kbd:[Alt]-bank selection.
 Changes apply when opening a new mirror through the project launchers; see the
 Tooling Guide for configuration precedence and layout-specific limits.
 
@@ -920,8 +950,8 @@ The right side has five forms:
 * A key binding holds up to *16 decoded bytes*.
 * `\e` is Escape, `\r` Return, `\n` LF, `\t` Tab and `\\` a backslash.
   `\xNN` inserts one hexadecimal byte.
-* `\^K` sends Ctrl-K (0B). The backslash-caret consumes exactly one character:
-  `++\^K\^D++` sends two controls; `++\^K^D++` sends Ctrl-K then printable `^D`.
+* `\^K` sends `Ctrl-K` (0B). The backslash-caret consumes exactly one character:
+  `++\^K\^D++` sends two controls; `++\^K^D++` sends `Ctrl-K` then printable `^D`.
   Bare `^K` stays printable.
 
 [cols="1,2",options="header"]
@@ -951,22 +981,22 @@ For example `send:\x81` encodes one byte, not a UTF-8 character. Use
 * A valid binding does not guarantee that the host delivers its physical chord.
   A desktop shortcut can consume it first.
 * Supplied Konsole/Kitty keymaps translate combinations with known safe
-  fallbacks. Terminal-owned shortcuts, ambiguous AltGr combinations,
+  fallbacks. Terminal-owned shortcuts, ambiguous kbd:[AltGr] combinations,
   unmodified dead accents and some punctuation combinations are not freely
   assignable application keys.
-* Konsole's key table does not explicitly distinguish left and right Alt.
+* Konsole's key table does not explicitly distinguish left and right kbd:[Alt].
 * Ordinary unbound keys retain host output; pasted text is not remapped.
 
 [[_reloading_and_persistence]]
 ==== Reloading and persistence
 
-`++7XTGVTRM.INI++` accepts CR, LF or CR/LF lines and treats Ctrl{plus}Z
+`++7XTGVTRM.INI++` accepts CR, LF or CR/LF lines and treats `Ctrl+Z` (0x1A)
 (`++1Ah++`) as logical end of file. It can be edited with a CP/M editor and
 reloaded by `++REBOOT++`. Palette and brightness selections are saved lazily;
 ordinary keyboard zoom, pan and `++VTZOOM++` are temporary and do *not*
 rewrite boot `++view_zoom++`. Other settings and other display sections remain
 user-authored. The host transfer tool's deliberate `++--cpm-text++` option
-writes CR/LF plus Ctrl{plus}Z. Do not edit checksummed history files from
+writes CR/LF plus `Ctrl+Z` (0x1A). Do not edit checksummed history files from
 CP/M. The INI cache and save transaction are described in the
 link:04-TRG-technical-reference-guide.adoc#configuration-and-persistence[Technical Reference Guide].
 
@@ -990,13 +1020,13 @@ link:04-TRG-technical-reference-guide.adoc#configuration-and-persistence[Technic
 |Key override |Any supported chord and binding described above, shared across banks.
 |===
 
-These settings select the logical events sent by the supplied Alt+Q and
-Alt+Backspace host mappings. Either event can select exit or clear; `none`
+These settings select the logical events sent by the supplied kbd:[Alt+Q] and
+kbd:[Alt+Backspace] host mappings. Either event can select exit or clear; `none`
 disables the corresponding policy entry. They are processed before ordinary
 profile bindings, not arbitrary keyboard-chord remaps.
 
 Legacy `lalt+ralt+escape` and `lalt+ralt+delete` remain accepted aliases for
-`escape_alt` and `backspace_alt`, respectively. They do not require AltGr;
+`escape_alt` and `backspace_alt`, respectively. They do not require kbd:[AltGr];
 use the new spellings in new INIs. Older firmware needs rebuilding before it
 can read the new spellings. There is no implemented `boot_ansi` setting;
 adding that earlier proposed name causes a load error.
@@ -1079,8 +1109,8 @@ selector. Host target data records both names and tools display them together.
 * A bank can override `zoom1_terminal` through `zoom4_terminal`. These presets
   select logical dimensions together with a deliberate preset selection;
   ordinary keyboard zoom remains independent of logical geometry.
-* Logical width/height may exceed the physical view. Ctrl{plus}Shift arrows
-  pan by axis; Ctrl{plus}Shift Home/End scan views in row-major order. Positions
+* Logical width/height may exceed the physical view. kbd:[Ctrl+Shift] with an arrow key
+  pans by axis; kbd:[Ctrl+Shift+Home] / kbd:[Ctrl+Shift+End] scan views in row-major order. Positions
   include both exact edges and are recalculated for zoom and geometry.
   The mirror still represents the complete logical terminal.
 * Bank overrides are shared across displays: an oversized override is reported
@@ -1114,13 +1144,13 @@ bank-number exceptions. Configure non-neutral application behavior explicitly.
 |`activate_numbered_line` |`false` |Allow numbered BASIC lines to activate tracking.
 |`input_adapter` |`none` |`none`, `mbasic_native` or `local_compose`; select application editing handling explicitly.
 |`command_new_line` |`false` |Issue a newline before the configured profile command.
-|`escape_cancels` |`false` |Cancel the captured history line on Escape.
+|`escape_cancels` |`false` |Cancel the captured history line on kbd:[Esc].
 |`active_line` |`true` |Enable the active cursor-row highlight.
 |`active_line_rgb`, `cursor_rgb` |Active palette |Decimal `R,G,B` override, or `palette` to inherit the current theme.
 |`editing_surface` |`line` |`line` or `screen`; parsed/stored, but not yet used to select a distinct recall transport. Not an implemented completion-list switch.
 |===
 
-Tab is not currently an INI base-key name. Ordinary Tab can still pass as input.
+kbd:[Tab] is not currently an INI base-key name. Ordinary kbd:[Tab] can still pass as input.
 Do not infer new key names or automatic private 0x80..0xFF mappings from the
 core-key design notes; assign supported chords explicitly with `send:\xNN`.
 
@@ -1163,8 +1193,9 @@ The <<rg-palette-comparison,palette comparison example>> is in Appendix A.
 There are two terminal-output interpretations: *ANSI/VT100* (the normal
 default, including implemented xterm colour extensions) and *VT52*.
 
-* `Ctrl+] 1` / `Ctrl+] 2` select ANSI/VT100 / VT52 at runtime.
-* Bridge options `--mode ansi` / `--mode vt52` select one at connection.
+* Guest commands `VT100` / `VT52` select ANSI/VT100 / VT52 on all routes.
+* In the native mirror, kbd:[Ctrl+&#93;] then kbd:[1] / kbd:[Ctrl+&#93;] then kbd:[2] are prefix alternatives.
+* Native bridge options `--mode ansi` / `--mode vt52` select one at connection.
 * Applications use `CSI ?2h` for ANSI, `CSI ?2l` for VT52, and VT52 `ESC <`
   to return to ANSI. These transitions do not save a new INI boot mode.
 
@@ -1263,7 +1294,9 @@ Use the named command or control references for syntax. A host shortcut, a
 [[xterm256-graphics]]
 === Graphics extension: xterm256 plotting
 
-`++Ctrl+] g++` or `++Alt+Shift+Backspace++` starts a local GCLS graphics layer.
+In the native mirror, kbd:[Ctrl+&#93;] then kbd:[g] or kbd:[Alt+Shift+Backspace] starts a
+local GCLS graphics layer. In the browser, use the guest plotting scripts
+which initialize graphics themselves; native prefix shortcuts do not apply.
 The extended private form is `++CSI >4;zoom;x;y v++`.
 
 * *Coordinates:* `zoom` is 1..4; `x,y` are physical pixels from the display's
@@ -1271,13 +1304,13 @@ The extended private form is `++CSI >4;zoom;x;y v++`.
   does not move with the gutter or viewport; x=0 may cover the gutter.
 * *Samples:* each source sample becomes a `zoom × zoom` RGB565 block, clipped
   at the physical client boundary. Indexed-color samples
-  (`++CSI 38;5;<index>m++` plus byte values) draw on TFT/SDL, not as pixels in
-  the PC mirror.
+  (`++CSI 38;5;<index>m++` plus byte values) draw on the TFT, SDL panel or browser canvas; they are not pixels in
+  the native text mirror or browser screen-text snapshot.
 * *Lifetime:* the cell layer remains logically present; opaque text can paint
   over the image. The first later terminal scroll retires the plot and restores
   the gutter without a full-screen clear.
 
-The direct plot ends on SGR reset (`++CSI 0m++`). Rows used by status text and the active cursor are then repainted from terminal memory, including when the plot was launched by `++SUBMIT++`; the remaining graphics canvas stays visible. A normal `++CLS++` clears the terminal cells, while `++Ctrl+] r++` explicitly returns the screen to the normal terminal surface.
+The direct plot ends on SGR reset (`++CSI 0m++`). Rows used by status text and the active cursor are then repainted from terminal memory, including when the plot was launched by `++SUBMIT++`; the remaining graphics canvas stays visible. A normal `++CLS++` clears the terminal cells, while the native mirror prefix kbd:[Ctrl+&#93;] then kbd:[r] explicitly returns the screen to the normal terminal surface.
 
 For bundled programs and launch recipes, see
 <<a6-graphics-and-timing-helpers,Graphics and timing helpers>> and
@@ -1323,7 +1356,7 @@ The native service reads reference data at requested 20 MHz and compares three
 trial reads per batch at the selected clock. It reports card CID/CSD, capacity,
 compared bytes and raw-read throughput, then restores the operating clock.
 The ` ... ` hint appears before test reads and the result follows on that line.
-Ctrl+Alt+C cancels in the integrated terminal build. It runs in ordinary writable
+kbd:[Ctrl+Alt+C] cancels in the integrated terminal build. It runs in ordinary writable
 firmware too; CARDMARK itself uses only read operations. If clock restoration
 fails, storage is stopped and a reset is required rather than returning to CP/M.
 

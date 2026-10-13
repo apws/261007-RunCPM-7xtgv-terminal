@@ -225,7 +225,7 @@ the working ES3_5 zoom-2 configuration provides it. The automated proof selects
 
 Mintty receives a generated per-session configuration, not an installed global
 profile. Special/navigation/function keys, profile exit/clear, view controls and
-the emergency Ctrl+Alt+C event (LAlt) use the shared protocol. F11 remains Mintty
+the emergency Ctrl+Alt+C event (Alt) use the shared protocol. F11 remains Mintty
 fullscreen and Alt+F4 closes Mintty. Ordinary printable characters use the active
 Windows layout. A native helper supplies physical Czech number-row and keypad
 decimal events to the existing firmware mappings: unshifted/Shift number-row
@@ -259,7 +259,7 @@ additionally checks the complete active layout before converting physical keys.
 Existing ASCII prefix controls remain available, including Pause then x/c for
 profile exit/clear, +/− for zoom and m for the transfer panel.
 All supplied profiles use *Alt+Q* as the primary configured application exit (`CSI >60v`).
-Use LAlt in Mintty. Konsole and Kitty retain Alt+Esc as a compatibility alias.
+Use Alt in Mintty. Konsole and Kitty retain Alt+Esc as a compatibility alias.
 Pause then x remains an alternative. Alt+Esc belongs to Windows window cycling.
 The per-session profile supplies digit and Czech unshifted number-row names.
 Numeric Mintty actions preserve the actual modifiers; `mintty_keys.py` translates
@@ -309,7 +309,7 @@ Both the Windows decoder and the shared mirror key translation are checked. It o
 with the same generated profile and records application-exit, bank, zoom and all numeric/fine-backlight chords under
 `build/RunCPM_7xtgv-terminal/desktop-win/keyboard-proofs/`. No emulator or card is
 opened. Press each requested chord once, release it, then Enter; Escape ends the
-probe. Use LAlt for the fine-backlight chord. Alt+PgUp/PgDn now
+probe. Use Alt for the fine-backlight chord. Alt+PgUp/PgDn now
 explicitly select previous/next bank, including the keypad navigation forms.
 
 For slow directory listings, run `tools-win\storage-test.cmd` (ES3_5 by default;

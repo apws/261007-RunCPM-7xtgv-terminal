@@ -45,7 +45,7 @@ license texts and notices too.
 
 The native-specification exclusion includes, but is not limited to:
 
-* link:docs/260906-21%20250524%20!!!!%20mixworx%207xtgv%20-%20TILED-GUI-VIDEO-256.adoc[Original Tiled GUI Video proposal].
+* link:docs/260906-21%20250529%20!!!!%20mixworx%207xtgv%20-%20TILED-GUI-VIDEO-256.adoc[Original Tiled GUI Video proposal].
 * link:docs/260910-13%207xtgv%20v0.1%20native%20specification%20and%20implementation%20plan.adoc[Native v0.1 specification and implementation plan].
 * link:docs/260910-13%207xtgv%20native%20SEMI%20mode%20and%20image%20demo.adoc[Native SEMI mode and image-demo design].
 

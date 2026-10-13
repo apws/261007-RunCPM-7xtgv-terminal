@@ -1,6 +1,7 @@
 = RunCPM 7xtgv-terminal: Features Timeline Guide
 :leveloffset: +1
 :source-highlighter: highlight.js
+:experimental:
 :toc:
 :toclevels: 2
 
@@ -137,7 +138,7 @@ a|Replaced the unsuccessful XMODEM mirror-dialog route with `++VTPUT.COM++`/`++V
 a|link:../docs/260923-20%20VTPUT%20VTGET%20mirror%20integration%20and%20redraw%20reduction.adoc[transfer], link:../docs/260923-20%20CP-M%20UNZIP%20compatibility%20and%20download.adoc[UNZIP]
 
 |`++260923-21++`
-a|Made transfers restore the original profile and RAW state; standardized authored `++cpmdrive++` text as CRLF plus Ctrl-Z, without converting binary files.
+a|Made transfers restore the original profile and RAW state; standardized authored `++cpmdrive++` text as CRLF plus `Ctrl-Z`, without converting binary files.
 a|link:../docs/260923-21%20VTPUT%20VTGET%20profile%20restoration.adoc[restore], link:../docs/260923-21%20cpmdrive%20native%20text%20format.adoc[text]
 
 |`++260923-22++`
@@ -217,11 +218,11 @@ a|Split the former long manual into User, Reference and Technical guides; this p
 a|Commit `++6743dfa++`
 
 |`++260928-11++`
-a|Added one-press `++Ctrl+Alt+C++` emergency return from an external COM and cancellation of the remaining SUBMIT batch; plain Ctrl+C stays a guest byte.
+a|Added one-press kbd:[Ctrl+Alt+C] emergency return from an external COM and cancellation of the remaining SUBMIT batch; plain kbd:[Ctrl+C] stays a guest byte.
 a|link:../docs/260928-11%20forced%20COM%20warm%20return%20implementation%20checkpoint.adoc[forced return]
 
 |`++260928-18++`
-a|Corrected GCLS interruption and retained an unfinished plot beneath the CCP notice; compared RP2_147 O2/O3 trial builds. Retained-pixel behavior still awaits Petr's explicit device report.
+a|Corrected GCLS interruption and retained an unfinished plot beneath the CCP notice; compared RP2_147 O2/O3 trial builds. Retained-pixel behavior still awaits an explicit device test report.
 a|link:../docs/260928-18%20retained%20GCLS%20return%20and%20RP2_147%20optimization%20trials.adoc[plot follow-up]
 
 |`++260928-20++`
@@ -237,7 +238,7 @@ a|Moved terminal INI/BUF persistence into a terminal-owned header without changi
 a|link:../docs/261001-04%20terminal%20persistence%20extraction%20and%20short%20module%20identity%20intent.adoc[persistence checkpoint]
 
 |`++261001-05++`
-a|Moved the existing serial-only, ESP32 integrated, and RP2350 integrated runtime bodies into selectable headers. All four target profiles now explicitly request integrated RunCPM/terminal mode; direct named-board builds default to serial-only, while unfinished combinations fail. RP2_147 build `++261001-0510++` boots and works by Petr's report; other targets remain untested.
+a|Moved the existing serial-only, ESP32 integrated, and RP2350 integrated runtime bodies into selectable headers. All four target profiles now explicitly request integrated RunCPM/terminal mode; direct named-board builds default to serial-only, while unfinished combinations fail. RP2_147 build `++261001-0510++` boots and works according to our device test report; other targets remain untested.
 a|link:../docs/261001-05%20RunCPM%20runtime%20variants%20extraction%20checkpoint.adoc[runtime], link:../docs/261001-05%20explicit%20RunCPM%20and%20terminal%20build%20modes%20checkpoint.adoc[modes]
 
 |`++261001-0539++`
@@ -253,11 +254,11 @@ a|Grouped the per-module SD and backlight headers under `++boards/++` and moved 
 a|link:../docs/261001-0610%20per-board%20header%20layout%20and%20display%20policy%20extraction.adoc[board layout]
 
 |`++261001-0657++`
-a|Replaced direct product calls in four CPU loops and three BIOS/BDOS console exits with an optional abort hook; the logical modified-file close and CPU1 function attributes also have optional hooks. Only W535 currently selects IRAM/O2. RP2_147 build `++261001-0728++` booted to `++A0>++`; Petr reports the requested interactive checks all okay. Other boards remain untested.
+a|Replaced direct product calls in four CPU loops and three BIOS/BDOS console exits with an optional abort hook; the logical modified-file close and CPU1 function attributes also have optional hooks. Only W535 currently selects IRAM/O2. RP2_147 build `++261001-0728++` booted to `++A0>++`; we report the requested interactive checks all okay. Other boards remain untested.
 a|link:../docs/261001-0657%20optional%20RunCPM%20core%20hooks%20and%20upstream%20integration%20boundary.adoc[core hooks]
 
 |`++261001-10++`
-a|Tried two board headers per module with shared storage adapters and macro-composed operations. Petr rejected this still-fragmented layout; superseded before any deployment by the next correction.
+a|Tried two board headers per module with shared storage adapters and macro-composed operations. We rejected this still-fragmented layout; superseded before any deployment by the next correction.
 a|link:../docs/261001-10%20board%20header%20consolidation%20checkpoint.adoc[intermediate experiment]
 
 |`++261001-1322++`
@@ -269,7 +270,7 @@ a|Built and staged the corrected RP2_147 firmware as `++new++` (target-aware sta
 a|link:../docs/261001-1322%20HAL%20challenge%20and%20readable%20board%20consolidation.adoc[build boundary]
 
 |`++261001-1453++`
-a|Uploaded the staged UF2 to the registered RP2_147 BOOTSEL chip. The same serial chip returned; visible Konsole reports stamp `++261001-1417++`, SD/profile/history OK and `++A0>++`. Interactive visual regression remains for Petr.
+a|Uploaded the staged UF2 to the registered RP2_147 BOOTSEL chip. The same serial chip returned; visible Konsole reports stamp `++261001-1417++`, SD/profile/history OK and `++A0>++`. Interactive visual regression remains pending.
 a|link:../docs/261001-1322%20HAL%20challenge%20and%20readable%20board%20consolidation.adoc[upload and boot]
 
 |`++261001-1603++`
@@ -301,7 +302,7 @@ a|On that W535 SPI3/Arduino-SD build, `++VTDRV RW++` verified 32 KiB but measure
 a|link:../docs/261001-1818%20W535%20SPI%20storage%20trial%20build%20checkpoint.adoc[direct-SdFat rebuild]
 
 |`++261001-1940++`
-a|Flashed the W535 direct-SdFat build `++261001-1937++`. It booted, mounted microSD on SPI3 at 12 MHz, loaded profile/history, and reached `++A0>++`; file integrity and throughput await Petr's test.
+a|Flashed the W535 direct-SdFat build `++261001-1937++`. It booted, mounted microSD on SPI3 at 12 MHz, loaded profile/history, and reached `++A0>++`; file integrity and throughput await a device test.
 a|link:../docs/261001-1818%20W535%20SPI%20storage%20trial%20build%20checkpoint.adoc[direct-SdFat first boot]
 
 |`++261001-1952++`
@@ -309,7 +310,7 @@ a|W535 direct-SdFat at 12 MHz passed `++VTDRV RW++`: 5.82 KiB/s write, 13.99 KiB
 a|link:../docs/261001-1818%20W535%20SPI%20storage%20trial%20build%20checkpoint.adoc[20 MHz SdFat build]
 
 |`++261001-2004++`
-a|Flashed W535 direct-SdFat build `++261001-1952++`. It booted and mounted microSD on SPI3 at the requested 20 MHz, loaded profile/history and reached `++A0>++`; record verification and throughput await Petr's test.
+a|Flashed W535 direct-SdFat build `++261001-1952++`. It booted and mounted microSD on SPI3 at the requested 20 MHz, loaded profile/history and reached `++A0>++`; record verification and throughput await a device test.
 a|link:../docs/261001-1818%20W535%20SPI%20storage%20trial%20build%20checkpoint.adoc[20 MHz first boot]
 
 |`++261001-2012++`
@@ -317,19 +318,19 @@ a|W535 direct-SdFat at 20 MHz passed `++VTDRV RW++`: 6.56 KiB/s write, 15.99 KiB
 a|link:../docs/261001-1818%20W535%20SPI%20storage%20trial%20build%20checkpoint.adoc[40 MHz trial build]
 
 |`++261001-2018++`
-a|Flashed and hash-verified the 40 MHz W535 image and relaunched the mirror; per Petr's request, did not check boot/card mount. Implemented read-only `++VTDRV Q++` in the private benchmark port and CP/M COM source. A native disposable-drive test passed legacy RW/read behavior and the old-firmware rejection; new COM is local only, firmware has not been rebuilt with the quiet handler.
+a|Flashed and hash-verified the 40 MHz W535 image and relaunched the mirror; as requested, did not check boot/card mount. Implemented read-only `++VTDRV Q++` in the private benchmark port and CP/M COM source. A native disposable-drive test passed legacy RW/read behavior and the old-firmware rejection; new COM is local only, firmware has not been rebuilt with the quiet handler.
 a|link:../docs/261001-1818%20W535%20SPI%20storage%20trial%20build%20checkpoint.adoc[40 MHz flash and quiet benchmark source]
 
 |`++261001-2032++`
-a|Petr reports 40 MHz looks reliable; two visible plain `++VTDRV++` runs verified 32 KiB at 17.83 and 17.85 KiB/s. Fixed the host transfer's named-prompt DU check by temporarily using `++7XF DD++` and restoring DN; nine tests pass. Uploaded the new `++VTDRV.COM++` to device A0 and reopened the mirror. Quiet firmware handler is still pending a rebuild/reflash.
+a|We report 40 MHz looks reliable; two visible plain `++VTDRV++` runs verified 32 KiB at 17.83 and 17.85 KiB/s. Fixed the host transfer's named-prompt DU check by temporarily using `++7XF DD++` and restoring DN; nine tests pass. Uploaded the new `++VTDRV.COM++` to device A0 and reopened the mirror. Quiet firmware handler is still pending a rebuild/reflash.
 a|link:../docs/261001-1818%20W535%20SPI%20storage%20trial%20build%20checkpoint.adoc[40 MHz reads and COM transfer]
 
 |`++261001-2036++`
-a|Built and flashed W535 40 MHz SPI firmware with the `++VTDRV Q++` quiet handler. Guard confirmed the prior W535 target; upload hashes verified. Visible mirror reports stamp `++261001-2036++`, SD SPI mount and profile/history OK, and `++A0>++`. The matching COM is already on A0; active-versus-quiet device timing awaits Petr's test.
+a|Built and flashed W535 40 MHz SPI firmware with the `++VTDRV Q++` quiet handler. Guard confirmed the prior W535 target; upload hashes verified. Visible mirror reports stamp `++261001-2036++`, SD SPI mount and profile/history OK, and `++A0>++`. The matching COM is already on A0; active-versus-quiet device timing awaits a device test.
 a|link:../docs/261001-1818%20W535%20SPI%20storage%20trial%20build%20checkpoint.adoc[quiet-handler boot]
 
 |`++261001-2042++`
-a|Petr measured W535 40 MHz active read at 17.86 KiB/s and quiet read at 19.69 KiB/s; both verified. The old parser ignored trailing options: `++RW Q++` was active write/read (7.29/17.86 KiB/s), and `++Q RW++` was quiet read only.
+a|We measured W535 40 MHz active read at 17.86 KiB/s and quiet read at 19.69 KiB/s; both verified. The old parser ignored trailing options: `++RW Q++` was active write/read (7.29/17.86 KiB/s), and `++Q RW++` was quiet read only.
 a|link:../docs/261001-1818%20W535%20SPI%20storage%20trial%20build%20checkpoint.adoc[quiet-read result]
 
 |`++261001-2046++`
@@ -337,11 +338,11 @@ a|Changed VTDRV source to independent `++W++` and `++Q++` whole-token modifiers 
 a|link:../docs/261001-1818%20W535%20SPI%20storage%20trial%20build%20checkpoint.adoc[W/Q modifier implementation]
 
 |`++261001-2101++`
-a|Transferred the updated `++VTDRV.COM++` to device A0, built and flashed matching W535 40 MHz SPI firmware. Guard and upload hashes passed; visible mirror shows build `++261001-2101++`, SD/profile/history OK and `++A0>++`. Quiet-write timing awaits Petr's device run; the image remains `++new++`.
+a|Transferred the updated `++VTDRV.COM++` to device A0, built and flashed matching W535 40 MHz SPI firmware. Guard and upload hashes passed; visible mirror shows build `++261001-2101++`, SD/profile/history OK and `++A0>++`. Quiet-write timing awaits a device run; the image remains `++new++`.
 a|link:../docs/261001-1818%20W535%20SPI%20storage%20trial%20build%20checkpoint.adoc[W/Q deployment]
 
 |`++261001-2110++`
-a|Petr's `++VTDRV Q W++` on W535 40 MHz passed 32 KiB verification: quiet write 7.95 KiB/s, quiet read 19.72 KiB/s. The disk indicator can remain visibly red because the terminal pause freezes a pre-test activity pulse; no redraw occurs during timing.
+a|Our `++VTDRV Q W++` on W535 40 MHz passed 32 KiB verification: quiet write 7.95 KiB/s, quiet read 19.72 KiB/s. The disk indicator can remain visibly red because the terminal pause freezes a pre-test activity pulse; no redraw occurs during timing.
 a|link:../docs/261001-1818%20W535%20SPI%20storage%20trial%20build%20checkpoint.adoc[quiet write/read result]
 
 |`++261001-2116++`
@@ -371,7 +372,7 @@ not flashed. Program storage 596916 bytes, static RAM 172280 bytes.
 a|—
 
 |`++261001-2351++`
-a|`++261001-2351++`: after Petr accepted the W535 test, built the same cleanup
+a|`++261001-2351++`: after we accepted the W535 test, built the same cleanup
 for ES3_5/W550 and selected that connected target in terminal.conf. Candidate
 staged as `++new++`, not flashed; program storage 596392 bytes and static RAM
 190960 bytes. W550 retains its existing storage implementation.
@@ -392,7 +393,7 @@ Added SdFat to the W550 build profile. Rebuild and hardware test pending.
 a|link:../docs/261002-00%20W550%20direct%20SdFat%20storage.adoc[W550 storage change]
 
 |`++261002-0002++`
-a|`++261002-0002++`: at Petr's request, raised the W550 SdFat default to
+a|`++261002-0002++`: by project decision, raised the W550 SdFat default to
 40 MHz and removed the old 25 MHz ceiling. Target-aware build passed and
 was staged as `++new++`; no flash/card verification yet. Program storage
 565076 bytes, static RAM 191480 bytes.
@@ -400,7 +401,7 @@ a|—
 
 |`++261002-00 (after 0002)++`
 a|`++261002-00++`: flashed W550 build 261002-0002, restored its mirror, and
-received Petr's successful-test confirmation. The 40 MHz SdFat candidate
+received our successful-test confirmation. The 40 MHz SdFat candidate
 is accepted; no numeric throughput result was supplied.
 a|—
 
@@ -446,7 +447,7 @@ Z80run in IRAM; reflash/benchmarks and other-target builds remain pending.
 
 The requested reflash of 261002-1005 subsequently booted successfully:
 20 MHz SD mount, profile/history load and A0> confirmed in the restored
-mirror. Comparative benchmarks remain for Petr.
+mirror. Comparative benchmarks remain pending.
 a|—
 
 |`++261002-1012++`
@@ -460,12 +461,12 @@ The O3 trial 261002-1013 was subsequently flashed on request: mirror confirms
 the build, SD mounted at 20 MHz, profile/history OK and A0>. Benchmarks pending;
 O2 remains unflashed.
 
-Petr's O3 benchmarks then showed roughly 4% lower CPU throughput than Os,
+Our O3 benchmarks then showed roughly 4% lower CPU throughput than Os,
 with disk rates unchanged and verify PASS. On request, O2 261002-1012 was
 selected as `new`, flashed and the visible mirror restored to A0>.
 Os/O2/O3 archives remain available; O2 benchmark results pending.
 
-Petr's O2 results were similar to O3, both slower than Os for VTCPU.
+Our O2 results were similar to O3, both slower than Os for VTCPU.
 Inspection confirmed hardware SPI but exposed SdFat's ESP32 byte-at-a-time
 payload default versus RP2350 buffer transfers. Approved P4 trial now sets
 build-wide `USE_SPI_ARRAY_TRANSFER=1`; native buffer/flag tests pass,
@@ -482,7 +483,7 @@ Subsequent requested reflash succeeded; mirror confirms 261002-1101,
 a|—
 
 |`++261002-1127++`
-a|Petr's buffer-transfer O2 results: 10.16 KiB/s write and 26.08 KiB/s read,
+a|Our buffer-transfer O2 results: 10.16 KiB/s write and 26.08 KiB/s read,
 verify PASS (previously 5.41/13.06). Requested default-Os rebuild
 `++261002-1127++` passed with the same buffer mode, IRAM and 20 MHz SPI;
 staged as new, not yet flashed.
@@ -493,14 +494,14 @@ Os buffer-transfer disk results pending.
 a|—
 
 |`++261002-1131++`
-a|Petr reports Os buffer-transfer write/read 10.17/26.02 KiB/s, verify PASS.
+a|We report Os buffer-transfer write/read 10.17/26.02 KiB/s, verify PASS.
 Requested P4-only 40 MHz SPI trial built successfully as `++261002-1131++`,
 retaining Os, IRAM and buffer transfers. Staged as new; not yet flashed.
 
 The requested 261002-1131 reflash then booted successfully: SD mount at
 the requested 40 MHz, profile/history and A0> confirmed. Disk tests pending.
 
-Petr then confirmed the 40 MHz benchmark: VTDRV write/read 13.98/37.88 KiB/s,
+We then confirmed the 40 MHz benchmark: VTDRV write/read 13.98/37.88 KiB/s,
 verify PASS; VTCPU 33.89/33.88 MHz. Roughly 37%/46% disk improvement over
 the 20 MHz Os buffer baseline. Long-duration testing and promotion are separate.
 a|—
@@ -537,7 +538,7 @@ The subsequent `261002-1510` checkpoint corrects startup/fallback to 20 MHz,
 implements the P4 read-only native CARDMARK service plus 128-byte COM launcher,
 and stages a successful P4 build. Host comparison/error/cancellation tests pass;
 reflash, COM transfer and device tests are pending.
-Petr then removed the CARDMARK firmware-wide read-only prerequisite. Writable
+We then removed the CARDMARK firmware-wide read-only prerequisite. Writable
 P4 build `261002-1520` stages successfully with the diagnostic enabled; its
 operations remain read-only and restore the clock before normal storage resumes.
 a|link:../docs/261002-13%20Global%20SdFat%20SPI%20clock%20and%20CARDMARK%20preparation.adoc[configurable SPI checkpoint]
@@ -560,9 +561,9 @@ The fetched device INI remains unchanged. Host backlight tests pass; firmware
 rebuild is pending. Display clock/refresh visibility in boot output or VTINFO
 is recorded as follow-up, not implemented.
 The subsequent `261002-1732` checkpoint moves backlight OFF to
-LAlt+Ctrl+Shift+0 in the host maps, retaining Ctrl+Shift+1 through 9 presets
+kbd:[Alt+Ctrl+Shift+0] in the host maps, retaining kbd:[Ctrl+Shift+1] through kbd:[Ctrl+Shift+9] presets
 and the existing ANSI/VT52 chords. The private device control code is unchanged.
-After testing that firmware, Petr chose PWM duty 3 as the P4 minimum. The
+After testing that firmware, we chose PWM duty 3 as the P4 minimum. The
 `261002-1758` rebuild replaces the diagnostic ladder with gamma-2.2 shaping,
 matching RP2_2's formula while keeping the P4 table board-local.
 At `261002-1923`, after acceptance of the curve, a P4-only reboot trial explicitly
@@ -570,7 +571,7 @@ zeros and detaches backlight PWM and drives GPIO23 LOW before ESP.restart.
 This addresses missing pre-reboot blanking, not a proven fix for the reported
 blue startup frame or occasional early boot stall. Host call-order tests pass;
 firmware rebuild and hardware testing remain pending.
-P4 build `261002-1932` was then built, flashed and boot-verified. Petr confirms
+P4 build `261002-1932` was then built, flashed and boot-verified. We confirm
 the blue interval is absent during reboot/reflash and accepts the brightness
 curve. Other modules remain untested for this change. A separate intermittent
 CLS failure during rapid reboot testing is recorded without an established cause.
@@ -578,8 +579,8 @@ a|link:../docs/261002-17%20P4%20backlight%20calibration%20preparation.adoc[P4 ca
 
 |`++261002 (end of day)++`
 a|End-of-day `261002` reconciliation records successful A0 CARDMARK deployment:
-Petr's `CARDMARK 4096 50` compared 6 MiB and passed, reporting raw reads at
-1923.72 KiB/s and restored clock. His global INI SPI request of 40 MHz is
+Our `CARDMARK 4096 50` compared 6 MiB and passed, reporting raw reads at
+1923.72 KiB/s and restored clock. Our global INI SPI request of 40 MHz is
 confirmed applied at boot. The earlier firmware-wide read-only 50 MHz trial
 passed two VTDRV read checks; these are not write or electrical qualification.
 Seven missing AsciiDoc opening table delimiters were repaired in the P4
@@ -600,7 +601,7 @@ wording, identity separators, compact requested-clock information, and a
 ` ... ` running hint emitted before the raw read loop. The successful result
 continues on that line; clock restoration and diagnostic behavior are unchanged.
 Host tests cover both storage modes. Build `261003-1034` was subsequently
-flashed and Petr confirmed the revised output.
+flashed and we confirmed the revised output.
 a|—
 
 |`++261003-11++`
@@ -627,7 +628,7 @@ Host regression passes; firmware rebuild is pending.
 a|link:../docs/261003-1445%20Corrected%20boot%20Z80%20clock%20estimate.adoc[boot estimate correction]
 
 |`++261003-15++`
-a|At `261003-15`, boot branding changes to `7xtgv-terminal` with Petr's HAL
+a|At `261003-15`, boot branding changes to `7xtgv-terminal` with our HAL
 credit, a runtime Module/Zoom/geometry summary, and the final configured
 SdFat/SPI clock request. Routine success lines are removed; SD failures and
 INI diagnostics remain. The local CCP announces `7XF shell`, and REBOOT's
@@ -683,7 +684,7 @@ a|—
 
 |`++261004-1109++`
 a|Build `261004-1109` includes heap diagnostics and was flashed. A hardware
-reset restored initially blank startup. Petr then confirms EC6_147 working:
+reset restored initially blank startup. We then confirm EC6_147 working:
 VTCPU active/quiet 9.22/13.74 MHz, VTDRV W write/read 4.42/10.15 KiB/s with
 verify PASS. These are initial measurements, not sustained qualification;
 heap readings and first-upload reset behavior remain to be recorded.
@@ -703,7 +704,7 @@ a|link:../docs/261004-1302%20Build%20performance%20options%20and%20uniform%20opt
 |`++261004-1647++`
 a|*Practical manual reorganization, first pass*
 
-Petr's manual-reorg outline becomes practical boot/profile/history, shell,
+Our manual-reorg outline becomes practical boot/profile/history, shell,
 palette/backlight and demo recipes in the User Guide, with chord/control
 mapping and corrected history/CARDMARK entries in the Reference Guide.
 Technical findings receive a compact evidence map; the Build Guide includes
@@ -742,41 +743,41 @@ a|*Clear blocked-flash errors and adjacent logs*
 
 Logs move beside each target command as TARGET-reflash.log, replaced per run
 and ignored by Git. Default failures report one reason rather than a log tail;
-identity-check rejection explicitly says no flash occurred. Petr's C6 1925
+identity-check rejection explicitly says no flash occurred. Our C6 1925
 build succeeded but its upload was blocked, explaining the prior running image.
 a|link:../docs/261004-1931%20Launcher%20error%20summaries%20and%20adjacent%20logs.adoc[error-report correction]
 
 |`++261004-1944++`
 a|*Minimal status and separated logs*
 
-Petr's marked screenshot defines the normal launcher output: module, build,
+Our marked screenshot defines the normal launcher output: module, build,
 embedded stamp, upload and mirror-launch lines only. Paths/details move to the
 adjacent log with explicit BUILD/FLASH section separators. C6 remains serial
 upload without BOOTSEL. Short errors and target safety checks remain.
 a|—
 
 |`++261004-2000++`
-a|*RP2350 ready-to-flash Enter confirmation*
+a|*RP2350 ready-to-flash kbd:[Enter] confirmation*
 
 RP2350 launchers warn in red to connect the correct short-ID module in
-BOOTSEL, then accept Enter rather than retyping a long target name.
+BOOTSEL, then accept kbd:[Enter] rather than retyping a long target name.
 Disk/chip and UF2 checks remain; mount/copy detail goes to the adjacent log.
-Petr reported the preceding RP2_147 1954 build/upload workflow successful.
+We reported the preceding RP2_147 1954 build/upload workflow successful.
 a|—
 
 |`++261004-2010++`
 a|*Prompt only for absent device connections*
 
-Already-connected RP2350 BOOTSEL disks skip Enter. Missing disks prompt with
+Already-connected RP2350 BOOTSEL disks skip kbd:[Enter]. Missing disks prompt with
 BOOTSEL wording; missing ESP serial nodes prompt without it, then rediscover.
-Ambiguity/mismatch checks remain. Petr reported both RP2350 launcher runs
+Ambiguity/mismatch checks remain. We reported both RP2350 launcher runs
 successful before requesting this refinement.
 a|—
 
 |`++261004-2034++`
 a|*Separate module rebuild and reflash commands*
 
-Petr confirms the preceding quiet workflow and connection behavior on all six
+We confirm the preceding quiet workflow and connection behavior on all six
 modules. Launchers now live in `DISPLAY_ID -- TARGET` folders: `rebuild.sh`
 stages a fresh candidate without device access; `reflash.sh` uploads existing
 `new`/`current` without compiling. Logs are separate and adjacent; existing
@@ -842,8 +843,8 @@ a|link:../docs/261005-2120%20Headless%20Arduino%20desktop%20build%20and%20real%2
 |`++261006-0935++`
 a|*Desktop review and consolidated plan*
 
-Petr selects existing real board HAL definitions plus desktop build mode,
-preserving display IDs, INI defaults and direct/flush drawing policy. His
+We select existing real board HAL definitions plus desktop build mode,
+preserving display IDs, INI defaults and direct/flush drawing policy. Our
 buffered-board INI uses `render_flush_hz=10`. SDL becomes output only; the
 existing mirror retains keyboard and full output through desktop transport.
 Uppercase CP/M filenames replace the proposed case-insensitive resolver;
@@ -870,7 +871,7 @@ are implemented. CARDMARK stays unsupported on desktop. Removed the abandoned
 W535 SD_MMC alternate and its build option; earlier entries remain history.
 
 Eight CTests pass per board; EP4 UBSan also passes. Copied local and mounted
-card contents boot; originals remain unchanged. Petr saw the SDL output and
+card contents boot; originals remain unchanged. We saw the SDL output and
 liked its dark end. Brightness is approximate. Broad visual/persistence-failure
 acceptance, fresh OS and Windows/macOS remain open; no MCU build or upload.
 a|link:../docs/261006-1117%20DONE%20Linux%20desktop%20real-board%20SDL%20and%20mirror%20checkpoint.adoc[Evidence and remaining gates]
@@ -929,7 +930,7 @@ size/title-bar acceptance remain pending.
 
 The ThinkPad rule additionally disables SDL focus, initial focus,
 mouse-follow focus and activation focus. Hyprland reload reports no errors
-and the live SDL window reports `no_focus=true`. Petr still needs to check
+and the live SDL window reports `no_focus=true`. We still need to check
 clicking and Super+left-drag while the mirror has keyboard focus.
 a|—
 
@@ -946,7 +947,7 @@ a|—
 |`++261007++`
 a|*Normal desktop panel stacking and focus*
 
-Petr found always-on-top intrusive. Removed that SDL flag for all desktop
+We found always-on-top intrusive. Removed that SDL flag for all desktop
 targets and replaced the ThinkPad no-focus rules with floating/centering only.
 Normal window switching and focus are restored; guest input remains in the
 mirror. This supersedes the no-focus experiment above. Native stacking change
@@ -956,9 +957,9 @@ a|—
 |`++261007++`
 a|*SDL always-on-top restored after Linux desktop review*
 
-Petr preferred the earlier stacking on KDE. The shared presenter again requests
+We preferred the earlier stacking on KDE. The shared presenter again requests
 always-on-top for all desktop boards, superseding the preceding stacking choice.
-Minimization, normal focus/Alt+Tab, native initial size, Hyprland decorations and
+Minimization, normal focus/kbd:[Alt+Tab], native initial size, Hyprland decorations and
 mirror-close shutdown are unchanged. This is not a no-focus mode; keyboard input
 still belongs to the mirror. Syntax-checked; desktop rebuild/relaunch and visual
 acceptance remain pending.
@@ -971,7 +972,7 @@ isolates blink/reverse attributes, expands VT52 movement/erase checks and adds
 five DECSTBM/DECOM scrolling stages. Real MBASIC runs through the quiet SDL
 firmware on disposable cards; production renderer checks cover both blink
 phases and reverse pixels. This improves tests, not the terminal protocol;
-updated BASIC was subsequently copied to the then-current local `cpmcard/A/7` on Petr's request
+updated BASIC was subsequently copied to the then-current local `cpmcard/A/7` as requested
 at `261007-1234`, but not to the physical card. See the
 card-root migration plan.
 Its current canonical location is `7xtgv(C1)`; the old location below is
@@ -985,7 +986,7 @@ a|Made `++cpmcard++` primary with DU-only paths, private-state exclusions and a 
 a|link:../docs/261007-1618%20DONE%20Canonical%20cpmcard%20and%20DU-only%20tooling%20cutover.adoc[Cutover]
 
 |`++261007-1645++`
-a|Petr chose the complete `++cpmcard++` tree, including all A-P content, INI/history, databases, backups, snapshots and the existing image. Removed the earlier 200-file filter; no guest content changed.
+a|We chose the complete `++cpmcard++` tree, including all A-P content, INI/history, databases, backups, snapshots and the existing image. Removed the earlier 200-file filter; no guest content changed.
 a|link:../docs/261007-1645%20DONE%20Version%20complete%20cpmcard%20without%20content%20exclusions.adoc[Complete-card scope]
 
 |===
@@ -1029,8 +1030,8 @@ a|link:../docs/261009-0035%20DONE%207XF%20desktop%20browsing%20and%20startup%20c
 
 |`++261009-0218++`
 a|Global exit/clear INI settings now use `escape_alt` and `backspace_alt`, matching
-the existing host shortcuts. Historical dual-Alt names remain aliases; no
-AltGr modifier is required.
+the existing host shortcuts. Historical dual-kbd:[Alt] names remain aliases; no
+kbd:[AltGr] modifier is required.
 a|link:../docs/261009-0218%20DONE%20Clear%20names%20for%20global%20exit%20and%20clear%20shortcuts.adoc[parser and runtime checks]
 
 |`++261009-0251++`
@@ -1125,7 +1126,7 @@ MSYS2 location handling.
 a|link:../docs/261010-1449%20DONE%20Discover%20MSYS2%20across%20Windows%20drives.adoc[MSYS2 location handling]
 
 |`++261010-1512++`
-a|Petr subsequently confirmed prerequisite setup and a successful EP4_10 native
+a|We subsequently confirmed prerequisite setup and a successful EP4_10 native
 MSYS2 rebuild on Windows 10 LTSC in VirtualBox, using an explicit D-drive MSYS2
 root. Native guest execution remains pending.
 a|link:../docs/261010-1512%20DONE%20Native%20Windows%20EP4%20rebuild%20confirmed.adoc[native build checkpoint]
@@ -1138,7 +1139,7 @@ an actual cross-built PE dependency scan pass; native startup remains pending.
 a|link:../docs/261010-1521%20DONE%20Stage%20Windows%20runtime%20DLL%20dependencies.adoc[runtime DLL staging]
 
 |`++261010-1530++`
-a|Petr subsequently confirmed native `--describe` startup with the correct
+a|We subsequently confirmed native `--describe` startup with the correct
 EP4_10 identity and geometry. The DLL loader issue no longer blocks that
 invocation; SDL and guest execution still await their separate check.
 a|link:../docs/261010-1530%20DONE%20Native%20Windows%20executable%20startup%20confirmed.adoc[startup evidence and disposable SDL check]
@@ -1156,7 +1157,7 @@ and became the primary Windows test target. An authenticated loopback transport
 with a separate owner-stop channel is now implemented; Linux keeps its ordinary
 PTY path. The new binary/guest/reconnect/shutdown proof passes on Linux EP4_10
 and ES3_5, and ES3_5 cross-compiles for Windows. Native MSYS qualification is
-pending through the new `desktop-proof.cmd`. Petr selected the live W: share
+pending through the new `desktop-proof.cmd`. We selected the live W: share
 for the next rebuild and disposable storage proof; logs remain in shared build
 output.
 a|link:../docs/261010-1615%20DONE%20Windows%20loopback%20proof%20prepared%20for%20shared-drive%20test.adoc[connection proof and shared-drive checkpoint]
@@ -1217,7 +1218,7 @@ physical key/application acceptance remain separate checks.
 a|link:../docs/261010-1957%20DONE%20Native%20Windows%20timing%20and%20mirror%20acceptance.adoc[native timing and mirror acceptance]
 
 |`++261010-2014++`
-a|Mintty Alt+PgUp/PgDn now select history banks through the same controls as
+a|Mintty kbd:[Alt+PgUp] / kbd:[Alt+PgDn] now select history banks through the same controls as
 Konsole/Kitty. A card-free Mintty keyboard probe records physical bank, zoom and
 backlight chords; bank/zoom routes pass, fine-backlight input remains unresolved.
 A separate rendering diagnostic and mirror receive timestamps support the
@@ -1237,8 +1238,8 @@ a|link:../docs/261010-2032%20DONE%20Desktop%20complete-frame%20scheduling.adoc[d
 a|Native Windows redraw/scroll is now user-confirmed fast; fine backlight controls
 work. Slow guest storage remains under investigation. A disposable-card comparison
 launcher measures build-share versus local-TEMP directory and output timings,
-without rebuilding or accessing the working card. Windows Alt+Esc interception
-is documented with the existing Pause then x fallback.
+without rebuilding or accessing the working card. Windows kbd:[Alt+Esc] interception
+is documented with the existing kbd:[Pause] then kbd:[x] fallback.
 a|link:../docs/261010-2134%20DONE%20Windows%20storage%20comparison%20prepared.adoc[storage comparison checkpoint]
 
 |`++261010-2136++`
@@ -1303,15 +1304,15 @@ a|link:../docs/261011-0049%20DONE%20Windows%20ES3_5%20storage%20integration%20an
 
 |`++261011-0124++`
 a|At `261011-0124`, desktop SDL windows become fixed-size with launcher-selected
-integer scale 1..9. Alt+Q joins all supplied mirror profiles; Windows numeric
+integer scale 1..9. kbd:[Alt+Q] joins all supplied mirror profiles; Windows numeric
 controls preserve modifiers and gain a Konsole parity test. The three Windows
 rebuild/local/card launchers gain progress and adjacent transcripts. Host tests
 and Windows cross-build pass; native keys/window/log acceptance remains pending.
 a|link:../docs/261011-0124%20DONE%20Fixed%20SDL%20scale%20shared%20exit%20aliases%20and%20Windows%20launcher%20logs.adoc[desktop window, keyboard and launcher checkpoint]
 
 |`++261011-1545++`
-a|At `261011-1545`, Petr confirms Alt+Q, fixed SDL windows and integer scaling
-across all six Windows desktop variants. Alt+Q becomes the primary documented
+a|At `261011-1545`, we confirm kbd:[Alt+Q], fixed SDL windows and integer scaling
+across all six Windows desktop variants. kbd:[Alt+Q] becomes the primary documented
 exit shortcut. The Windows helper gains modified numpad brightness/OFF decoding
 and separate top-row/numpad probes; physical recheck is pending. History recall
 now tries the full prefix including spaces before the inline-word fallback.
@@ -1322,7 +1323,7 @@ a|link:../docs/261011-1545%20DONE%20Spaced%20history%20filters%20and%20Windows%2
 |`++261011-1558++`
 a|At `261011-1558`, filtered history inserts stored bytes without adding spaces;
 existing stored/surrounding whitespace is preserved. A fresh Windows capture
-identifies the NumLock navigation path with Shift removed, and explicit keypad
+identifies the kbd:[NumLock] navigation path with kbd:[Shift] removed, and explicit keypad
 aliases are added for numeric brightness/OFF. Host tests pass; native alias
 acceptance and plain-key positional parity remain open.
 a|link:../docs/261011-1558%20DONE%20Exact%20history%20insertion%20and%20numpad%20navigation%20aliases.adoc[exact insertion and numpad correction]
@@ -1331,7 +1332,7 @@ a|link:../docs/261011-1558%20DONE%20Exact%20history%20insertion%20and%20numpad%2
 a|At `261011-1617`, Windows launch/probe tooling gains a native helper scoped to
 one Mintty message thread. Physical Czech number-row and keypad decimal events
 reach the existing INI/default mapping; numeric brightness/OFF shortcuts are
-handled before text conversion. Ordinary punctuation, paste and AltGr retain
+handled before text conversion. Ordinary punctuation, paste and kbd:[AltGr] retain
 their text path. Portable mapping tests, 29 tooling tests and the helper
 cross-build pass; actual Mintty delivery awaits native acceptance.
 a|link:../docs/261011-1617%20DONE%20Focused%20Mintty%20physical-key%20helper%20prepared.adoc[helper design and focused native test]
@@ -1344,7 +1345,7 @@ pass.
 a|link:../docs/261011-1626%20DONE%20Three%20Windows%20target%20launchers.adoc[launcher cleanup]
 
 |`++261011-2115++`
-a|At `261011-2115`, Petr confirms native keypad decimal, top-row/keypad brightness
+a|At `261011-2115`, we confirm native keypad decimal, top-row/keypad brightness
 and OFF. Plain Czech row conversion still fails, so detection now uses physical
 scan positions and the complete active layout row. The separate host setting
 `XTGV_HACK_TOPROW` selects that row; empty disables conversion and an inherited
@@ -1376,7 +1377,7 @@ They remain brainstorming, with no architecture or launcher migration.
 a|link:../docs/261011-2158%20CHAT%20Desktop%20profiles%20browser%20runtime%20and%20common%20host%20terminal.adoc[options and recommended experiments]
 
 |`++261011-2207++`
-a|At `261011-2207`, Petr confirms the explicit Windows configuration handoff fixes
+a|At `261011-2207`, we confirm the explicit Windows configuration handoff fixes
 the plain Czech row in ES3_35. The Windows-only scope of `XTGV_HACK_TOPROW` is
 confirmed against the separate generated Linux keymaps.
 a|link:../docs/261011-2158%20DONE%20Explicit%20Windows%20row%20configuration%20handoff.adoc[native follow-up]
@@ -1385,12 +1386,12 @@ a|link:../docs/261011-2158%20DONE%20Explicit%20Windows%20row%20configuration%20h
 a|At `261011-2213`, `XTGV_HACK_TOPROW` becomes a common Linux/Windows host setting
 with one reader and precedence rule. Konsole/Kitty launchers generate immutable
 configuration-specific keymaps, while Windows keeps its accepted native helper.
-Empty disables ordinary row bindings; Alt-bank selection remains separate.
+Empty disables ordinary row bindings; kbd:[Alt]-bank selection remains separate.
 All 82 focused tooling tests pass; fresh Linux GUI typing remains a human check.
 a|link:../docs/261011-2213%20DONE%20Shared%20host%20number-row%20configuration.adoc[shared setting checkpoint]
 
 |`++261011-2224++`
-a|At `261011-2224`, Petr confirms the shared number-row setting works in the
+a|At `261011-2224`, we confirm the shared number-row setting works in the
 retested workflow. This closes the requested fresh-launch acceptance check;
 it does not claim every host/layout combination was tested.
 a|link:../docs/261011-2213%20DONE%20Shared%20host%20number-row%20configuration.adoc[user acceptance follow-up]
@@ -1425,7 +1426,7 @@ a|link:../docs/261011-2243%20DONE%20Separate%20WezTerm%20local%20launchers.adoc[
 |Checkpoint |What changed |Evidence
 
 |`++261012-0001++`
-a|At `261012-0001`, Petr retires the WezTerm experiment. Optional launchers,
+a|At `261012-0001`, we retire the WezTerm experiment. Optional launchers,
 profile generation, integration and temporary test artifacts are removed;
 AsciiDoc records remain. Windows direct Lua and MSYS/ConPTY samples both
 retain RGB 255,165,0 in the terminal model but appear too dark. The cause
@@ -1435,7 +1436,7 @@ keycaps stay in the shared document CSS.
 a|link:../docs/261012-0001%20REJECT%20WezTerm%20colours%20in%20VirtualBox%20Windows%2010.adoc[cleanup scope and retained evidence]
 
 |`++261012-0806++`
-a|At `261012-0806`, Petr reports successful setup, rebuild and launch of one
+a|At `261012-0806`, we report successful setup, rebuild and launch of one
 emulator from a fresh local D: clone after installing and updating MSYS2 in
 Windows 10 VirtualBox. The repository README and guides now present both Linux
 and Windows setup paths and matching `.sh`/`.cmd` desktop launcher names.
@@ -1462,7 +1463,7 @@ a|link:../docs/261012-0933%20DONE%20Quiet%20desktop%20launchers%20and%20shared%2
 |`++261012-1043++`
 a|An unchanged Windows ES3_35 executable runs under Wine 11.19 with the native
 Linux Konsole/Python mirror through authenticated loopback sockets. Eight
-lifecycle/transfer cases pass; Petr confirms normal interaction and the
+lifecycle/transfer cases pass; we confirm normal interaction and the
 Mandelbrot demo. A missing A2 directory in the reduced test card caused the
 SUBMIT error and was repaired. Storage remains slower by user report. This is
 an experimental one-target Linux result, with macOS untested.
@@ -1484,7 +1485,7 @@ a|Added standalone ES3_35 browser input through the existing byte/CSI protocol,
 frozen text/image copying, integer canvas scaling and browser-local card ZIPs.
 Original C++ terminal/RunCPM remain; one web-only read-only snapshot accessor.
 Chromium checks cover keyboard dispatch, clipboard/PNG, MEMFS reboot/export/import,
-offline input/export and simulated DPR 1/1.25/2. At 261012-1619 Petr reports
+offline input/export and simulated DPR 1/1.25/2. At 261012-1619 we report
 all working in the current setup; other-host and full keyboard-layout coverage
 remain separate. Native-mirror proof remains selectable.
 a|link:../docs/261012-1602%20DONE%20Standalone%20browser%20input%20snapshots%20and%20card%20ZIPs.adoc[Standalone browser checkpoint]
@@ -1517,6 +1518,73 @@ isolation worker and manual build/test/deploy workflow. Headerless local
 Chromium boot, input, target switching and safe worker updates pass.
 Live GitHub deployment remains pending.
 a|link:../docs/261012-1812%20DONE%20GitHub%20Pages%20package%20and%20manual%20deployment.adoc[Pages checkpoint]
+
+|`++261012-2158++`
+a|We confirm the browser version is published after an approximately two-minute
+build. Guides now lead with the published page, distinguish browser/native input
+and card lifetime, link vendor specifications and render physical keys as keycaps.
+Our limited Intel MacBook Air check found some kbd:[Fn] combinations working,
+kbd:[Alt+Space] unavailable and application exit working with kbd:[Alt+Esc].
+Browser/macOS versions were not recorded; macOS remains unqualified. Optional
+control and command-reference strips remain proposals; no runtime change.
+a|link:../docs/261012-2158%20DONE%20Browser%20entrance%20guide%20routes%20and%20keyboard%20notation.adoc[Guide update and user observations]
+
+|`++261013-0803++`
+a|Maintained guides use collective or neutral wording and consistently label
+the modifier key Alt. Shared AsciiDoc keycaps are slightly larger and lower,
+with reusable CSS size/offset settings. Inverted headings and keycaps support
+quick visual scanning. Name-specific modifier backgrounds remain unimplemented:
+the standard key markup would need a class or attribute before CSS can select it.
+a|link:../docs/261013-0803%20DONE%20Collective%20guide%20voice%20and%20keycap%20styling.adoc[Guide voice and keycap styling]
+
+|`++261013-0837++`
+a|The shared JavaScript helper now marks Ctrl, Alt, Shift and Fn keycaps with
+a modifier class; CSS gives them a lighter grey background. All keycaps move
+one pixel higher, with their size unchanged. Plain AsciiDoc key macros still
+suffice; exported HTML can use the same helper and stylesheet.
+a|link:../docs/261013-0803%20DONE%20Collective%20guide%20voice%20and%20keycap%20styling.adoc#_261013_0837_follow_up_modifier_tagging[Modifier tagging follow-up]
+
+
+|`++261013-1124++`
+a|HG now reconstructs the 250529 origins, private January/July evidence and
+wider 7xsys/7xmod/7xmem/VMEX context, with daily September-October checkpoints.
+Raw personal-review detail, uncertain dates and the unimplemented native
+four-byte engine remain explicit. After review, private-document and ZIP links
+were removed; source descriptions and public references remain.
+a|link:../docs/261013-1124%20DONE%20Raw%20history%20and%20genesis%20reconstruction.adoc[Raw HG reconstruction]
+
+|`++261013-1527++`
+a|Browser Controls is 30% wider, with a default-visible Guides column between
+controls and display. It has a hide/show button, numbered PDF/ADOC links and
+quickstart commands. Packaged keycaps follow the shared AsciiDoc stylesheet.
+Local Chromium layout/download checks pass; publication remains separate.
+a|link:../docs/261013-1527%20DONE%20Browser%20guides%20column%20and%20shared%20keycaps.adoc[Guides column and keycaps]
+
+|`++261013-1601++`
+a|ADOC guide buttons open GitHub-rendered pages. The compact reference now
+covers history, named prompts, browsing and changing areas. Asciidoctor.js
+and our CSS/JS links follow the guides; the heading/tab say RunCPM 7xtgv-terminal.
+a|link:../docs/261013-1527%20DONE%20Browser%20guides%20column%20and%20shared%20keycaps.adoc#_261013_1601_follow_up_web_links_and_compact_reference[Guide links and quickstart follow-up]
+
+|`++261013-1628++`
+a|Browser VTINFO and VTZOOM no longer time out while their replies wait behind
+the next UI frame. Pending-output polling yields briefly and query replies
+reach guest input in the parsing pass. Thirty VTINFO and eighteen VTZOOM checks
+pass across six Chromium targets, with clean prompts and unchanged guest COMs.
+a|link:../docs/261013-1628%20DONE%20Browser%20VTINFO%20and%20VTZOOM%20reply%20timing.adoc[Browser query reply timing]
+
+|`++261013-1703++`
+a|Browser Ctrl+] now passes to the guest instead of releasing focus. Guides
+starts with clear/exit, backlight and profiles; duplicate clear/exit/profile
+text is removed from Controls. Chromium focus/input checks pass at three DPRs.
+User reports usable Android mobile operation; version details remain unknown.
+a|link:../docs/261013-1703%20DONE%20Browser%20focus%20and%20shortcut%20panel%20update.adoc[Browser focus and shortcut panel]
+
+|`++261013-1822++`
+a|Browser rebuild/local shortcuts now show concise stages, build percentages
+and the ready URL, with full details in adjacent desktop-rebuild.log and
+desktop-local.log. Actual rebuild, HTTP logging and Ctrl+C cleanup pass.
+a|link:../docs/261013-1822%20DONE%20Quiet%20browser%20shortcuts%20and%20adjacent%20logs.adoc[Quiet browser shortcuts]
 
 |===
 

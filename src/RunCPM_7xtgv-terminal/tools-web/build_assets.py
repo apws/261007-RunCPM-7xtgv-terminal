@@ -2,19 +2,64 @@
 """Package standalone static assets. Build-time only; never writes the source card."""
 import argparse
 import hashlib
+import html
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import sys
 import zipfile
+from urllib.parse import quote
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 BUILD = ROOT / 'build/RunCPM_7xtgv-terminal/desktop-web'
+REPOSITORY_WEB = 'https://github.com/apws/261007-RunCPM-7xtgv-terminal/blob/main'
 sys.path.insert(0, str(HERE.parent / 'tools'))
 from key_event_ids import key_ids
 from host_key_config import keyboard_environment
+
+
+def package_guides(output):
+    """Package only the numbered guides and their available printed PDFs."""
+    destination = output / 'guides'
+    destination.mkdir(exist_ok=True)
+    rows = []
+    for source in sorted((ROOT / 'guides').glob('[0-9][0-9]-*-guide.adoc')):
+        number, abbreviation, slug = source.stem.split('-', 2)
+        title = slug.replace('-', ' ').title()
+        if abbreviation == 'TRG':
+            title = 'Technical Reference Guide'
+        shutil.copyfile(source, destination / source.name)
+        pdfs = list((ROOT / 'guides/pdf').glob(f'* - {number} {abbreviation} *.pdf'))
+        if len(pdfs) > 1:
+            raise ValueError(f'Ambiguous printed guide: {source.name}')
+        def document_link(path, kind):
+            url = (f'{REPOSITORY_WEB}/guides/{quote(path.name)}' if kind == 'ADOC'
+                   else f'guides/{quote(path.name)}')
+            return (f'<a class="guide-format" href="{url}" '
+                    f'target="_blank" rel="noopener" aria-label="{html.escape(title)} ({kind})" '
+                    f'title="{html.escape(title)} · {kind}">{kind}</a>')
+        pdf = '<span class="guide-format unavailable" title="PDF not available" aria-label="PDF not available">PDF</span>'
+        if pdfs:
+            shutil.copyfile(pdfs[0], destination / pdfs[0].name)
+            pdf = document_link(pdfs[0], 'PDF')
+        rows.append(f'<li>{pdf}{document_link(source, "ADOC")}<span>{html.escape(title)}</span></li>')
+    if not rows:
+        raise ValueError('No numbered guides found')
+    return '\n'.join(rows)
+
+
+def package_keycaps(output):
+    """Keep the guide stylesheet as the single source for keycap appearance."""
+    css = (ROOT / 'asciidoctorjs-crx-mixworx.css').read_text()
+    variables = re.findall(r'  --mixworx-(?:text-font|keycap-[\w-]+):[^;]+;', css)
+    start = css.index('.keyseq {')
+    end = css.index('\n.menuseq,', start)
+    (output / 'keycaps.css').write_text(
+        '/* Generated from asciidoctorjs-crx-mixworx.css; edit that source. */\n'
+        + ':root {\n' + '\n'.join(variables) + '\n}\n' + css[start:end])
 
 
 def pack_card(root, output):
@@ -50,7 +95,12 @@ def package(output, card_root=None, card_zip=None):
     for name in ('input.js', 'serial_link.js', 'display.js', 'screen_text.js', 'card.js',
                  'standalone.js', 'standalone.css'):
         shutil.copyfile(HERE / 'web' / name, output / name)
-    shutil.copyfile(HERE / 'web/standalone.html', output / 'index.html')
+    page = (HERE / 'web/standalone.html').read_text()
+    marker = '<!-- guide-links -->'
+    if page.count(marker) != 1:
+        raise ValueError('Standalone guide list marker missing or duplicated')
+    (output / 'index.html').write_text(page.replace(marker, package_guides(output)))
+    package_keycaps(output)
     shutil.copytree(HERE / 'web/vendor', output / 'vendor', dirs_exist_ok=True)
     for path in (BUILD / 'shared').glob('xtgv_web.*'):
         if path.suffix in ('.js', '.wasm'):

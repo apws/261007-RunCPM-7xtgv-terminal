@@ -1,0 +1,275 @@
+= 261012-2110 CHAT: Guides review after browser publication
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+:experimental:
+
+*Author:* Ari, following Petr's request. *Status:* first review and proposals,
+not an approved implementation plan. Repository baseline: `bf60c8a`.
+Maintained guides and application code are unchanged by this review.
+
+== Request and conclusion
+
+Petr's request, verbatim excerpt; the rest of the conversation is summarized
+below rather than reproduced as a full transcript:
+
+[literal]
+....
+do you want to try reviews of guides according to this info?? first pass make notes what to possibly change??
+....
+
+Petr reports that the approximately two-minute build succeeded and the browser
+version is published. He proposes the browser as the primary route for first
+experiments, asks about Linux/Windows/macOS and compact laptop keyboards,
+suggests a control column between the existing panel and display, and asks
+whether the guides link directly to the Waveshare and Guition modules.
+
+Ari's recommendation: retain the existing manuals, put the published browser
+entrance first, and correct route-specific instructions before shortening prose.
+Linux remains the current hardware build/upload route; native desktop use on
+Linux and Windows remains useful for local cards and development.
+Browser prominence does not change the primary native 7xtgv engine objective.
+
+The review covers the README and guide index, all six guides' structure and
+relevant entry/use sections, the browser README, and browser input, layout,
+startup and card-lifetime code. It is not an exhaustive command-by-command
+audit or a new compatibility test. External sources were checked on 261012.
+Live execution was not independently repeated: web retrieval failed and the
+in-app browser was unavailable. Publication is recorded as Petr's report.
+
+== Suggested reader routes
+
+[cols="1,2,2",options="header"]
+|===
+|Reader wants |Entrance |Boundary to explain
+|Try the project |https://apws.github.io/261007-RunCPM-7xtgv-terminal/[Published browser] and a short UG exercise |No checkout/compiler/native mirror. Save inside the guest, then Stop and download the card ZIP to retain changes.
+|Use or develop a native desktop build |BG Linux/Windows setup and desktop launch |SDL output plus native mirror input; selected host card is read/write and persists.
+|Run on a physical module |BG hardware section and board/vendor table |Current tooling uses Linux. Firmware rebuild/reflash and card preparation are separate operations.
+|Build or host the browser application |tools-web README |Developer prerequisites and deployment details belong here; opening the published page does not require them.
+|===
+
+Native desktop compilation does not itself create MCU firmware: keep
+`desktop-rebuild`, `rebuild` and `reflash` distinct even on Linux.
+
+== Findings and possible edits
+
+Labels a--j are stable discussion references. First priority is correctness
+and the entrance; later items improve navigation without a general rewrite.
+
+=== a. README: make the published page the first action
+
+The link:../README.adoc[README] opens with MCU/native desktop use. Its browser
+paragraph links to developer setup and calls publication an optional workflow;
+most first-use space is occupied by Linux/Windows setup and target folders.
+
+Propose a prominent direct browser link, a sentence explaining what runs, and
+a short sequence: wait for the CP/M prompt, click the display, type `VTINFO`
+or `LS /`, then learn how to retain changes. Link a graphical exercise from
+UG. Keep a compact choice of native desktop and physical hardware next.
+Move detailed prerequisite/launcher duplication to the existing BG owners.
+Keep the screenshot and the distinction between today's testbed and native
+7xtgv intent. Put optional local AsciiDoc viewing setup after reading links.
+
+=== b. Guide index and BG: installation becomes a chosen route
+
+link:../guides/README.adoc[Guide index] currently sends everyone to BG for
+clone/setup. Route browser visitors directly to UG; give builders BG.
+Old guide moves/bookmark migration and local renderer customization can remain
+accessible below the current navigation, without occupying the entrance.
+
+link:../guides/01-BG-build-guide.adoc[BG 1] starts with native desktop setup.
+Keep its detailed working recipes, but add an opening pointer for readers who
+only want to try the published page. Label macOS limitations specifically as
+native tooling limitations, not a statement about visiting the browser app.
+Keep Linux hardware instructions prominent in BG 3. Do not imply a Windows
+hardware workflow, a macOS native launcher, or universal fresh-host acceptance.
+
+=== c. UG: browser start, first exercise and card survival
+
+link:../guides/02-UG-user-guide.adoc[UG] starts with native mirror terminology.
+Its browser subsection requires a local build and launcher. Replace that
+entrance with the public URL; link local browser development separately.
+Give browser and native input locations explicitly before shared CP/M tasks.
+
+A compact first exercise could use `VTINFO`, `7XF` and `LS /`, then link to
+the existing xterm256 demonstration in UG 4. The card contains its referenced
+`BROT_BS.SUB` and program. Rehearse the chosen demonstration against the
+published card before promising it as a universal first experience; small
+panels clip fixed-position graphics. The current text mentions only TFT/SDL
+output and recommends EP4_10 desktop; include the browser canvas appropriately.
+
+Explain three user-visible distinctions at their points of use:
+
+* Display scale enlarges the rendered panel. Terminal glyph zoom/pan changes
+  its viewport. Logical terminal size is a third, independent setting.
+* Save a document in its CP/M application before target switching or restart;
+  keeping card contents does not keep unsaved application memory.
+* Browser INI/history/file saves reach the memory card, not durable browser
+  storage. Stop cleanly and download its ZIP; reload/close loses unexported
+  changes. Native host-card changes persist directly instead.
+
+Add browser entries to UG 4 for focus, reserved keys, startup failure and card
+export. Keep technical worker/isolation details in the browser developer README.
+
+=== d. RG and UG: scope the keyboard and transfer instructions
+
+link:../guides/03-RG-reference-guide.adoc[RG introduction] currently limits its
+scope to physical boards and Linux/Windows native desktop. Extend shared CP/M,
+profiles, INI and terminal behavior to the browser, with a small route matrix
+for the actual differences. Retain exact reference detail.
+
+Concrete conflicts found in source:
+
+[cols="1,2,2",options="header"]
+|===
+|Topic |Existing native guidance |Browser correction needed
+|kbd:[Ctrl+\]] |Introduces prefix commands; doubling can send a literal byte |`input.js` consumes it to release focus. The following letter does not invoke that native prefix command.
+|kbd:[Ctrl+Shift+X], VTPUT/VTGET |Opens the host mirror transfer panel |The standalone page has no Python mirror/panel. Teach its card ZIP controls separately; a guest helper's presence does not supply the missing host service.
+|Pause prefix alternatives |Referenced in the native key table |No explicit Pause mapping exists in `encodeKey`; do not advertise this as a tested browser fallback.
+|kbd:[Alt+Shift+Backspace] |Listed as GCLS arming |Browser encoder currently treats modified Backspace as a key event rather than explicitly emitting the listed GCLS control. Check decoder behavior before claiming parity.
+|Full-screen / modified keys |Host-specific native mappings |Plain F11 is deliberately left to the browser. OS/browser delivery and Mac function-key behavior need separate qualification.
+|===
+
+Evidence: link:../src/RunCPM_7xtgv-terminal/tools-web/web/input.js[input.js],
+link:../src/RunCPM_7xtgv-terminal/tools-web/web/serial_link.js[serial_link.js],
+link:../src/RunCPM_7xtgv-terminal/tools-web/web/standalone.js[standalone.js].
+Do not introduce another full copy of every key table; identify shared controls
+and document route exceptions beside their authoritative entries.
+
+=== e. Laptop controls: a useful application proposal
+
+Petr's extra column is feasible within the current two-column layout. Recommend
+an optional, collapsible strip between controls and display on wide windows,
+and a compact drawer/row on narrow windows. A permanently visible third column
+would reduce the available display area, especially for EP4_10 on a laptop.
+No layout or input implementation is included in this review.
+
+Candidate content:
+
+* A recognizable six-key block: Ins/Home/PgUp above Del/End/PgDn.
+* Named terminal actions for glyph zoom, pan/viewport scan, previous/next
+  profile and brightness. Bare PgUp/PgDn buttons alone do not replace the
+  modifier combinations used for these actions.
+* Expandable Ctrl/Shift/Alt modifiers and function keys if application use
+  demonstrates the need; modifiers need visible, predictable reset behavior.
+* Keep configured application exit distinct from an emergency COM abort.
+  Profile-sensitive guest keys should still use the existing C++ bindings.
+
+Implementation direction if adopted: share the existing key/control encoder
+and ordered input queue, rather than synthesizing DOM keyboard events or
+building another profile interpreter. Account for the current blur handler,
+which cancels pending input, and disabled/stopped runtime states. Mouse/touch
+use should permit returning to typing; keyboard activation of buttons should
+retain usable focus. Test that each activation sends once and modifiers cannot
+remain accidentally latched. Do not couple this small proposal to a full virtual
+keyboard, new native shortcuts or a firmware protocol redesign.
+
+=== f. Linux, Windows and macOS: promise browser capabilities precisely
+
+The delivered page executes Wasm locally and needs no native macOS launcher.
+It is a reasonable cross-platform entrance, but “any browser anywhere” would
+overstate the evidence. The Pages startup needs HTTPS, service workers and
+cross-origin-isolated shared memory. Browser support for the underlying shared
+memory facility is broad; that alone does not qualify this application or keys.
+See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer[MDN shared-memory requirements].
+
+Record tested browser + OS + version separately from expected compatibility.
+Existing notes establish Linux Chromium automated checks and Petr's earlier
+Chromium/Chrome/Edge report; that report does not identify every OS or establish
+Safari/macOS testing. Publication success also is not that compatibility matrix.
+
+Apple documents Fn+Left/Right for Home/End, Fn+Up/Down for PgUp/PgDn and
+Fn+Delete for forward Delete. These are useful candidates, not proof that
+their modified combinations reach our input module. See
+https://support.apple.com/en-us/102650[Apple keyboard shortcuts].
+Keep Control distinct from Command; our encoder leaves Meta/Command events to
+the browser. Option-generated characters, left/right Option, national layouts,
+Fn keys and OS-reserved combinations need real MacBook testing. Insert still
+needs an explicit accessible route; do not invent a universal Mac substitute.
+
+=== g. Hardware links: missing from maintained guides
+
+No direct Waveshare/Guition manufacturer links were found in README or the
+maintained guide prose. BG/README name the vendors and target folders;
+dated hardware notes contain several Waveshare sources.
+
+Propose one board table in BG, linked from the README and browser target help:
+display ID, exact module, manufacturer product page and technical documentation.
+Keep variants explicit; vendor capabilities do not establish project support.
+
+[cols="1,2,3",options="header"]
+|===
+|Display |Module |Sources located in this pass
+|EC6_147 |ESP32-C6-LCD-1.47 |https://www.waveshare.com/ESP32-C6-LCD-1.47.htm[Product]; https://www.waveshare.com/wiki/ESP32-C6-LCD-1.47[documentation]. Match the non-Touch module.
+|RP2_147 |RP2350-LCD-1.47-A |https://www.waveshare.com/rp2350-lcd-1.47-a.htm[Product family]; https://www.waveshare.com/wiki/RP2350-LCD-1.47-A[documentation]. Select Type-C A, not Type-A B; store variants can change the selected SKU.
+|RP2_2 |RP2350-Touch-LCD-2 |https://www.waveshare.com/product/rp2350-touch-lcd-2.htm[Product]; https://www.waveshare.com/wiki/RP2350-Touch-LCD-2[documentation].
+|ES3_5 |JC8048W550 |https://www.guition.com/model-selection[Manufacturer model list] and https://www.guition.com/esp32-display-module/iot-operator-interface-terminal[JC8048W550N_I product page]. Confirm the exact physical N/C variant before selecting the permanent link.
+|ES3_35 |JC8048W535 |Exact primary product/specification URL remains to be identified. Do not substitute a similarly named 3.5-inch board.
+|EP4_10 |JC8012P4A1C |Exact primary product/specification URL remains to be identified. A generic P4 development module page is not sufficient.
+|===
+
+Waveshare search results supplied the model-specific evidence where direct
+retrieval failed. Guition's current English model/download lists did not resolve
+the two outstanding exact models in this bounded pass; absence there does not
+establish that manufacturer material does not exist.
+
+=== h. TRG and TG: make browser ownership visible once
+
+link:../guides/04-TRG-technical-reference-guide.adoc[TRG 3] describes compile-time
+board selection and native host transports. Add a concise browser subsection:
+shared runtime with six compiled descriptors, selection/restart, C++ ownership
+of terminal behavior, JS input/canvas interface, memory-card lifetime and static
+hosting. Link detailed files and development commands to tools-web README.
+Keep physical timing/performance and native desktop validation separate.
+
+link:../guides/05-TG-tooling-guide.adoc[TG] gives the browser a subsection inside
+desktop launch. Its opening and maps still center on a native terminal window.
+Distinguish opening a hosted page, local browser build/hosting, native desktop,
+and physical upload in the overview. A small browser path can complement the
+existing diagrams; do not duplicate setup recipes. Hardware upload is not an
+action performed by the browser runtime.
+
+=== i. Browser README and status: separate using from building
+
+link:../src/RunCPM_7xtgv-terminal/tools-web/README.adoc[tools-web README] leads with
+setup/build rather than visiting the published page. Give it a short “Use the
+published application” entrance pointing to UG; retain detailed build, hosting,
+worker and packaging information here.
+
+Its deployment section still says live deployment is pending; the Pages feature
+registry entry carries the earlier permission-fix status. A subsequent scoped
+status edit should record Petr's successful publication report and preserve the
+initial failure as dated history. Do not turn it into a claim of Mac acceptance.
+
+=== j. Keep the valuable depth; trim only demonstrated overlap
+
+link:../guides/06-HG-history-guide.adoc[HG] remains Petr's personal account.
+Leave Lyra's imported discussion and dated evidence intact. Existing reference
+tables and architectural boundaries deserve their detail. Potential reductions
+are chiefly repeated setup paths, lists of target folders and native session
+instructions across README/BG/UG/RG/TG. Keep small local reminders needed to
+complete an action, especially card lifetime and where to type.
+
+Apply Lyra's philosophy with one qualification: availability in source is not
+a reason to remove a user-visible contract. Prefer a clear owner for each fact,
+with enough scope for a retrieved section to make sense independently.
+
+== Suggested order and acceptance for a later edit
+
+[loweralpha]
+. First apply a--d and i: public entrance, route labels, card lifetime and stale
+  publication status. Preserve existing section anchors where possible.
+. Add g's verified board links; leave unresolved Guition variants explicitly
+  pending until matched to the project's modules.
+. Apply h and selective duplication reductions only where the reading route
+  improves. No target word count or new seventh guide is proposed.
+. Treat e as a separate UI change, informed by f's Mac/laptop check.
+. Rehearse the first exercise on the deployed card and check local guide links
+  and rendering. On a MacBook, record browser/OS versions, boot, text input,
+  navigation/modifiers, target switch, snapshots and card ZIP round trip.
+
+This pass creates review notes and registry/index entries only. It performs no
+build, flash, card modification, guide rewrite, commit or publication.
+
+Related discussion:
+link:261012-10%20CHAT%20(Lyra)%20Documentation%20philosophy%20for%20Ari.adoc[Lyra's documentation philosophy].

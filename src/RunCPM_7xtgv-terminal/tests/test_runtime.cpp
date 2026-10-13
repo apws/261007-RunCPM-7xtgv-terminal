@@ -1352,6 +1352,21 @@ int main(int argc, char **argv) {
     assert(info.find(";2;80;24;26;12;") != std::string::npos);
     assert(std::count(info.begin(), info.end(), ';') == 22);
     assert(info.size() > 2 && info.substr(info.size() - 2) == "\033\\");
+    // A guest polling for VTINFO must receive the answer in the pass that
+    // parses its query, without waiting for the next browser/display frame.
+    while (input.pop(replyByte)) {}
+    emit("\033[>72v");
+    terminalLoop();
+    std::string deliveredInfo;
+    while (input.pop(replyByte)) deliveredInfo.push_back(char(replyByte));
+    assert(deliveredInfo == info && replies.available() == 0);
+    // Standard cursor reports need the same scheduling guarantee.
+    emit("\033[6n");
+    terminalLoop();
+    std::string cursorReply;
+    while (input.pop(replyByte)) cursorReply.push_back(char(replyByte));
+    assert(cursorReply == "\033[" + std::to_string(terminal.y + 1) + ";" +
+                          std::to_string(terminal.x + 1) + "R");
     for (uint8_t c : std::string("\033[>73;0v")) terminal.feed(c);
     assert(terminal.zoom == bootDisplayProfile.viewZoom &&
            terminal.cols == bootGeometry.cols && terminal.rows == bootGeometry.rows);

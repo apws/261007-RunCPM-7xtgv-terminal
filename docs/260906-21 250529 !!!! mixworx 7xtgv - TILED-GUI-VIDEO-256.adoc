@@ -4,15 +4,16 @@
 
 == Historical context
 
-* 260906-2154
-* !!! this doc describes ORIGINS of design of 7xtgv, with more detailed hardware-related implementation,
-* !!! our current 7xtgv-demos are based on brainstorming which resulted in 2 planes and it is not the same as encoding described here
+* !!! this doc describes ORIGINS of design of 7xtgv (250529), with more detailed hardware-related implementation,
+* !!! our current 7xtgv-demos (260126) are based on brainstorming which resulted in 2 planes and it is not the same as encoding described here
 * !!! it is question to which to steer it ... the vibe-coded demo from february 2026 was made just to test readability
 of 6x10 fonts on very tiny 1.47" dsplay and some similars ...
-* !!! this doc is here to maintain original design, to which we MAY return also ...
+* !!! this doc is here to maintain original design, to which we MAY return also (but latest 2-plane spec with ATTR+EXTA looks good, in fact) ...
 (some notes about SAA7105 aren of course in sw implementation on ESP32/RP2350/arduino modules with TFT IPS necessary)
 
-== Inspiration and initial direction
+== Inspiration and initial direction (250529)
+
+(for some time it was not clear what exactly is that QL raster - finally its 6x10px, but some simpler ideas was eve around 6x8px)
 
 * nice example (found AFTER my initial specs): Zeal 8bit computer VIDEO !!!
 https://www.tindie.com/products/zeal8bit/zeal-8-bit-video-board-homebrew-vga-board/
@@ -20,7 +21,7 @@ https://www.tindie.com/products/zeal8bit/zeal-8-bit-video-board-homebrew-vga-boa
 
 * ??? ADD MY Text mode 1 (simpler glyphed GUI and syntax color editors?)
 ** I want to implement only THIS simpler graphic version accros MANY 8bits/16/32 test on 7xsys/7xmod/7xmem dev boards with 7xbus decoupled interface
-** primary objective is 256color SinclairQL-like "ED" editor/fonts (6x8 !!!) but with pallete driven color text and tile-based windowing/glyphs
+** primary objective is 256color SinclairQL-like "ED" editor/fonts (6x10 in fact!) but with pallete driven color text and tile-based windowing/glyphs
 with FAST processing of small text-framebuffer having 8 tilesets (each 128 8x8 tiles - WHERE will be encoded 6x8 bitmap only and 2 bits on each
 tile line will SWITCH ink/paper color to BRIGHT/DARK by 50% ?? - we will have tilesets with font modified to have for example DARKER/BRIGHTER
 background or winding glyphs tilesets with some DARKER/BRIGHTER variants of selected colors - for LEDs OFF/ON, some "emphasis" of info etc) support
@@ -70,15 +71,15 @@ affecting of this 256 items pallete access to lower/higher color brightness ....
 in case we define also some "background transparent color" say by index 0 in COLOR BYTE PALLETE ? and animating the tiles?
 BUT - it is perfectly okay to LEAVE Zeal8bit SPRITED GAMES VIDEO as-is for games... this is note if the "7xtgv" may fit into Zeal8bit videocard FPGA)
 
-* QL-like 6x8bit chars on screen, like Sinclair-QL default font - quite beautiful, compact, readable !!!
+* QL-like 6x10bit chars on screen, like Sinclair-QL default font - quite beautiful, compact, readable !!!
 ** primary is WHITE "paper" background (positive view), with option to "repallete" (at the final SAA7105H stage) down to "night mode darkness"
 (and each tileset has its own ink/paper palletes)
 ** 256 color means BYTE-index into FINAL rendering LUT (in case of SAA7105H video encoder (also PAL/NTSC), this 24bit RGB pallete is redefinable by I2C
 or from CPLD video data stream)
 ** allow BOLD font variant for "black bold keywords" (this is bit7 on "chars/tiles") - used also for switching 2 STATES of windowing glyphs / LEDs
-(actually, IMPOSIBLE to draw bold fonts in already small 6x8 (nor 8x8) - se we will SIMULATE this by colors BRIGHTNESS (bolds are DARKER)
+(actually, IMPOSIBLE to draw bold fonts in already small 6x10 (nor 8x8) - se we will SIMULATE this by colors BRIGHTNESS (bolds are DARKER)
 ** hi-res graphics can be rendered using tilesets4567 linearly placed as small "graphic panes" into GUI -  simple charts/graphs + legends (colors)
-(slightly complicated now as tilesets are not 8x8 but only 6x8 - but okay, here realtime drawing is up to application to handle that in case of REALLY
+(slightly complicated now as tilesets are not 8x8 but 6x10 - but okay, here realtime drawing is up to application to handle that in case of REALLY
 custom graphic pane - FAR more often can be used ready made glyphs with defined "PER-LINE BRIGHTNESS modifiable TILES" (needs more brainstorming...)
 ** it needs at least vertical hardware scroll for text console/window (may be "fine hi-res" later, simple is far than enough now)
 (ummm, is this really so much needed in simples implementation?? in case of scrolling inside "windows", this MUST be done by copying chars/attrs !!!
@@ -122,7 +123,7 @@ its in fact "the shell" of QL and as it is SO POWEERFULL, its simply makes whole
 
 * "TILESETS"
 ** 8192 = 8x 128*8 tilesets 0-7 definitions, each char is defined as 8bytes (6x8 px + 2bit BOLD/DARKER INK / EMPHASIZED/LIGHTER PAPER ??? )
-*** we want to use SinclairQL compatible textmode 6x8 TILES
+*** we want to use SinclairQL compatible textmode 6x8 (6x10 in fact!) TILES
 ** tileset0 = BASE ASCII font
 ** tileset1 = BOLD ASCII font (actually, just DARKER ... by brighness bits for ink and paper)
 ** tileset2 = windowing glyphs - 64 standard + 64 custom

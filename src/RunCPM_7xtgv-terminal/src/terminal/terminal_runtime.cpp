@@ -2436,7 +2436,18 @@ static void terminalTextBenchmarkPoll() {
         active = false;
     }
 }
-int virtualAvailable() { return input.available(); }
+int virtualAvailable() {
+#if defined(XTGV_WEB)
+    // The guest worker can exhaust a COM's bounded input-poll loop before
+    // the browser's next animation frame even parses its queued query.
+    // Yield only when input is empty and guest output still awaits the UI
+    // owner. Never run the terminal/parser from this worker or slow polling
+    // when there is no outstanding output.
+    if (!input.available() && output.available())
+        delay(1);
+#endif
+    return input.available();
+}
 uint8_t virtualRead() {
     uint8_t c;
     while (!input.pop(c)) {
@@ -2593,6 +2604,12 @@ void terminalLoop() {
         // retained xterm canvas untouched.
         updateActiveRow();
     }
+    // Queries parsed above can generate replies in this pass. Publish them
+    // before rendering/mirroring, rather than making a polling guest wait for
+    // another terminal tick (a whole animation frame in the browser).
+    if (!forcedWarmReturn().suppressInput())
+        while (input.free() && replies.pop(c))
+            input.push(c);
     historyNoticePoll();
     updateEffectiveBank();
     if (!forcedWarmReturn().suppressInput()) {
@@ -2646,6 +2663,7 @@ bool terminalDesktopWorkPending() {
     // Called only by the UI owner after terminalLoop(). A future frame deadline
     // is not runnable work; sleep while waiting for it instead of spinning.
     if (pauseRequested.load(std::memory_order_acquire)) return false;
+    if (replies.available() && input.free() && !forcedWarmReturn().suppressInput()) return true;
     if (output.available()) return true;
     if (!connected || Serial.availableForWrite() <= 0) return false;
     if (mirrorSent < mirrorLength || mirrorReset || terminal.mirrorCursorDirty ||

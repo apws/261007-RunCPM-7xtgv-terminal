@@ -117,7 +117,7 @@ terminal serving as its development and compatibility testbed. Do not silently
 define the native architecture by whichever ANSI conveniences the testbed
 currently implements.
 
-Evidence: link:260906-21%20250524%20!!!!%20mixworx%207xtgv%20-%20TILED-GUI-VIDEO-256.adoc[original concept],
+Evidence: link:260906-21%20250529%20!!!!%20mixworx%207xtgv%20-%20TILED-GUI-VIDEO-256.adoc[original concept],
 link:260906-12%20RECOVERY.adoc[recovery],
 link:260919-14%20terminal%20RunCPM%20source%20boundaries%20and%20rendering%20flow.adoc[cell model and native boundary].
 

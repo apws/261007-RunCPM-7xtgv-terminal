@@ -37,7 +37,9 @@ async def main():
                         await page.locator('#display').click(position={'x':30,'y':30})
                         assert await page.evaluate(captured), 'Canvas click lost keyboard focus'
                     await page.keyboard.press('Control+]')
-                    assert not await page.evaluate(captured), 'Release chord retained capture'
+                    assert await page.evaluate(captured), 'Ctrl+] unexpectedly released capture'
+                    await page.click('#show-text')
+                    assert not await page.evaluate(captured), 'Page control did not release capture'
                     await page.locator('#display').click(position={'x':30,'y':30})
                     assert await page.evaluate(captured), 'Canvas click did not recapture'
                     # Real guest input after a pointer click (no focus-button helper).
@@ -73,6 +75,10 @@ async def main():
                         const module=new KeyboardModule(area,input,b=>sent.push(Array.from(b)),m=>messages.push(m),'');
                         module.setEnabled(true); input.focus();
                         const check=(yes,why)=>{if(!yes)throw Error(why);};
+                        input.dispatchEvent(new KeyboardEvent('keydown',{key:']',code:'BracketRight',ctrlKey:true,cancelable:true}));
+                        check(document.activeElement===input,'Ctrl+] released focus');
+                        check(JSON.stringify(sent)==='[[29]]','Ctrl+] did not reach the guest as control byte');
+                        sent.length=0;
                         input.dispatchEvent(new CompositionEvent('compositionstart'));
                         input.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',code:'Enter',isComposing:false,cancelable:true}));
                         input.value='E';

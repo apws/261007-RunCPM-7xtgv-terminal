@@ -16,7 +16,7 @@ def build_percent(line):
     return None
 
 
-def run_build(command, log, env=None):
+def run_build(command, log, env=None, label='Building desktop'):
     environment = dict(os.environ if env is None else env)
     environment['NINJA_STATUS'] = '[%f/%t] '
     terminal = sys.stdout.isatty()
@@ -28,7 +28,7 @@ def run_build(command, log, env=None):
         if percent <= last or (not terminal and not final and percent < last + 5):
             return
         last = percent
-        print(('\r' if terminal else '') + f'Building desktop: {percent:3d}%',
+        print(('\r' if terminal else '') + f'{label}: {percent:3d}%',
               end='' if terminal else '\n', flush=True)
 
     child = subprocess.Popen(command, env=environment, stdout=subprocess.PIPE,

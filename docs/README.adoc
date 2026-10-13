@@ -7,13 +7,27 @@ root-level `guides/`.
 Historical notes describe the state at their date; they are not automatically
 current implementation instructions.
 
-For current installation, use the link:../README.adoc[repository README] or
-link:../guides/01-BG-build-guide.adoc[Build Guide]: native desktop builds are
-supported on Linux and Windows, with matching `.sh`/`.cmd` launcher names.
-The early Windows records below preserve their original pending-test status;
-they are not the current setup procedure.
+For first experiments, use the https://apws.github.io/261007-RunCPM-7xtgv-terminal/[published browser]
+and link:../guides/02-UG-user-guide.adoc#browser-session[User Guide]. For native
+Linux/Windows setup or Linux hardware builds/uploads, use the
+link:../guides/01-BG-build-guide.adoc[Build Guide]. Dated platform and keyboard
+observations keep their original test scope; they are not universal acceptance.
 
 == High-level reading
+
+* link:261013-1703%20DONE%20Browser%20focus%20and%20shortcut%20panel%20update.adoc[Browser focus and shortcuts]: Ctrl+] stays with guest input, shortcut placement updated, and user Turbo/TINST card changes verified without alteration.
+
+* link:261013-1628%20DONE%20Browser%20VTINFO%20and%20VTZOOM%20reply%20timing.adoc[Browser VTINFO/VTZOOM fix]: timely query replies, six-target Chromium proof and unchanged guest helpers.
+
+* link:261013-1527%20DONE%20Browser%20guides%20column%20and%20shared%20keycaps.adoc[Browser Guides column]: wider controls, default-visible guide links, quickstart and shared keycap styling; locally rebuilt and checked.
+
+* link:261013-1124%20DONE%20Raw%20history%20and%20genesis%20reconstruction.adoc[Raw history reconstruction]: detailed personal-review HG, private sources, ecosystem context, daily checkpoints and native-SPEC review prompts.
+
+* link:261013-0803%20DONE%20Collective%20guide%20voice%20and%20keycap%20styling.adoc[Guide voice and keycap styling]: collective wording, consistent Alt labels, shared size/alignment controls and subsequent JavaScript tagging for lighter modifier backgrounds.
+
+* link:261012-2158%20DONE%20Browser%20entrance%20guide%20routes%20and%20keyboard%20notation.adoc[Browser entrance and guide update]: published first-use route, native/browser instruction boundaries, limited Intel MacBook Air report, vendor specifications and rendered keycaps; optional controls/quick-reference strips remain proposals.
+
+* link:261012-2110%20CHAT%20Guides%20review%20after%20browser%20publication.adoc[Guides after browser publication]: first-pass proposals for the public entrance, browser/native instruction boundaries, laptop controls and manufacturer links; maintained guides unchanged.
 
 * link:261012-1712%20DONE%20Shared%20browser%20runtime%20with%20selectable%20display%20targets.adoc[Shared browser targets]: six compiled board descriptors in one Wasm, with card-preserving restart and target selection in the page; automated Chromium checks pass.
 
@@ -47,7 +61,7 @@ they are not the current setup procedure.
 * link:261007-1146%20DONE%20Design%20evolution%20and%20key%20milestones.adoc[Design evolution and key milestones]: major architectural decisions, their motivation, evidence and remaining boundaries.
 * link:261004-11%20manual%20reorg.adoc[Petr's practical manual outline]: historical user-task notes, converted from the manual folder's raw TXT; not a replacement for the current guides.
 * link:../guides/04-TRG-technical-reference-guide.adoc[Technical Reference Guide]: current developer boundaries and baseline/integration notes.
-* link:../guides/06-HG-history-guide.adoc[History Guide]: reserved for Petr's personal account of the project's origins and motivation; in preparation.
+* link:../guides/06-HG-history-guide.adoc[History Guide]: detailed raw reconstruction for our own review: origins, wider 7xsys context, source descriptions and daily development checkpoints; uncertainties and unfinished native work are explicit.
 
 == New chronological records (agreed 261006)
 

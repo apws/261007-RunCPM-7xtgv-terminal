@@ -1,0 +1,133 @@
+= 7xtgv Development History Guide - planning note
+:author: Lyra / ChatGPT
+:revdate: 2026-07-27
+:toc:
+:sectnums:
+
+This note captures a proposed structure for reconstructing the development history of 7xtgv from older chats, notes, recovered code, specifications, and prior-art investigations.
+
+What you have is not merely a collection of old chats, but a *design-history corpus*: a record of how 7xtgv converged from looking at existing hardware, through the 6x10 character-raster question, through the early-2026 prototypes, and then into the recovered 2607xx implementation.
+
+For Ari, it would be better not to request only a plain chronological summary. A useful history guide should follow three intertwined tracks.
+
+== 1. Chronology
+
+Roughly:
+
+----
+250529
+  -> 2601xx / 2602xx
+  -> lost-work period
+  -> recovery around 2607xx
+  -> current implementation/specification
+----
+
+The exact timestamp tags and chat names should be preserved wherever possible, so that each historical statement can be traced back to its source.
+
+== 2. Design decisions
+
+The guide should identify not only *what* was discussed, but *why* decisions were made.
+
+Examples include:
+
+* why 6x10 became important;
+* why 480x320 is such a natural fit for 80x30 or 80x32 text;
+* why character/tile semantics were retained instead of relying only on a pixel framebuffer;
+* why attributes, ink/paper concepts, font/glyph banks, and later layered structures developed the way they did;
+* why some terminal-style features were promoted into native 7xtgv display semantics instead of remaining emulator hacks.
+
+Each important decision should ideally say:
+
+----
+problem
+-> alternatives considered
+-> experiment / prior art
+-> chosen direction
+-> whether that decision still survives
+----
+
+== 3. Prior-art investigation
+
+This is especially important because 7xtgv was not designed in ignorance of earlier character and tile engines.
+
+The historical guide should collect the searches and comparisons involving devices and architectures such as:
+
+* VGA text mode;
+* TMS9918 and F18A;
+* MSX V9938 / V9958;
+* older character/tile display controllers;
+* SED1335-like LCD controllers;
+* RA8875 / RA8876;
+* FPGA/CPLD text-mode implementations;
+* terminal-oriented display engines;
+* other charset/tile-based hardware investigated during the project.
+
+A key historical conclusion should be preserved clearly:
+
+[quote]
+____
+The exact modern 6x10-oriented character engine wanted for 7xtgv was actively searched for, but no ready-made historical or modern implementation was found that matched the desired architecture closely enough.
+____
+
+That matters because it explains that 7xtgv was not simply an unnecessary reinvention. The design partly emerged from repeated attempts to find an existing wheel which, in the required form, apparently did not exist.
+
+== Suggested classification of historical findings
+
+Ari could mark each extracted conclusion with one of these categories:
+
+----
+historical fact
+design observation
+decision adopted
+idea rejected
+later superseded
+open question
+----
+
+This would make the result much more useful than a normal transcript summary.
+
+It would show not only what was once said, but also whether the idea survived into the current architecture.
+
+== Suggested eventual document structure
+
+A possible outline:
+
+----
+7xtgv Development History Guide
+
+1. Origins and problem statement
+2. Why 6x10 became important
+3. Survey of existing character/tile display architectures
+4. Early 7xtgv concepts
+5. 2601xx prototype work
+6. 2602xx refinements
+7. Lost-work period and surviving evidence
+8. 2607xx recovery and reconstruction
+9. Decisions that survived into current 7xtgv
+10. Abandoned ideas and why
+11. Open historical uncertainties
+12. Source map: chats, notes, code, specs
+----
+
+== Source mapping
+
+For every major design point, the history guide should preserve references such as:
+
+----
+date / timestamp tag
+chat title
+local note filename
+specification filename
+recovered source-code file
+commit or repository location, if known
+----
+
+This turns the history guide into a navigable index back to the evidence rather than merely a retrospective narrative.
+
+== Why this will likely be useful
+
+One of the most interesting results may be discovering that ideas which now feel "obvious" were actually reached incrementally through several experiments and comparisons.
+
+The reconstructed history will probably show that the current 7xtgv architecture evolved through a long sequence of practical constraints, prior-art searches, experiments, rejected alternatives, and recovered decisions rather than appearing all at once.
+
+That development path itself is valuable documentation.

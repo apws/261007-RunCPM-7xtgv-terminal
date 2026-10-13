@@ -1,28 +1,5 @@
 # 7xtgv terminal history v2
 [0]
->ll
->prog
->turbo 
->ll .. 
->cd dbase
->ll
->cd /
->ll /
->cd /c
->ll ..
->dir
->ldir
->ls
->vtpal 0
->dir
->vtpal 1
->vtpal 2
->vtpal 3
->vtpal 4
->vtpal 5
->dir
->mbasic vtests
->cd /a
 >dir
 >cd cpmdev
 >dir
@@ -99,6 +76,30 @@
 >vtpal 0 
 >vtpal 1 
 >vtinfo
+>tpinst
+>dir t*.*
+>tinst
+>s6
+>24
+>cd /b/tp
+>7xf
+>tinst
+>s6
+>24
+>cls
+>dir
+>turbo
+>yeprog
+>turbo
+>tinst
+>s6
+>y[0m
+>reboot
+>turbo
+>yqcd /b/tp
+>tinst
+>s6
+>y[0m
 [1]
 >Enter returns to menu:5
 >Select:5
@@ -404,6 +405,7 @@
 >xprog.com
 [4]
 >yeprog
+>s6
 [5]
 >str$()
 >val()
@@ -738,4 +740,4 @@
 >1_terminal=132x48
 >zoom2_terminal=80x24
 >zoom3_terminal=44x16
-# crc32=EB232476
+# crc32=E4354FE0

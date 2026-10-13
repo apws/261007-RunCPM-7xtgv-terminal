@@ -1,0 +1,111 @@
+= 261012-2158 DONE: Browser entrance, guide routes and keyboard notation
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+:experimental:
+
+== Scope and authority
+
+Petr approved applying the order in the
+link:261012-2110%20CHAT%20Guides%20review%20after%20browser%20publication.adoc[first-pass review]
+and asked for keycaps throughout the guides. This checkpoint records the
+documentation work against `bf60c8a`; it does not implement browser controls,
+rename firmware targets, build/upload firmware, change cards or publish a site.
+The earlier review and Lyra's imported discussion remain historical records.
+
+== Changes
+
+[loweralpha]
+. README now leads with the published browser URL, first commands and card
+  retention. Detailed native setup remains in BG instead of being repeated in
+  the README. Guide links precede optional local AsciiDoc viewer setup.
+. The guide index distinguishes browser exploration, Linux/Windows native
+  desktop and Linux hardware build/upload. Native macOS tooling limitations
+  are scoped separately from browser use.
+. UG starts with browser input, `VTINFO`, `7XF` and `LS /`; existing graphics
+  examples remain linked. It explains display scale versus glyph zoom versus
+  logical geometry, target restart, snapshots and card ZIP retention/replacement.
+  Browser focus/startup/card-loss troubleshooting is included.
+. RG scopes native prefix/transfer/GCLS shortcuts explicitly. Browser
+  kbd:[Ctrl+&#93;] releases focus; it does not introduce the native prefix menu.
+  Browser input has no native transfer panel or explicit Pause/GCLS shortcut
+  mapping. C++ keyboard dispatch was inspected alongside the JS encoder.
+. BG contains one six-module vendor-reference table. TRG explains browser
+  runtime/card/hosting ownership; TG adds a compact execution-route table while
+  retaining the existing native diagrams.
+. Browser tooling documentation separates visiting the published page from
+  building/hosting it and records Petr's successful deployment report. The
+  initial permission failure remains historical evidence.
+. Physical keys/chords use AsciiDoc `kbd:` macros in the numbered guides,
+  maintained timeline and browser tooling notes. Sequences say “then”; bracket
+  and plus keys use entities to render correctly. INI names, encoded byte
+  descriptions and executable source examples remain literal. The writing
+  guide now demonstrates the convention. HG has no actual key instructions
+  requiring conversion and remains Petr's outline.
+
+== Intel MacBook Air observation
+
+Petr reports limited browser use on an Intel MacBook Air on 261012:
+some kbd:[Fn] combinations worked; kbd:[Alt+Space] did not; application exit
+worked only with kbd:[Alt+Esc]. Browser/macOS versions and the exact Fn
+combinations were not supplied. No cause is diagnosed from this observation.
+
+UG is the maintained owner of this report, with RG and browser tooling links.
+macOS remains unqualified beyond this limited observation. Apple documents
+Fn navigation alternatives, but that does not establish delivery of the
+project's multi-modifier chords. Control and Command remain distinct;
+Option-generated text and reserved host shortcuts need actual keyboard tests.
+See https://support.apple.com/en-us/102650[Apple's keyboard reference].
+
+== Module identity and sources
+
+Petr suggested that the old W535 material was stored under the wrong folder
+name and that the module is probably JC3248W535. Guition's own
+https://www.guition.com/-download[download index] now supplies primary
+specifications for JC3248W535, JC8048W550 and JC8012P4A1C_I_W.
+
+The W535 specification identifies a 320x480 ESP32-S3/AXS15231B module, consistent
+with the project's rotated 480x320 ES3_35 target. The exact physical suffix is
+still unconfirmed. Existing `jc8048w535` target/folder/boot strings are retained
+and explained in BG; this is not a hardware rename or new variant acceptance.
+
+The P4 manufacturer specification lists the I_W_Y and I_W_Y1 variants. BG also
+links Petr's supplied
+https://www.displaysmodule.com/sale-53106488-industrial-esp32-display-unit-jc8012p4a1c-i-w-y1-with-capacitive-touch-top-performance.html[supplier listing]
+without asserting ownership of that domain. Manufacturer specification links
+are the technical references. Grokipedia was a search lead, not the authority.
+
+== Optional browser strips: still a proposal
+
+Petr is not yet sure about the navigation/control strip. He also proposed using
+FullHD monitor width for another strip with quick command help, particularly
+`7XF` cataloged operation. Preserve both as possibilities, not accepted UI work.
+
+A future layout could offer independently collapsible controls and quick
+reference beside the display, with compact presentation on narrow windows.
+Quick help could show `7XF`, `LS /`, `LS`, `LL`, `CD /B/MBASIC`, `VTINFO`
+and the card-save reminder, linked to their existing guide sections. Help should
+remain readable reference; making examples execute guest commands would be a
+separate interaction decision. No new strip is documented as available.
+
+== Verification and remaining limits
+
+[loweralpha]
+. Rendered the public README, all maintained guides and browser tooling notes
+  with Asciidoctor, using a rendering-only zero level offset for hierarchy
+  checks. Checked generated keycaps and local links/anchors.
+. Retained all previous guide anchors, including the old TG browser-section
+  anchor. Existing executable example blocks in the six numbered guides were
+  checked against HEAD and preserved.
+. Validated the feature registry and regenerated its ledger; checked whitespace.
+  Timeline additions record this documentation checkpoint and the publication
+  report without rewriting earlier pending-deployment evidence.
+. No new browser execution or Mac keyboard acceptance is claimed. Browser UI
+  tooling exposed no available browser in this session; first-use commands were
+  checked against existing guide/source/card evidence, not newly rehearsed on
+  the live site. Further macOS work needs the actual browser/OS versions and
+  physical key tests. No firmware test is needed for these documentation edits.
+
+Local rendering/check artifacts are under `/tmp/7xtgv-doc-review/`; they are
+not deployed output. Commit/push remains separate. This is a coherent
+documentation checkpoint for review.

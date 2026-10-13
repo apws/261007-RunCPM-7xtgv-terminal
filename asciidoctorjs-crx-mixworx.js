@@ -1,4 +1,10 @@
 // Load after rendering in Asciidoctor.js Live Preview.
+// Tag modifier labels; all appearance stays in the shared stylesheet.
+// This also works when the helper is included in exported HTML.
+for (const key of document.querySelectorAll('kbd')) {
+  key.classList.toggle('modifier', /^(ctrl|alt|altgr|shift|fn)$/i.test(key.textContent.trim()))
+}
+
 // Keep source headings portable. Split the first prose ": " at any rendered
 // heading level, independent of the document's :leveloffset: setting.
 if (location.pathname.endsWith('.adoc')) {

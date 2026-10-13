@@ -1,0 +1,65 @@
+= Raw history and genesis reconstruction
+:source-highlighter: highlight.js
+
+== Scope and result
+
+The requested link:../guides/06-HG-history-guide.adoc[History Guide] is now a
+roughly 9000-word, deliberately detailed working reconstruction for our own
+review and memory recovery. It replaces the empty preparation outline.
+
+* Covers the 250529 original, PICO9918/F18A search, uncertain QL raster,
+  January demos, July recovery and controller/CPU research.
+* Includes every located substantive connection in the supplied extracts to
+  7xsys, 7xmod, 7xmem, 7xbus, MiSTer XSDS and VMEX/ASLIX, plus relevant
+  September/October interpreter, CLI, QL-channel and commander notes.
+* Records daily checkpoints from 260906 through 261013, with an explicit
+  missing-checkpoint entry for 260929.
+* Separates two-byte ideas, three-array demos, the proposed four-byte native
+  CHAR_A/CHAR_B/ATTR/EXTA engine and current terminal flags. Native implementation
+  remains outstanding; SPEC review prompts are questions, not new commitments.
+* Links all eleven private source documents and all ten companion ZIPs, plus
+  the original public concept and supporting repository documents. Private
+  sources remain untouched and ignored; these local links are intentional.
+* Preserves the current recollection of mainly 7xsys work during 2506xx-2609xx,
+  the private 251101 marker and the supplied 250515 nukedc date. The conflict
+  with the recovery narrative about lost 2026 work remains visible.
+
+The inspected 260118a ZIP contains 6x9 sketches; the later legacy source uses
+6x10. Generated font headers are not presented as verified final extractions.
+Historical assistant errors and unverified hardware proposals are identified
+as such rather than silently promoted to specifications.
+
+== Navigation and provenance
+
+Root, guide and document indexes now describe the raw HG. Links to the original
+proposal follow its existing user-corrected 250529 filename; the source text
+and rename itself are preserved. The feature registry's original-concept idea
+date now reflects 250529, while the filename retains its September archive date.
+A new documentation feature and timeline entry record this reconstruction.
+
+== Validation and remaining review
+
+* Eight affected documents rendered with Asciidoctor at leveloffset=0, with
+  warnings treated as failures; all passed. HG has 63 valid local file links,
+  including eleven distinct private documents and ten ZIPs. Its TOC fragments,
+  77 unique IDs, source attributes and four former main-section anchors passed
+  structural checks. This was HTML validation, not a new browser visual review.
+* The registry validates 220 features; its generated ledger was refreshed.
+  `git diff --check` passed. No runtime tests were needed for this prose change.
+* This is source reconstruction, not renewed hardware or runtime acceptance.
+  No firmware builds, device writes, card deployment, commits or publication.
+* Human review should resolve dates, missing font/palette artifacts and memories
+  prompted by the hardware/software names before shortening this draft.
+
+== 261013-1850 follow-up: remove private links after review
+
+At the user's request, HG no longer links to private source documents or ZIP
+archives. Private citations retain their descriptive text, while the ZIP link
+list and private URL attributes are removed. Public repository links, historical
+detail and archive-content observations remain. Guide indexes and the feature
+record now describe this form. The private source files themselves are unchanged.
+
+The main repository README now also describes source descriptions and public
+references instead of private links. HG has automatic top-level section/TOC
+numbering only; with its existing +1 level offset, sectnumlevels=2 selects the
+original top-level sections. Subsections remain unnumbered.

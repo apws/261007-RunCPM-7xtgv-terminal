@@ -1,0 +1,55 @@
+= 261013-0803 DONE: Collective guide voice and keycap styling
+:source-highlighter: highlight.js
+
+== Changes
+
+Maintained guides, their index/timeline and browser tooling notes now use
+"we"/"our" or neutral phrasing for project observations and decisions.
+The font provenance entry refers to its original copyright notice without
+repeating the author's name; the actual source and license notices are intact.
+Existing section anchors and quoted request text are preserved.
+
+Reader-facing modifier labels use Alt consistently, including Windows tooling
+notes. Protocol names, INI aliases and dated historical records are unchanged.
+Repository guidance records these writing conventions for subsequent edits.
+
+The shared `asciidoctorjs-crx-mixworx.css` raises keycap size from `0.70em`
+to `0.74em` and changes its vertical offset from `calc(-0.18em - 1px)` to
+`-0.06em`. Both values are exposed as reusable CSS custom properties:
+`--mixworx-keycap-size` and `--mixworx-keycap-offset`. Inverted headings and
+emphasized keys are intended to support fast visual scanning of the guides.
+
+== Modifier-background limitation
+
+The standard AsciiDoc renderer emits plain `<kbd>` elements without
+key-specific attributes. CSS cannot select the text labels Ctrl, Alt, Shift
+or Fn. Different backgrounds for those names therefore require renderer or
+JavaScript tagging first; that extension is not implemented in this CSS-only
+change. The writing cheatsheet records the limitation and selector references.
+
+== Verification
+
+[loweralpha]
+. Rendered 14 documents with the shared stylesheet embedded, without warnings.
+  Local links and section anchors pass; existing anchors are retained.
+. Numbered-guide code blocks match the pre-edit snapshot. Maintained guides
+  and browser notes contain no remaining personal-name or old modifier labels.
+. The 219-entry feature registry and whitespace checks pass; the ledger is
+  regenerated. Evidence is under `/tmp/7xtgv-keycaps-review/`.
+. No browser connection was available for visual preview. Final visual
+  acceptance of the small size/alignment adjustment remains a reader preference.
+
+== 261013-0837 follow-up: modifier tagging
+
+We approved using the existing JavaScript helper to classify modifier keycaps.
+It now toggles a `modifier` class for exact Ctrl, Alt, Shift and Fn labels,
+case-insensitively after trimming whitespace. It leaves text content intact,
+works for standalone keys and chords, and can run repeatedly after rendering.
+The tagging also works in exported HTML when the helper is loaded there;
+the existing heading adjustments remain scoped to AsciiDoc preview pages.
+
+CSS owns the lighter background (`#737373`, versus ordinary keys' `#555`)
+through `--mixworx-keycap-modifier-background`. Keycaps move exactly one CSS
+pixel higher by setting the offset to `calc(-0.06em - 1px)`; size is unchanged.
+This supersedes the CSS-only limitation above. Without JavaScript, the shared
+stylesheet still provides uniform dark keycaps.

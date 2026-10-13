@@ -1,0 +1,64 @@
+= Browser guides column and shared keycaps
+:source-highlighter: highlight.js
+
+== Result
+
+* Browser Controls grows from 280 to 364 pixels (130%). The new Guides column
+  sits between Controls and display, sizes to its contents, starts visible,
+  and has an accessible Hide/Show guides button in Controls.
+* Six numbered rows give compact PDF/ADOC links and plain guide names.
+  The five existing PDFs are copied verbatim; HG has an unavailable PDF badge
+  and its current ADOC source. No PDF regeneration or private-source copying.
+* Quickstart commands are 7XF, LS / and LL. Existing help chords now use
+  individual keycaps, with Ctrl/Alt/AltGr/Shift/Fn modifier classification.
+* Packaging generates keycaps.css directly from the root AsciiDoc stylesheet:
+  size, baseline, borders, font and modifier colours follow that shared source.
+* Standalone and Pages packages contain guide assets locally. The existing
+  Pages bootstrap and committed-card policy remain in force. Desktop/browser
+  canvas dimensions remain independent of the column toggle.
+
+== Verification
+
+* Shared Wasm rebuild and standalone/Pages packaging completed. Existing
+  assignment-in-condition and pthread/memory-growth compiler warnings remain.
+* Chromium checked 1800, 1280, 900 and 700-pixel windows, column order/width,
+  default visibility, hide/show accessibility state and unchanged canvas size.
+* All eleven guide downloads (six ADOC, five PDF) returned valid file contents;
+  no private directory is included. Shared keycap colours and guest stop passed.
+* Frontend module checks passed. Browser screenshots were visually inspected.
+* Guide/document rendering, registry and whitespace checks accompany the change.
+
+The first quickstart trial found VTINFO timing out under this browser runtime,
+with its delayed reply appearing at the prompt. It was removed from the new
+quickstart rather than represented as a passing example. That existing query
+transport/timing problem is a separate follow-up; no core change was attempted.
+
+Local artifacts are rebuilt, including the deployable Pages package. No commit,
+push, publication, MCU upload or source-card edit was performed. The supplied
+PDFs still need inclusion in the intended commit for a CI deployment to have them.
+
+== 261013-1601 follow-up: web links and compact reference
+
+* ADOC buttons now open the matching GitHub blob/main guide, rather than the
+  local raw file that browsers downloaded. PDF buttons retain the local prints.
+* Quickstart now follows the requested history / named prompt / browse / change
+  layout: optional prefix with Alt+Up/Down; linked 7xf; ll /, ll .., ll and ls;
+  cd /x and cd /x/area. Commands appear in the requested lowercase notation.
+* Below the guide rows, the supplied Chrome Web Store link introduces
+  Asciidoctor.js for Raw pages. Our root CSS and JS are linked, with the note
+  to use the JS after rendering in extension options.
+* Main heading and initial/runtime browser tab title now say RunCPM 7xtgv-terminal.
+* Chromium checks passed for the six GitHub ADOC link targets, five local PDF
+  downloads, extension/CSS/JS link markup, four layouts, toggle and keycaps.
+  External page availability is not established by these local checks.
+* The Web Store URL could not be opened through the research tool; the exact
+  user-supplied link is retained. No extension installation was attempted.
+* Standalone and Pages artifacts repackaged; no C++ changes or deployment.
+
+== 261013-1608 follow-up: left-pane shortcut note
+
+The visible keyboard-focus-release hint is replaced by bank/profile-configured
+Alt+Q exit and Alt+Backspace clear actions, plus Alt+Space to show the profile
+and Alt+PgUp/PgDn to change it. Backspace is spelled out on its keycap.
+This is help text only; keyboard behaviour is unchanged. Standalone and Pages
+packages were refreshed and whitespace checked.

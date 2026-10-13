@@ -5,6 +5,16 @@ import {ScreenText} from './screen_text.js';
 import {unpackCard, installCard, snapshotCard, packCard, CARD_LIMIT} from './card.js';
 import {defaultTopRow} from './protocol.js';
 const $ = id => document.getElementById(id);
+for (const key of document.querySelectorAll('kbd')) {
+    key.classList.toggle('modifier', /^(ctrl|alt|altgr|shift|fn)$/i.test(key.textContent.trim()));
+}
+$('toggle-guides').onclick = () => {
+    const hidden = !$('guides-column').hidden;
+    $('guides-column').hidden = hidden;
+    $('workspace').classList.toggle('guides-hidden', hidden);
+    $('toggle-guides').setAttribute('aria-expanded', String(!hidden));
+    $('toggle-guides').textContent = hidden ? 'Show guides' : 'Hide guides';
+};
 const notice = text => {$('notice').textContent = text;};
 const link = new SerialLink();
 let selectedTarget = new URLSearchParams(location.search).get('target') || 'jc8048w535';
@@ -101,7 +111,7 @@ async function start(card, target = selectedTarget) {
     selectedTarget = profile.target;
     $('target').replaceChildren(...profiles.map(p => new Option(`${p.id} · ${p.width}×${p.height}`, p.target, p.target === selectedTarget, p.target === selectedTarget)));
     $('target-title').textContent = profile.id + ' · browser';
-    document.title = '7xtgv-terminal · ' + profile.id;
+    document.title = 'RunCPM 7xtgv-terminal · ' + profile.id;
     $('target').title = profile.name;
     display.setProfile(profile);
     $('text-panel').hidden = true; lastSnapshot = null;

@@ -1,7 +1,9 @@
 :root {font:15px/1.45 system-ui,sans-serif;color:#26374a;background:#eef2f6;color-scheme:light}
 body {margin:0}
 main {padding:12px}
-#workspace {display:grid;grid-template-columns:280px minmax(0,1fr);gap:16px;align-items:start}
+#workspace {display:grid;grid-template-columns:364px max-content minmax(0,1fr);gap:16px;align-items:start}
+#workspace.guides-hidden {grid-template-columns:364px minmax(0,1fr)}
+[hidden] {display:none !important}
 #controls {min-width:0;background:#f8fafc;border:1px solid #c6d0da;border-radius:6px;overflow:hidden}
 header {padding:14px;background:#073566;color:white}
 h1 {font-size:22px;margin:0;line-height:1.25}
@@ -20,6 +22,7 @@ button:disabled {opacity:.5;cursor:default}
 canvas {display:block;image-rendering:pixelated;background:black;max-width:none}
 #keyboard {position:absolute;left:0;top:0;width:1px;height:1px;padding:0;border:0;opacity:0;resize:none}
 #geometry,.hint,#text-info {font-size:13px}
+#pixel-hint {color:#197444}
 #status {font-weight:600}
 #notice {color:#8a3500}
 #notice:empty {display:none}
@@ -29,14 +32,28 @@ section {border-top:1px solid #c6d0da;margin-top:16px;padding-top:12px}
 details {margin-top:16px;font-size:13px}
 summary {cursor:pointer;font-weight:600}
 #top-row {width:100%;box-sizing:border-box;margin:6px 0}
-kbd {background:#555;color:white;font:bold .8em sans-serif;border-radius:3px;padding:2px 4px}
+#guides-column {padding:14px;background:#f8fafc;border:1px solid #c6d0da;border-radius:6px;font-size:13px}
+#guides-column h2 {margin-bottom:14px}
+.quickstart h3 {font-size:13px;margin:0}
+.quickstart p {font-size:12px}
+.quickstart dl {display:grid;grid-template-columns:max-content max-content;gap:5px 12px;margin:10px 0 18px}
+.quickstart dd {margin:0}
+.quickstart code {color:#073566;background:#e7f0fa;padding:1px 4px}
+.guide-list {margin:0;padding:0;list-style:none}
+.guide-list li {padding:4px 0;white-space:nowrap}
+.guide-help {max-width:250px;font-size:12px;margin:16px 0 0}
+#guides-column a:not(.guide-format) {color:#075598;text-underline-offset:2px}
+.guide-format {display:inline-block;box-sizing:border-box;min-width:33px;margin-right:6px;padding:2px 3px;border:1px solid #aab8c6;border-radius:2px;font:600 9px/1.2 system-ui,sans-serif;text-align:center;color:#073566;background:white;text-decoration:none}
+.guide-format:hover {background:#d6e8ff;border-color:#2675b7}
+.guide-format.unavailable {color:#84909c;background:transparent;border-style:dashed;cursor:default}
 .file-button {display:block;min-width:0;width:100%;box-sizing:border-box}
 .file-button input {display:block;width:100%;min-width:0;font-size:12px;margin-top:5px}
 :focus-visible {outline:3px solid #2675b7;outline-offset:2px}
 @media (max-width:800px) {
-    #workspace {grid-template-columns:minmax(0,1fr)}
+    #workspace, #workspace.guides-hidden {grid-template-columns:minmax(0,1fr)}
     #screen-column {grid-row:1}
     #controls {grid-row:2}
+    #guides-column {grid-row:3;width:fit-content;max-width:100%;box-sizing:border-box;overflow:auto}
 }
 
 .target-label {display:block;margin-bottom:8px}

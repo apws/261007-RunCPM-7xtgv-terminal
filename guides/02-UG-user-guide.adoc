@@ -1,18 +1,24 @@
 = RunCPM 7xtgv-terminal: User Guide
 :leveloffset: +1
 :source-highlighter: highlight.js
+:experimental:
 :toc:
 :toclevels: 3
 :sectnums!:
 
-Use this guide for everyday work on a physical module or its Linux/Windows desktop emulator.
+Use this guide for first experiments in the browser and everyday work on
+physical modules or native Linux/Windows desktops.
 
-* *Mirror:* keyboard input and the complete logical CP/M screen.
-* *TFT or SDL window:* the board-sized viewport; zoom changes cell size,
-  while pan moves the viewport. Neither moves CP/M files.
+* *Browser:* click the display to type. *Screen text* gives a frozen copy of
+  the complete logical text screen; it is not a live native mirror.
+* *Native mirror:* keyboard input and the complete logical CP/M screen for
+  physical hardware or SDL desktop sessions.
+* *TFT, SDL or browser canvas:* the board-sized viewport. Glyph zoom changes
+  cell size; pan moves the viewport. Browser *Display* scale only enlarges
+  the canvas presentation. None of these moves CP/M files.
 * *CP/M drive/user (DU):* where guest commands read and write files.
-* *Transfer panel's local DU:* a folder in the host `cpmcard/`, not a command
-  to change the guest's current area.
+* *Native transfer panel's local DU:* a host-card folder, not a command to
+  change the guest's current area.
 
 For when these behaviors and commands were added, see the
 link:features_timeline.adoc[Features Timeline].
@@ -23,13 +29,72 @@ link:features_timeline.adoc[Features Timeline].
 [[browser-session]]
 === Start a browser session
 
-Launch `src/RunCPM_7xtgv-terminal/tools-web/desktop-local.sh` after the
-link:../src/RunCPM_7xtgv-terminal/tools-web/README.adoc[browser setup and build].
-Choose *Target*, then *Switch target*; switching restarts RunCPM with the current
-memory card. Keyboard input starts automatically; clicking the display restores
-it after using page controls. *Screen text* and *Copy image* provide snapshots.
-Use *Stop*, then *Download card ZIP* to keep changes: closing or reloading the
-page discards its memory card. ZIP contents are rooted at `cpmcard/`.
+Open https://apws.github.io/261007-RunCPM-7xtgv-terminal/[7xtgv-terminal in
+your browser]. No checkout, compiler or external terminal is required. The
+first visit may reload once before the emulator starts.
+
+[loweralpha]
+. Wait for the CP/M prompt, then click the display to type; a green outline
+  indicates keyboard focus. Press kbd:[Enter] after each command below.
+. Type `VTINFO` to see the selected target and terminal geometry.
+. Type `7XF`, then `LS /`: the prompt uses catalog names and the listing shows
+  the card's drives/areas. `LS` lists the current area, `LL` adds details;
+  see <<_explore_cpm_with_the_7xf_shell,exploring CP/M>> for navigation.
+. Try <<_palette_and_text_emphasis,palettes>> or the
+  <<_try_the_xterm256_plot,xterm256 graphics demonstration>>.
+. Save work in the guest application, use *Stop*, wait for *Stopped cleanly*,
+  then *Download card ZIP* to retain the card's files, settings and history.
+
+The middle *Guides* column offers PDF/ADOC links in guide order and a compact history,
+browse and change-area reference. ADOC opens the rendered guide on GitHub;
+the note below the list links Asciidoctor.js for Raw pages and our shared CSS/JS. It is visible by default; *Hide guides* in Controls gives the display
+more room, and *Show guides* brings it back. An unavailable PDF badge means
+that guide has not been printed yet.
+
+Choose *Target*, then *Switch target* to try another display. Switching restarts
+RunCPM with the current memory card: save application work first. It does not
+flash or connect to a physical board. Smaller displays may show only part of
+the logical screen; use pan or *Screen text* to inspect it.
+
+*Display* scale changes only the canvas's on-page size. Glyph zoom/pan and
+logical terminal geometry are separate controls; see
+<<_check_or_change_terminal_size,terminal size>>. *Screen text* can be refreshed,
+selected or downloaded; *Copy image* and *Download PNG* capture the panel graphics.
+
+Click the display or *Keyboard -> display* to resume typing after using page
+controls. Click or tap a page control to leave display input.
+kbd:[Ctrl+&#93;] is ordinary guest input; native mirror prefix commands do not
+apply here. For local builds/hosting, use the
+link:../src/RunCPM_7xtgv-terminal/tools-web/README.adoc[browser tooling instructions].
+
+[[browser-compatibility]]
+==== Browser compatibility and compact keyboards
+
+Use a current desktop browser. Linux Chromium has automated integration
+coverage; we also reported Chromium, Chrome and Edge working in our earlier
+standalone setup. Those reports do not establish every browser/OS combination.
+On 261013 we also reported usable Android mobile operation; device/browser
+versions and a complete touch/keyboard matrix were not recorded.
+A normal HTTPS tab must allow service workers and the shared-memory facilities
+used at startup; a blocked facility produces a startup error.
+
+*macOS remains unqualified.* On 261012 we tried an *Intel MacBook Air*: some
+kbd:[Fn] combinations worked, kbd:[Alt+Space] did not, and application exit
+worked with kbd:[Alt+Esc] rather than kbd:[Alt+Q]. The browser, macOS version
+and exact kbd:[Fn] combinations were not recorded. This is a limited user observation,
+not a complete Mac keyboard test or a native macOS port.
+
+Apple documents kbd:[Fn+Left] / kbd:[Fn+Right] for kbd:[Home] / kbd:[End],
+kbd:[Fn+Up] / kbd:[Fn+Down] for kbd:[PgUp] / kbd:[PgDn], and kbd:[Fn+Delete] for forward
+Delete (the kbd:[Delete] navigation key); see https://support.apple.com/en-us/102650[Apple's keyboard reference].
+Their delivery with our additional modifiers still needs checking. In these
+guides kbd:[Alt] corresponds to kbd:[Option] on a Mac; kbd:[Control] is not kbd:[Command]. The browser
+keeps kbd:[Command] shortcuts, and kbd:[Option]-generated characters or OS shortcuts can
+prevent a chord reaching the terminal. No universal kbd:[Insert] substitute is assumed.
+
+The link:03-RG-reference-guide.adoc#browser-input-differences[reference route table]
+identifies browser/native differences. On-screen navigation keys and command
+help are proposals; they are not currently present in the page.
 
 [[starting-the-pc-mirror]]
 === Start a desktop or hardware session
@@ -73,14 +138,14 @@ same as on Linux. Hardware launch/upload commands use the Linux tools.
 * Hardware uses the shared 7xtgv-terminal mirror session (`7xtgv-terminal`);
   desktop uses its own isolated session. Never open a second serial reader
   alongside the hardware mirror.
-* `Ctrl+]`, then `q`, exits the host bridge. With a desktop owning mirror,
+* kbd:[Ctrl+&#93;], then kbd:[q], exits the host bridge. With a desktop owning mirror,
   ending the session also stops its emulator; hardware CP/M keeps running.
 
 Wait for the CP/M prompt. A brief mirror redraw after USB reconnect is normal.
 
 * Automatic mirror selection prefers Konsole, then Kitty, then the current
   terminal; `--mirror terminal` selects the latter explicitly.
-* The shortcut tables below assume the supplied Konsole/Kitty mappings.
+* For native Linux sessions, the shortcut tables assume the supplied Konsole/Kitty mappings.
   An arbitrary current terminal or desktop window manager may intercept keys.
 * The older direct `kon.sh`/`kit.sh` entry points use host target/port
   configuration; details are in the link:03-RG-reference-guide.adoc[Reference Guide].
@@ -114,8 +179,8 @@ Wait for the CP/M prompt. A brief mirror redraw after USB reconnect is normal.
 [[_choose_the_application_profile]]
 ==== Choose the application profile
 
-* `++Alt+0++` through `++Alt+9++` select a profile; `++Alt+Space++` shows its name.
-* `++Alt+PgUp++` / `++Alt+PgDn++` browse previous / next profiles.
+* kbd:[Alt+0] through kbd:[Alt+9] select a profile; kbd:[Alt+Space] shows its name.
+* kbd:[Alt+PgUp] / kbd:[Alt+PgDn] browse previous / next profiles.
 * Wait for the temporary name label to disappear before typing into the application.
 * Selection may send the INI `on_select` command *at a live CCP prompt only*.
   It may change the DU; selecting a profile is not necessarily launching an app.
@@ -128,11 +193,11 @@ Wait for the CP/M prompt. A brief mirror redraw after USB reconnect is normal.
 [cols="2,3",options="header"]
 |===
 |PC key |Everyday effect
-|`++Ctrl+Shift+PgDn++` / `++Ctrl+Shift+PgUp++` |Zoom in / out temporarily.
-|`++Ctrl+Shift+arrows++` |Pan the TFT viewport by axis.
-|`++Ctrl+Shift+Home++` / `++Ctrl+Shift+End++` |Scan all viewports backward / forward.
-|`++Ctrl+Shift+X++` |Open the transfer panel at an idle CCP prompt.
-|`++Ctrl+Alt+C++` |Force a running external COM back to CCP if it ignores Ctrl+C; cancel the remaining SUBMIT batch.
+|kbd:[Ctrl+Shift+PgDn] / kbd:[Ctrl+Shift+PgUp] |Zoom in / out temporarily.
+|kbd:[Ctrl+Shift] with an arrow key |Pan the display viewport by axis.
+|kbd:[Ctrl+Shift+Home] / kbd:[Ctrl+Shift+End] |Scan all viewports backward / forward.
+|kbd:[Ctrl+Shift+X] |Native mirror only: open the transfer panel at an idle CCP prompt.
+|kbd:[Ctrl+Alt+C] |Force a running external COM back to CCP if it ignores kbd:[Ctrl+C]; cancel the remaining SUBMIT batch.
 |===
 
 The link:03-RG-reference-guide.adoc#global-terminal-keys[complete key table]
@@ -142,8 +207,8 @@ Normal zoom and pan do not edit the INI or resize the logical CP/M screen.
 [[_emergency_return_is_not_a_normal_application_exit]]
 ===== Emergency return is not a normal application exit
 
-* `++Ctrl+Alt+C++` cancels the external COM and remaining SUBMIT commands.
-* It is inert at CCP or inside an internal CCP command; ordinary Ctrl+C is unchanged.
+* kbd:[Ctrl+Alt+C] cancels the external COM and remaining SUBMIT commands.
+* It is inert at CCP or inside an internal CCP command; ordinary kbd:[Ctrl+C] is unchanged.
 * This is an *unclean* return: unsaved application data and final writes may be lost.
 * It cannot recover a wedged device or SD driver. Prefer the application's own exit.
 
@@ -153,11 +218,11 @@ Normal zoom and pan do not edit the INI or resize the logical CP/M screen.
 [cols="2,3",options="header"]
 |===
 |Try |What happens
-|Up / Down |Recall history in line-oriented profiles; type a prefix to filter.
-|Alt+Up / Alt+Down |Recall history where the profile gives plain arrows to its editor.
-|Ctrl+Shift+Backspace |Delete the currently recalled unwanted entry.
-|Alt+Backspace |Configured clear action: typically CLS at CCP, app-specific elsewhere.
-|Alt+Q (also Alt+Esc in Konsole/Kitty) |Configured application exit: for example SYSTEM in MBASIC, QUIT in BBC BASIC.
+|kbd:[Up] / kbd:[Down] |Recall history in line-oriented profiles; type a prefix to filter.
+|kbd:[Alt+Up] / kbd:[Alt+Down] |Recall history where the profile gives plain arrows to its editor.
+|kbd:[Ctrl+Shift+Backspace] |Delete the currently recalled unwanted entry.
+|kbd:[Alt+Backspace] |Configured clear action: typically CLS at CCP, app-specific elsewhere.
+|kbd:[Alt+Q] (kbd:[Alt+Esc] in Konsole/Kitty or the browser; see the MacBook note) |Configured application exit: for example SYSTEM in MBASIC, QUIT in BBC BASIC.
 |===
 
 * Application settings come from each complete `[bankN]` INI section. To reorder
@@ -171,7 +236,7 @@ Normal zoom and pan do not edit the INI or resize the logical CP/M screen.
 * At a recognized CCP prompt, the INI's `ccp_bank` handles shell commands even
   while another profile is selected; the working card assigns bank 0. Without
   that setting, automatic routing is disabled.
-* Return saves the line you submit, including filtered recalls and completed
+* kbd:[Enter] saves the line you submit, including filtered recalls and completed
   numbered lines. Browsing without submitting does not save another entry.
 * Empty/single-character lines and exact adjacent repeats are not appended.
   Reusing an older command makes it recent again; spaces remain significant.
@@ -180,10 +245,10 @@ Normal zoom and pan do not edit the INI or resize the logical CP/M screen.
 [[_temporarily_bypass_profile_input]]
 ==== Temporarily bypass profile input
 
-* `++Alt+Shift+3++` toggles `++## RAW++` direct-input mode.
+* kbd:[Alt+Shift+3] toggles `++## RAW++` direct-input mode.
 * Use it when an application needs input without the normal profile/history handling.
-* Toggle it back for ordinary command work. Direct `++Alt+0++` through
-  `++Alt+9++` selection also leaves RAW mode; profile browsing does not.
+* Toggle it back for ordinary command work. Direct kbd:[Alt+0] through
+  kbd:[Alt+9] selection also leaves RAW mode; profile browsing does not.
 
 [[_explore_cpm_with_the_7xf_shell]]
 === Explore CP/M with the 7XF shell
@@ -257,8 +322,8 @@ Run these commands at the CP/M prompt:
   panning cannot correct a mismatch in its cursor positioning.
 * Select the application profile first, then set the intended geometry before
   launching the app. Profile selection can also apply per-profile geometry.
-* On a small panel, an 80x24 terminal occupies several panned views; the mirror
-  still shows all 80x24 cells.
+* On a small panel, an 80x24 terminal occupies several panned views; the native mirror
+  still shows all 80x24 cells. Browser *Screen text* provides a frozen full-screen copy.
 
 See the link:03-RG-reference-guide.adoc#display-and-per-bank-geometry[geometry rules].
 
@@ -284,22 +349,22 @@ See the link:03-RG-reference-guide.adoc#display-and-per-bank-geometry[geometry r
 [cols="2,3",options="header"]
 |===
 |Key |Backlight
-|LAlt+Ctrl+Shift+PgUp / PgDn |Raise / lower through the module's tuned levels.
-|LAlt+Ctrl+Shift+0 |OFF; raise brightness to restore it.
-|Ctrl+Shift+1 through 9 |Still-supported coarse presets; fine stepping is preferable.
+|kbd:[Alt+Ctrl+Shift+PgUp] / kbd:[Alt+Ctrl+Shift+PgDn] |Raise / lower through the module's tuned levels.
+|kbd:[Alt+Ctrl+Shift+0] |OFF; raise brightness to restore it.
+|kbd:[Ctrl+Shift+1] through kbd:[Ctrl+Shift+9] |Still-supported coarse presets; fine stepping is preferable.
 |===
 
 * Backlight affects the panel, not PC mirror colours; the last non-off level persists.
 * From OFF, the first step in either direction restores that remembered level.
 * EC6_147 is capped at 50% duty following vendor thermal advice.
 * Equal level numbers need not mean equal brightness on different panels.
-* SDL uses a shared brightness compensation, not an exact physical light-output model.
+* SDL and browser brightness simulate the panel; they do not establish physical light output.
 
 [[_terminal_modes_and_demonstration_recipes]]
 === Select the terminal output mode
 
 * ANSI/VT100 is the usual output mode.
-* `VT52` / `VT100`, or LAlt+Ctrl+Shift+2 / LAlt+Ctrl+Shift+1,
+* `VT52` / `VT100`, or kbd:[Alt+Ctrl+Shift+2] / kbd:[Alt+Ctrl+Shift+1],
   select the implemented output interpretations.
 * RAW input, zoom, profiles and graphics are separate controls.
 * ADM3a and the full native 7xtgv chip specification remain future work.
@@ -310,26 +375,29 @@ See the link:03-RG-reference-guide.adoc#display-and-per-bank-geometry[geometry r
 [[_transfer_one_file]]
 === Transfer one file
 
+These steps use the *native mirror* on desktop or physical hardware. The
+standalone browser has no transfer panel; use <<browser-card,card ZIPs>> there.
+
 . Leave CP/M idle at its prompt in the *guest/device* DU you want.
-. Open the panel with `++Ctrl+Shift+X++`.
-. Choose `++S++` (host to CP/M) or `++R++` (CP/M to host).
+. Open the panel with kbd:[Ctrl+Shift+X].
+. Choose kbd:[S] (host to CP/M) or kbd:[R] (CP/M to host).
 . Select the *local* DU folder, source name and target name.
-. Review the direction and destination before confirming a write with `++Y++`.
+. Review the direction and destination before confirming a write with kbd:[Y].
 
 [[_two_concrete_examples]]
 ==== Two concrete examples
 
-* *Send VTESTS:* select the intended test DU on the device, choose `++S++`, local
+* *Send VTESTS:* select the intended test DU on the device, choose kbd:[S], local
   `++C1:++` (`7xtgv(C1)`), source `++VTESTS.BAS++`, target `++VTESTS.BAS++`.
 * *Receive into a different local area:* leave the device at `++A0>++`,
-  choose `++R++`, then local `++A3:++` and the file names.
+  choose kbd:[R], then local `++A3:++` and the file names.
 * The panel never switches the guest/device DU; its local DU is a host folder.
 
 [[_safeguards_and_recovery]]
 ==== Safeguards and recovery
 
 * Sending always asks before writing the device target; receiving asks before
-  replacing an existing local file. Enter alone does not approve replacement.
+  replacing an existing local file. kbd:[Enter] alone does not approve replacement.
 * Bytes, including CP/M record padding, are preserved; there is no newline
   or character-set conversion.
 * Use an 80-column *logical* terminal. A narrower panned viewport is fine.
@@ -339,6 +407,27 @@ See the link:03-RG-reference-guide.adoc#display-and-per-bank-geometry[geometry r
 
 Exact options and failure behaviour are in
 link:03-RG-reference-guide.adoc#vtput\--vtget-from-the-mirror[the transfer reference].
+
+[[browser-card]]
+=== Keep or replace a browser card
+
+Save and exit the guest application, click *Stop*, and wait for *Stopped cleanly*.
+*Download card ZIP* saves the memory card with a top-level `cpmcard/` folder.
+After stopping, *Load card ZIP* replaces the current card and starts it;
+*Restart current card* instead resumes from the stopped card in a fresh runtime.
+Download wanted changes before loading a different ZIP.
+
+Closing/reloading the page discards unexported changes, including INI and
+history saves. Guest `REBOOT` and target switching preserve card contents but
+restart execution. The public site does not receive uploaded cards or keep
+an automatic backup. ZIP files are independent snapshots, not synchronization
+with a native host directory or physical SD card.
+
+To edit browser-card files on the host, export the stopped card, keep a backup,
+extract and edit the intended files, then ZIP the `cpmcard/` directory and load
+it back. Preserve CP/M text/binary formats and filenames. The browser accepts
+older ZIPs rooted directly at `A/0` too; limits and validation are in the
+link:../src/RunCPM_7xtgv-terminal/tools-web/README.adoc[browser tooling reference].
 
 [[_edit_the_selected_cards_ini_safely]]
 === Edit the selected card's INI safely
@@ -400,11 +489,20 @@ demonstrations below help check the current module and terminal behavior.
 [[_when_something_looks_wrong]]
 === When something looks wrong
 
+* Browser ignores typing: click the display or *Keyboard -> display*. A browser
+  or OS may reserve a shortcut; see <<browser-compatibility,compatibility notes>>.
+* Browser startup unavailable: open the published HTTPS page in a normal current
+  browser tab and read the displayed error. No local compiler is needed;
+  hosting requirements are in the browser tooling README.
+* Browser changes disappeared after reload: only an exported ZIP can restore
+  the previous memory card. Guest saves alone do not survive page closure.
+* Browser display too large: reduce *Display* scale. To see more terminal cells,
+  change glyph zoom/pan instead; *Screen text* shows the complete text grid.
 * No hardware mirror or wrong board: recheck the selected target folder, serial port and cable;
   stop a stale shared session before relaunching. Changing the host target
   does not identify the attached hardware automatically.
 * SDL receives focus but not typing: select the mirror. Always-on-top does
-  not prevent the SDL window from taking focus through a click or Alt+Tab.
+  not prevent the SDL window from taking focus through a click or kbd:[Alt+Tab].
 * RP2350 firmware recovery: enter BOOTSEL manually for a requested flash.
   Do not copy another target's UF2. Flashing is a separate operation from
   CP/M file transfer.
@@ -432,10 +530,10 @@ link:04-TRG-technical-reference-guide.adoc[Technical Reference Guide].
 |VTDRV |Read/verify its existing 32 KiB test fixture.
 |VTDRV W |Create/write the fixture, then read/verify; writes the current DU.
 |VTDRV W Q |Quiet timed write/read passes; matching firmware required.
-|CARDMARK 4096 40 CSD |Hardware-only raw reads and decoded card registers; no test-file writes. Unsupported on desktop.
+|CARDMARK 4096 40 CSD |Hardware-only raw reads and decoded card registers; no test-file writes. Unsupported on native desktop and browser.
 |SYNC |Request pending history/config saves.
-|REBOOT |Restart the complete module, or desktop process/mirror; not merely CP/M warm boot.
-|REFLASH |Hardware: request the configured host uploader; cannot build firmware itself. Desktop cannot invoke it.
+|REBOOT |Restart the module, native desktop process/mirror, or browser runtime. The browser keeps its memory card; this is not merely CP/M warm boot.
+|REFLASH |Hardware: request the configured host uploader; cannot build firmware itself. Native desktop and standalone browser cannot invoke it.
 |===
 
 CARDMARK clocks are requests, not measured SCK. Read agreement is not write
@@ -457,11 +555,11 @@ LOAD "VTESTS"
 RUN
 ----
 
-* In the menu, try `3` for attributes, `4` for DEC graphics, `5` for VT52,
-  or `9` for scrolling regions. Follow the on-screen prompts; `Q` returns to CP/M.
+* In the menu, try kbd:[3] for attributes, kbd:[4] for DEC graphics, kbd:[5] for VT52,
+  or kbd:[9] for scrolling regions. Follow the on-screen prompts; kbd:[Q] returns to CP/M.
 * Scroll regions span complete logical rows, not arbitrary rectangular windows.
 * Also try `LOAD "VTPAL"`, then `RUN`, from the BASIC prompt.
-* Alt+Q (also Alt+Esc in Konsole/Kitty) uses the configured SYSTEM exit.
+* kbd:[Alt+Q] uses the configured SYSTEM exit; kbd:[Alt+Esc] is also available in Konsole/Kitty and the browser. See <<browser-compatibility,the MacBook observation>>.
 * Save maintained BASIC with `SAVE "NAME",A` for ASCII; ordinary SAVE
   can create tokenized data.
 * Back at CCP, `VTZOOM DEFAULT` restores the boot view.
@@ -480,9 +578,12 @@ SUBMIT BROT_BS
 
 * `SUBMIT BROT_PS` is the alternate renderer; both scripts initialize the plot.
 * The card's scripts choose fixed pixel positions. A small panel may clip the
-  image; use EP4_10 desktop for a spacious first demonstration.
-* Ctrl+Alt+C can abort a running COM and cancel the remaining script.
+  image; choose EP4_10 in the browser at Display 1x or use its native desktop
+  for a spacious demonstration. A narrow browser window may still need scrolling.
+* kbd:[Ctrl+Alt+C] can abort a running COM and cancel the remaining script.
 * Completion or forced return ends graphics mode, retaining the image until
   later text/repaint replaces it.
-* The pixel plot appears on the TFT/SDL panel, not as a pixel image in the mirror.
+* The pixel plot appears on the TFT, SDL panel or browser canvas. The native
+  text mirror and browser *Screen text* do not contain those pixels; use PNG
+  capture in the browser to keep the image.
 

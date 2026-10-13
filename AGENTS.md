@@ -197,6 +197,12 @@
 
 ## Documentation and privacy
 
+- Use "we"/"our" or neutral phrasing in maintained guides, rather than naming
+  the user. Preserve actual copyright notices and historical quotations.
+  Label the modifier key `Alt` consistently in reader-facing instructions.
+- Shared AsciiDoc formatting belongs in the root stylesheet. Inverted headings
+  and emphasized keycaps support quick visual scanning; keep them readable
+  when tuning size, contrast and alignment.
 - Directories named `private` at any depth, including `cpmcard/private`, remain
   local and ignored. Never force-add them; this is the explicit exception to
   complete-card versioning. Ignoring them does not authorize deleting files.

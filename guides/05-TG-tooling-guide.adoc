@@ -1,12 +1,18 @@
 = RunCPM 7xtgv-terminal: Tooling Guide
 :leveloffset: +1
 :source-highlighter: highlight.js
+:experimental:
 :toc:
 :toclevels: 3
 :sectnums!:
 
-The host tools select a board, build or upload its firmware, and connect a PC
-terminal window to either hardware or the desktop emulator. This guide maps
+To try the project, open the
+https://apws.github.io/261007-RunCPM-7xtgv-terminal/[published browser application];
+no host tooling or native mirror is needed. For browser controls, start with the
+link:02-UG-user-guide.adoc#browser-session[User Guide].
+
+The host tools build/serve the browser application, build or upload MCU firmware,
+and connect a native terminal window to hardware or the SDL desktop emulator. This guide maps
 those responsibilities and the files which connect them. Use the
 link:01-BG-build-guide.adoc[Build Guide] for setup and executable launch recipes,
 and the link:03-RG-reference-guide.adoc[Reference Guide] for keyboard and transfer syntax.
@@ -23,6 +29,15 @@ Paths below are relative to `src/RunCPM_7xtgv-terminal/`.
 
 [[tooling-structure]]
 == 1. Structure at a glance
+
+[cols="1,3",options="header"]
+|===
+|Route |Execution and tools
+|Published browser |Open URL -> page input + Wasm runtime/canvas -> private memory card -> downloaded ZIP. No Python mirror or hardware uploader.
+|Local browser development |`tools-web/setup.sh` -> `desktop-rebuild.sh` -> `desktop-local.sh`. One shared build; target selection in the page. Hosting/deployment details live in the tools-web README.
+|Native desktop |Host setup -> target-specific `desktop-rebuild` -> `desktop-local` or `desktop-card`. Native mirror input, SDL output and direct host-card writes.
+|Physical hardware |Linux target-specific `rebuild.sh` -> `reflash.sh` -> native mirror/serial connection. The MCU accesses its physical card.
+|===
 
 Both hosts use the same desktop operations: rebuild, launch with the repository
 card, or launch with a selected external card. These diagrams show how each
@@ -134,7 +149,7 @@ Both hosts accept `--window-scale N` (integer 1..9, default 1). For example,
 shows the entire fixed-size SDL panel at triple size. This is independent of
 terminal glyph zoom and does not change guest geometry or the INI.
 
-*Alt+Q* is application exit in the supplied Konsole, Kitty and Mintty profiles.
+kbd:[Alt+Q] is application exit in the supplied Konsole, Kitty and Mintty profiles.
 Bank, brightness and zoom controls use the shared terminal mappings in the
 link:03-RG-reference-guide.adoc#global-terminal-keys[Reference Guide].
 `XTGV_HACK_TOPROW` in `tools/terminal.conf` controls optional number-row conversion;
@@ -171,7 +186,8 @@ for process ownership, transports and platform-specific launcher options, and
 the link:../src/RunCPM_7xtgv-terminal/tools-win/README.adoc[Windows tooling notes]
 for logs and diagnostic commands.
 
-=== Experimental browser route
+[[_experimental_browser_route]]
+=== Browser build and local hosting
 
 `tools-web/desktop-rebuild.sh` builds one shared Wasm runtime for all six
 current displays. The common `tools-web/desktop-local.sh` launcher opens the

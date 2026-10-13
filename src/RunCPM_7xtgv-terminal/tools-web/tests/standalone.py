@@ -134,6 +134,8 @@ async def main():
             await page.click('summary')
             await focus()
             await page.keyboard.press('Control+BracketRight')
+            assert await page.evaluate('document.activeElement.id') == 'keyboard'
+            await page.click('#show-text')
             assert await page.evaluate('document.activeElement.id') != 'keyboard'
             print('c. Editing, numeric fallback, isolated focus, frozen/copy/download text PASS', flush=True)
             await focus()

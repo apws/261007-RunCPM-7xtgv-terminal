@@ -1,6 +1,7 @@
 = RunCPM 7xtgv-terminal: Technical Reference Guide
 :leveloffset: +1
 :source-highlighter: highlight.js
+:experimental:
 :toc:
 :toclevels: 3
 :sectnums!:
@@ -134,7 +135,7 @@ for design context; do not treat proposed commander behavior as implemented.
 [[_forced_com_return]]
 ==== Forced COM return
 
-* Ctrl+Alt+C is a versioned host key event consumed before profile bindings,
+* kbd:[Ctrl+Alt+C] is a versioned host key event consumed before profile bindings,
   also in RAW mode. The terminal task only posts an atomic request.
 * The RunCPM owner accepts it at a Z80 instruction polling boundary or after
   a blocked BIOS/BDOS console read wakes, then sets `++STATUS_RESTART++`.
@@ -321,6 +322,36 @@ and link:../docs/261001-1322%20HAL%20challenge%20and%20readable%20board%20consol
 Use the dated build/acceptance records for evidence on a particular target;
 the HAL structure alone does not establish physical qualification.
 
+[[browser-runtime]]
+=== Browser runtime and hosting
+
+The published page runs RunCPM, the terminal and Arduino_GFX as C/C++ compiled
+to WebAssembly. One build contains six board descriptors; target selection
+restarts the runtime with the selected geometry/INI identity and current
+memory card. It does not select or upload a physical MCU. Hardware builds and
+native desktop builds retain their separate target workflows.
+
+Browser JavaScript owns input delivery, canvas presentation, snapshots and
+card ZIP controls. The existing C++ terminal owns key/profile interpretation,
+history, INI and rendering behavior. There is no native Python mirror in the
+standalone route. The card is a private MEMFS copy; guest writes and lazy saves
+remain volatile until the user stops cleanly and downloads a ZIP. Target switch
+and guest REBOOT preserve card contents, not guest application memory.
+
+Static hosting supplies runtime assets and the preload card; user-loaded cards
+and exports stay in the browser. The Pages package uses a scoped service worker
+for the required isolation before starting Wasm; it is not a card-persistence
+or offline asset cache. Deployment uses the committed card snapshot, while local
+packaging can use the current working card. See the
+link:../src/RunCPM_7xtgv-terminal/tools-web/README.adoc[browser tooling reference]
+for the exact package boundaries, build, deployment and checks.
+
+Linux Chromium automated coverage and user reports are separate from physical
+keyboard/OS qualification. The
+link:02-UG-user-guide.adoc#browser-compatibility[Intel MacBook Air observation]
+is limited; native macOS tooling remains unimplemented. Browser/SDL operation
+cannot establish MCU timing, storage-bus margin or physical panel behavior.
+
 [[desktop-host-tooling]]
 === Linux and Windows desktop host tooling
 
@@ -373,8 +404,8 @@ already open host terminal.
 
 Konsole/Kitty and Mintty use shared key identifiers and terminal controls.
 `XTGV_HACK_TOPROW='+ěščřžýáíé'` in `tools/terminal.conf` describes unshifted
-positions 1..0. Empty or missing disables ordinary plain/Shift row conversion;
-`XTGV_BANK_KEYS` separately selects Alt-bank characters. Brightness and keypad
+positions 1..0. Empty or missing disables ordinary plain/kbd:[Shift] row conversion;
+`XTGV_BANK_KEYS` separately selects kbd:[Alt]-bank characters. Brightness and keypad
 decimal are independent. The common literal reader gives inherited environment
 values, including empty, precedence over the file. Open a new mirror after
 changing this setting; changing its value needs no executable rebuild.
@@ -382,15 +413,15 @@ changing this setting; changing its value needs no executable rebuild.
 Windows generates a Mintty configuration per session. `xtgv_key_bridge.exe`
 and `xtgv_key_hook.dll`, produced by target rebuild, bind the selected Mintty
 message thread and translate physical keys while its window has focus. They
-check the complete active keyboard layout; punctuation, paste, AltGr and
+check the complete active keyboard layout; punctuation, paste, kbd:[AltGr] and
 unassigned composition retain their normal input paths. Konsole/Kitty generate
-bindings for configured characters and Shift+digits without that full-layout
+bindings for configured characters and kbd:[Shift] with digits without that full-layout
 guard. Their keymap syntax rejects whitespace, quotes, backslashes, hash
 characters and conflicting bindings. Checked-in static profiles do not
 regenerate an already open terminal's configuration.
 
-Alt+Q is the common application-exit shortcut. Konsole/Kitty retain Alt+Esc as
-an alias; Windows reserves Alt+Esc for window cycling. Native Windows keyboard
+kbd:[Alt+Q] is the common application-exit shortcut. Konsole/Kitty retain kbd:[Alt+Esc] as
+an alias; Windows reserves kbd:[Alt+Esc] for window cycling. Native Windows keyboard
 acceptance and probe instructions are in the
 link:../src/RunCPM_7xtgv-terminal/tools-win/README.adoc[Windows tooling notes].
 Konsole is the primary interactive Linux test path; Kitty integration is
@@ -520,8 +551,8 @@ python3 tools/terminal.py
 ----
 
 Use the per-target `mirror.sh` shortcut for normal hardware sessions; ensure
-no other process owns the serial port before a direct launch. Press `Ctrl+]`,
-then `q`, to leave the hardware terminal without rebooting CP/M. Closing a
+no other process owns the serial port before a direct launch. Press kbd:[Ctrl+&#93;],
+then kbd:[q], to leave the hardware terminal without rebooting CP/M. Closing a
 desktop session's owning mirror instead stops its emulator.
 See the link:../src/RunCPM_7xtgv-terminal/README.md[main project documentation],
 link:../src/RunCPM_7xtgv-terminal/VALIDATION.md[validation record], and
@@ -657,7 +688,7 @@ The checked-in and locally installed notices include:
 |===
 |Component |Evidence |Boundary
 |RunCPM-derived CPU/BDOS/CCP and POSIX baseline |link:../src/RunCPM_7xtgv-terminal/LICENSE.RunCPM[MIT notice]; link:../src/RunCPM_linux/README.md[POSIX source baseline] |The MIT notice covers the identified RunCPM-derived parts; preserve it with those parts.
-|7xtgv-terminal QL-font header |`++src/terminal/7xtgv-QL-font.h++` credits `++Copyright 2026 Petr Antos (@apws/@7alken)++`; original terminal assets are included in the MIT grant |Any third-party underlying glyph/artwork rights remain separate; the removed reserved-rights wording is not current policy.
+|7xtgv-terminal QL-font header |`++src/terminal/7xtgv-QL-font.h++` retains the original author copyright notice; original terminal assets are included in the MIT grant |Any third-party underlying glyph/artwork rights remain separate; the removed reserved-rights wording is not current policy.
 |Original terminal, desktop adapters, tools, tests and authored terminal documentation/assets |link:../LICENSE[MIT], with scope in the root notice |Native specification/design documents are excluded; mixed files retain upstream rights.
 |P4 panel table and legacy JD9365 driver |Apache-2.0 markers in the active HAL table and legacy copies; JD9365 files credit Espressif, 2024; full license under `LICENSES/` |Recover exact upstream versions and applicable NOTICE files; preserve attribution/modification notices. A table-level marker does not license the entire HAL.
 |Root browser CSS |normalize.css 2.1.2 MIT marker and framework-derived styling |Reconstruct full stylesheet provenance and applicable notices; local CSS changes do not erase upstream rights.
@@ -665,7 +696,7 @@ The checked-in and locally installed notices include:
 |GFX Library for Arduino 1.6.4 |Locally installed `++license.txt++` has a BSD-style Adafruit notice |Check included source/subcomponents and reproduce applicable notices for an actual distribution.
 |Arduino-Pico 5.4.4 and ESP32 Arduino core |Installed platform trees have their own license files and bundled dependencies |The top-level Arduino-Pico notice is LGPL-2.1 text; nested SDK/libraries carry additional notices. ESP32's complete dependency inventory was not audited here.
 |SDL desktop |SDL2 uses zlib terms; this workstation's installed SDL2 compatibility package also has a zlib notice |Inventory the actual linked runtime. Desktop compiles real Arduino_GFX sources but uses the local host-storage adapter instead of SdFat.
-|CP/M guest binaries, language packages and imported demos |The complete `++cpmcard/++` tree is versioned at Petr's request and includes independently sourced material |Treat provenance and redistribution rights item by item; this guide does not grant them.
+|CP/M guest binaries, language packages and imported demos |The complete `++cpmcard/++` tree is versioned by project decision and includes independently sourced material |Treat provenance and redistribution rights item by item; this guide does not grant them.
 |===
 
 This is a component inventory, *not* legal advice or a claim that every
@@ -698,7 +729,7 @@ The link:../docs/261007-1426%20DONE%20Sinclair%20QL%20channels%20research%20and%
 compares QDOS windows, VT scrolling and our native cell architecture.
 *Native 7xtgv is the primary project objective*; the implemented terminal is
 a compatibility/development vehicle, not the native specification itself.
-The note includes Petr's request verbatim. Channel-inspired software surfaces
+The note includes our request verbatim. Channel-inspired software surfaces
 remain an idea, not a delivered API or a change to the four-byte format.
 
 For the high-level reasoning behind the architecture, read
@@ -707,7 +738,7 @@ It follows the major changes in ownership, input, rendering, persistence,
 HAL/core boundaries, performance and desktop reuse, separating implemented
 decisions from open directions.
 
-Petr's link:../docs/261004-11%20manual%20reorg.adoc[261004 practical manual-reorganization outline]
+Our link:../docs/261004-11%20manual%20reorg.adoc[261004 practical manual-reorganization outline]
 is now AsciiDoc in the main `docs/` folder, moved from the manual's raw TXT.
 It preserves the original usage notes and proposals, with separate editorial
 cautions for historical inaccuracies. The
@@ -767,7 +798,7 @@ Card-layout status and remaining acceptance work:
   That comparison did *not* replace our working core. Its README described
   CP/M 2.2 as fully supported and CP/M 3 as work in progress. These are
   historical audit findings, not verification of today's upstream HEAD.
-* Petr's concern was initially framed too narrowly around whether CP/M 3
+* Our concern was initially framed too narrowly around whether CP/M 3
   had to be solved. The more fundamental issue was knowing *which RunCPM
   generation we were extending*, identifying our changes, and making a
   later upstream migration reviewable without losing the tested terminal.
@@ -801,7 +832,7 @@ Card-layout status and remaining acceptance work:
   the 7XF extensions. Cleanup and compatibility fixes did not import CP/M 3.
 
 The 261001 naming implementation record documents host checks, target builds
-and Petr's W535 acceptance. Earlier plans showing `RUNCPM_*` hook names or
+and our W535 acceptance. Earlier plans showing `RUNCPM_*` hook names or
 pending renames remain historical evidence, not today's naming contract.
 The Linux and Windows SDL desktops run this same Arduino-oriented product fork;
 successful desktop emulation does not establish upstream or CP/M 3 parity.
@@ -812,7 +843,7 @@ successful desktop emulation does not establish upstream or CP/M 3 parity.
 . Fetch and pin a fresh upstream commit when that work is authorized; record
   its full SHA/date. Compare recovered baseline, current 7xtgv-terminal and that
   pinned upstream separately. Do not overwrite the working reference or
-  Petr's intentionally modified `RunCPM_comparison` checkout.
+  our intentionally modified `RunCPM_comparison` checkout.
 . First establish newer-upstream *CP/M 2.2* behavior in an isolated build,
   then port the cleaned hooks, board/runtime integration and 7XF variant.
   Check console/COM return, disk I/O, SUBMIT, catalog and INI ownership.
@@ -833,7 +864,7 @@ successful desktop emulation does not establish upstream or CP/M 3 parity.
   link:../docs/260911-19%20RunCPM%20upstream%20comparison%20and%20licensing%20plan.adoc[260911-19 comparison and licensing plan].
 * *Injection inventories:* link:../docs/260925-20%20target-specific%20injection%20inventory%20and%20flat%20HAL%20plan.adoc[260925-20 flat-HAL inventory];
   link:../docs/260928-23%20RunCPM%20core%20delta%20and%20upstream%20seams.adoc[260928-23 three-way core audit and CP/M 3 collision map];
-  link:../docs/260930-08%20RunCPM%20core%20delta%20raw%20doc,%20our%20injections.adoc[260930-08 Petr's raw injection review].
+  link:../docs/260930-08%20RunCPM%20core%20delta%20raw%20doc,%20our%20injections.adoc[260930-08 raw injection review].
 * *Two-stage cleanup then upstream-port proposal:*
   link:../docs/260930-13%20RunCPM%20cleanup,%20CCP%207XF%20and%20terminal-only%20build%20plan.adoc[260930-13 cleanup, CCP 7XF and terminal-only plan].
 * *Delivered separation:* link:../docs/261001-0539%20recovered%20CCP%20and%207XF%20variant%20split.adoc[261001-0539 recovered CCP / 7XF split];
@@ -844,7 +875,7 @@ successful desktop emulation does not establish upstream or CP/M 3 parity.
   link:../docs/261001-2317%20XTGV%20integration%20naming%20and%20positive%20build%20guards.adoc[261001-2317 implemented XTGV naming and positive guards].
 
 [[_petrs_request_verbatim_261007]]
-==== Petr's request, verbatim (261007)
+==== Our request, verbatim (261007)
 
 [source,text,options="wrap"]
 ----

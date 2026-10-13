@@ -5,6 +5,7 @@
 :toc:
 :sectnums:
 :source-highlighter: highlight.js
+:experimental:
 
 :project-example: 7xtgv-terminal
 :cpu-clock-example: 66 MHz
@@ -43,6 +44,49 @@ semantic; the offset changes their effective rendered level.
 
 
 
+
+== Keyboard keys and sequences
+
+Use keycaps for physical keys and chords in reader instructions. Keep commands,
+INI names and encoded bytes in monospace. Enable `:experimental:` in the header
+for the stable AsciiDoc keyboard macro; the shared stylesheet supplies its look.
+
+[source,asciidoc]
+----
+kbd:[Alt+Q]
+kbd:[Ctrl+Shift+PgUp]
+kbd:[Ctrl+&#93;] then kbd:[q]
+kbd:[Pause] then kbd:[x]
+kbd:[&#43;]
+----
+
+Examples: kbd:[Alt+Q], kbd:[Ctrl+Shift+PgUp],
+kbd:[Ctrl+&#93;] then kbd:[q], and kbd:[Pause] then kbd:[x].
+A plus within a chord means held together; “then” means successive presses.
+Use `&#93;` for a closing bracket and `&#43;` for the plus key itself inside
+macros. Prefer Alt, PgUp/PgDn and Backspace. A platform mapping such as
+Mac Option belongs in the relevant instructions, not an assumed global remap.
+
+The inverted headings and keycaps help readers scan for useful sections and
+actions quickly. Keep this visual emphasis consistent across documents.
+Use "we"/"our" or neutral wording for project observations and decisions,
+rather than personal names.
+
+The shared stylesheet defines `--mixworx-keycap-size` (`0.74em`) and
+`--mixworx-keycap-offset` (`calc(-0.06em - 1px)`) for all keycaps. A more positive offset
+moves them down relative to the text baseline.
+
+*Modifier backgrounds:* load `asciidoctorjs-crx-mixworx.js` after rendering.
+It marks keycaps named Ctrl, Alt, AltGr, Shift or Fn with the `modifier` class,
+ignoring case and surrounding whitespace. This applies to standalone keys
+and chords, without changing their labels or copied text. CSS supplies the
+lighter grey through `kbd.modifier` and
+`--mixworx-keycap-modifier-background` (`#808080`). Other keys retain `#555`.
+For example: kbd:[Ctrl+Alt+Shift+Fn+PgUp] or kbd:[AltGr+C].
+
+The helper can also run after rendering exported HTML. Without the helper,
+all keys retain the common dark background: CSS alone cannot select key names
+from their text content. No special source notation is needed.
 
 == Text formatting
 

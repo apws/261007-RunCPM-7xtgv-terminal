@@ -1,0 +1,35 @@
+= Quiet browser shortcuts and adjacent logs
+:source-highlighter: highlight.js
+
+== Behaviour
+
+* `tools-web/desktop-rebuild.sh` now shows configure/build/package stages and
+  build percentages, using the same progress helper as native desktop builds.
+  All configure, compiler, linker and packaging details go to the adjacent
+  `desktop-rebuild.log`. The native helper's default label remains unchanged.
+* `tools-web/desktop-local.sh` shows preparation, ready URL and shutdown status.
+  Launcher output, HTTP requests and browser-launch diagnostics go to the
+  adjacent `desktop-local.log`. Ctrl+C stops its foreground host cleanly.
+  The optional `--native-mirror` route also uses this wrapper.
+* Logs are replaced on each invocation. Failures retain a nonzero status and
+  print a short reference to the log. Missing SDK setup is reported without
+  automatic installation. Explicit help remains visible.
+
+== Checks
+
+[loweralpha]
+. Four web shortcut tests pass: detail filtering, launch failure status/log,
+  missing SDK, and build success/failure with paths containing spaces. A failed
+  build returns its exit code and never packages or reports 100 percent success.
+. Four existing build-progress tests pass, including Make/Ninja parsing and
+  single-line terminal progress; native callers retain their existing label.
+. The actual shared Wasm rebuild and standalone packaging pass. The console
+  shows percentages and short status; detailed output is in desktop-rebuild.log.
+. A real standalone host launched with --no-open serves index and input.js,
+  records HTTP requests only in the log, and shuts down with status zero when
+  its wrapper receives Ctrl+C. Evidence is in
+  `build/RunCPM_7xtgv-terminal/desktop-web/sessions/quiet-launch-3ksom_kb/`.
+
+The host check uses an isolated site/card snapshot and opens no GUI browser.
+The native-mirror GUI route was not exercised again. No MCU build/upload,
+working-card write, dependency installation or publication was performed.

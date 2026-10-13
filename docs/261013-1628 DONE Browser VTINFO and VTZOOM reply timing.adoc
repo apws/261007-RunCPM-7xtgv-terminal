@@ -1,0 +1,59 @@
+= Browser VTINFO and VTZOOM reply timing
+:source-highlighter: highlight.js
+
+== Problem and cause
+
+VTINFO printed NOT SUPPORTED (timeout), then the DCS identity response appeared
+as text at the CCP prompt. VTZOOM could apply its requested geometry and still
+print the same timeout because its subsequent query used the same reply path.
+The terminal supported both commands; the failure was scheduling.
+
+The guest helpers poll BDOS input at most 65535 times per byte. The fast Wasm
+worker could exhaust that loop before the UI owner's next animation frame
+parsed the queued output. Replies generated during that pass were also left
+in a staging queue until a later terminal pass. Removing only the latter delay
+passed a host regression but still reproduced the browser failure.
+
+== Change and ownership
+
+* Browser-only virtualAvailable yields for 1 ms when input is empty and guest
+  output is waiting for the UI owner. Available input and polling with no
+  pending output retain their immediate path. CPU-only execution is untouched.
+* The terminal delivers replies generated while consuming output in the same
+  pass, before rendering/mirroring, with the existing free-space and forced-
+  return checks. Deferred replies remain bounded; output still drains when
+  guest input is full.
+* Desktop work-pending detection includes deliverable replies, even without a
+  connected mirror. The UI owner remains the sole terminal/parser producer.
+* No RunCPM core, BDOS/BIOS, guest helper source/binary or card settings changed.
+  The existing VTINFO.COM and VTZOOM.COM work with the corrected runtime.
+
+== Verification
+
+[loweralpha]
+. The new host regression failed on the old delayed reply path and passes with
+  same-pass delivery. It checks the complete VTINFO record and standard cursor
+  report. The ASan/UBSan runtime suite also passes its queue saturation,
+  stalled/disconnected mirror and emergency-return checks.
+. Shared web build 261013-1626 passes real Chromium tests for all six targets:
+  ES3_35, EC6_147, EP4_10, ES3_5, RP2_147 and RP2_2. Each runs VTINFO five times,
+  VTZOOM with no arguments, VTZOOM 2 and VTZOOM 1: thirty identity reports and
+  eighteen zoom-query/change checks. Prompts stay clean with no late DCS bytes.
+. Tests use disposable cards with automation bank 9; source-card hashes are
+  unchanged. Clean stop and absence of JavaScript errors are checked. Frontend
+  module tests pass. Screenshots and text evidence are under
+  `build/RunCPM_7xtgv-terminal/desktop-web/sessions/query-reply-lrszxe1_/`.
+
+The maintained test is
+link:../src/RunCPM_7xtgv-terminal/tools-web/tests/query_reply.py[query_reply.py].
+The earlier partial fix's captured browser failure is in
+`build/RunCPM_7xtgv-terminal/desktop-web/sessions/query-reply-4scg4dxq/failed.txt`.
+
+== Artifacts and boundaries
+
+Standalone and Pages packages are refreshed. Existing local launcher sessions
+serve immutable older copies: export wanted card changes, relaunch the local
+web launcher and open its new page to use the fixed build. No need to replace
+guest COM files. No publication, commit, physical-board rebuild or flash was
+performed. MCU and native-desktop acceptance remain separate from this browser
+proof; background-tab throttling is not qualified.

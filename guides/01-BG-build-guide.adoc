@@ -1,11 +1,18 @@
 = RunCPM 7xtgv-terminal: Build Guide
 :leveloffset: +1
 :source-highlighter: highlight.js
+:experimental:
 :toc:
 :toclevels: 3
 :sectnums!:
 
-Start on *Linux or Windows* with the native desktop emulator; no physical board is needed.
+To try the project without installing anything, open the
+https://apws.github.io/261007-RunCPM-7xtgv-terminal/[browser application] and
+follow the link:02-UG-user-guide.adoc#browser-session[User Guide].
+
+This guide covers building and running a native desktop on *Linux or Windows*,
+and building/uploading firmware to physical modules with the Linux tools.
+No physical board is needed for native desktop use.
 It runs the integrated RunCPM/terminal and real Arduino_GFX drawing code using
 your chosen board's display definition. The current terminal is a development
 testbed for *7xtgv-native*, not the completed native engine.
@@ -17,7 +24,9 @@ fresh-machine and hardware qualification limits are listed separately.
 Both hosts use the same desktop command names: `desktop-rebuild`,
 `desktop-local` and `desktop-card`, with `.sh` on Linux and `.cmd` on Windows.
 Choose the host-specific setup below. Hardware build/upload uses Linux tooling;
-macOS and WSL launch paths remain unvalidated.
+native macOS launchers are unimplemented and WSL launch paths remain unvalidated.
+Browser use on macOS is a separate route with
+link:02-UG-user-guide.adoc#browser-compatibility[limited user observations].
 
 For the experimental browser build, follow the separate
 link:../src/RunCPM_7xtgv-terminal/tools-web/README.adoc[tools-web setup and launch instructions].
@@ -280,7 +289,7 @@ unmounting or removing the card.
 * Desktop mirrors use isolated sessions, separate from the 7xtgv-terminal
   hardware mirror session (`7xtgv-terminal`).
 * SDL requests always-on-top but can be minimized. Clicking it or using
-  Alt+Tab can take keyboard focus: reselect the mirror to type.
+  kbd:[Alt+Tab] can take keyboard focus: reselect the mirror to type.
 * SDL backlight is a compensated brightness simulation. It does not establish
   physical luminance, MCU speed, SPI bandwidth, panel timing or electrical behavior.
 
@@ -290,6 +299,36 @@ them merely to make Git accept a pull.
 
 [[hardware-workflow]]
 == 3. Physical hardware
+
+[[supported-modules]]
+=== Modules and vendor references
+
+These references identify the hardware families used by our targets. Match
+module suffixes, connectors and the actual board before buying or flashing;
+a manufacturer's touch, wireless or other feature is not automatically
+implemented by this terminal. Display dimensions in the project use its
+chosen orientation.
+
+[cols="1,2,3",options="header"]
+|===
+|Display ID |Manufacturer module |Product and technical references
+|`EC6_147` |Waveshare ESP32-C6-LCD-1.47 |https://www.waveshare.com/ESP32-C6-LCD-1.47.htm[Product]; https://www.waveshare.com/wiki/ESP32-C6-LCD-1.47[wiki]. Non-Touch model.
+|`RP2_147` |Waveshare RP2350-LCD-1.47-A |https://www.waveshare.com/rp2350-lcd-1.47-a.htm[Product family]; https://www.waveshare.com/wiki/RP2350-LCD-1.47-A[wiki]. Type-C A variant; Type-A B is different.
+|`RP2_2` |Waveshare RP2350-Touch-LCD-2 |https://www.waveshare.com/product/rp2350-touch-lcd-2.htm[Product]; https://www.waveshare.com/wiki/RP2350-Touch-LCD-2[wiki].
+|`ES3_35` |Guition JC3248W535 family |https://www.guition.com/icms/upload/fb081940d6fc11f09850077a33e1404f/FTPData/UEditor/file/2026121/1768961095054/JC3248W535%20Specifications-EN.pdf[Manufacturer specification, JC3248W535C_I_Y]. See the software-name note below.
+|`ES3_5` |Guition JC8048W550 family |https://www.guition.com/esp32-display-module/iot-operator-interface-terminal[Product, N_I variant]; https://www.guition.com/icms/upload/fb081940d6fc11f09850077a33e1404f/FTPData/UEditor/file/2026121/1768961096474/JC8048W550%20Specifications-EN%20.pdf[Manufacturer specification, N/R/C variants].
+|`EP4_10` |Guition JC8012P4A1C_I_W family |https://www.displaysmodule.com/sale-53106488-industrial-esp32-display-unit-jc8012p4a1c-i-w-y1-with-capacitive-touch-top-performance.html[Supplier listing, I_W_Y1]; https://www.guition.com/icms/upload/fb081940d6fc11f09850077a33e1404f/FTPData/UEditor/file/2026121/1768961095913/JC8012P4A1C_I_W%20Specifications-EN-v1.1%282%29.pdf[Manufacturer specification].
+|===
+
+Guition's https://www.guition.com/-download[download index] is a fallback if a
+specification URL changes. The W535 specification identifies an ESP32-S3,
+320x480 AXS15231B module, consistent with our 480x320 landscape target. We
+identify JC3248W535 as the probable original module name; the precise physical
+suffix still needs confirmation. The existing software target, folder and boot
+identity remain `jc8048w535`, with display ID `ES3_35`; use that spelling in
+commands. This documentation correction does not rename or requalify hardware.
+
+=== Build and upload
 
 Choose the folder for the *connected physical module*. From that folder:
 
@@ -314,8 +353,8 @@ Choose the folder for the *connected physical module*. From that folder:
 [cols="1,3",options="header"]
 |===
 |Family |What to do
-|ESP32 |Normally upload over the running serial connection. If no serial device is found, the script asks you to connect the named module and press Enter.
-|RP2350 |Connect in BOOTSEL mode. One eligible BOOTSEL disk already present skips the prompt; otherwise the script asks you to connect it in BOOTSEL and press Enter.
+|ESP32 |Normally upload over the running serial connection. If no serial device is found, the script asks you to connect the named module and press kbd:[Enter].
+|RP2350 |Connect in BOOTSEL mode. One eligible BOOTSEL disk already present skips the prompt; otherwise the script asks you to connect it in BOOTSEL and press kbd:[Enter].
 |===
 
 * ESP32 firmware identity mismatches block upload. Resolve board/target
@@ -537,7 +576,7 @@ link:04-TRG-technical-reference-guide.adoc#_build_upload_and_test_boundary[Techn
 |Windows setup reports conflicting package versions |Complete `pacman -Syu` in the same MSYS2 installation printed by setup. Reopen and repeat after core updates. If it still fails, keep the full update output and check the root with `cygpath -w /`; do not force dependency checks or remove compiler libraries.
 |Core/library download failure |Check network/proxy/CA certificates and disk space; keep pinned versions. Do not change HAL code to fix a download.
 |Mounted-card path rejected |Mount the card first and pass its root containing `A/0` to desktop-card. Developer directory overrides are described in link:04-TRG-technical-reference-guide.adoc#desktop-host-tooling[TRG].
-|SDL ignores typing |Focus the mirror. SDL is output-only even when its title bar or Alt+Tab gives it focus.
+|SDL ignores typing |Focus the mirror. SDL is output-only even when its title bar or kbd:[Alt+Tab] gives it focus.
 |SDL too large / too dark |Choose a smaller board display or adjust `--window-scale 1` through `9` at launch. The SDL window is fixed-size; scale does not alter guest geometry. Use terminal backlight controls for brightness.
 |Missing serial device / permission denied |Check cable, actual port, permissions and competing readers. Use setup's `--serial-only` for group access.
 |Wrong board or multiple candidates |Resolve selection explicitly. Do not bypass a firmware mismatch or guess among BOOTSEL disks.
