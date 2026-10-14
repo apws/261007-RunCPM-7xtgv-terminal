@@ -15,6 +15,8 @@ observations keep their original test scope; they are not universal acceptance.
 
 == High-level reading
 
+* link:261014-1030%20DONE%20Restore%20fast%20application%20clear%20commands.adoc[Fast application clear]: clear commands return to burst delivery; measured pacing overhead and VTPAL input-handler comparison.
+
 * link:261014-0951%20DONE%20Paced%20profile%20commands%20and%20BASIC%20tool%20exit.adoc[Paced application commands]: configurable 30 ms default and complete SYSTEM handling in VTPAL/VTESTS.
 
 * link:261014-0937%20PLAN%20Cooperative%20exit%20for%20MBASIC%20tools.adoc[Alt+Q in BASIC tools]: investigated command-byte delivery, guest-test limitations and a proposed cooperative exit mechanism.

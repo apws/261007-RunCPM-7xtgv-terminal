@@ -1217,7 +1217,7 @@ bank-number exceptions. Configure non-neutral application behavior explicitly.
 |`zoom1_terminal` through `zoom4_terminal` |Display geometry |Optional per-bank geometry; validated against the selected HAL, as above.
 |`on_select` |Empty |Up to 64 decoded bytes; emitted only at live CCP on selection.
 |`exit_command`, `clear_command` |Empty |Up to 64 decoded bytes each; no `send:` prefix. Empty means no application command.
-|`command_char_delay_ms` |30 |0..1000 milliseconds between generated exit/clear command characters; 0 sends the command as a burst. See the timing note below.
+|`command_char_delay_ms` |30 |0..1000 milliseconds between generated exit command characters; 0 sends the command as a burst. Clear commands are not paced. See the timing note below.
 |`history_clear` |Empty |Up to 16 decoded bytes used before retyping recalled text; otherwise the runtime uses its ordinary erase/recall transport.
 |`history_retype_delay_ms` |0 |0..1000 milliseconds between clear and retyping.
 |`line_prefix`, `activate_prefix` |Empty |Up to 8 decoded bytes each for screen-line tracking/activation. Empty activation prefix needs no explicit prompt to activate tracking.
@@ -1232,14 +1232,18 @@ bank-number exceptions. Configure non-neutral application behavior explicitly.
 |`editing_surface` |`line` |`line` or `screen`; parsed/stored, but not yet used to select a distinct recall transport. Not an implemented completion-list switch.
 |===
 
-Generated exit/clear commands wait for prior input to be consumed before
+Generated exit commands wait for prior input to be consumed before
 starting each character's delay. They do not catch up in a burst after a slow
 guest or display frame. The delay also applies before the first command
 character, after any erase/newline prefix; a longer configured clear/retype
 delay is retained. Profile/session changes cancel a pending command.
+Clear commands are sent as a burst, retaining any configured initial
+clear/retype delay. This keeps long MBASIC clear expressions responsive.
 This pacing does not alter ordinary typing, keyboard escape sequences,
 terminal replies, history recall or `on_select`. Thirty milliseconds is a
-tested host starting point, not a timing guarantee for every guest and board;
+minimum, not an exact delivery interval: guest consumption and terminal polling
+add time (about 50 ms per character in the tested browser at 60 Hz).
+It is a tested host starting point, not a timing guarantee for every guest and board;
 increase the profile value, for example to 100, if a slower guest loses input.
 
 kbd:[Tab] is not currently an INI base-key name. Ordinary kbd:[Tab] can still pass as input.

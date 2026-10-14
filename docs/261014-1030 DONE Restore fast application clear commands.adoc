@@ -1,0 +1,51 @@
+= Restore fast application clear commands
+:source-highlighter: highlight.js
+
+== Regression and correction
+
+Following the link:261014-0951%20DONE%20Paced%20profile%20commands%20and%20BASIC%20tool%20exit.adoc[pacing change],
+clearing from MBASIC's OK prompt visibly typed the long PRINT expression.
+A disposable Chromium/Wasm bank-9 test measured 1.76 seconds, with most
+visible characters about 50 ms apart despite the configured 30 ms minimum.
+The scheduler observes prior input consumption on a later terminal poll,
+then starts the delay; frame scheduling rounds up delivery further.
+The user's desktop observation was slower still; no native-desktop interval
+was measured in this test. Thirty milliseconds is not an exact send period.
+
+Clear commands now use burst delivery again. The existing optional
+history-clear/retype settling delay remains a single initial wait.
+The existing command_char_delay_ms setting now applies only to exit commands.
+Exit spacing and the complete SYSTEM handlers remain intact, preserving
+Alt+Q returning our BASIC tools to OK. Ordinary COMs must still understand
+their configured exit command; this is not a universal guest exit event.
+No BASIC source, live INI, history buffer or RunCPM core changes were needed.
+
+== VTPAL comparison
+
+Compared current VTPAL with a disposable variant omitting its three new
+input-matcher lines. Four runs, twenty matrix redraws each, in the POSIX
+RunCPM comparator gave median times of 8.71/8.97 ms for current and
+10.61/8.53 ms without the matcher. Ranges overlapped (roughly 8.4--11.1 ms).
+This shows no substantial guest-output penalty in that test, not physical
+panel timing. The matcher runs after nonempty INKEY input, outside the
+swatch rendering loops. Source and record tails were left unchanged.
+
+== Validation
+
+[loweralpha]
+. Production runtime tests cover fast clear with default exit pacing,
+  explicitly delayed clear followed by a burst, paced exit, stalled input,
+  wraparound, cancellation and zero-delay compatibility. Full runtime
+  ASan/UBSan tests pass.
+. Browser regression checks clear at OK and Alt+Q from VTPAL/VTESTS to OK,
+  then Alt+Q from OK to CP/M, using a disposable card. Both pass; the
+  corrected clear took 34 ms in each case, versus 1.76 seconds before.
+  Evidence: build/RunCPM_7xtgv-terminal/desktop-web/sessions/basic-exit-igq13dj1/.
+. Web rebuild, guide PDF refresh, visual review of changed RG pages,
+  Allman formatting, feature registry and documentation rendering pass.
+  Native desktop binaries still need rebuilding to pick up this shared fix.
+
+Timing reproduction: /tmp/7xtgv-clear-timing.py (transient diagnostic), with
+before-change trace in build/RunCPM_7xtgv-terminal/desktop-web/sessions/basic-exit-b969j1gw/clear-trace.json.
+Maintained browser regression: tools-web/tests/basic_exit.py.
+No physical deployment, live-session restart, commit or push.

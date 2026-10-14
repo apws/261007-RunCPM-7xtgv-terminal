@@ -23,7 +23,8 @@ async def main():
     (card / 'A/0/7XTGVTRM.INI').write_bytes(
         b'[global]\r\nccp_bank=9\r\n[bank9]\r\n'
         b'input_adapter=local_compose\r\nscreen_line=true\r\n'
-        b'command_new_line=true\r\nexit_command=system\\r\r\n\x1a')
+        b'command_new_line=true\r\nexit_command=system\\r\r\n'
+        b'clear_command=print chr$(27);"[2J";chr$(27);"[H"\\r\r\n\x1a')
     before = hashes(card)
     session = root / 'host'
     log = (root / 'server.log').open('wb')
@@ -80,6 +81,14 @@ async def main():
                         const s = xtgvWeb.snapshot().text;
                         return s.includes(' 12345') && s.trim().endsWith('OK');
                     }''')
+                    # A long MBASIC clear expression must arrive as one burst,
+                    # not spend ~1.7 s being typed at the default exit delay.
+                    began = asyncio.get_running_loop().time()
+                    await page.keyboard.press('Alt+Backspace')
+                    await page.wait_for_function('xtgvWeb.snapshot().text.trim() === "OK"')
+                    elapsed = asyncio.get_running_loop().time() - began
+                    assert elapsed < .75, f'Clear took {elapsed:.3f} s'
+                    print(f'{program}: clear at OK in {elapsed * 1000:.0f} ms', flush=True)
                     await page.keyboard.press('Alt+q')
                     await page.wait_for_function('xtgvWeb.snapshot().text.trim().endsWith("A0>")')
                 except Exception:

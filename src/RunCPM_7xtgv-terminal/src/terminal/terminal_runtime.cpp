@@ -868,14 +868,17 @@ static void profileCommand(bool exitCommand)
     // Generated exit/clear commands are terminal controls, not user input.
     // Send them to the application but never add them to its history bank.
     profileCommandStagedLength = 0;
-    if ((profile.historyClearLength && profile.historyRetypeDelayMs) || profile.commandCharDelayMs)
+    // Only exit text needs spacing for cooperative guest input loops. Clear
+    // commands can be long expressions (MBASIC) or atomic escape sequences.
+    const uint16_t commandDelayMs = exitCommand ? profile.commandCharDelayMs : 0;
+    if ((profile.historyClearLength && profile.historyRetypeDelayMs) || commandDelayMs)
     {
         memcpy(profileCommandStaged, command, length);
         profileCommandStagedLength = length;
         profileCommandStagedAt = millis();
         profileCommandStagedPosition = 0;
         profileCommandStagedBank = history->activeBank();
-        profileCommandCharDelayMs = profile.commandCharDelayMs;
+        profileCommandCharDelayMs = commandDelayMs;
         profileCommandWaitingForRead = true;
         profileCommandStagedDelayMs = profile.historyClearLength ? profile.historyRetypeDelayMs : 0;
         if (profileCommandStagedDelayMs < profileCommandCharDelayMs)

@@ -514,14 +514,21 @@ static void testProfileCommandPacing()
     }
     assert(!profileCommandStagedLength);
 
-    // Clear commands use the same pacing, with an adjustable longer gap.
+    // Clear commands retain fast delivery even with the default exit pacing.
+    lineModelAuthoritative = true;
+    profileCommand(false);
+    for (uint8_t c : std::string("\rCLS\r"))
+        assert(input.pop(byte) && byte == c);
+    assert(!input.available() && !profileCommandStagedLength);
+
+    // Exit commands can use an adjustable longer gap.
     terminalConfigBegin();
-    for (uint8_t c : std::string("[bank0]\ncommand_char_delay_ms=100\nclear_command=AB\n"))
+    for (uint8_t c : std::string("[bank0]\ncommand_char_delay_ms=100\nexit_command=AB\n"))
         terminalConfigFeed(c);
     assert(terminalConfigEnd() == 0);
     lineModelAuthoritative = true;
     fakeTime = UINT32_MAX - 50;
-    profileCommand(false);
+    profileCommand(true);
     profileCommandPoll();
     fakeTime += 99;
     profileCommandPoll();
@@ -551,6 +558,24 @@ static void testProfileCommandPacing()
     profileCommandPoll();
     assert(input.pop(byte) && byte == 'X');
     assert(input.pop(byte) && byte == 'Y' && !input.available());
+
+    // Clear still respects an explicit one-time clear/retype settling delay.
+    terminalConfigBegin();
+    for (uint8_t c : std::string("[bank0]\ncommand_char_delay_ms=100\nhistory_clear=Z\n"
+                                 "history_retype_delay_ms=75\nclear_command=AB\n"))
+        terminalConfigFeed(c);
+    assert(terminalConfigEnd() == 0);
+    lineModelAuthoritative = true;
+    profileCommand(false);
+    assert(input.pop(byte) && byte == 'Z');
+    fakeTime += 74;
+    profileCommandPoll();
+    assert(!input.available());
+    ++fakeTime;
+    profileCommandPoll();
+    assert(input.pop(byte) && byte == 'A');
+    assert(input.pop(byte) && byte == 'B' && !input.available());
+    assert(!profileCommandStagedLength);
     std::cout << "profile commands: pacing, slow guest, wraparound, cancellation and burst mode passed\n";
 }
 
