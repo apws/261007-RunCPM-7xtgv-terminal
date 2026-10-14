@@ -56,6 +56,34 @@ link:02-UG-user-guide.adoc#browser-compatibility[MacBook observations and compac
 including the unsuccessful kbd:[Alt+Space] check. Native prefix commands and
 transfer shortcuts below are explicitly native-only.
 
+[IMPORTANT]
+====
+*Windows:* kbd:[Alt+Space] opens the system window menu. This is a Windows
+shortcut, not a browser-only restriction; it can also intercept the chord in
+native terminal use. In our browser version, kbd:[Ctrl+Space] is the alternate
+chord for showing the current profile. This alias is not currently provided
+by our native terminal keymaps.
+
+*Browser:* kbd:[Alt+Ctrl+PgUp] / kbd:[Alt+Ctrl+PgDn] are fixed aliases for
+kbd:[Ctrl+PgUp] / kbd:[Ctrl+PgDn] when the browser captures those chords.
+They use the selected profile's existing application navigation bindings,
+without changes to Turbo or FAND. The browser aliases are available on all
+browser hosts.
+====
+
+Their routing is:
+
+* kbd:[Ctrl+Space] shows the current profile, like kbd:[Alt+Space]. It takes
+  precedence over guest Ctrl+Space input in the browser.
+* kbd:[Alt+Ctrl+PgUp] / kbd:[Alt+Ctrl+PgDn] deliver logical
+  kbd:[Ctrl+PgUp] / kbd:[Ctrl+PgDn] through the selected profile's existing
+  bindings. Turbo and FAND need no installer changes. Use Left kbd:[Alt];
+  kbd:[AltGr] remains reserved for layout input.
+
+These are browser aliases only. kbd:[Ctrl+Shift+PgUp] / kbd:[Ctrl+Shift+PgDn]
+still control zoom, and adding kbd:[Alt] to those still controls backlight.
+The host must deliver the alias too; custom OS shortcuts can intercept it.
+
 [discrete]
 [[_find_details_by_task]]
 === Find details by task

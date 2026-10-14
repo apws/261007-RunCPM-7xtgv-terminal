@@ -37,12 +37,18 @@ export function encodeKey(e, topRow = defaultTopRow) {
             return keyEvent('KeyNum' + digit, mods, e.key);
     }
     if (e.altKey && !e.ctrlKey && e.key === '#') return csi('>15v');
+    // Browser aliases retain the existing terminal commands/profile bindings.
+    if (e.key === ' ' && mods === 1) return csi('>14v');
     if (mods === 4) {
         const global = {q: '>60v', Q: '>60v', Escape: '>60v', Backspace: '>61v',
             ' ': '>14v', PageUp: '>12v', PageDown: '>13v', '#': '>15v'};
         if (global[e.key]) return csi(global[e.key]);
     }
     if (e.key === 'PageUp' || e.key === 'PageDown') {
+        if (mods === 5) {
+            const [base, code] = navigation[e.key];
+            return keyEvent(base, 1, xterm(code, 1));
+        }
         if (mods === 3) return csi(e.key === 'PageUp' ? '>67v' : '>66v');
         if (mods === 7) return csi(e.key === 'PageUp' ? '>63;33v' : '>63;34v');
     }

@@ -34,6 +34,20 @@ assert.equal(encodeKey(event('é','Digit2'), '+ěščřžýáíé'), null);
 assert.equal(encodeKey(event('c','KeyC',{ctrlKey:true,altKey:true,altGraph:true})), null);
 assert.equal(encodeKey(event('Dead','Quote')), null);
 assert.equal(wire.decode(encodeKey(event('#','Digit3',{altKey:true,shiftKey:true}))), '\x1b[>15v');
+assert.equal(wire.decode(encodeKey(event(' ','Space',{ctrlKey:true}))), '\x1b[>14v');
+assert.deepEqual(encodeKey(event(' ','Space',{ctrlKey:true})),
+    encodeKey(event(' ','Space',{altKey:true})), 'Profile aliases match');
+assert.deepEqual(encodeKey(event(' ','Space',{ctrlKey:true,shiftKey:true})),
+    keyEvent('KeySpace', 3, '\0'), 'Ctrl+Shift+Space remains guest input');
+for (const [key, zoom, backlight] of [['PageUp', '>67v', '>63;33v'], ['PageDown', '>66v', '>63;34v']]) {
+    assert.deepEqual(encodeKey(event(key,key,{ctrlKey:true,altKey:true})),
+        encodeKey(event(key,key,{ctrlKey:true})), 'Alias preserves complete Ctrl navigation frame');
+    assert.equal(wire.decode(encodeKey(event(key,key,{ctrlKey:true,shiftKey:true}))), '\x1b[' + zoom);
+    assert.equal(wire.decode(encodeKey(event(key,key,{ctrlKey:true,shiftKey:true,altKey:true}))), '\x1b[' + backlight);
+    for (const guard of [{altGraph:true}, {isComposing:true}, {metaKey:true}]) {
+        assert.equal(encodeKey(event(key,key,{ctrlKey:true,altKey:true,...guard})), null);
+    }
+}
 const original = {directories:['A','A/0','B','B/1'],files:{'A/0/VTBIN.COM':new Uint8Array([0,255,26,0,128])}};
 assert.deepEqual(unpackCard(new Uint8Array(await packCard(original).arrayBuffer())).files['A/0/VTBIN.COM'], original.files['A/0/VTBIN.COM']);
 assert(unpackCard(new Uint8Array(await packCard(original).arrayBuffer())).directories.includes('B/1'));

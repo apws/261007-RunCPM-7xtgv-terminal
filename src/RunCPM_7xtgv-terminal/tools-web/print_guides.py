@@ -2,6 +2,7 @@
 """Incrementally print saved guide PDFs during web rebuilds, never during launch."""
 import argparse
 import asyncio
+import base64
 import hashlib
 import html as html_text
 import json
@@ -58,7 +59,7 @@ def prerequisites():
     missing = [name for name in ('asciidoctor', 'pdfinfo', 'pdftotext', 'fc-match') if not shutil.which(name)]
     if missing:
         raise RuntimeError('Missing PDF tools: ' + ', '.join(missing) + '; see tools-web/README.adoc setup')
-    for family in ('Liberation Sans', 'Liberation Mono'):
+    for family in ('Liberation Sans', 'Liberation Mono', 'FontAwesome'):
         found = subprocess.check_output(['fc-match', '-f', '%{family}', family], text=True)
         if family not in found:
             raise RuntimeError('Missing print font: ' + family)
@@ -86,10 +87,17 @@ async def render(jobs, stage, root):
     prerequisites()
     from playwright.async_api import async_playwright
     converter = subprocess.check_output(['asciidoctor', '--version'], text=True).splitlines()[0]
+    # Embed the installed icon font so admonitions also render with networking
+    # disabled, both locally and in Pages Actions.
+    icon_font = Path(subprocess.check_output(
+        ['fc-match', '-f', '%{file}', 'FontAwesome'], text=True))
+    icon_data = base64.b64encode(icon_font.read_bytes()).decode('ascii')
+    icon_css = ('@font-face {font-family: "GuideIcons"; src: url(data:font/ttf;base64,'
+                + icon_data + ');}\n.fa {font-family: "GuideIcons"; font-style: normal;}\n')
     for job in jobs:
         html = stage / (job['source'].stem + '.html')
         subprocess.run(['asciidoctor', '--failure-level', 'ERROR', '-s', '-a', 'showtitle',
-                        '-a', 'webfonts!', '-a', 'source-highlighter!',
+                        '-a', 'webfonts!', '-a', 'source-highlighter!', '-a', 'icons=font',
                         '-o', str(html), str(job['source'])], check=True)
         # Embedded CSS and local assets work offline. Relative PDF document
         # links are rewritten to the public repository before printing.
@@ -101,7 +109,7 @@ async def render(jobs, stage, root):
         content = re.sub(r'(<img\b[^>]*\bsrc=")([^"]+)(")', image_url, html.read_text())
         # Live Preview renders an embedded document inside #content. Using the
         # standalone converter's #header changes the title and TOC print style.
-        css = (root / 'asciidoctorjs-crx-mixworx.css').read_text()
+        css = icon_css + (root / 'asciidoctorjs-crx-mixworx.css').read_text()
         html.write_text('<!DOCTYPE html><html><head><meta charset="utf-8">'
                         '<meta name="generator" content="Asciidoctor">'
                         '<title>' + html_text.escape(job['source'].stem) + '</title>'

@@ -1640,6 +1640,13 @@ stale guides with a separate log; the working-session shorthand is reprint.
 Pages Actions retains an automatic refresh and freshness check before packaging.
 a|link:../docs/261014-1802%20DONE%20Separate%20guide%20reprint%20from%20local%20builds.adoc[Separate guide reprint]
 
+|`++261014-1956++`
+|Browser aliases add Ctrl+Space for the current profile and Alt+Ctrl+PgUp/PgDn
+for logical Ctrl+PgUp/PgDn. Existing Turbo/FAND mappings remain authoritative;
+zoom/backlight chords stay unchanged. UG/RG use standard IMPORTANT
+admonitions; offline PDF printing embeds the icon font.
+a|link:../docs/261014-1956%20DONE%20Browser%20aliases%20for%20reserved%20shortcuts.adoc[Browser aliases]
+
 |===
 
 == Command and catalog name lineage

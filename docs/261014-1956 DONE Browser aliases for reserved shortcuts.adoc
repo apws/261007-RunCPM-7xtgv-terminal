@@ -1,0 +1,43 @@
+= Browser aliases for reserved shortcuts
+:source-highlighter: highlight.js
+
+== Change
+
+The browser encoder accepts Ctrl+Space as an additional CSI >14v profile
+notice command. This replaces the previous guest Ctrl+Space/NUL fallback for
+that exact chord only; Ctrl+Shift+Space remains guest input.
+Alt+Ctrl+PgUp/PgDn encode exactly the same versioned events and xterm fallback
+bytes as Ctrl+PgUp/PgDn. Existing profile bindings remain authoritative,
+including Turbo C5/C4 and FAND Ctrl+Q then Ctrl+E/Ctrl+X.
+The guides panel lists both additions; UG and RG explain the browser scope.
+
+== Boundaries and evidence
+
+The user reports Ctrl+PgUp/PgDn intercepted by their browser even with F11;
+Ctrl+Shift+PgUp/PgDn works. Aliases avoid changing TINST/FANDINST.
+Left Alt is intended. AltGr, composition and Meta guards remain in place.
+Ctrl+Shift+PgUp/PgDn zoom and Alt+Ctrl+Shift+PgUp/PgDn backlight are unchanged.
+No native keymap, firmware, INI, installer or guest application change.
+Physical browser/OS shortcut delivery remains for user acceptance.
+
+Focused module checks compare exact alias frames and protect zoom/backlight,
+Ctrl+Shift+Space and AltGr/composition/Meta handling; all pass. A focused
+Chromium DOM check confirms all three aliases cancel defaults and deliver
+matching bytes. The guides panel was rendered and visually checked. These
+synthetic events do not establish physical OS shortcut delivery. Static assets are
+repackaged using the existing Wasm binary; no compiler build or PDF reprint.
+
+Separately, the requested local-card uppercase audit found 19 case-only
+renames in B3/B5/B6. The existing utility applied them under the desktop card
+lock, with a temporary backup and SHA-256 verification of unchanged contents.
+The subsequent card-name audit found no remaining renames or problems.
+
+== Admonition correction
+
+UG/RG use the standard IMPORTANT admonition, with the red-circle exclamation
+icon and the shared light-green background. The Windows Alt+Space conflict
+is separate from browser-only aliases; native Ctrl+Space is not implemented.
+The offline PDF renderer now enables font icons and embeds the installed
+FontAwesome font. Pages prerequisites and local setup instructions include
+that dependency. This also restores standard icons in other admonitions.
+Six incremental PDF checks pass; shared renderer changes refresh all guides.

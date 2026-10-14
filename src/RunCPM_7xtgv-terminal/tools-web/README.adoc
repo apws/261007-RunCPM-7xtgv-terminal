@@ -34,11 +34,12 @@ Building requires Bash, Git, Python 3 with venv/pip, CMake, Make and Arduino_GFX
 1.6.4 at `~/Arduino/libraries/GFX_Library_for_Arduino`, or an explicit
 `XTGV_GFX_SOURCE` library directory. Use a current pthread-capable browser.
 Guide printing also requires Asciidoctor 2.x, Poppler (`pdfinfo` and
-`pdftotext`), Fontconfig and Liberation Sans/Mono fonts. On Debian/Ubuntu:
+`pdftotext`), Fontconfig, Liberation Sans/Mono and FontAwesome icon fonts.
+The printer embeds the icon font for offline admonition rendering. On Debian/Ubuntu:
 
 [source,bash]
 ----
-sudo apt-get install asciidoctor poppler-utils fontconfig fonts-liberation
+sudo apt-get install asciidoctor poppler-utils fontconfig fonts-liberation fonts-font-awesome
 ----
 
 From `tools-web/`:
