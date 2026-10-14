@@ -1,31 +1,5 @@
 # 7xtgv terminal history v2
 [0]
->cd 7xtgv
->dir
->dir *.bas
->mbasic
->vtdrv rw
->exit
->7xf
->cd /b/masic
->cd /b/mbasic
->mbasic
->vtinfo
->cd /c/7xtgv
->mbasic vtests
->cd xterm256
->dir
->vtinfo
->dir
->7xf
->cls
->cd xterm256 
->cd /c/xterm256
->dir
->cd /c/xterm256
->submit brot_bs
->submit brot_ps
->dir
 >cls
 >7xf
 >cd /c/7xtgv
@@ -34,13 +8,11 @@
 >ll /
 >vtcpu
 >vtdrv rw
->wxit
 >exit
 >cls
 >7xf
 >cd /b/mbasic
 >mbasic vtests
->mbasic 
 >exit
 >dir
 >vtdrv rw
@@ -56,55 +28,79 @@
 >exit
 >vtdrv rw
 >exit
->vtpal 1 
 >vtpal 0 
 >vtpal 1 
 >vtinfo
 >tpinst
 >dir t*.*
 >tinst
->s6
->24
 >cd /b/tp
 >7xf
 >tinst
->s6
->24
 >cls
 >dir
 >turbo
->yeprog
 >turbo
 >tinst
->s6
->y[0m
 >reboot
 >turbo
->yqcd /b/tp
 >tinst
->s6
->y[0m
 >7xf
 >cd /c/7xtgv
 >vtterm
 >cls
 >dir
->Great news to finally see progress on recreating sz and rz source listing
->Are there any other CP/M programs in RomWBW lacking source that could be recrea
->Much appreciated!
->Great news to finally see progress on recreating sz and rz source listing
->Are there any other CP/M programs in RomWBW lacking source that could be recrea
->Much appreciated!
->Great news to finally see progress on recreating sz and rz source listing
->Are there any other CP/M programs in RomWBW lacking source that could be recrea
->Much appreciated!
 >reboot
 >exit
+>7xf
+>cd /a
+>cd
+>cd cpmdev
+>dir
+>ls
+>ll *.z80
+>cd /b
+>ll ..
+>cd fand
+>ll
+>ll ..
+>ll /
+>cd /c/7xtgv
+>dir
+>ll *.bas
+>mbasic vtpal
+>vtpal 1
+>mbasic
+>ll *.bas
+>mbasic vtests
+>mbasic vtpal
+>dir
+>cd /c/xterm256
+>submit brot_bs
+>ll *.bas
+>ll ..
+>cd bench
+>ll
+>zexall
+>ll /
+>cd /b/bbcbasic
+>ll
+>bbcbasic
+>bbclower
+>dir
+>turbo
+>ll /
+>cd /b
+>ll /
+>ll ..
+>bbclower
+>mbasic
+>7xf
+>cd /c/7xtgv
+>mbasic vtests
+>mbasic vtpal
+>mbasic
 [1]
->Enter returns to menu:5
->Select:5
->Enter returns to menu:
->Select:6
 >Enter returns to menu:
 >Select:7
 >Enter returns to menu:
@@ -184,124 +180,22 @@
 >Enter returns to menu:
 >Select:5
 >Enter: return to ANSI
->Select:4
->Enter: all 32 glyphs
->Enter returns to menu:
->Select:5
->Enter: return to ANSI
->Select:6
->Enter returns to menu:
->Select:
->Select:7
->Enter returns to menu:
->Select:7
->Enter returns to menu:
->Select:8
->Enter returns to menu:
->Select:9
->Enter: next scroll check
->Select:q
+>list
+>load "vtpal
+>list
+>load "prog"
+>list
+>run
+>list
+>load "prog"
 [2]
->ctrl_end=send:\x11C  
->escape=send:K\D
->na
->20.9.26
->koleje
->te
->ssssqq
->112
 >1j
->n13
->1j
->nj
->a13
->1j
->n4
->a1j
->n5
->1j
->n6
->1j
->n7
->1j
->n8
->1j
->n9
->1j
->n10
->1j
->n11
->1j
->n12
->1j
->n12
->1j
->n13
->j1j
->9b4b
->a13
->20.9.26
->koleje
->pmenu
->koleje
->ezaci
->  ezaci
->koleje
->,o,,
->ye7xtgvtrm.ini
->koleje
->ezaci
->sprjmeni,jmeno
->ye7xtgvtrm.ini
->koleje
->ezaci
->sprijmeni
->ezaci
->sjmeno,prijmeni,rocnik,obor
->113
->^x
->4 
->nj
->^U
->20
->a14
->14
->koleje
->ezaci
->sprijmeni,jmeno,rocnik
->114
->1j
->50
->20
->a14
->koleje
->ezaci
->sprijmeni,jmrno,cp,rocnik
->koleje
->te
->ate
->bq;
->ye7xtgvtrm.ini
->       CP/M 2.2 operating system
->0 7XTGVTRM.IN I 7xtgv-terminal configuration settings
->7XTGVTRM.BUF 7xtgv-terminal profiles history buffers
->REBOOT.COM   reboot os command
->REFLASH.COM  7xtgv-t7xtgv-terminal erminal reflash os command
->VTCPU.COM    7xtgv-terminal CPU bench
->/firmware/firmware
->VTDRV.COM    7xtgv-terminal DISK-access benchmark
->VTPUT.COM    7xtooling send utility
->VTGET.COM    tooling receive utility
->VTINFO.COM   module/display info
->VTINFO.ASM   8080 source code
->b --
->sdir.7xf
->gcls.com     arming xterm256 for next output
->brot_ps.sub  
->brot_bs.sub  
->vtstart.com  benchmark test time note
->vtstop.com   benchmark test stt stop, prints elapsed timeBill Shen xterm256 man
 >eprog
+>QUIT
+>list
+>load "prog"
+>list
+>run
 [3]
 >dddddsflksdfSESESErksdjflkklsdjlfjsdfsdfs
 >/home/falken/_/drv/x/260915/!!! mz-800 - cpm - text tools, fand, nc !!!!/!!! Ji
@@ -740,4 +634,4 @@
 >1_terminal=132x48
 >zoom2_terminal=80x24
 >zoom3_terminal=44x16
-# crc32=B0ABECBE
+# crc32=3EFD3AF1
