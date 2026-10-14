@@ -15,6 +15,10 @@ observations keep their original test scope; they are not universal acceptance.
 
 == High-level reading
 
+* link:261014-1802%20DONE%20Separate%20guide%20reprint%20from%20local%20builds.adoc[Separate guide reprint]: explicit local reprint command, automatic Pages refresh, no PDF work during local builds.
+
+* link:261014-1438%20DONE%20Installed%20application%20keyboard%20reference.adoc[Installed application keyboards]: current Turbo table, private-byte encoding, Czech photographs, BASIC controls and qualified FANDINST/Sharp history.
+
 * link:261014-1030%20DONE%20Restore%20fast%20application%20clear%20commands.adoc[Fast application clear]: clear commands return to burst delivery; measured pacing overhead and VTPAL input-handler comparison.
 
 * link:261014-0951%20DONE%20Paced%20profile%20commands%20and%20BASIC%20tool%20exit.adoc[Paced application commands]: configurable 30 ms default and complete SYSTEM handling in VTPAL/VTESTS.

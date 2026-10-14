@@ -20,6 +20,13 @@ Input delivery, host commands and card lifetime differ by route. For first use,
 see the link:02-UG-user-guide.adoc#browser-session[browser introduction]; for
 native setup, use the link:01-BG-build-guide.adoc#quick-start[Build Guide].
 
+*CPU speed:* `SPEED 65535` selects the fastest throttled ("slow") setting;
+`SPEED 0` restores unthrottled execution, the default. Smaller nonzero values
+slow the emulator further. A reported i7-10710U (1.1 GHz) test gave roughly
+44 MHz in VTCPU with `SPEED 65535`, on both desktop and web. That is an observed
+equivalent Z80 benchmark rate, not a fixed MHz setting. See the
+<<runcpm-speed-command,SPEED reference>>.
+
 The saved PDF uses our *mobile PDF (mpdf)* profile: Legal portrait, 140% scale,
 zero left/right margins and 0.1-inch top/bottom margins, with backgrounds.
 It is intended for reading on phones and comfortably enlarged monitor text.
@@ -57,6 +64,7 @@ transfer shortcuts below are explicitly native-only.
 |===
 |Task |Reference sections
 |Boot/configuration |Global settings; INI diagnostics; display geometry; build guide for a fresh host.
+|Application keys |<<installed-application-controls,Installed application controls>>: Turbo/TINST, MBASIC, BBC BASIC, Czech positions and FAND status.
 |Profiles/history |Global terminal keys; histories/banks; application profiles; editing details; bank settings.
 |7XF/files |CP/M commands and user areas; shared A0 commands; boot/SUBMIT handling.
 |Colors/backlight |Global terminal keys; global settings; palette slots and ANSI mapping.
@@ -345,6 +353,328 @@ The normal terminal is a line model, not a generic editor. It records a line whe
 * Ordinary edits are tracked; recalled history uses the configured clear/retype
   sequence. Its controls therefore differ from MBASIC's.
 
+[[installed-application-controls]]
+=== Our installed application controls
+
+This is the working-card keyboard reference, reviewed on 261014. It describes
+our experiments and current configuration, not the original vendors' defaults.
+Select the matching application profile before launching a program. A physical
+card, an older browser ZIP or another copy of an executable can contain a
+different installation.
+
+[cols="2,3",options="header"]
+|===
+|Package / profile |Current approach
+|`mbasic(B1)` / bank 1 |Local line composition and an MBASIC EDIT bridge; see <<_mbasic_two_adapter_choices,adapter details>> and the quick keys below.
+|`bbcbasic(B2)` / bank 2 |BBC's own line editor, explicit control bytes and terminal history; also used with `BBCLOWER`.
+|`comal(B3)` / bank 3 |Reserved package area and an unverified ANSI input template. No COMAL runtime is installed here.
+|`tp(B4)` / bank 4 |Our TINST-installed Turbo Pascal controls, including private single-byte keys. A matching `TURBO.COM` is also installed in `cpm(A0)`.
+|`fand(B5)` / bank 5 |Experimental WordStar-family input mappings and console adaptation. Screen behaviour and controls remain incompletely working.
+|`dbase(B6)` |Imported package/data; this guide does not establish a tested dBASE keyboard installation. Bank 6 is currently DDT, not dBASE.
+|===
+
+==== How the TINST and FANDINST experiments developed
+
+We were investigating how real CP/M applications receive keys and drive the
+screen, while making Turbo comfortable on our Czech keyboard. Familiar PC
+navigation and memorable editing chords were the starting point; reproducing
+a traditional WordStar keyboard was not the objective. The result is a
+practical, partly experimental installation rather than a universal keymap.
+
+Four separate parts have to agree:
+
+[source,text]
+----
+physical key + modifiers
+  -> terminal profile: bytes sent to CP/M
+  -> application's installed input commands: editor action
+  -> application's output definition: bytes drawn by the terminal
+----
+
+Early Turbo experiments used ANSI arrow strings and Ctrl-letter prefixes.
+Some surprising results came from the application's interpretation of those
+prefixes: the old Ctrl+L, then i insertion experiment made Turbo emit an
+insert-line command while its cursor was on the status row. The same effect
+occurred in the native CP/M comparison; changing the terminal's normal ANSI
+insert-line semantics would have hidden the wrong problem.
+
+TINST then proved able to accept bytes with bit 7 set. This allowed compact,
+unambiguous single-byte controls for the main navigation/editing keys. An
+important installation discovery was that *TINST installs editor commands
+into the selected `TURBO.COM`*. Its `TINST.DTA` terminal-definition library is
+not a substitute for the installed executable. Configuring one copy and
+launching another explained an apparent failure of the high-bit keys.
+The subsequent device test confirmed the private-byte approach in Turbo.
+
+FANDINST was a related investigation into the same separation of input and
+output definitions. Turbo's success did not prove FAND's matcher, patch target,
+secondary controls or console protocol. FAND remains an unresolved adaptation;
+see <<fand-installation-status,the FAND status below>>.
+
+Historical evidence: the
+link:../docs/260919-11%20TP301%20editor%20TINST%20and%20profile%20switching.adoc[early Turbo experiments]
+and link:../docs/260922-00%207xtgv%20private%208-bit%20core%20key%20codes%20and%20TP3%20proof.adoc[private-byte proof].
+Their earlier mappings and card paths are historical, not the current tables below.
+
+[[cz-keyboard-positions]]
+==== Czech keyboard positions: QWERTZ and QWERTY
+
+The following original annotated photograph records the position names used
+in our INI. They identify *physical positions*, not the character currently
+printed by a Czech, US or other host layout.
+
+.Czech keyboard position names from the original investigation
+image::images/keyboard-cz-position-ids.png[Annotated Czech keyboard with BS P L Z and M position IDs,width=100%,link=images/keyboard-cz-position-ids.png]
+
+[cols="2,3",options="header"]
+|===
+|INI position |Where it is
+|`num1` through `num0` |The main number row, separate from the keypad. On the observed Czech layout its unshifted legends are `+ěščřžýáíé`.
+|`bs2`, `bs1` |The two positions immediately before kbd:[Backspace], left to right.
+|`p1`, `p2` |The two positions immediately after kbd:[P].
+|`l1`, `l2`, `l3` |The three positions immediately after kbd:[L], before kbd:[Enter].
+|`z1` |The extra ISO key between left kbd:[Shift] and the first bottom-row letter: kbd:[Y] in QWERTZ, kbd:[Z] in QWERTY.
+|`m1`, `m2`, `m3` |The three positions immediately after kbd:[M].
+|===
+
+QWERTZ and QWERTY exchange the Y/Z letter positions; `z1` keeps its existing
+INI name in either layout. The photograph carries several legends per key
+and is not a promise that every host layout produces those same characters.
+The observed Czech `bs1` and `l3` positions are dead accents: ordinary typing
+must retain composition. kbd:[AltGr] is for layout symbols, not the `Alt` bit
+in the private encoding below. See <<keyboard-overrides-in-7xtgvtrmini,key-binding syntax>>
+for the supported names and host limitations.
+
+[[private-core-key-bytes]]
+==== The compact one-byte scheme
+
+The original marked keyboard assigns a low hexadecimal nibble to a core key.
+Its red F label over X was an exploratory choice; it is not a current
+instruction to encode the letter X as a special key.
+
+.Original core-key nibble sketch; slot F was not settled
+image::images/keyboard-core-key-nibbles.png[Original keyboard photograph with hexadecimal core-key labels,width=100%,link=images/keyboard-core-key-nibbles.png]
+
+[source,text]
+----
+bit       7   6   5   4   3 2 1 0
+meaning   1  Ctrl Alt Shift key number
+
+byte = 0x80 | Ctrl*0x40 | Alt*0x20 | Shift*0x10 | key
+----
+
+[cols="2,3",options="header"]
+|===
+|High nibble |Modifiers
+|`8` |None
+|`9` |Shift
+|`A` |Alt
+|`B` |Alt+Shift
+|`C` |Ctrl
+|`D` |Ctrl+Shift
+|`E` |Ctrl+Alt
+|`F` |Ctrl+Alt+Shift
+|===
+
+[cols="1,3",options="header"]
+|===
+|Low nibble |Core key
+|`0`, `1`, `2`, `3` |Up, Left, Down, Right
+|`4`, `5`, `6`, `7` |PgDn, PgUp, End, Home
+|`8`, `9` |Delete, Insert
+|`A`, `B` |Tab, Space
+|`C`, `D`, `E` |Esc, Backspace, Enter
+|`F` |Unsettled physical identity / extension design; see the limitations below.
+|===
+
+Thus kbd:[Left] is `81`, kbd:[Ctrl+Left] is `C1`, and
+kbd:[Shift+Delete] is `98`. Hex values here are raw input bytes, not printable
+hexadecimal text. For example, `left_ctrl=send:\xC1` emits one byte.
+
+This is an application-facing convention implemented by explicit profile
+bindings. It is *not* automatically applied to every special key or every
+application, and is separate from the host's `CSI >70` key-event transport.
+Terminal-owned chords still take precedence. Plain kbd:[Tab], kbd:[Backspace]
+and kbd:[Enter], for example, do not become `8A`, `8D` and `8E` merely because
+the design table lists them.
+
+The working Turbo INI experiments with `z1_ctrl=send:\xCF` and
+`z1_ctrl_shift=send:\xDF`; neither byte appears in the current 45-entry
+installed primary command table. The proposed `8F` extension prefix has no
+implemented extension grammar. `FF` is TINST's Nothing value in the inspected
+installation, not an available Turbo command simply because it fits the formula.
+
+[[turbo-installed-controls]]
+==== Turbo Pascal: installed controls
+
+The following tables combine the current bank-4 INI with the installed
+45-entry command table read from both `cpm(A0)` and `tp(B4)` copies of
+`TURBO.COM` on 261014. Those executable copies match. This records the stored
+configuration, not a fresh interactive proof of every action on every host.
+TINST's action names are retained: for example, Scroll down and Scroll up
+refer to its named commands, not a redefinition of their visual effect.
+
+.Hexadecimal bytes shown below are the configured guest input
+[cols="3,1,3",options="header"]
+|===
+|Physical key |Hex |Installed Turbo action
+|kbd:[Left] / kbd:[Right] |`81` / `83` |Character left / right
+|kbd:[Up] / kbd:[Down] |`80` / `82` |Line up / down
+|kbd:[Ctrl+Left] / kbd:[Ctrl+Right] |`C1` / `C3` |Word left / right
+|kbd:[Ctrl+Up] / kbd:[Ctrl+Down] |`C0` / `C2` |Scroll down / up
+|kbd:[PgUp] / kbd:[PgDn] |`85` / `84` |Page up / down
+|kbd:[Home] / kbd:[End] |`87` / `86` |Left / right on line
+|kbd:[Ctrl+PgUp] / kbd:[Ctrl+PgDn] |`C5` / `C4` |Top / bottom of page
+|kbd:[Ctrl+Home] / kbd:[Ctrl+End] |`C7` / `C6` |Top / end of file
+|kbd:[Alt+Home] / kbd:[Alt+End] |`A7` / `A6` |Beginning / end of block
+|kbd:[Insert] |`89` |Insert mode on/off
+|kbd:[Ctrl+Insert] |`C9` |Insert line
+|kbd:[Delete] |`88` |Delete character under cursor
+|kbd:[Backspace] |`08` |Delete left character
+|kbd:[Ctrl+Delete] |`C8` |Delete line
+|kbd:[Shift+Delete] |`98` |Delete to end of line
+|kbd:[Esc] |`0B 04` |End edit, via the profile's Ctrl+K Ctrl+D sequence
+|===
+
+Some remaining installed commands still use ordinary control bytes or
+multi-byte sequences. In the next table, `++^X++` means the Ctrl-X byte `18`,
+and a following lowercase letter means that literal letter. These are byte
+notations, not additional private-nibble assignments. Producing NUL or
+Ctrl-backslash on a Czech layout is host-dependent; no universal physical
+chord is asserted for those entries.
+
+[cols="3,2,2",options="header"]
+|===
+|Installed action |Input notation |Hex
+|To last cursor position |NUL |`00`
+|Delete right word |`++^D++` |`04`
+|Mark block begin |Ctrl-backslash byte |`1C`
+|Mark block end |`++^Y++` |`19`
+|Mark single word |`++^W++` |`17`
+|Hide/display block |`++^X ^X++` |`18 18`
+|Copy block |`++^X c++` |`18 63`
+|Move block |`++^X v++` |`18 76`
+|Delete block |`++^X++`, then the private Delete byte |`18 88`
+|Read block from disk |`++^X r++` |`18 72`
+|Write block to disk |`++^X w++` |`18 77`
+|End edit |`++^K ^D++` |`0B 04`
+|Tab |`++^I++` |`09`
+|Auto-tab on/off |`++^T++` |`14`
+|Restore line |`++^L r++` |`0C 72`
+|Find |`++^Q ^F++` |`11 06`
+|Find and replace |`++^Q ^R++` |`11 12`
+|Repeat last find |`++^Q ^Q++` |`11 11`
+|Control-character prefix |`++^C++` |`03`
+|Character-left alternative; delete-left alternative |Nothing |`FF` in each slot
+|===
+
+Additional working-profile details:
+
+* kbd:[Ctrl+S] is an experimental quick-save macro: `++^K ^D S E ^Q ^P++`.
+  Its intended flow is end edit, save, reopen the editor and return to the
+  previous position. It assumes the expected Turbo menu/editor state; it is
+  not an unconditional save operation in every dialogue.
+* kbd:[Alt+Q] sends the configured `Q`, appropriate to Turbo's menu Quit.
+  It is not the same as the editor's End edit command. Use kbd:[Esc] to leave
+  the editor first; there is no promise that `Q` exits every Turbo context.
+* kbd:[Alt+Up] / kbd:[Alt+Down] remain terminal history. The INI sends ANSI
+  fallbacks for kbd:[Alt+Left] / kbd:[Alt+Right], not the proposed `A1` / `A3`.
+* The INI emits further Shift/Alt private codes not assigned in the primary
+  table. An emitted byte does not by itself establish an editor action;
+  Turbo's secondary controls and host-reserved chords need separate checks.
+* TINST's output definition is independent. For example, terminal reset on
+  leaving Turbo should include `ESC [ 0 m` to clear emphasis; initialization
+  and exit reset are different fields.
+
+The installer capability list is in the
+link:../docs/260911-14%20Turbo%20Pascal%203.01%20keyboard%20and%20terminal%20installation%20reference.adoc[TINST reference].
+The reproducible binary readout and file identity for this review are recorded
+in link:../docs/261014-1438%20DONE%20Installed%20application%20keyboard%20reference.adoc[the documentation checkpoint].
+
+==== MBASIC and BBC BASIC: quick keys
+
+MBASIC's current `local_compose` adapter consumes its editing keys before
+ordinary profile-byte mappings. BBC BASIC uses its own editor controls from
+`DIST.Z80`. Their differences are intentional; selecting a shared ANSI or
+WordStar input preset does not install either interpreter's editor.
+
+[cols="2,3,3",options="header"]
+|===
+|Key / operation |MBASIC, bank 1 |BBC BASIC / BBCLOWER, bank 2
+|kbd:[Left] / kbd:[Right] |Move in the local composition line. |Send `0A` / `0C`, BBC cursor left / right.
+|kbd:[Home] / kbd:[End] |Beginning / end of the local line. |Send `06` / `0E`, start / end of line.
+|kbd:[Insert] |Toggle local insert/overwrite. |Send `11`, BBC insert/overwrite toggle.
+|kbd:[Delete] / kbd:[Backspace] |Delete at / before the local cursor. |Send `12` / `08`, delete at / before cursor.
+|kbd:[Up] / kbd:[Down] |Terminal history previous / next. |Terminal history previous / next.
+|kbd:[Alt+Up] / kbd:[Alt+Down] |Explicitly disabled in this profile. |Send `07` / `0F`, BBC's native cursor up / down controls.
+|Recall preparation |Local composition handles the line. |Send `06 18` to start of line and delete its remainder; wait the configured 100 ms before retyping.
+|kbd:[Alt+Backspace] at the prompt |Send the configured PRINT expression to clear/home. |Send the configured PRINT expression to clear/home.
+|kbd:[Alt+Q] at the prompt |Send `system` and Enter. |Send `quit` and Enter.
+|===
+
+In MBASIC, `EDIT n` also uses the adapter's interpreter-specific bridge,
+described in <<_mbasic_two_adapter_choices,Editing details>>. Without that
+adapter, the INI's raw `L`, `X`/Esc and `1D` editing sequences have different,
+modal meanings; they are not general cursor controls.
+
+The BBC profile sends ANSI sequences for PgUp/PgDn and additional modifiers;
+this does not establish that BBC's editor implements those actions. Its
+core byte meanings above are documented in the installed `bbcbasic(B2)`
+`DIST.Z80` source. `BBCLOWER` changes keyword recognition, not this key table.
+
+Application exit/clear commands are ordinary guest input, not forced process
+termination. At an interpreter prompt they execute its commands. A running
+program must understand the input itself: our MBASIC VTPAL/VTESTS handle the
+complete SYSTEM sequence and return to OK, while arbitrary BASIC programs
+do not inherit that behaviour. See <<additional-bank-settings,command timing>>.
+
+[[fand-installation-status]]
+==== FANDINST, the Sharp preset and unresolved output
+
+FAND's keyboard and display remain experimental. The current bank-5 bindings
+use WordStar-family input: arrows send `++^S++`, `++^D++`, `++^E++`, `++^X++`; Ctrl+Left/Right
+send `++^A++`/`++^F++`; Home/End send `++^Q ^S++`/`++^Q ^D++`; PgUp/PgDn send `++^R++`/`++^C++`.
+There are additional Ctrl/Shift commands and a `++^K ^S++` save macro on Ctrl+S.
+These are the bytes we configure, not a claim that every action works correctly
+in every FAND editor or dialogue. They do not use Turbo's private-byte scheme.
+
+The original FANDINST preset was labelled *SHARP MZ-821*, and the application
+identified itself as `FAND-SHARP MZ 821 & K 6314(13)`. That establishes a
+Sharp-targeted installation; it does not identify every internal patch or
+prove which CP/M BIOS it expected. The archived installer observations include:
+
+[cols="2,3",options="header"]
+|===
+|Original preset item |Recorded setting
+|Geometry |80 columns by 25 rows
+|Clear screen |`0C`, with cursor home after clear
+|Erase to end of line |`16`
+|Cursor addressing |`1B`, then binary row and column with offsets of 128 each; row first
+|Alternate brightness |`1C 33` on; `1C 32` off, shown in zero-padded installer fields
+|===
+
+Those controls are not ordinary ANSI or VT52. Changing only `input=wordstar`
+or matching navigation keys cannot correct an incompatible output protocol.
+Likewise, changing output interpretation cannot fix wrong input bindings or an
+installer applied to a different executable/chain file.
+
+The historical investigation considered Lamač / LEC CP/M a plausible console
+lineage. It did *not* establish that identification. The examined
+`BIOS8MZ.MAC` for CP/M V2.26-31 disagrees with the FAND preset's clear/EOL
+controls, so it must not be copied as a supposedly universal MZ-821 definition.
+A dedicated output personality may eventually be useful if the actual emitted
+byte stream requires it, but *no Sharp/MZ-821 output mode is implemented or
+established as necessary by this documentation*. ANSI adaptation remains an
+experiment, not a completed FAND compatibility claim.
+
+The next useful investigation is to identify exactly which executable/chain
+files FANDINST changes and capture the failing application's actual output,
+then compare that with the stored screen definition. This separates an
+installation mismatch from a decoder gap before selecting a custom mode.
+See the public
+link:../docs/260921-00%20FAND%20MZ-821%20Lamac-LEC%20CP-M%20investigation.adoc[Sharp/FAND investigation]
+and link:../docs/260920-22%20Sharp%20MZ-800%20Czech%20CP-M%20BIOS%20source%20reference.adoc[BIOS comparison].
+
 [[_raw_input]]
 === RAW input
 
@@ -498,6 +828,7 @@ reorganized with the repository.
 |`++VTZOOM++`, `++VTZOOM n++`, `++VTZOOM n COLSxROWS++`, `++VTZOOM DEFAULT++` |Inspect the view; temporarily load preset `++n++`; select explicit logical geometry; or restore the INI/HAL boot view. No form saves the INI. A full-screen application's installed dimensions should match before it starts.
 |`++VTPAL [0..9]++` |Select an editable text/UI palette; no argument selects 0. Uses private output `++CSI >69;n v++`, with lazy INI persistence. See the link:../docs/260923-16%20palette%20presets%20manual%20and%20test%20notes.adoc[palette manual]. Requires the new firmware and helper.
 |`++UNSUB++` |Deletes a stranded `++$$$.SUB++` queue in the current DU without switching drive or user. It is silent if none exists.
+|`++SPEED n++` |Set RunCPM CPU throttling, `0..65535`. `0` disables throttling; `65535` is the fastest throttled setting. See <<runcpm-speed-command,SPEED details>>.
 |`++VTCPU++` / `++VTCPU8X++` |Measure the RunCPM interpreter with the terminal active and paused. `++8X++` uses the 8080/8085 common instruction subset.
 |`++VTDRV++` |Plain invocation read-tests and verifies a retained 32 KiB `++VTDRV.$$$++` fixture. `++VTDRV W++` recreates it, then reads/verifies; old `++RW++` remains an alias. `++VTDRV Q++` quietly reads without writing. `++VTDRV W Q++` (or `++Q W++`) pauses the terminal during both timed write and read passes. Quiet modes require matching firmware; options are case-insensitive whole tokens.
 |`++VTDRV8X++` |Write, read, and verify 32 KiB in the current DU, then remove its temporary test file. Uses the 8080/8085 instruction subset.
@@ -536,6 +867,39 @@ query/reply bytes are in the link:04-TRG-technical-reference-guide.adoc#private-
 
 Detailed diagnostic procedures and demonstration recipes are in
 <<rg-diagnostics-and-demonstrations,Appendix A>>.
+
+[[runcpm-speed-command]]
+==== SPEED: intentional CPU slowdown
+
+`SPEED n` is an external RunCPM helper installed in `cpm(A0)`, with source
+`SPEED.Z80` in `7xtgv(C1)`. It accepts a decimal value from 0 through 65535.
+Without an argument it prints usage; it does not query the current setting.
+
+[cols="2,3",options="header"]
+|===
+|Command |Meaning
+|`SPEED 0` |Disable CPU throttling and restore maximum available interpreter throughput. This is the runtime's default.
+|`SPEED 65535` |The fastest throttled ("slow") setting. It is still distinct from unthrottled operation.
+|`SPEED n`, with `n` from 1 to 65534 |Smaller values impose stronger slowdown; useful when an old program runs too quickly.
+|===
+
+The number is an instruction count, not MHz or a percentage. The interpreter
+checks elapsed time after each group of `n` instructions and waits if that
+group took less than 10 ms. This is an approximate throttle, not cycle-accurate
+Z80 timing; it cannot accelerate a host already slower than the requested rate.
+The setting remains until changed or the emulator runtime restarts; an ordinary
+return to CCP does not restore the default.
+
+On 261014, a user test on an Intel Core i7-10710U system (reported as 1.1 GHz)
+found `VTCPU` reporting approximately *44 MHz* with `SPEED 65535`, in both
+native desktop and web execution. This is that benchmark's equivalent Z80
+rate for its instruction mix, not a fixed meaning of 65535 or a measurement
+of the host's instantaneous clock. Browser, host and workload affect results.
+Use `SPEED 0` before comparing unthrottled CPU performance.
+
+SPEED changes emulated instruction execution, not MCU clock, terminal refresh
+settings or the native VTTERM rendering workload. The helper calls RunCPM's
+BDOS extension 254; it is not a standard CP/M speed-control command.
 
 [[vtterm-benchmark]]
 ==== VTTERM display benchmark
@@ -912,7 +1276,7 @@ preset alone leaves every explicit binding in place.
 |MBASIC |Uses `input_adapter=local_compose`. Cursor/editing behavior is adapter-owned; an ANSI preset would not replace that adapter.
 |BBC BASIC |ANSI can supply modifier fallbacks; preserve BBC cursor/edit controls and history clear/retype settings explicitly.
 |COMAL |The current ANSI template matches `input=ansi`; actual COMAL installation and guest acceptance remain pending.
-|Turbo Pascal |Keep the TINST-defined private 8-bit controls explicit. ANSI matches only shared fallback bindings; it does not configure TINST or replace its map. The current kbd:[Alt+Left] / kbd:[Alt+Right] fallbacks match ANSI.
+|Turbo Pascal |Keep the TINST-defined private 8-bit controls explicit. ANSI matches only shared fallback bindings; it does not configure TINST or replace its map. The current kbd:[Alt+Left] / kbd:[Alt+Right] fallbacks match ANSI. See <<turbo-installed-controls,the installed action tables>>.
 |FAND |All 12 active WordStar preset bindings match the configured bytes/actions. Retain its additional kbd:[Ctrl] / kbd:[Shift] navigation and save macro explicitly. This is a comparison of the current map, not proof of every FAND version's requirements.
 |TE |Nine of the 12 active WordStar bindings match. kbd:[Home], kbd:[End] and kbd:[Insert] differ; retain those exceptions and the four explicit kbd:[Ctrl] bindings.
 |ANSI APP |The current navigation map matches `input=ansi`.
@@ -954,9 +1318,10 @@ exceptions when consolidating; do not remove a line merely because its app is
 called WordStar-like or ANSI.
 
 The current bank controls and the installed guest configuration form a pair.
-`console_bits=8` is needed for Turbo's private bytes above 7F; a preset does not
-change that global transport setting. Test the chosen host bridge's actual
-chords before treating a mapping as accepted.
+RunCPM's `console_bits` setting controls console output masking; it is not
+what enables the private high-bit input bytes. The tested input path retains
+bit 7. See <<private-core-key-bytes,the compact key scheme>> and test the
+chosen host bridge's actual chords before treating a mapping as accepted.
 
 [source,ini]
 ----
@@ -978,7 +1343,7 @@ The left side is `++<key>[_ctrl][_shift][_alt]++`, with the base key first and m
 |Common keys |`++backspace++`, `++escape++`, `++enter++`, `++space++`, `++f1++` … `++f12++`
 |Main number row |`++num0++` … `++num9++` (separate from the keypad)
 |Numeric keypad |`++kp_decimal++`, `++kp_delete++` (the latter is kbd:[NumLock]-off Delete)
-|Czech physical positions |`++bs2++`, `++bs1++` before kbd:[Backspace]; `++p1++`, `++p2++` after kbd:[P]; `++l1++`, `++l2++`, `++l3++` after kbd:[L]; `++z1++` before kbd:[Z]; `++m1++`, `++m2++`, `++m3++` after kbd:[M]
+|Czech physical positions |`++bs2++`, `++bs1++` before kbd:[Backspace]; `++p1++`, `++p2++` after kbd:[P]; `++l1++`, `++l2++`, `++l3++` after kbd:[L]; `++z1++` before bottom-row kbd:[Y] / kbd:[Z]; `++m1++`, `++m2++`, `++m3++` after kbd:[M]
 |Letters |`++a++` … `++z++`, only with kbd:[Ctrl] or kbd:[Alt]; plain and kbd:[Shift]-only letters remain normal typing
 |===
 

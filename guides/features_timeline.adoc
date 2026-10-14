@@ -1634,6 +1634,12 @@ The browser's nominal 30 ms spacing measured about 50 ms per character,
 making MBASIC's long clear expression take 1.76 seconds before this correction.
 a|link:../docs/261014-1030%20DONE%20Restore%20fast%20application%20clear%20commands.adoc[Fast clear commands]
 
+|`++261014-1802++`
+|Local web builds stop invoking PDF printing. An explicit reprint.sh refreshes
+stale guides with a separate log; the working-session shorthand is reprint.
+Pages Actions retains an automatic refresh and freshness check before packaging.
+a|link:../docs/261014-1802%20DONE%20Separate%20guide%20reprint%20from%20local%20builds.adoc[Separate guide reprint]
+
 |===
 
 == Command and catalog name lineage

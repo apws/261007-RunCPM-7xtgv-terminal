@@ -1,0 +1,136 @@
+= Installed application keyboard reference
+:source-highlighter: highlight.js
+
+== Scope and evidence
+
+The Reference Guide now consolidates our working-card application controls:
+Turbo/TINST primary command mappings, private single-byte encoding, original
+Czech/core-key photographs, MBASIC/BBC BASIC quick keys and FANDINST's unresolved
+Sharp-console adaptation. UG and the guide index link directly to the section.
+This is documentation work; no executable, INI, BUF or runtime code changes.
+
+The narrative distinguishes the 260919 prefix experiments, 260922 high-bit
+proof and the current installed table. It does not present the early table
+as current or the historical hardware test as new exhaustive acceptance.
+FAND's recorded original SHARP MZ-821 preset differs from ANSI/VT52; the
+Lamac/LEC connection remains a hypothesis and no custom output mode is claimed.
+Only public investigation records are cited. Private FAND logs are not copied
+or linked. COMAL is a placeholder; dBASE has no qualified keyboard profile.
+
+== Current Turbo readout
+
+Both cpm(A0) and tp(B4) TURBO.COM copies are identical, 30720 bytes.
+SHA-256: `d9d649bf25958714daea7b1e792f850a8df7135e5c563f4441d3e3c5908bbc38`.
+The known table for this exact binary starts at file offset `0x4185`.
+Read 45 one-byte-length-prefixed entries; next offset `0x41EA` holds zero.
+These offsets are evidence for this binary, not a generic Turbo installer API.
+Slots follow the ordered action names in the 260911 TINST reference (display
+fields 20--64 correspond to slots 1--45 below).
+
+[source,text]
+----
+ 1: 81
+ 2: FF
+ 3: 83
+ 4: C1
+ 5: C3
+ 6: 80
+ 7: 82
+ 8: C0
+ 9: C2
+10: 85
+11: 84
+12: 87
+13: 86
+14: C5
+15: C4
+16: C7
+17: C6
+18: A7
+19: A6
+20: 00
+21: 89
+22: C9
+23: C8
+24: 98
+25: 04
+26: 88
+27: 08
+28: FF
+29: 1C
+30: 19
+31: 17
+32: 18 18
+33: 18 63
+34: 18 76
+35: 18 88
+36: 18 72
+37: 18 77
+38: 0B 04
+39: 09
+40: 14
+41: 0C 72
+42: 11 06
+43: 11 12
+44: 11 11
+45: 03
+----
+
+The guide cross-checks those bytes against the current bank-4 INI. In particular:
+
+* Esc emits 0B 04 (End edit), while Alt+Q emits menu Q.
+* Ctrl+Up/Down map to TINST's named Scroll down/up slots; labels are not swapped
+  to make them sound more intuitive.
+* Alt+Left/Right use ANSI fallbacks, not A1/A3; Alt+Up/Down use history.
+* Experimental Z1 CF/DF bindings have no matching primary table entries.
+* The two FF alternatives are Nothing; 8F extension syntax remains unimplemented.
+* Block controls still mix ASCII control bytes and multi-byte commands.
+* RunCPM console_bits masks output, not this high-bit input path; corrected
+  an older misleading sentence in the preset discussion.
+
+BBC control bytes were checked against the installed B2 DIST.Z80 table.
+MBASIC local-composer ownership was checked in profileKey/keyboardAction.
+No fresh interactive Turbo, FAND, BBC or physical-board acceptance is claimed.
+
+== Images and validation
+
+The two published historical photographs were copied byte-for-byte into
+stable guides/images filenames for the maintained guide and PDF workflow.
+The original F-over-X annotation is explicitly historical, and z1 is described
+as a physical ISO position beside bottom-row Y/Z in QWERTZ/QWERTY.
+No photograph was edited and no new keyboard layout was invented.
+
+[loweralpha]
+. All 45 length-prefixed Turbo entries were read successfully from both matching
+  binaries and recorded above; guide action names follow the installer slot list.
+  Current profile byte bindings and BBC DIST.Z80 controls were compared read-only.
+. RG, UG and this checkpoint render. RG fragment IDs, relative link targets and
+  images resolve. Literal caret control notation was checked in the HTML so
+  AsciiDoc superscript substitution cannot alter paired control sequences.
+. The shared mobile PDF workflow regenerated all six snapshots because its image
+  fingerprint is shared. RG is 70 pages; reviewed the section and both photographs
+  on pages 14--25. UG is 20 pages; reviewed the new navigation paragraph on page 7.
+  BG/TRG/TG/HG retain identical extracted text and page breaks to their previous PDFs.
+. All six outputs pass the printer's Legal-size, nonempty-text and nonlocal-link
+  checks. The feature registry and whitespace checks pass. No code tests or
+  firmware builds are needed for this documentation-only change.
+
+The original photographs remain unchanged in docs/images; their maintained
+copies are keyboard-cz-position-ids.png and keyboard-core-key-nibbles.png.
+No working-card edits, commit, push, physical deployment or new compatibility
+claim is included. This is a reviewable documentation checkpoint.
+
+== Later 261014 follow-up: RunCPM SPEED documentation
+
+Added SPEED near the beginning of both UG and RG, including the observed
+44 MHz result, and to the RG shared-command table and UG diagnostic table,
+with a focused RG explanation. Source review: C1 SPEED.Z80 accepts decimal 0..65535
+and calls BDOS 254; cpm.h updates cpuDelayInstructions; cpu1.h checks each
+instruction group against a 10 ms interval. globals.h defaults to zero.
+No core or helper implementation was changed or executed for this review.
+
+The user reports VTCPU at about 44 MHz with SPEED 65535 on both native desktop
+and web, using an i7-10710U system described as 1.1 GHz. The guide labels this
+as an observed equivalent Z80 benchmark rate, not a CPU-clock calibration or
+an independent agent measurement. 65535 is the fastest throttled setting;
+0 is unthrottled. No-argument SPEED prints usage, not the current value.

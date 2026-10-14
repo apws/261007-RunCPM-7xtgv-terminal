@@ -9,6 +9,13 @@
 Use this guide for first experiments in the browser and everyday work on
 physical modules or native Linux/Windows desktops.
 
+*CPU speed:* `SPEED 65535` selects the fastest throttled ("slow") setting;
+`SPEED 0` restores unthrottled execution, the default. Smaller nonzero values
+slow the emulator further. A reported i7-10710U (1.1 GHz) test gave roughly
+44 MHz in VTCPU with `SPEED 65535`, on both desktop and web. That is an observed
+equivalent Z80 benchmark rate, not a fixed MHz setting. See the
+link:03-RG-reference-guide.adoc#runcpm-speed-command[SPEED reference].
+
 * *Browser:* click the display to type. *Screen text* gives a frozen copy of
   the complete logical text screen; it is not a live native mirror.
 * *Native mirror:* keyboard input and the complete logical CP/M screen for
@@ -186,6 +193,11 @@ Wait for the CP/M prompt. A brief mirror redraw after USB reconnect is normal.
   It may change the DU; selecting a profile is not necessarily launching an app.
 * Inside an application, selection changes controls without sending `on_select`.
 * If keys seem wrong, check the selected name and choose the intended profile.
+
+Our link:03-RG-reference-guide.adoc#installed-application-controls[installed
+application controls] collect the Turbo/TINST map, MBASIC and BBC BASIC keys,
+Czech keyboard pictures and the unresolved FANDINST/Sharp adaptation. These
+are our working-card installations, not universal vendor defaults.
 
 [[_everyday_terminal_shortcuts]]
 ==== Everyday terminal shortcuts
@@ -527,6 +539,7 @@ link:04-TRG-technical-reference-guide.adoc[Technical Reference Guide].
 |Command |Use
 |VTINFO |Module, build, logical screen, viewport and zoom presets.
 |VTCPU |Compare emulator speed with terminal active and quiet.
+|SPEED 65535 / SPEED 0 |Use the fastest throttled CPU setting / restore unthrottled execution.
 |VTTERM |Run about three seconds of coloured text/parser and display redraw work; report kChars/s and kB/s (M above the million threshold).
 |VTDRV |Read/verify its existing 32 KiB test fixture.
 |VTDRV W |Create/write the fixture, then read/verify; writes the current DU.

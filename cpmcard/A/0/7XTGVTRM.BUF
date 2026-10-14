@@ -1,13 +1,5 @@
 # 7xtgv terminal history v2
 [0]
->cls
->7xf
->cd /c/7xtgv
->mbasic vtests
->7xf
->ll /
->vtcpu
->vtdrv rw
 >exit
 >cls
 >7xf
@@ -100,6 +92,14 @@
 >mbasic vtests
 >mbasic vtpal
 >mbasic
+>7xf
+>mbasic
+>cd /c/7xtgv
+>mbasic vtests
+>mbasic vtpal
+>reboot
+>speed 65535
+>vtcpu 
 [1]
 >Enter returns to menu:
 >Select:7
@@ -188,6 +188,9 @@
 >run
 >list
 >load "prog"
+>list
+>run
+>list
 [2]
 >1j
 >eprog
@@ -634,4 +637,4 @@
 >1_terminal=132x48
 >zoom2_terminal=80x24
 >zoom3_terminal=44x16
-# crc32=3EFD3AF1
+# crc32=91A600E9

@@ -33,13 +33,16 @@ jobs:
           sys.path.insert(0, str(root / 'src/RunCPM_7xtgv-terminal/tools-win'))
           from windows_build import install_gfx
           install_gfx(root / 'build/RunCPM_7xtgv-terminal/desktop-web/_deps/GFX_Library_for_Arduino-1.6.4')
-      - name: Refresh mobile guide PDFs, build runtime and package committed card
+      - name: Refresh mobile guide PDFs
+        env:
+          XTGV_PDF_BROWSER: ''
+        run: src/RunCPM_7xtgv-terminal/tools-web/reprint.sh
+      - name: Build runtime and package committed card
         env:
           XTGV_GFX_SOURCE: ${{ github.workspace }}/build/RunCPM_7xtgv-terminal/desktop-web/_deps/GFX_Library_for_Arduino-1.6.4
-          XTGV_PDF_BROWSER: ''
         run: |
           src/RunCPM_7xtgv-terminal/tools-web/desktop-rebuild.sh
-          build/RunCPM_7xtgv-terminal/desktop-web/_deps/venv/bin/python src/RunCPM_7xtgv-terminal/tools-web/print_guides.py --check
+          src/RunCPM_7xtgv-terminal/tools-web/reprint.sh --check
           src/RunCPM_7xtgv-terminal/tools-web/pages-package.sh
       - name: Check headerless Pages startup in Chromium
         env:

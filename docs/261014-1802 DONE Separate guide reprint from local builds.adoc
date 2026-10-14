@@ -1,0 +1,39 @@
+= Separate guide reprint from local builds
+:source-highlighter: highlight.js
+
+== Workflow
+
+Local tools-web/desktop-rebuild.sh now compiles/packages without invoking the
+PDF printer or requiring its Python environment. Guide PDFs remain the last
+saved versions until explicitly refreshed. Launch and native builds remain
+separate and do not print.
+
+The executable tools-web/reprint.sh shortcut uses the existing incremental
+printer and mobile profile. It prints brief status and keeps full details in
+adjacent reprint.log. Options pass through, including --check (read-only,
+nonzero if stale), --force (all six) and --output-dir (preview elsewhere).
+The user shorthand "reprint" is recorded in AGENTS.md as this operation;
+it does not authorize compilation, commit/push, publication or card changes.
+
+Every invocation of the manually dispatched GitHub Pages workflow explicitly
+runs reprint.sh before its build/package step and --check before Pages
+packaging. A failed print/check prevents publication. The workflow dispatch
+policy, print profile, validation and shared-image invalidation are unchanged.
+
+== Verification
+
+[loweralpha]
+. Five web-shortcut tests pass: rebuild/packaging succeeds without a print venv
+  even when the printer fixture would fail; reprint works without an SDK,
+  forwards options, preserves failure status and keeps details in its own log.
+. Six existing PDF tests pass: incremental caching, shared-input invalidation,
+  missing/edited outputs, force, paper validation and preservation on rendering,
+  validation or concurrent-source failure.
+. The real reprint.sh --check reports current saved guides without printing;
+  source PDF and manifest hashes remain unchanged. Bash syntax, documentation
+  rendering, registry and whitespace checks pass.
+
+No runtime code, working card or PDF content changed in this workflow edit.
+No full runtime rebuild, hardware action or GitHub Actions dispatch was needed.
+The earlier uncommitted keyboard/SPEED documentation and refreshed PDFs remain
+available for the user's separate review/commit checkpoint.

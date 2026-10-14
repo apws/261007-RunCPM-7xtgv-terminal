@@ -23,11 +23,6 @@ def rebuild(log):
     sdk = BUILD / '_deps/emsdk/emsdk_env.sh'
     if not sdk.is_file():
         raise RuntimeError('Run tools-web/setup.sh first')
-    python = BUILD / '_deps/venv/bin/python'
-    if not python.is_file():
-        raise RuntimeError('Run tools-web/setup.sh first')
-    print('Checking guide PDFs ...', flush=True)
-    logged([str(python), str(HERE / 'print_guides.py')], log, stdout=log)
     print('Configuring browser ...', flush=True)
     # Source the SDK in a child shell. NUL-delimited environment values stay
     # intact (including spaces/newlines), and never appear in the log.
@@ -47,6 +42,15 @@ def rebuild(log):
     print('Packaging browser ...', flush=True)
     logged([sys.executable, str(HERE / 'build_assets.py')], log, stdout=log)
     print('Browser build: OK', flush=True)
+
+
+def reprint(log, args):
+    python = BUILD / '_deps/venv/bin/python'
+    if not python.is_file():
+        raise RuntimeError('Run tools-web/setup.sh first')
+    print('Checking guide PDFs ...' if '--check' in args else 'Refreshing guide PDFs ...', flush=True)
+    logged([str(python), str(HERE / 'print_guides.py'), *args], log, stdout=log)
+    print('Guide PDFs: OK', flush=True)
 
 
 def serve(command, log):
@@ -87,11 +91,11 @@ def serve(command, log):
 
 def main(argv=None):
     args = list(sys.argv[1:] if argv is None else argv)
-    if not args or args[0] not in ('rebuild', 'local'):
-        print('Usage: shortcut.py rebuild | local [browser options]', file=sys.stderr)
+    if not args or args[0] not in ('rebuild', 'local', 'reprint'):
+        print('Usage: shortcut.py rebuild | local [browser options] | reprint [print options]', file=sys.stderr)
         return 2
     action = args.pop(0)
-    path = HERE / ('desktop-' + action + '.log')
+    path = HERE / ('reprint.log' if action == 'reprint' else 'desktop-' + action + '.log')
     try:
         with path.open('w', encoding='utf-8') as log:
             log.write(f'*** {time.strftime("%F %T")} WEB {action} ***\n'); log.flush()
@@ -101,6 +105,8 @@ def main(argv=None):
                     if args:
                         raise RuntimeError('desktop-rebuild.sh takes no arguments; set XTGV_GFX_SOURCE to override GFX')
                     rebuild(log)
+                elif action == 'reprint':
+                    reprint(log, args)
                 else:
                     native = bool(args and args[0] == '--native-mirror')
                     if native:

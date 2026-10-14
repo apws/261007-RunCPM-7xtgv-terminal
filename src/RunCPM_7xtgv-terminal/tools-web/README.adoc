@@ -76,8 +76,10 @@ messages. Full configure, compiler, linker and packaging output goes to
 
 === Saved guide PDFs
 
-Before compilation, the web rebuild checks the six numbered guides and
-updates stale prints in `guides/pdf/`. The mobile PDF (mpdf) profile uses
+Local application builds do not print PDFs. After a batch of guide edits, run
+`./reprint.sh` from `tools-web/` (or ask for `reprint` in the working session).
+It checks the six numbered guides and updates stale prints in `guides/pdf/`.
+Console output is brief; detailed output goes to adjacent `reprint.log`. The mobile PDF (mpdf) profile uses
 Legal portrait, 140% scale, zero left/right margins and 0.1-inch top/bottom
 margins, background graphics and no browser headers/footers. It is optimized
 for phone/monitor reading. For physical paper, render the AsciiDoc manually
@@ -92,26 +94,27 @@ fetching a syntax-highlighting CDN.
 Commit `guides/pdf/print-manifest.json` with the PDFs. It records source and
 PDF hashes, print settings and renderer versions. A changed guide refreshes
 its PDF; the print profile, shared CSS, JS, guide images or printer code refresh all six.
-Missing/edited PDFs are regenerated too. Unchanged builds preserve PDF bytes
+Missing/edited PDFs are regenerated too. Unchanged reprint runs preserve PDF bytes
 and timestamps and need no running browser. Upgrading Chromium alone does
 not invalidate reviewed prints; use `--force` when adopting a new renderer.
 Pagination can vary slightly between browser/converter versions.
 
 All pending PDFs must pass image, profile paper-size, readable-text and local-link checks
-before any saved print is replaced. Printing failure stops the web rebuild
-and leaves the saved PDFs intact; details are in `desktop-rebuild.log`.
-The manual GitHub Pages workflow runs this same rebuild/profile before site
-packaging and deployment. Normal launch, native desktop/MCU builds and direct site packaging only use
-the saved files. They do not regenerate PDFs or install print dependencies.
+before any saved print is replaced. Printing failure leaves the saved PDFs
+intact; details are in `reprint.log`. Every run of the manually dispatched
+GitHub Pages workflow explicitly runs `reprint.sh` before building/packaging,
+and checks freshness before publication. A printing failure stops that workflow.
+Local web rebuilds, normal launch, native desktop/MCU builds and direct site
+packaging use the saved files without printing or installing print dependencies.
+Thus local packages contain the last saved PDFs until an explicit reprint.
 
-For an optional preview or freshness check, from the repository root:
+For a refresh, optional preview or freshness check, from the repository root:
 
 [source,bash]
 ----
-build/RunCPM_7xtgv-terminal/desktop-web/_deps/venv/bin/python \
-  src/RunCPM_7xtgv-terminal/tools-web/print_guides.py --output-dir /tmp/guide-preview
-build/RunCPM_7xtgv-terminal/desktop-web/_deps/venv/bin/python \
-  src/RunCPM_7xtgv-terminal/tools-web/print_guides.py --check
+src/RunCPM_7xtgv-terminal/tools-web/reprint.sh
+src/RunCPM_7xtgv-terminal/tools-web/reprint.sh --output-dir /tmp/guide-preview
+src/RunCPM_7xtgv-terminal/tools-web/reprint.sh --check
 ----
 
 `--check` returns 1 when printing is needed and writes nothing. `--force`

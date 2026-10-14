@@ -58,9 +58,11 @@ uses *Legal portrait, 140% scale, left/right margins 0, top/bottom margins
 0.1 inch*, background graphics enabled and browser headers/footers disabled.
 Our shared CSS/JS supplies the same colours, keycaps and headings as Live Preview.
 
-The local web rebuild and GitHub Pages build refresh changed guides with this
-profile before packaging. Unchanged PDFs retain their bytes and timestamps;
-native builds and normal web launch do not print. The editable profile is
+Use `src/RunCPM_7xtgv-terminal/tools-web/reprint.sh` after a batch of guide
+edits; `reprint` is also our working-session shorthand. It refreshes changed
+PDFs with this profile; unchanged PDFs retain their bytes and timestamps.
+Local web/native builds and normal launch do not print. GitHub Pages Actions
+always runs the incremental reprint step before packaging and publication. The editable profile is
 link:../src/RunCPM_7xtgv-terminal/tools-web/guide-print-profile.json[guide-print-profile.json];
 `pdf/print-manifest.json` records the resulting settings, source/PDF hashes
 and renderer versions. See the
@@ -122,6 +124,9 @@ xref:03-RG-reference-guide.adoc#histories-banks-and-the-active-line[Histories, b
 
 [[application-profiles]]
 xref:03-RG-reference-guide.adoc#application-profiles[Application profiles]
+
+[[installed-application-controls]]
+xref:03-RG-reference-guide.adoc#installed-application-controls[Installed application controls, Turbo/TINST and Czech keyboard pictures]
 
 [[editing-details]]
 xref:03-RG-reference-guide.adoc#editing-details[Editing details]

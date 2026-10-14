@@ -81,6 +81,12 @@
 
 ## Builds, upload and desktop lifecycle
 
+- The user shorthand `reprint` means refresh saved mobile guide PDFs with
+  `src/RunCPM_7xtgv-terminal/tools-web/reprint.sh`. It prints stale/missing
+  guides only; use `--force` when explicitly asked to reprint all unchanged
+  guides too. Local builds do not print PDFs. GitHub Pages Actions explicitly
+  refreshes them before packaging. Reprint does not authorize build, commit,
+  push, publication or changes to the working CP/M card.
 - Batch firmware edits; run focused host tests, but do not rebuild/stage/flash
   after every change. An explicit `rebuild` authorizes a target-aware build,
   not an upload or guest-file deployment. State when rebuild is still pending.
