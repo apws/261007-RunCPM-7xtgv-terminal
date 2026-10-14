@@ -1,0 +1,63 @@
+= Cooperative exit for MBASIC tools
+:source-highlighter: highlight.js
+
+Follow-up: link:261014-0951%20DONE%20Paced%20profile%20commands%20and%20BASIC%20tool%20exit.adoc[paced commands]
+implement the later agreed solution without the transient protocol proposed below.
+
+== Requested behavior
+
+Investigate Alt+Q in our C1 BASIC tools, without adding screen instructions.
+The requested destination is MBASIC's OK prompt, as with VTPAL's Q, rather
+than leaving MBASIC for CP/M. The earlier VTPAL current-palette startup fix
+remains implemented and tested independently.
+
+== Current routing
+
+The terminal consumes Alt+Q as the profile exit action. It is not a distinct
+modified-key event that MBASIC can read. `profileCommand()` in
+`src/terminal/terminal_runtime.cpp` sends the selected profile's configured
+exit bytes after any line erasure and optional leading CR. The current MBASIC
+profile uses `command_new_line=true` and `exit_command=system\r`.
+
+At the interpreter prompt, SYSTEM exits MBASIC. Inside a running program,
+INKEY$ or LINE INPUT instead receives ordinary input bytes. VTPAL reads
+individual keys and ignores SYSTEM; VTESTS accepts menu/pause strings rather
+than evaluating them as BASIC statements. The two older VTDEMO variants
+already exit to CP/M after any input byte; they are not Q-only menus.
+
+== Disposable guest experiments
+
+Tests used copied C1 sources and MBASIC.COM in temporary cards with the
+POSIX RunCPM comparator. No live card session, INI, firmware or physical
+device was changed. These are guest-input observations, not an integrated
+terminal or hardware acceptance test.
+
+[loweralpha]
+. The existing CR + system + CR stream does not exit unmodified VTPAL or
+  VTESTS.
+. An experimental VTPAL string matcher succeeds when letters are sent slowly,
+  but fails with the queued command burst. Replacing INKEY$ with INPUT$(1)
+  does not resolve this. A diagnostic run observed only the surrounding CR
+  characters; the exact interpreter-level loss mechanism was not established.
+. An experimental VTESTS LINE INPUT matcher accepts plain SYSTEM + CR and
+  returns to OK with cleanup. The actual profile's leading CR advances the
+  menu/pause first; the same burst then fails to reach the matcher reliably.
+. Ctrl+C followed by SYSTEM breaks both programs and exits MBASIC, skipping
+  their normal cleanup and producing the wrong requested destination.
+. Experimental matchers were removed. Existing VTPAL and VTESTS regression
+  suites passed; no Alt+Q support is claimed as implemented.
+
+== Proposed direction, not yet implemented
+
+A cooperative terminal facility could let a running tool temporarily request
+a single-byte exit notification in place of the profile's command string.
+The tool would consume that notification, restore terminal modes/cursor and
+the ordinary profile behavior, then END to return to OK. Ordinary Q behavior
+would remain available, with no added screen instructions.
+
+This requires a deliberately specified transient protocol and tests, rather
+than a BASIC-only string substitution. It must handle profile changes,
+program restart, Ctrl+C/interpreter errors and guest termination without
+leaving an override active at the OK prompt. At OK, normal Alt+Q must continue
+to mean SYSTEM. Existing user profiles must remain compatible. No protocol
+number, override lifetime or implementation is selected by this investigation.

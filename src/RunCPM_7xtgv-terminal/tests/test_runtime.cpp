@@ -201,6 +201,7 @@ static void testGlobalShortcutNames()
         terminalConfigBegin();
         const std::string ini = std::string("[global]\nexit_key=") + test.exit + "\nclear_key=" + test.clear +
                                 "\n[bank0]\nhistory_clear=\ncommand_new_line=false\n"
+                                "command_char_delay_ms=0\n"
                                 "exit_command=X\nclear_command=C\n";
         for (uint8_t c : ini)
             terminalConfigFeed(c);
@@ -479,8 +480,87 @@ static void testTextBenchmark()
     std::cout << "VTTERM NORMAL/ALT inks, all four papers, counters and completion: PASS\n";
 }
 
+static void testProfileCommandPacing()
+{
+    terminalSetup();
+    terminalBootConfigComplete();
+    terminalConfigBegin();
+    for (uint8_t c : std::string("[bank0]\ncommand_new_line=true\nexit_command=system\\r\nclear_command=CLS\\r\n"))
+        terminalConfigFeed(c);
+    assert(terminalConfigEnd() == 0);
+    history->select(0);
+    resetLineSession();
+    uint8_t byte;
+    while (input.pop(byte))
+    {
+    }
+    lineModelAuthoritative = true;
+    profileCommand(true);
+    assert(input.pop(byte) && byte == 13 && !input.available());
+    const std::string expected = "system\r";
+    for (uint8_t c : expected)
+    {
+        profileCommandPoll(); // observe consumption, then start a fresh gap
+        fakeTime += 29;
+        profileCommandPoll();
+        assert(!input.available());
+        ++fakeTime;
+        profileCommandPoll();
+        assert(input.available() == 1);
+        fakeTime += 500; // a stalled guest must never accumulate the suffix
+        profileCommandPoll();
+        assert(input.available() == 1);
+        assert(input.pop(byte) && byte == c);
+    }
+    assert(!profileCommandStagedLength);
+
+    // Clear commands use the same pacing, with an adjustable longer gap.
+    terminalConfigBegin();
+    for (uint8_t c : std::string("[bank0]\ncommand_char_delay_ms=100\nclear_command=AB\n"))
+        terminalConfigFeed(c);
+    assert(terminalConfigEnd() == 0);
+    lineModelAuthoritative = true;
+    fakeTime = UINT32_MAX - 50;
+    profileCommand(false);
+    profileCommandPoll();
+    fakeTime += 99;
+    profileCommandPoll();
+    assert(!input.available());
+    ++fakeTime;
+    profileCommandPoll();
+    assert(input.pop(byte) && byte == 'A');
+    history->select(1);
+    fakeTime += 1000;
+    profileCommandPoll();
+    assert(!input.available() && !profileCommandStagedLength);
+
+    // Zero keeps the previous burst mode, including clear/retype delay.
+    history->select(0);
+    terminalConfigBegin();
+    for (uint8_t c : std::string("[bank0]\ncommand_char_delay_ms=0\nhistory_clear=Z\n"
+                                 "history_retype_delay_ms=75\nexit_command=XY\n"))
+        terminalConfigFeed(c);
+    assert(terminalConfigEnd() == 0);
+    lineModelAuthoritative = true;
+    profileCommand(true);
+    assert(input.pop(byte) && byte == 'Z');
+    fakeTime += 74;
+    profileCommandPoll();
+    assert(!input.available());
+    ++fakeTime;
+    profileCommandPoll();
+    assert(input.pop(byte) && byte == 'X');
+    assert(input.pop(byte) && byte == 'Y' && !input.available());
+    std::cout << "profile commands: pacing, slow guest, wraparound, cancellation and burst mode passed\n";
+}
+
 int main(int argc, char** argv)
 {
+    if (argc == 2 && std::string(argv[1]) == "command-pacing")
+    {
+        testProfileCommandPacing();
+        return 0;
+    }
     if (argc == 2 && std::string(argv[1]) == "text-benchmark")
     {
         testTextBenchmark();
@@ -984,8 +1064,13 @@ int main(int argc, char** argv)
     }
     profileCommand(true);
     bbcActual.clear();
-    while (input.pop(testByte))
-        bbcActual.push_back(char(testByte));
+    do
+    {
+        while (input.pop(testByte))
+            bbcActual.push_back(char(testByte));
+        fakeTime += 30;
+        profileCommandPoll();
+    } while (profileCommandStagedLength || input.available());
     assert(bbcActual == "\b\b\b\rsystem\r");
     // The launcher row can remain visible after its CR. It must cease to be
     // effective CCP input and must not become MBASIC's first history line.

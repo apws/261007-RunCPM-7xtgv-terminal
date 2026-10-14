@@ -1004,12 +1004,14 @@ namespace vt
                 fail();
             return;
         }
-        if (!strcmp(keyName, "history_retype_delay_ms"))
+        if (!strcmp(keyName, "history_retype_delay_ms") || !strcmp(keyName, "command_char_delay_ms"))
         {
             char tail = 0;
             unsigned delay = 0;
             if (sscanf(value, "%u%c", &delay, &tail) != 1 || delay > 1000)
                 fail();
+            else if (!strcmp(keyName, "command_char_delay_ms"))
+                profile.commandCharDelayMs = uint16_t(delay);
             else
                 profile.historyRetypeDelayMs = uint16_t(delay);
             return;

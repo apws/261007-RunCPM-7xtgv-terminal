@@ -119,6 +119,7 @@ namespace vt
         uint8_t cursorRGB[3] = {0, 150, 40};
         bool activeLineOverride = false, cursorOverride = false;
         uint16_t historyRetypeDelayMs = 0;
+        uint16_t commandCharDelayMs = 30;
         // This deliberately narrow adapter is for BASIC-80's modal EDIT command.
         // It is off for every other CP/M application.
         bool screenLine = false, trimLeft = false, escapeCancels = false, activeLine = true, commandNewLine = false,

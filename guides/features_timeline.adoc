@@ -1619,6 +1619,15 @@ the dense target table separates geometry and zoom presets. Other guide
 layouts remain unchanged; physical A4/Letter printing is a manual option.
 a|link:../docs/261013-2229%20DONE%20Mobile%20PDF%20profile%20and%20RG%20table%20widths.adoc[Mobile PDF guides]
 
+
+|`++261014-0951++`
+|Generated exit/clear commands default to 30 ms per character, with per-profile
+0..1000 ms adjustment and waiting for prior input consumption. VTPAL/VTESTS
+recognize complete SYSTEM input and return to OK; ordinary s remains harmless.
+VTPAL starts with the current palette.
+a|link:../docs/261014-0951%20DONE%20Paced%20profile%20commands%20and%20BASIC%20tool%20exit.adoc[Paced commands and BASIC exit]
+Host runtime/guest tests; slower-board timing remains for physical validation.
+
 |===
 
 == Command and catalog name lineage

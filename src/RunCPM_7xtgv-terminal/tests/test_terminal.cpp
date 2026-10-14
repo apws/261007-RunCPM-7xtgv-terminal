@@ -27,6 +27,7 @@ static void assertSameProfile(const vt::HistoryProfile& a, const vt::HistoryProf
     SAME(exitLength);
     SAME(clearLength);
     SAME(historyRetypeDelayMs);
+    SAME(commandCharDelayMs);
     SAME(activeLineOverride);
     SAME(cursorOverride);
     SAME(screenLine);
@@ -903,6 +904,17 @@ int main()
 
     vt::HistoryProfiles profiles;
     assert(profiles.global().crtRampupMs == 0);
+    assert(profiles.get(0).commandCharDelayMs == 30);
+    for (const std::string delay : {"0", "30", "1000", "1001", "-1", "abc", "30ms"})
+    {
+        profiles.beginLoad();
+        for (uint8_t c : std::string("[bank0]\ncommand_char_delay_ms=") + delay + "\n")
+            profiles.feed(c);
+        profiles.finishLoad();
+        const bool valid = delay == "0" || delay == "30" || delay == "1000";
+        assert(profiles.errors() == (valid ? 0u : 1u));
+        assert(profiles.get(0).commandCharDelayMs == (valid ? unsigned(std::stoi(delay)) : 30u));
+    }
     // Application settings are supplied by an INI fixture, never slot defaults.
 
     for (const std::string duration : {"0", "1", "1500", "60000", "60001", "-1", "abc", "1ms", ""})
@@ -928,6 +940,7 @@ int main()
         "input_adapter=mbasic_native\r\n"
         "command_new_line=true\r\n"
         "history_retype_delay_ms=75\r\n"
+        "command_char_delay_ms=30\r\n"
         "exit_command=BYE\\r\r\nclear_command=PAGE\\r\r\n\x1a ignored padding";
     profiles.beginLoad();
     std::string appFixture = profileTestFile("fixtures/application-profiles.ini");
@@ -956,6 +969,7 @@ int main()
     assert(profiles.get(2).keys[vt::AppPageUp].kind == vt::BindingSendCancel);
     assert(profiles.get(2).activeLineRGB[0] == 210 && profiles.get(2).cursorRGB[1] == 255);
     assert(profiles.get(2).historyRetypeDelayMs == 75);
+    assert(profiles.get(2).commandCharDelayMs == 30);
     assert(profiles.get(2).trimLeft);
     assert(profiles.get(2).activateNumberedLine);
     assert(profiles.get(2).screenLine && profiles.get(2).linePrefixBytes[0] == '>');

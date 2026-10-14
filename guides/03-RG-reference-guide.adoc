@@ -1217,6 +1217,7 @@ bank-number exceptions. Configure non-neutral application behavior explicitly.
 |`zoom1_terminal` through `zoom4_terminal` |Display geometry |Optional per-bank geometry; validated against the selected HAL, as above.
 |`on_select` |Empty |Up to 64 decoded bytes; emitted only at live CCP on selection.
 |`exit_command`, `clear_command` |Empty |Up to 64 decoded bytes each; no `send:` prefix. Empty means no application command.
+|`command_char_delay_ms` |30 |0..1000 milliseconds between generated exit/clear command characters; 0 sends the command as a burst. See the timing note below.
 |`history_clear` |Empty |Up to 16 decoded bytes used before retyping recalled text; otherwise the runtime uses its ordinary erase/recall transport.
 |`history_retype_delay_ms` |0 |0..1000 milliseconds between clear and retyping.
 |`line_prefix`, `activate_prefix` |Empty |Up to 8 decoded bytes each for screen-line tracking/activation. Empty activation prefix needs no explicit prompt to activate tracking.
@@ -1230,6 +1231,16 @@ bank-number exceptions. Configure non-neutral application behavior explicitly.
 |`active_line_rgb`, `cursor_rgb` |Active palette |Decimal `R,G,B` override, or `palette` to inherit the current theme.
 |`editing_surface` |`line` |`line` or `screen`; parsed/stored, but not yet used to select a distinct recall transport. Not an implemented completion-list switch.
 |===
+
+Generated exit/clear commands wait for prior input to be consumed before
+starting each character's delay. They do not catch up in a burst after a slow
+guest or display frame. The delay also applies before the first command
+character, after any erase/newline prefix; a longer configured clear/retype
+delay is retained. Profile/session changes cancel a pending command.
+This pacing does not alter ordinary typing, keyboard escape sequences,
+terminal replies, history recall or `on_select`. Thirty milliseconds is a
+tested host starting point, not a timing guarantee for every guest and board;
+increase the profile value, for example to 100, if a slower guest loses input.
 
 kbd:[Tab] is not currently an INI base-key name. Ordinary kbd:[Tab] can still pass as input.
 Do not infer new key names or automatic private 0x80..0xFF mappings from the
@@ -1480,6 +1491,14 @@ link:../docs/260923-16%20palette%20presets%20manual%20and%20test%20notes.adoc[pa
 and link:../docs/260923-18%20VTPAL%20BASIC%20palette%20comparison.adoc[VTPAL.BAS comparisons].
 The maintained BASIC source is in `7xtgv(C1)`; inspect a live card before
 asserting which copy is installed there.
+`VTPAL.BAS` starts with the current palette and selects another only when a
+digit is pressed. With the MBASIC profile selected, its `exit_command=system\r`
+and paced command delivery let kbd:[Alt+Q] return both `VTPAL.BAS` and
+`VTESTS.BAS` to MBASIC's OK prompt after terminal cleanup. The tools recognize
+the complete SYSTEM input, case-insensitively; an ordinary `s` is not an exit
+key. Their existing Q behavior remains unchanged. At the OK prompt, the same
+shortcut still exits MBASIC to CP/M. This needs the updated runtime and BASIC
+sources; it does not add a generic Alt+Q handler to arbitrary BASIC programs.
 VTPAL.BAS still has obsolete optional-level help for slots 3..6 and
 older INK/SILVER labels; that help is not the current preset definition.
 

@@ -39,7 +39,8 @@ def main():
             receive(master)
             os.write(master, b"MBASIC VTPAL\r")
             data = receive(master, END_PAGE)
-            assert b"\x1b[>69;0v" in data
+            assert b"\x1b[>69;" not in data
+            assert b"CURRENT PALETTE" in data
             normal = [30,31,32,34,37,36,35,33]
             for fg in normal + [n+60 for n in normal]:
                 for bg in (47,41,42,44):
@@ -48,6 +49,18 @@ def main():
             assert b"NORMAL INK" in data and b"ALT INK" in data
             screen = data[data.index(b"\x1b<"):]
             assert b"\n" not in screen and b"\r" not in screen
+            for key in (b"i", b"b", b"p", b"r"):
+                os.write(master, key)
+                data = receive(master, END_PAGE)
+                assert b"\x1b[>69;" not in data
+                assert b"CURRENT PALETTE" in data
+            os.write(master, b"q")
+            data = receive(master, b"OK\r")
+            assert b"Current palette retained." in data
+            assert b"\x1b[>69;" not in data
+            os.write(master, b"RUN\r")
+            data = receive(master, END_PAGE)
+            assert b"\x1b[>69;" not in data
             for digit in range(10):
                 os.write(master,str(digit).encode())
                 data = receive(master, END_PAGE)
@@ -70,6 +83,7 @@ def main():
             os.write(master,b"q")
             data=receive(master,b"OK\r")
             assert b"\x1b[?25h" in data and b"Back in MBASIC" in data
+            assert b"Palette 9 retained." in data
             os.write(master,b"SYSTEM\r")
             receive(master)
             os.write(master,b"EXIT\r")
@@ -79,7 +93,7 @@ def main():
                 process.kill()
                 process.wait(timeout=5)
             os.close(master)
-    print("VTPAL.BAS: CP/M MBASIC matrix, pairs, papers, 10 presets, redraw and exit passed")
+    print("VTPAL.BAS: current palette preserved; matrix, pairs, papers, 10 presets, redraw and exit passed")
 
 
 if __name__ == "__main__":

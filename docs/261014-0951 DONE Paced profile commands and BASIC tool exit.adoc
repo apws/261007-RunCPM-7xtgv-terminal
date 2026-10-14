@@ -1,0 +1,71 @@
+= Paced profile commands and BASIC tool exit
+:source-highlighter: highlight.js
+
+== Decision and behavior
+
+Following the link:261014-0937%20PLAN%20Cooperative%20exit%20for%20MBASIC%20tools.adoc[initial investigation],
+the user proposed pacing generated commands and agreed to a 30 ms default
+with per-profile adjustment for slower boards. This avoids a new cooperative
+terminal protocol and avoids treating an ordinary s as an exit key.
+
+Every profile now defaults `command_char_delay_ms` to 30; accepted values are
+0..1000, with 0 retaining burst delivery. Only configured exit/clear command
+bytes are paced. Keyboard sequences, replies, ordinary typing, selection
+commands and history recall keep their existing transport.
+
+The runtime waits for the prior input queue to drain, then starts the delay
+before sending one command character. It does not accumulate delayed letters
+or catch up after a stalled consumer. The first character is delayed after
+the existing erase/newline prefix; a longer clear/retype delay takes precedence
+for that first character. Bank/session changes cancel pending delivery.
+
+C1 VTPAL.BAS and VTESTS.BAS recognize a complete SYSTEM input, ignoring case,
+consume its final Enter, restore terminal state and END to MBASIC's OK prompt.
+An ordinary s does not exit. Q behavior remains unchanged: VTPAL returns to
+OK, while the VTESTS menu's Q returns to CP/M. At OK, Alt+Q still executes
+SYSTEM and exits the interpreter. No screen instructions were added.
+
+VTPAL also retains the earlier requested current-palette startup fix.
+The two legacy VTDEMO programs still exit on any input byte; this change does
+not claim special exit handling for those or arbitrary BASIC programs.
+
+== Boundaries and checks
+
+The delay is a minimum after observed consumption, not a ready-for-input
+handshake with an interpreter. A slow board or a guest busy printing may need
+a larger value such as 100 ms. Thirty milliseconds was tested in disposable
+host CP/M execution, not certified on physical boards. Runtime rebuild and
+updated BASIC sources are required; no physical card deployment or flash is
+included. No INI modification is needed for the new default.
+
+[loweralpha]
+. Production runtime tests cover pacing, a stalled guest, timer wraparound,
+  profile cancellation and zero-delay burst compatibility. Existing runtime
+  and shortcut tests pass under ASan/UBSan outside the traced sandbox.
+. Terminal/parser tests cover the new default, bounds, invalid values and
+  profile comparisons; the existing terminal suite passes under ASan/UBSan.
+. Fifteen disposable MBASIC cases exercise lower/upper/mixed-case SYSTEM,
+  erase/newline prefixes, the VTESTS menu and all nine tests. They verify
+  cleanup, return to OK, no queued SYSTEM suffix, a subsequent BASIC command
+  and ordinary SYSTEM exit from OK. VTPAL also verifies a lone s is harmless.
+. Existing VTPAL matrix/palette tests and all VTESTS pages pass. Maintained
+  source bytes retain CRLF, their first Ctrl-Z and existing CP/M record tails.
+. The web rebuild and PDF refresh pass. All six PDFs validate; reviewed the
+  changed Reference Guide pages visually. Other guide page counts remain
+  unchanged; RG is now 58 pages.
+. Real Chromium/Wasm Alt+Q tests pass on a disposable bank-9 card for VTPAL
+  and VTESTS's VT52 pause. Each returns cleanly to OK, accepts PRINT 12345,
+  then exits MBASIC to CP/M on a second Alt+Q. Source-card hashes are unchanged.
+  The test is `tools-web/tests/basic_exit.py`; evidence is in
+  `build/RunCPM_7xtgv-terminal/desktop-web/sessions/basic-exit-lm5nxw34/`.
+. Two INI storage tests, Allman formatting, registry validation and documentation
+  rendering pass. No commit, push, live-session restart or hardware write.
+
+Useful commands are `tools/test_mbasic_exit.py`, `tools/test_vtpal_basic.py`
+and `tools/test_vtests_basic.py`, relative to the active project.
+Runtime test mode `command-pacing` exercises the production scheduler.
+
+The user subsequently confirmed that the behavior works and authorized
+commit/push, including the current BUF history snapshot only among the
+separate runtime card-state edits. The confirmation did not identify a
+physical target, so it does not establish board-specific timing acceptance.

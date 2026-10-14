@@ -15,6 +15,10 @@ observations keep their original test scope; they are not universal acceptance.
 
 == High-level reading
 
+* link:261014-0951%20DONE%20Paced%20profile%20commands%20and%20BASIC%20tool%20exit.adoc[Paced application commands]: configurable 30 ms default and complete SYSTEM handling in VTPAL/VTESTS.
+
+* link:261014-0937%20PLAN%20Cooperative%20exit%20for%20MBASIC%20tools.adoc[Alt+Q in BASIC tools]: investigated command-byte delivery, guest-test limitations and a proposed cooperative exit mechanism.
+
 * link:261013-2229%20DONE%20Mobile%20PDF%20profile%20and%20RG%20table%20widths.adoc[Mobile PDF guides]: Legal/140% screen-reading profile, RG table widths and shared local/Pages regeneration.
 
 * link:261013-2116%20DONE%20VTTERM%20rates%20and%20matching%20ink%20labels.adoc[VTTERM benchmark]: grouped decimal kilo-rates, correct NORMAL/ALT ink labels and source/measurement guide notes.

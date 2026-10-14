@@ -157,6 +157,9 @@ static uint32_t recallStagedAt = 0;
 static uint8_t profileCommandStaged[vt::HistoryProfile::MaxCommandBytes] = {};
 static uint8_t profileCommandStagedLength = 0;
 static uint32_t profileCommandStagedAt = 0;
+static uint8_t profileCommandStagedPosition = 0, profileCommandStagedBank = 0;
+static uint16_t profileCommandStagedDelayMs = 0, profileCommandCharDelayMs = 0;
+static bool profileCommandWaitingForRead = false;
 
 static void resetRecallTransport()
 {
@@ -165,6 +168,7 @@ static void resetRecallTransport()
 
 static void resetLineSession()
 {
+    profileCommandStagedLength = 0;
     lineModelAuthoritative = false;
     mbasicEditMode = false;
     mbasicEditStartPending = false;
@@ -863,11 +867,19 @@ static void profileCommand(bool exitCommand)
         input.push(13);
     // Generated exit/clear commands are terminal controls, not user input.
     // Send them to the application but never add them to its history bank.
-    if (profile.historyClearLength && profile.historyRetypeDelayMs)
+    profileCommandStagedLength = 0;
+    if ((profile.historyClearLength && profile.historyRetypeDelayMs) || profile.commandCharDelayMs)
     {
         memcpy(profileCommandStaged, command, length);
         profileCommandStagedLength = length;
         profileCommandStagedAt = millis();
+        profileCommandStagedPosition = 0;
+        profileCommandStagedBank = history->activeBank();
+        profileCommandCharDelayMs = profile.commandCharDelayMs;
+        profileCommandWaitingForRead = true;
+        profileCommandStagedDelayMs = profile.historyClearLength ? profile.historyRetypeDelayMs : 0;
+        if (profileCommandStagedDelayMs < profileCommandCharDelayMs)
+            profileCommandStagedDelayMs = profileCommandCharDelayMs;
     }
     else
     {
@@ -884,8 +896,37 @@ static void profileCommandPoll()
 {
     if (!profileCommandStagedLength)
         return;
-    const vt::HistoryProfile& profile = profiles.get(history ? history->activeBank() : 0);
-    if (uint32_t(millis() - profileCommandStagedAt) < profile.historyRetypeDelayMs)
+    if (!history || history->activeBank() != profileCommandStagedBank)
+    {
+        profileCommandStagedLength = 0;
+        return;
+    }
+    if (profileCommandCharDelayMs)
+    {
+        // Do not catch up in a burst after a slow guest or display frame.
+        // Start the gap only after the previous input has been consumed.
+        if (input.available())
+        {
+            profileCommandWaitingForRead = true;
+            return;
+        }
+        if (profileCommandWaitingForRead)
+        {
+            profileCommandWaitingForRead = false;
+            profileCommandStagedAt = millis();
+            return;
+        }
+        if (uint32_t(millis() - profileCommandStagedAt) < profileCommandStagedDelayMs ||
+            !input.push(profileCommandStaged[profileCommandStagedPosition]))
+            return;
+        if (++profileCommandStagedPosition == profileCommandStagedLength)
+            profileCommandStagedLength = 0;
+        profileCommandStagedAt = millis();
+        profileCommandStagedDelayMs = profileCommandCharDelayMs;
+        profileCommandWaitingForRead = true;
+        return;
+    }
+    if (uint32_t(millis() - profileCommandStagedAt) < profileCommandStagedDelayMs)
         return;
     for (uint8_t i = 0; i < profileCommandStagedLength; ++i)
         input.push(profileCommandStaged[i]);
