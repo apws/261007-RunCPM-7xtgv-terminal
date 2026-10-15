@@ -1647,6 +1647,12 @@ zoom/backlight chords stay unchanged. UG/RG use standard IMPORTANT
 admonitions; offline PDF printing embeds the icon font.
 a|link:../docs/261014-1956%20DONE%20Browser%20aliases%20for%20reserved%20shortcuts.adoc[Browser aliases]
 
+|`++261014-2322++`
+|Ctrl+Space profile information is shared by browser, Konsole, Kitty and Mintty
+input paths. Our Windows Mintty profile already overrides the Alt+Space window
+menu, explaining why that original chord can work there.
+a|link:../docs/261014-2322%20DONE%20Shared%20native%20Ctrl-Space%20profile%20alias.adoc[Native profile-info alias]
+
 |===
 
 == Command and catalog name lineage

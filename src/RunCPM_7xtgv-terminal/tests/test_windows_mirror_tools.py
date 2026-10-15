@@ -130,6 +130,25 @@ class WindowsMirrorTools(unittest.TestCase):
             self.assertIn(f'key {qt:<10}-Shift+Alt-Ctrl : "\\E[>{control}v"', konsole)
             self.assertIn(f'map alt+{kitty_key} send_text all \\x1b[>{control}v', kitty)
 
+    def test_profile_info_aliases_match_all_host_keymaps(self):
+        rules = bindings()
+        for chord in ('A+Space', 'C+Space'):
+            self.assertEqual(Keys().feed(rules[chord][1:-1].encode()), b'\x1b[>14v')
+        self.assertIn(';3;000v', rules['CS+Space'])
+        konsole = (SKETCH / 'tools/7xtgv-terminal.keytab').read_text()
+        self.assertIn('key Space     -Shift-Alt+Ctrl : "\\E[>14v"', konsole)
+        self.assertNotIn('key Space      -Shift-Alt+Ctrl-KeyPad', konsole)
+        for name in ('kitty.conf', 'kitty-cpm.conf'):
+            content = (SKETCH / 'tools' / name).read_text()
+            self.assertIn('map ctrl+space send_text all \\x1b[>14v', content)
+            self.assertIn('map alt+space send_text all \\x1b[>14v', content)
+            self.assertNotIn('map --allow-fallback=none ctrl+space ', content)
+            self.assertIn('ctrl+shift+space send_text all', content)
+        with tempfile.TemporaryDirectory() as directory:
+            profile = Path(directory) / 'minttyrc'
+            write_profile(profile)
+            self.assertIn('WindowShortcuts=no', profile.read_text())
+
     def test_brightness_presets_match_linux_for_digits_and_czech_row(self):
         rules = bindings()
         for digit, czech, level in zip('123456789', '+ěščřžýáí', (4, 7, 11, 14, 18, 21, 25, 28, 31)):
@@ -246,7 +265,7 @@ class WindowsMirrorTools(unittest.TestCase):
             self.assertNotIn(b'\0', data)
             self.assertIn('ě:'.encode(), data)
         # Space controls encode NUL as decimal digits, not a config-file NUL.
-        self.assertIn(';000v', bindings()['C+Space'])
+        self.assertIn(';000v', bindings()['CS+Space'])
 
 
 if __name__ == '__main__':

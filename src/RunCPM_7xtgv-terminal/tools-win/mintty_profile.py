@@ -53,7 +53,7 @@ def bindings():
             fallback = ('\x1b' if mods & 4 else '') + fallback
             event(name, 'Key' + base, mods, fallback)
     overrides = {'C+Back': '\x18', 'CS+Back': '\x1b[>65v',
-                 'A+Space': '\x1b[>14v',
+                 'A+Space': '\x1b[>14v', 'C+Space': '\x1b[>14v',
                  'A+Back': '\x1b[>61v', 'SA+Back': '\x1b[>4v'}
     for kp in ('', 'KP_'):
         # Bank selection is a global control, not an application-profile

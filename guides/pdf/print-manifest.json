@@ -7,15 +7,15 @@
       "source": "guides/01-BG-build-guide.adoc"
     },
     "RunCPM 7xtgv-terminal - 02 UG User Guide.pdf": {
-      "input_sha256": "c8d0acd54c412d0184be75de9fa9de41d4a0bdac7ca58ea02c5facaf72eaa86d",
+      "input_sha256": "c701d22aa52a714e850a5e2e694fdb4ca1e3e0b6bf81d29c599e9941d6e89336",
       "pages": 20,
-      "pdf_sha256": "02b7c0c3787958bf33f5a21981e12d7b3ef59514c66234a3ec1566d40d6f926f",
+      "pdf_sha256": "eac54e8d4179a5ace9071ea4f45fdfef29010e2527250faea6269cd1bc732878",
       "source": "guides/02-UG-user-guide.adoc"
     },
     "RunCPM 7xtgv-terminal - 03 RG Reference Guide.pdf": {
-      "input_sha256": "91c72e83c6ef276e059761c51eee738c2deff5e3b96646e76ffd6233c79cb415",
+      "input_sha256": "f64c1346260455ecf5348dbbeb9a37028e8ba0a604338e86e5ebf0f6316ad586",
       "pages": 72,
-      "pdf_sha256": "e515f2369c61c2eb1636de66c9af540d867b5a1ab3ea251971b8a9a03bb2d1cd",
+      "pdf_sha256": "6b5b05922d1604afa29960763be48a15fb478e7e274bbcbc211f9332e0683ad3",
       "source": "guides/03-RG-reference-guide.adoc"
     },
     "RunCPM 7xtgv-terminal - 04 TRG Technical Reference Guide.pdf": {

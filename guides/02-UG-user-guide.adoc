@@ -186,7 +186,8 @@ Wait for the CP/M prompt. A brief mirror redraw after USB reconnect is normal.
 [[_choose_the_application_profile]]
 ==== Choose the application profile
 
-* kbd:[Alt+0] through kbd:[Alt+9] select a profile; kbd:[Alt+Space] shows its name.
+* kbd:[Alt+0] through kbd:[Alt+9] select a profile;
+  kbd:[Alt+Space] or kbd:[Ctrl+Space] shows its name.
 * kbd:[Alt+PgUp] / kbd:[Alt+PgDn] browse previous / next profiles.
 * Wait for the temporary name label to disappear before typing into the application.
 * Selection may send the INI `on_select` command *at a live CCP prompt only*.
@@ -196,11 +197,13 @@ Wait for the CP/M prompt. A brief mirror redraw after USB reconnect is normal.
 
 [IMPORTANT]
 ====
-*Windows:* kbd:[Alt+Space] opens the system window menu. This is a Windows
-shortcut, not a browser-only restriction; it can also intercept the chord in
-native terminal use. In our browser version, kbd:[Ctrl+Space] is the alternate
-chord for showing the current profile. This alias is not currently provided
-by our native terminal keymaps.
+*Profile information:* kbd:[Alt+Space] and kbd:[Ctrl+Space] both show the
+current profile in the browser and our supplied Konsole, Kitty and Windows
+Mintty keymaps, for desktop emulators and hardware mirrors. Windows normally
+uses kbd:[Alt+Space] for the window menu, but our Mintty profile disables that
+shortcut and explicitly maps it to profile information. Alt+Space can therefore
+already work in our native Windows setup. Use kbd:[Ctrl+Space] when the host
+intercepts Alt+Space; the alias takes precedence over guest Ctrl+Space input.
 
 *Browser:* kbd:[Alt+Ctrl+PgUp] / kbd:[Alt+Ctrl+PgDn] are fixed aliases for
 kbd:[Ctrl+PgUp] / kbd:[Ctrl+PgDn] when the browser captures those chords.

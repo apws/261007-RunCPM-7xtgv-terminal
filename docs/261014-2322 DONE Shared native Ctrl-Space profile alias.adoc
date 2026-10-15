@@ -1,0 +1,36 @@
+= Shared native Ctrl-Space profile alias
+:source-highlighter: highlight.js
+
+== Implementation
+
+Ctrl+Space now emits the existing CSI >14v profile-info control in the supplied
+Konsole, Kitty (including kitty-cpm) and Windows Mintty keymaps, matching the
+browser alias. Generated Linux generic Ctrl+Space events are omitted so they
+cannot shadow the dedicated control. Ctrl+Shift+Space retains its guest event
+and NUL fallback. Alt+Space remains available.
+
+This is host tooling shared by board mirrors and native desktop targets.
+No firmware, RunCPM core, INI or emulator executable change is required.
+New sessions using the updated tools pick up the bindings; existing immutable
+session configs are left alone. Bare terminals without our keymaps are outside
+this guarantee. Alt+Ctrl+PgUp/PgDn remains a browser-only alias.
+
+== Windows correction
+
+Our existing Mintty profile already sets WindowShortcuts=no, ShootFoot=yes and
+A+Space to CSI >14v. The user remembers Alt+Space working on Windows; that fits
+this configuration. The earlier broad claim that Windows necessarily consumes
+Alt+Space was inaccurate for our native setup. UG/RG now distinguish the
+Windows default from our explicit override.
+
+Reference: https://mintty.github.io/mintty.1.html[Mintty manual],
+WindowShortcuts and KeyFunctions settings. No native Windows GUI retest here.
+
+== Validation
+
+Focused host-key generation and Windows mirror tests cover matching alias bytes,
+absence of competing generated Ctrl+Space entries, Ctrl+Shift+Space preservation,
+and retention of WindowShortcuts=no. All 22 focused tests pass. UG/RG PDFs
+were reprinted and the updated IMPORTANT blocks visually checked; the complete
+guide PDF freshness check passes. The browser encoder is unchanged.
+No live sessions restarted, card changes, build, flash, commit or push.

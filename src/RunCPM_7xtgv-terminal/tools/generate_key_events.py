@@ -144,7 +144,8 @@ def generate(top_row):
                 continue
             if base == "KeyEscape" and mods == 4:
                 continue
-            if base == "KeySpace" and mods == 4:
+            if base == "KeySpace" and mods in (1, 4):
+                # Ctrl+Space and Alt+Space are profile-info controls below.
                 continue
             if base == "KeyBackspace" and mods & 1:
                 fallback = b"\x18"  # existing Ctrl+Backspace convention

@@ -58,11 +58,13 @@ transfer shortcuts below are explicitly native-only.
 
 [IMPORTANT]
 ====
-*Windows:* kbd:[Alt+Space] opens the system window menu. This is a Windows
-shortcut, not a browser-only restriction; it can also intercept the chord in
-native terminal use. In our browser version, kbd:[Ctrl+Space] is the alternate
-chord for showing the current profile. This alias is not currently provided
-by our native terminal keymaps.
+*Profile information:* kbd:[Alt+Space] and kbd:[Ctrl+Space] both show the
+current profile in the browser and our supplied Konsole, Kitty and Windows
+Mintty keymaps, for desktop emulators and hardware mirrors. Windows normally
+uses kbd:[Alt+Space] for the window menu, but our Mintty profile disables that
+shortcut and explicitly maps it to profile information. Alt+Space can therefore
+already work in our native Windows setup. Use kbd:[Ctrl+Space] when the host
+intercepts Alt+Space; the alias takes precedence over guest Ctrl+Space input.
 
 *Browser:* kbd:[Alt+Ctrl+PgUp] / kbd:[Alt+Ctrl+PgDn] are fixed aliases for
 kbd:[Ctrl+PgUp] / kbd:[Ctrl+PgDn] when the browser captures those chords.
@@ -74,13 +76,13 @@ browser hosts.
 Their routing is:
 
 * kbd:[Ctrl+Space] shows the current profile, like kbd:[Alt+Space]. It takes
-  precedence over guest Ctrl+Space input in the browser.
+  precedence over guest Ctrl+Space input in the browser and supplied native keymaps.
 * kbd:[Alt+Ctrl+PgUp] / kbd:[Alt+Ctrl+PgDn] deliver logical
   kbd:[Ctrl+PgUp] / kbd:[Ctrl+PgDn] through the selected profile's existing
   bindings. Turbo and FAND need no installer changes. Use Left kbd:[Alt];
   kbd:[AltGr] remains reserved for layout input.
 
-These are browser aliases only. kbd:[Ctrl+Shift+PgUp] / kbd:[Ctrl+Shift+PgDn]
+The PgUp/PgDn aliases are browser-only. kbd:[Ctrl+Shift+PgUp] / kbd:[Ctrl+Shift+PgDn]
 still control zoom, and adding kbd:[Alt] to those still controls backlight.
 The host must deliver the alias too; custom OS shortcuts can intercept it.
 
@@ -174,7 +176,7 @@ kbd:[Pause] then kbd:[x] is a native prefix alternative, not a browser mapping.
 |Physical chord |Internal control / route |Meaning
 |kbd:[Alt+PgUp] / kbd:[Alt+PgDn] |CSI >12v / >13v |Previous / next profile, with immediate label redraw.
 |kbd:[Alt+0] through kbd:[Alt+9] |CSI >20v through >29v |Select profile 0 through 9.
-|kbd:[Alt+Space] |CSI >14v |Show selected profile.
+|kbd:[Alt+Space] / kbd:[Ctrl+Space] |CSI >14v |Show selected profile (browser and supplied native keymaps).
 |kbd:[Alt+#] |CSI >15v |Toggle RAW input (CZ: kbd:[Alt+AltGr+X]; US: kbd:[Alt+Shift+3]).
 |kbd:[Alt+Backspace] / kbd:[Alt+Q] |CSI >61v / >60v |Configured clear / exit action.
 |kbd:[Alt+Up] / kbd:[Alt+Down] |CSI >38v / >39v |Profile key events, normally alternate history.
@@ -290,7 +292,7 @@ recall handling; it does not prevent ordinary typing at the CP/M prompt.
   `mbasic(B1)` because CCP executes it; bank numbers do not identify DUs.
 * The temporary label restores its saved row and cursor without requiring an
   application redraw. Wait for it to disappear before normal input.
-* kbd:[Alt+Space] only shows the label; it never emits `on_select`.
+* kbd:[Alt+Space] / kbd:[Ctrl+Space] only shows the label; it never emits `on_select`.
 
 [[histories-banks-and-the-active-line]]
 === Histories, banks, and the active line
