@@ -1,0 +1,163 @@
+= DONE: Android touchscreen browser UX review and chat
+:source-highlighter: highlight.js
+:toc:
+:toclevels: 2
+
+== Purpose and outcome
+
+This record captures the 261021 conversation that moved the standalone browser's
+touch pad from a working prototype to the layout the user accepted for regular
+Android use. It records the decisions and corrections in order so the reasoning
+behind the final controls remains available; it is a detailed worklog, not a
+verbatim transcript.
+
+The final setup was tested on the user's Xiaomi 12X in Android Chrome with
+SmartKeyboard in ITU-T and QWERTY layouts. The browser booted the ES3_35
+480×320 target at 1× over the local HTTPS link. The user confirmed the touch
+pad and its key events in RunCPM and Turbo Pascal. Exact Android and browser
+versions were not recorded.
+
+== Interaction and implementation history
+
+=== Mobile target and touch-pad concept
+
+The starting proposal placed touch navigation controls below the terminal
+display, in the small phone-screen area above the software keyboard. A marked-up
+keyboard sketch proposed Escape, Tab, the sixpack, an inverted-T cursor group,
+and sticky Alt/Ctrl/Shift modifiers. The user supplied both a desktop placement
+sketch and a Xiaomi 12X screenshot using SmartKeyboard in ITU-T mode.
+
+The design kept the desktop and web keyboard routes intact. Touch controls send
+the same key events through the browser's existing keyboard encoder. A touched
+modifier remains latched until the next accepted touch key or committed
+character from the real on-screen keyboard. This also allows combinations such
+as pad Alt followed by typed `Q`, rather than restricting modifiers to pad
+keys.
+
+=== First phone test and page-flow correction
+
+The initial phone-facing layout used three groups:
+
+* Escape, Tab and Alt on the left;
+* Insert/Home/Page Up, Delete/End/Page Down with Ctrl and Shift in the middle;
+* Backspace/Enter and the cursor arrows on the right.
+
+The first visual pass removed a debug-style colored frame, applied the guide's
+keycap colors, and centered and emboldened the arrow glyphs. The initial arrow
+symbols looked too tall in the short rectangular keys. They were reduced in
+steps and now render at 70% of the previous size while staying bold and centered.
+
+The pad initially followed the browser's visual viewport when the phone
+keyboard opened, which lifted it over the page controls. The user found that
+confusing. The fixed-position behavior was removed: the pad stays below the
+display in normal document flow, and the page can scroll naturally when the
+software keyboard is visible.
+
+=== LAN startup and target selection
+
+The phone test used an opt-in same-Wi-Fi launcher with HTTPS, needed for the
+threaded RunCPM browser worker's secure context. Android required installing
+the local CA certificate. An earlier launch hit `Address already in use` on
+port 36341 because another local web server still held the port; the user
+stopped that process and relaunched. The first blank page did not identify a
+single cause; after reopening the HTTPS URL, the browser displayed the booted
+target and CP/M prompt.
+
+The launcher was ultimately named `++tools-web/desktop-mobile-lan.sh++`. Its
+default is ES3_35 480×320 at 1×. An intermediate proposal used the 320×240
+RP2_2 target, but the user corrected it: ES3_35 at 1× was already a good fit on
+the phone and was the preferred testing target. The web display scale only
+changes canvas presentation size; it does not alter terminal geometry.
+
+=== Real Android keyboard and guest checks
+
+The user tested the page with SmartKeyboard's ITU-T and QWERTY modes. ITU-T
+multitap does not preview its in-progress composition in the terminal, but its
+suggestion row shows the current candidate and can be used to commit text. The
+user found that workable, including pretyping and sending the completed text.
+
+The user confirmed these application actions from the phone:
+
+* kbd:[Alt+Backspace] clears the running application screen;
+* kbd:[Alt+Q] exits an application;
+* kbd:[Alt+Space] shows the current bank/profile;
+* kbd:[Alt+PgUp] and kbd:[Alt+PgDn] select the previous and next bank/profile;
+* kbd:[Alt+Ctrl+Shift+PgUp] and kbd:[Alt+Ctrl+Shift+PgDn] exercise the lighter
+  and darker backlight controls.
+
+The user also tried Turbo Pascal and confirmed profile switching through its
+configured bank, with SmartKeyboard's compose-and-commit flow. Those are
+observations from this device and application setup, not universal Android
+keyboard guarantees.
+
+The first real-keyboard test exposed one input edge case: Ctrl+Shift+digit from
+the mobile IME arrived as committed text without a physical `DigitN` key code,
+so the guest received the digit. Changing the optional top-row mapping did not
+help. The keyboard module was updated to infer the digit code for a committed
+ASCII digit when sticky modifiers are active. The module test now verifies the
+committed Ctrl+Shift+1 event. The conversation did not separately record a
+second on-device Ctrl+Shift+digit test after that code change.
+
+=== Layout tuning from phone screenshots
+
+The user then iterated against actual phone screenshots and desktop touch
+simulation:
+
+. The original keys were too short vertically. A *Touch-key height* selector
+  was added to the controls pane with ten values from 100% to 190%. It scales
+  key height, vertical spacing and labels together, starts at 140%, and saves
+  the user's choice in browser local storage. This makes the same page
+  adjustable across screens and keyboards without changing the display zoom.
+. The user requested an empty visual gutter between the Escape/Tab/Alt,
+  sixpack/modifier and arrow blocks. Inter-block spacing increased from 12px to
+  16px and then 20px; spacing inside the groups was reduced from 8px to a
+  proportionally scaled 5px base.
+. The Ctrl/Shift buttons initially sat a few pixels below Alt and the arrow
+  row. The middle block's sixpack spacer was corrected to equal two key rows
+  plus their inner gap, aligning the three blocks' bottom rows.
+. Backspace and Enter were still narrow single cells. They were moved to an
+  equal-width two-key row spanning the arrow block, above the inverted-T.
+. Modifier keys began too dark. Their idle background now uses the prior
+  selected gray; a latched modifier uses light blue with dark text. The selected
+  state remains visibly distinct while preserving readable labels.
+
+The user approved the resulting arrangement as the desired experience. The
+maintained screenshots are in `++guides/images/++` and are embedded in the User
+Guide:
+
+* `++mobile-touch-keys.png++` — pad by itself;
+* `++mobile-touch-keys-itu-t.png++` — Android SmartKeyboard in ITU-T mode;
+* `++mobile-touch-keys-qwerty.png++` — Android SmartKeyboard in QWERTY mode;
+* `++mobile-touch-keys-qwerty-modifiers.png++` — QWERTY with Ctrl and Shift
+  latched, showing the selected-state color.
+
+== Current user-facing behavior
+
+The User Guide now documents the touch-key layout, height selector, page-flow
+behavior, sticky modifiers, Android test and the limits of that test. It also
+describes the application shortcuts confirmed in this session. The standalone
+browser tooling README documents HTTPS LAN setup, certificate installation
+and the `++desktop-mobile-lan.sh++` launcher. The feature ledger and timeline
+record Android review as completed for this Xiaomi 12X setup.
+
+The server is an opt-in static host for the browser page and starting card; it
+does not relay keys or provide LAN authentication. It must be stopped when the
+local test ends. No firmware, native terminal, or physical key mapping was
+changed in this mobile UI work.
+
+== Validation and scope
+
+The updated browser bundle was packaged from the maintained web sources.
+`node --check` passed for the changed JavaScript, the browser module suite
+passed, and `git diff --check` passed. The guide reprint refreshed all six
+numbered PDFs because guide images are shared print inputs. User Guide pages
+4–6 were rendered and inspected: the new mobile screenshots are legible, the
+figure captions and page transitions are intact, and no image or text is
+clipped. Cover pages from the five other regenerated guides were also checked.
+The user separately confirmed the live Android page, shortcuts, SmartKeyboard
+behavior and Turbo Pascal profile tests.
+
+The manual device evidence covers one Xiaomi 12X setup. Other Android releases,
+browser versions, keyboard apps and device aspect ratios remain outside that
+acceptance. The user can select the touch-key height for a different viewport;
+the default phone launch remains ES3_35 at 1×.

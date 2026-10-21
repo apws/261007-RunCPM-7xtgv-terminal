@@ -105,6 +105,8 @@ export class KeyboardModule {
         this.enabled = false;
         this.composing = false;
         this.rightAlt = false;
+        this.stickyModifiers = 0;
+        this.onStickyModifiersChange = () => {};
         this.topRow = config ?? defaultTopRow;
         this.input = input;
         this.send = send;
@@ -119,8 +121,20 @@ export class KeyboardModule {
         input.addEventListener('keydown', e => {
             if (e.code === 'AltRight') this.rightAlt = true;
             if (!this.enabled || this.composing || e.isComposing) return;
-            const bytes = encodeKey({...this.event(e), altGraph: this.rightAlt || e.getModifierState('AltGraph')}, this.topRow);
-            if (bytes) {e.preventDefault(); this.deliver(bytes);}
+            const event = this.event(e), sticky = this.stickyModifiers;
+            const touchTextEntry = sticky && event.key.length === 1 &&
+                globalThis.matchMedia?.('(pointer: coarse)').matches &&
+                !event.ctrlKey && !event.altKey && !event.metaKey;
+            if (touchTextEntry) return;
+            const bytes = encodeKey({...event,
+                ctrlKey: event.ctrlKey || !!(sticky & 1),
+                shiftKey: event.shiftKey || !!(sticky & 2),
+                altKey: event.altKey || !!(sticky & 4),
+                altGraph: this.rightAlt || e.getModifierState('AltGraph')}, this.topRow);
+            if (bytes) {
+                e.preventDefault(); this.deliver(bytes);
+                if (sticky) this.setStickyModifiers(0);
+            }
         });
         input.addEventListener('keyup', e => {if (e.code === 'AltRight') this.rightAlt = false;});
         input.addEventListener('compositionstart', () => {this.composing = true;});
@@ -145,23 +159,54 @@ export class KeyboardModule {
             shiftKey: e.shiftKey, metaKey: e.metaKey, isComposing: e.isComposing};
     }
     focus() { if (this.enabled) this.input.focus({preventScroll: true}); }
+    setStickyModifiers(value) {
+        this.stickyModifiers = value & 7;
+        this.onStickyModifiersChange(this.stickyModifiers);
+    }
+    touchKey(key, code, modifiers) {
+        if (!this.enabled) return false;
+        const bytes = encodeKey({key, code, ctrlKey: !!(modifiers & 1),
+            altKey: !!(modifiers & 4), shiftKey: !!(modifiers & 2),
+            metaKey: false, isComposing: false, altGraph: false}, this.topRow);
+        if (!bytes) return false;
+        this.deliver(bytes);
+        return true;
+    }
     deliver(bytes) {try {this.send(bytes);} catch (error) {this.report(error.message);}}
     commit() {
         if (this.composing) return;
         const text = this.input.value;
         this.input.value = '';
-        if (text && this.enabled && document.activeElement === this.input) this.text(text);
+        if (text && this.enabled && document.activeElement === this.input) this.text(text, true);
     }
-    text(value) {
+    text(value, applyStickyModifiers = false) {
         const text = value.replace(/\r\n?/g, '\n').replace(/\n/g, '\r');
         if (text.length > 4096) {this.report('Paste limit: 4096 characters.'); return;}
         if (/[^\x20-\x7e\t\r]/.test(text)) {
             this.report('Plain guest text accepts ASCII, Tab and newlines. Unsupported text was not sent.'); return;
         }
+        if (text && applyStickyModifiers && this.stickyModifiers) {
+            const first = text[0], modifiers = this.stickyModifiers;
+            const code = /^[a-z]$/i.test(first) ? 'Key' + first.toUpperCase() :
+                /^[0-9]$/.test(first) ? 'Digit' + first : '';
+            const bytes = encodeKey({key:first, code, ctrlKey:!!(modifiers & 1),
+                shiftKey:!!(modifiers & 2), altKey:!!(modifiers & 4),
+                metaKey:false, isComposing:false, altGraph:false}, this.topRow);
+            this.setStickyModifiers(0);
+            if (bytes) this.deliver(bytes);
+            else if (modifiers === 2 && /^[a-z]$/i.test(first))
+                this.deliver(utf8.encode(first.toUpperCase()));
+            else this.deliver(utf8.encode(first));
+            if (text.length > 1) this.text(text.slice(1));
+            return;
+        }
         this.deliver(utf8.encode(text));
     }
     setEnabled(value) {
         this.enabled = value; this.input.disabled = !value;
-        if (!value) {this.input.value = ''; this.rightAlt = this.composing = false;}
+        if (!value) {
+            this.input.value = ''; this.rightAlt = this.composing = false;
+            this.setStickyModifiers(0);
+        }
     }
 }

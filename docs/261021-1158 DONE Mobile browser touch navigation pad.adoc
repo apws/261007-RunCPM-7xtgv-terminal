@@ -1,0 +1,36 @@
+= DONE: Mobile browser touch navigation pad
+:source-highlighter: highlight.js
+
+== Request
+
+Add touch navigation controls below the browser display for narrow touchscreen
+layouts, especially Android phones where the soft keyboard leaves a small gap
+above it. Modifier taps must remain selected until a key is tapped.
+
+== Implementation
+
+The standalone web app now shows a touch pad on narrow, coarse-pointer devices.
+It is grouped as Escape/Tab/Alt, the sixpack with Ctrl/Shift, and an inverted-T
+arrow cluster. Shorter keycaps follow the guide CSS; arrows remain larger and
+bold. A selected modifier is visibly pressed and clears after the next accepted
+key event. It combines with either a pad key or the next character typed on the
+device keyboard, including composed mobile text. Input uses the existing
+keyboard encoder, preserving the same guest and application shortcut routes.
+
+The pad normally sits directly below the display. While the soft keyboard is
+open, visual-viewport measurements move it into the intervening gap when the
+available height can contain it; otherwise it remains in document flow below
+the display. Pointer handling prevents the pad from stealing focus from the
+hidden input and dismissing the phone keyboard.
+
+== Evidence and limits
+
+Source changes are in `++tools-web/web/standalone.html++`,
+`++standalone.css++`, `++standalone.js++` and `++input.js++`. The User Guide now
+describes the pad and sticky modifiers. Automated and visual tests were not run
+in this checkpoint; Android browser placement and real soft-keyboard modifier
+behavior remain for user review. `++desktop-mobile-lan.sh++` binds the
+temporary static server to all interfaces and prints the detected LAN URL for
+same-Wi-Fi phone access. This mode is opt-in and unauthenticated. The local
+session is running at the URL printed in the handoff. No firmware, CP/M files
+or card contents were changed; published PDFs were not refreshed.

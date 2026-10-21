@@ -132,6 +132,31 @@ kbd:[Ctrl+C] in its console ends hosting. Stop/download in the page before closi
 if guest changes should be retained. Keep the page visible while using it;
 background-tab throttling is not qualified.
 
+To open the same local session on a phone on the same trusted Wi-Fi, run
+`++./desktop-mobile-lan.sh++`. Its LAN URL opens the `ES3_35` 480×320 display at 1×,
+which fits the phone layout well and leaves room for the touch pad.
+The console prints a *LAN URL* containing this machine's detected network
+address and port `36341` (to keep the firewall rule stable). Pass `--target`
+or `--window-scale` after the script to override the mobile defaults. It uses
+HTTPS because mobile browsers require a secure context for the threaded
+RunCPM worker; the COOP/COEP isolation headers alone are not enough for an
+ordinary HTTP LAN address. The desktop-only `desktop-local.sh --lan` remains
+HTTP; use `127.0.0.1` on that same computer for its secure localhost context.
+
+The first mobile launch creates a private local certificate authority under
+`~/.local/state/7xtgv-web/lan-certificate/` and prints its certificate path and
+SHA-256 fingerprint. Transfer `ca.crt` to the phone, install it as a user CA
+certificate in Android's security settings, then open the printed HTTPS LAN
+URL. If you use the page's `/lan-ca.crt` download before trusting the server,
+compare its fingerprint with the one printed in the terminal before
+installation. Android menu wording varies by version. Trust is needed once per
+phone; the temporary server certificate is renewed for the current LAN IP on
+each launch. Do not share the CA private key (`ca.key`).
+
+LAN mode serves the static site and included starting card without
+authentication; stop it with kbd:[Ctrl+C] when finished. The default desktop
+launcher remains loopback-only.
+
 == Using the page
 
 On wide windows the 364-pixel controls column sits on the left, a compact

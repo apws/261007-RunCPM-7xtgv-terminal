@@ -24,8 +24,52 @@ const scale = Math.max(1, Math.min(9, Number(new URLSearchParams(location.search
 const display = new Display($('display'), $('geometry'), scale);
 for (let n=1;n<=9;n++) $('scale').add(new Option(n + '×', n, n === scale, n === scale));
 $('scale').onchange = () => display.setScale($('scale').value);
+const touchHeightSelect = $('touch-height');
+let touchHeight = 5;
+try {
+    const saved = Number(localStorage.getItem('xtgv-touch-height'));
+    if (Number.isInteger(saved) && saved >= 1 && saved <= 10) touchHeight = saved;
+} catch {}
+for (let n=1;n<=10;n++) touchHeightSelect.add(new Option(`${100 + (n - 1) * 10}%`, n, n === touchHeight, n === touchHeight));
+function applyTouchHeight(value) {
+    const factor = 1 + (value - 1) / 10;
+    const style = document.documentElement.style;
+    style.setProperty('--touch-key-size', `${20 * factor}px`);
+    style.setProperty('--touch-sixpack-height', `${45 * factor}px`);
+    style.setProperty('--touch-key-gap', `${5 * factor}px`);
+    style.setProperty('--touch-key-pad', `${2 * factor}px`);
+    style.setProperty('--touch-key-font-size', `${Math.min(12 * factor, 14)}px`);
+    style.setProperty('--touch-arrow-font-size', `${11.2 * factor}px`);
+}
+applyTouchHeight(touchHeight);
+touchHeightSelect.onchange = () => {
+    touchHeight = Number(touchHeightSelect.value);
+    applyTouchHeight(touchHeight);
+    try {localStorage.setItem('xtgv-touch-height', String(touchHeight));} catch {}
+};
 const keyboard = new KeyboardModule($('display-area'), $('keyboard'), bytes => link.send(bytes), notice, defaultTopRow);
 $('keyboard').addEventListener('blur', () => link.cancelPending());
+$('touch-keypad').addEventListener('pointerdown', event => event.preventDefault());
+let touchModifiers = 0;
+const touchModifierBits = {ctrl:1, shift:2, alt:4};
+const touchModifierButtons = [...document.querySelectorAll('[data-touch-mod]')];
+function updateTouchModifiers() {
+    touchModifiers = keyboard.stickyModifiers;
+    for (const button of touchModifierButtons) {
+        const active = !!(touchModifiers & touchModifierBits[button.dataset.touchMod]);
+        button.setAttribute('aria-pressed', String(active));
+    }
+}
+keyboard.onStickyModifiersChange = updateTouchModifiers;
+for (const button of touchModifierButtons) button.onclick = () => {
+    keyboard.setStickyModifiers(touchModifiers ^ touchModifierBits[button.dataset.touchMod]);
+};
+for (const button of document.querySelectorAll('[data-touch-key]')) button.onclick = () => {
+    const key = button.dataset.touchKey;
+    if (keyboard.touchKey(key, key, touchModifiers)) {
+        keyboard.setStickyModifiers(0);
+    }
+};
 $('focus').onclick = () => keyboard.focus();
 $('top-row').value = defaultTopRow;
 $('apply-row').onclick = () => {
@@ -55,6 +99,7 @@ action('copy-image', async () => {
 function setPhase(value, message) {
     phase = value; $('status').textContent = message;
     keyboard.setEnabled(value === 'running');
+    if (value !== 'running') keyboard.setStickyModifiers(0);
     $('focus').disabled = value !== 'running';
     $('stop').disabled = value !== 'running';
     $('export').disabled = value !== 'stopped';
@@ -152,7 +197,8 @@ window.addEventListener('beforeunload', e => {
 // Read-only diagnostics used by the browser integration tests, also useful in DevTools.
 window.xtgvWeb = {get phase() {return phase;}, snapshot: getSnapshot, get target() {return selectedTarget;}, get profiles() {return profiles.map(p => structuredClone(p));}};
 (async () => {
-    if (!crossOriginIsolated) throw Error('Hosting needs COOP/COEP headers for the RunCPM worker.');
+    if (!isSecureContext) throw Error('This page needs a secure browser context to start RunCPM. Use localhost on this computer, or HTTPS when connecting over the LAN; HTTP to a LAN IP is not secure enough.');
+    if (!crossOriginIsolated) throw Error('The server is missing COOP/COEP isolation headers required by the RunCPM worker.');
     const response = await fetch('card.zip');
     if (!response.ok) throw Error('Preload card is missing. Load a card ZIP to continue.');
     await start(unpackCard(new Uint8Array(await response.arrayBuffer())));

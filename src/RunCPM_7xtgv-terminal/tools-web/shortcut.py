@@ -66,6 +66,8 @@ def serve(command, log):
                 print('Browser server: ready', flush=True)
                 print(line.rstrip(), flush=True)
                 print('Ctrl+C stops local hosting.', flush=True)
+            elif line.startswith('LAN URL:') or line.startswith('LAN access'):
+                print(line.rstrip(), flush=True)
             elif line.startswith('Waiting for the browser'):
                 print('Waiting for browser ...', flush=True)
             elif line.startswith('Running. Exit the mirror'):

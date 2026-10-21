@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 const site = new URL('../../../../build/RunCPM_7xtgv-terminal/desktop-web/site/', import.meta.url);
 const {SerialLink} = await import(new URL('serial_link.js', site));
-const {encodeKey, keyEvent} = await import(new URL('input.js', site));
+const {encodeKey, keyEvent, KeyboardModule} = await import(new URL('input.js', site));
 const {unpackCard, packCard} = await import(new URL('card.js', site));
 const {zipSync, unzipSync} = await import(new URL('vendor/fflate.js', site));
 const wire = new TextDecoder();
@@ -39,6 +39,16 @@ assert.deepEqual(encodeKey(event(' ','Space',{ctrlKey:true})),
     encodeKey(event(' ','Space',{altKey:true})), 'Profile aliases match');
 assert.deepEqual(encodeKey(event(' ','Space',{ctrlKey:true,shiftKey:true})),
     keyEvent('KeySpace', 3, '\0'), 'Ctrl+Shift+Space remains guest input');
+const inputHandlers = {};
+const input = {addEventListener(name, handler) {inputHandlers[name] = handler;}, value: '', disabled: false};
+const area = {addEventListener() {}, classList: {add() {}, remove() {}}};
+const sentTextKeys = [];
+const textKeyboard = new KeyboardModule(area, input, bytes => sentTextKeys.push(wire.decode(bytes)), () => {}, '');
+textKeyboard.enabled = true;
+textKeyboard.setStickyModifiers(3);
+textKeyboard.text('1', true);
+assert.deepEqual(sentTextKeys, ['\x1b[>63;4v'], 'Committed mobile digits retain sticky Ctrl+Shift mapping');
+assert.equal(textKeyboard.stickyModifiers, 0, 'Committed mobile key consumes sticky modifiers');
 for (const [key, zoom, backlight] of [['PageUp', '>67v', '>63;33v'], ['PageDown', '>66v', '>63;34v']]) {
     assert.deepEqual(encodeKey(event(key,key,{ctrlKey:true,altKey:true})),
         encodeKey(event(key,key,{ctrlKey:true})), 'Alias preserves complete Ctrl navigation frame');

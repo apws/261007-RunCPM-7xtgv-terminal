@@ -69,10 +69,57 @@ logical terminal geometry are separate controls; see
 selected or downloaded; *Copy image* and *Download PNG* capture the panel graphics.
 
 Click the display or *Keyboard -> display* to resume typing after using page
-controls. Click or tap a page control to leave display input.
-kbd:[Ctrl+&#93;] is ordinary guest input; native mirror prefix commands do not
-apply here. For local builds/hosting, use the
+controls. Click or tap a page control to leave display input. For local
+builds/hosting, use the
 link:../src/RunCPM_7xtgv-terminal/tools-web/README.adoc[browser tooling instructions].
+
+[[mobile-touchscreen-controls]]
+==== Use the browser on a touchscreen
+
+On a narrow touchscreen, a three-block touch pad appears in the page directly
+below the display. The left block has kbd:[Esc], kbd:[Tab] and kbd:[Alt]; the
+middle block has Insert/Home/Page Up, Delete/End/Page Down and kbd:[Ctrl] /
+kbd:[Shift]; the right block has wide kbd:[BS] and kbd:[Enter] keys above the
+cursor inverted-T. Page Up and Page Down are labelled *Up* and *Dn* in the
+middle block so they are easy to distinguish from cursor arrows. The three
+blocks have clear gutters, and the arrow glyphs are centered in their keys.
+
+The *Touch-key height* selector in Controls has ten sizes, from 100% to 190%.
+It scales key height, inner spacing and labels together; 140% is the initial
+setting. The selection is saved in that browser on the device. The display's
+own *Display* scale is independent; ES3_35 at 1× is a useful phone layout.
+When the phone's soft keyboard opens, the touch pad stays in normal page flow
+below the display. Scroll the page as needed; it does not float over the
+controls or keyboard.
+
+Tap kbd:[Alt], kbd:[Ctrl] or kbd:[Shift] to latch it, then tap a touch key or
+type the next character on the phone keyboard. A modifier clears after the
+next supported key/text event; the pad shows latched modifiers with a light
+blue background. This also supports shortcuts such as kbd:[Alt+Space] for the
+current bank/profile, kbd:[Alt+PgUp] / kbd:[Alt+PgDn] for previous/next, and
+kbd:[Alt+Q] to exit an application. The separate brightness test used
+kbd:[Alt+Ctrl+Shift+PgUp] / kbd:[Alt+Ctrl+Shift+PgDn].
+
+On 261021, the standalone browser was field-tested on a Xiaomi 12X with Android
+Chrome and SmartKeyboard in both ITU-T and QWERTY layouts. The ES3_35 480×320
+display booted at 1× over the local HTTPS link. The touch pad's clear-screen,
+profile and backlight shortcuts worked, and Turbo Pascal accepted its profile
+switching events. ITU-T multitap text is prepared in the keyboard's edit area;
+the suggestion row provides feedback and committing the candidate sends it to
+the terminal. Browser and Android versions were not recorded, so this confirms
+this device/setup rather than every phone or keyboard app.
+
+.Touch pad by itself
+image::images/mobile-touch-keys.png[Three-block mobile touch pad,width=85%,link=images/mobile-touch-keys.png]
+
+.Android SmartKeyboard in ITU-T layout
+image::images/mobile-touch-keys-itu-t.png[Touch pad with SmartKeyboard ITU-T layout,width=55%,link=images/mobile-touch-keys-itu-t.png]
+
+.Android SmartKeyboard in QWERTY layout
+image::images/mobile-touch-keys-qwerty.png[Touch pad with SmartKeyboard QWERTY layout,width=55%,link=images/mobile-touch-keys-qwerty.png]
+
+.QWERTY layout with Ctrl and Shift latched
+image::images/mobile-touch-keys-qwerty-modifiers.png[Touch pad showing latched modifiers,width=55%,link=images/mobile-touch-keys-qwerty-modifiers.png]
 
 [[browser-compatibility]]
 ==== Browser compatibility and compact keyboards
@@ -80,8 +127,8 @@ link:../src/RunCPM_7xtgv-terminal/tools-web/README.adoc[browser tooling instruct
 Use a current desktop browser. Linux Chromium has automated integration
 coverage; we also reported Chromium, Chrome and Edge working in our earlier
 standalone setup. Those reports do not establish every browser/OS combination.
-On 261013 we also reported usable Android mobile operation; device/browser
-versions and a complete touch/keyboard matrix were not recorded.
+The Android Xiaomi 12X test above confirms touch-pad use in Chrome with two
+SmartKeyboard layouts; it is not a complete Android/browser/keyboard matrix.
 A normal HTTPS tab must allow service workers and the shared-memory facilities
 used at startup; a blocked facility produces a startup error.
 
@@ -100,8 +147,9 @@ keeps kbd:[Command] shortcuts, and kbd:[Option]-generated characters or OS short
 prevent a chord reaching the terminal. No universal kbd:[Insert] substitute is assumed.
 
 The link:03-RG-reference-guide.adoc#browser-input-differences[reference route table]
-identifies browser/native differences. On-screen navigation keys and command
-help are proposals; they are not currently present in the page.
+identifies browser/native differences. The touch pad is available in the
+standalone page on narrow coarse-pointer layouts; the Guides column and its
+quick reference remain separate from the terminal input surface.
 
 [[starting-the-pc-mirror]]
 === Start a desktop or hardware session

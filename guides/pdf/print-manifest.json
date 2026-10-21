@@ -1,39 +1,39 @@
 {
   "guides": {
     "RunCPM 7xtgv-terminal - 01 BG Build Guide.pdf": {
-      "input_sha256": "39af8a3f3ea4a94692cf9062347514d748568fc87cb039a20a2ecb4309a5451b",
+      "input_sha256": "508d782dd49dfaf34b6402b4f4e6011374e4dde2c68cdf315b4ce2f101f931be",
       "pages": 22,
-      "pdf_sha256": "46c09d438e289ece58133b236365cfe0afb2487d501d6f96cadf568794f27175",
+      "pdf_sha256": "ce7046a64804086301fb8d47c2ed88b6529a1193164f76b3733cf8d1e1f90842",
       "source": "guides/01-BG-build-guide.adoc"
     },
     "RunCPM 7xtgv-terminal - 02 UG User Guide.pdf": {
-      "input_sha256": "c701d22aa52a714e850a5e2e694fdb4ca1e3e0b6bf81d29c599e9941d6e89336",
-      "pages": 20,
-      "pdf_sha256": "eac54e8d4179a5ace9071ea4f45fdfef29010e2527250faea6269cd1bc732878",
+      "input_sha256": "b26db37a763b79cbd825bed3f04d7be5acabbf2b185f027f7b06f4e776f01826",
+      "pages": 23,
+      "pdf_sha256": "0dae624a02e97d3c03d1bf8180e77a8fb72c05ca67af706e40765560441576f2",
       "source": "guides/02-UG-user-guide.adoc"
     },
     "RunCPM 7xtgv-terminal - 03 RG Reference Guide.pdf": {
-      "input_sha256": "f64c1346260455ecf5348dbbeb9a37028e8ba0a604338e86e5ebf0f6316ad586",
+      "input_sha256": "56d8526bc3e6bccb16df3705dbc289a89423a9bfd0ac8279d88bfcc6c4b52015",
       "pages": 72,
-      "pdf_sha256": "6b5b05922d1604afa29960763be48a15fb478e7e274bbcbc211f9332e0683ad3",
+      "pdf_sha256": "b541917cf75a4ccf3c4690b5284c6d2447826d9504a4e0882c7124dd7ec0ad41",
       "source": "guides/03-RG-reference-guide.adoc"
     },
     "RunCPM 7xtgv-terminal - 04 TRG Technical Reference Guide.pdf": {
-      "input_sha256": "d841906fb428ebe6127bd8c716e243e213d82a308da33b8e28acde139163b71c",
+      "input_sha256": "82830b5608bce839b35655bea96bacd5493725d13b42fbbd98c96e181f5f02c3",
       "pages": 32,
-      "pdf_sha256": "4c109529926e7dfe75c0b1a8ad080502d5da502babe17001f4ffe7a93ba6142a",
+      "pdf_sha256": "2012e3ea0eadd84022f07817fe97a0bada7d5e53cc58b9f681452a531478951d",
       "source": "guides/04-TRG-technical-reference-guide.adoc"
     },
     "RunCPM 7xtgv-terminal - 05 TG Tooling Guide.pdf": {
-      "input_sha256": "4214a0e4ec1311146a035ee90bfb046af8647dd9b72af407f562d9efe906c1ac",
+      "input_sha256": "57ca53cbc1609d52e41ce4501a099b492f53bbc0162d7ac3b8265fc3abba3efe",
       "pages": 13,
-      "pdf_sha256": "cd68d7c40c76bee49735059d4333ef6daf206eacfd992e1632ba3bc7b8842636",
+      "pdf_sha256": "27b7edd4de9dc8030958c85c1884fc2e8e8da91bc3acfbbb49735a73d066398d",
       "source": "guides/05-TG-tooling-guide.adoc"
     },
     "RunCPM 7xtgv-terminal - 06 HG History Guide.pdf": {
-      "input_sha256": "224640934d9f2622f13f3841932432536cb341c24c8f1f1a9471a6d4083e3f09",
+      "input_sha256": "70baa68a712fa51643ac777925392d2979fb72e5d1bf75dcbd190839e2213c67",
       "pages": 36,
-      "pdf_sha256": "05f60d544962fc918b3b8a2c609a0ff33d3240a0558808d0497a09a1230d3d18",
+      "pdf_sha256": "9baeb8eab76edeacedcc9182ebb78f169b9534e986b9f6e1ff6b0b9d0092fb91",
       "source": "guides/06-HG-history-guide.adoc"
     }
   },

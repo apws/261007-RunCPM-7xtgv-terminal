@@ -15,6 +15,8 @@ observations keep their original test scope; they are not universal acceptance.
 
 == High-level reading
 
+* link:261021-1532%20DONE%20Android%20touchscreen%20browser%20UX%20review%20and%20chat.adoc[Android touch-pad review]: detailed 261021 interaction and visual-tuning record, Xiaomi 12X SmartKeyboard test, and guide screenshot update.
+
 * link:261014-1802%20DONE%20Separate%20guide%20reprint%20from%20local%20builds.adoc[Separate guide reprint]: explicit local reprint command, automatic Pages refresh, no PDF work during local builds.
 
 * link:261014-1438%20DONE%20Installed%20application%20keyboard%20reference.adoc[Installed application keyboards]: current Turbo table, private-byte encoding, Czech photographs, BASIC controls and qualified FANDINST/Sharp history.

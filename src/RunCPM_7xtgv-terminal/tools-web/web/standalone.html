@@ -15,6 +15,7 @@
 <p class="hint">Switching restarts RunCPM with the current memory card. Save your guest work first.</p>
 <div class="toolbar">
 <label>Display <select id="scale" aria-label="Display scale"></select></label>
+<label class="touch-height-control">Touch-key height <select id="touch-height" aria-label="Touch-key panel height"></select></label>
 <button id="focus" disabled>Keyboard → display</button>
 <button id="show-text" disabled>Screen text</button>
 <button id="toggle-guides" aria-controls="guides-column" aria-expanded="true">Hide guides</button>
@@ -88,6 +89,43 @@ in the extension options; run the JS after rendering.</p>
 <div id="display-area" aria-label="Emulated display">
 <canvas id="display" width="480" height="320" aria-label="Emulated framebuffer"></canvas>
 <textarea id="keyboard" aria-label="Emulator keyboard input" autocapitalize="off" autocomplete="off" spellcheck="false" disabled></textarea>
+</div>
+<div id="touch-keypad" class="touch-keypad" role="group" aria-label="Touch navigation keys">
+<div class="touch-key-grid">
+<div class="touch-key-group touch-escape-group">
+<button type="button" data-touch-key="Escape" aria-label="Escape">Esc</button>
+<button type="button" data-touch-key="Tab">Tab</button>
+<button type="button" data-touch-mod="alt" aria-pressed="false">Alt</button>
+</div>
+<div class="touch-key-group touch-edit-group">
+<div class="touch-sixpack">
+<button type="button" data-touch-key="Insert">Ins</button>
+<button type="button" data-touch-key="Home">Home</button>
+<button type="button" data-touch-key="PageUp" aria-label="Page Up">Up</button>
+<button type="button" data-touch-key="Delete">Del</button>
+<button type="button" data-touch-key="End">End</button>
+<button type="button" data-touch-key="PageDown" aria-label="Page Down">Dn</button>
+</div>
+<div class="touch-modifiers">
+<button type="button" data-touch-mod="ctrl" aria-pressed="false">Ctrl</button>
+<button type="button" data-touch-mod="shift" aria-pressed="false">Shift</button>
+</div>
+</div>
+<div class="touch-key-group touch-arrow-group">
+<div class="touch-arrows">
+<div class="touch-action-keys">
+<button type="button" data-touch-key="Backspace" aria-label="Backspace">BS</button>
+<button type="button" data-touch-key="Enter" aria-label="Enter">Enter</button>
+</div>
+<div class="touch-direction-keys">
+<button type="button" data-touch-key="ArrowUp" aria-label="Up">↑</button>
+<button type="button" data-touch-key="ArrowLeft" aria-label="Left">←</button>
+<button type="button" data-touch-key="ArrowDown" aria-label="Down">↓</button>
+<button type="button" data-touch-key="ArrowRight" aria-label="Right">→</button>
+</div>
+</div>
+</div>
+</div>
 </div>
 </div>
 </div>

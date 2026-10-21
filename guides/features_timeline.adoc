@@ -1655,6 +1655,22 @@ a|link:../docs/261014-2322%20DONE%20Shared%20native%20Ctrl-Space%20profile%20ali
 
 |===
 
+== 261021: Mobile touch navigation
+
+[cols="1,4,2",options="header"]
+|===
+|Checkpoint |What changed |Evidence
+
+|`++261021-1158++`
+a|The standalone browser adds a three-block touch pad for narrow screens. Final refinements include wider BS/Enter keys, separated blocks, aligned rows, ten persistent key-height settings and distinct latched-modifier colors. Android Chrome on a Xiaomi 12X booted ES3_35 at 1× over the local HTTPS link; the user confirmed clear-screen, bank/profile, backlight and Turbo Pascal profile actions with SmartKeyboard ITU-T and QWERTY layouts. This is device-specific acceptance, not a universal mobile-browser claim.
+a|link:../docs/261021-1158%20DONE%20Mobile%20browser%20touch%20navigation%20pad.adoc[Touch navigation pad]
+
+|`++261021-1532++`
+a|The user supplied four maintained guide screenshots: the standalone pad, SmartKeyboard ITU-T, QWERTY and latched modifiers. The User Guide now documents the tested flow, shortcuts, height selector and device scope. A detailed interaction record preserves the design and visual-tuning sequence.
+a|link:../docs/261021-1532%20DONE%20Android%20touchscreen%20browser%20UX%20review%20and%20chat.adoc[Android UX chat record]
+
+|===
+
 == Command and catalog name lineage
 
 This table is about *our additions and transitions*, not every supplied
